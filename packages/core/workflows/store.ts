@@ -72,6 +72,7 @@ export function insertInstance(
     project: Id<"prj">;
     workflow: string;
     input: string;
+    inputs?: Record<string, unknown>;
     participants: Record<string, Participant>;
     steps: InstanceStep[];
     current: Current;
@@ -79,6 +80,29 @@ export function insertInstance(
     created_at: string;
   },
 ): void {
+  if (instance.inputs !== undefined) {
+    sql.run(
+      `INSERT INTO workflow_instances
+        (id, project, workflow, input, inputs_json, state, participants, steps, current_step,
+         human_turn, started_by, created_at, state_seq)
+       VALUES (?, ?, ?, ?, ?, 'running', ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        instance.id,
+        instance.project,
+        instance.workflow,
+        instance.input,
+        JSON.stringify(instance.inputs),
+        JSON.stringify(instance.participants),
+        JSON.stringify(instance.steps),
+        instance.current?.step ?? null,
+        instance.current?.human_turn ? 1 : 0,
+        JSON.stringify(instance.started_by),
+        instance.created_at,
+        nextStateSeq(sql),
+      ],
+    );
+    return;
+  }
   sql.run(
     `INSERT INTO workflow_instances
       (id, project, workflow, input, state, participants, steps, current_step,

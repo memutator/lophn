@@ -1,6 +1,7 @@
 import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import {
+  agentCards,
   workspaceSessionRead,
   receivedMessageList,
   stopTurn,
@@ -43,6 +44,8 @@ import {
   type WorkflowFlows,
   type WorkflowRemote,
 } from "../../../workflows/mod.ts";
+import { redactJsonValues } from "../../../workflows/plan.ts";
+import type { WorkflowAgents } from "../../../workflows/ports.ts";
 import {
   DEFAULT_CALL_POLICY,
   isPrivate,
@@ -65,6 +68,7 @@ const WORKFLOWS_CONTEXT: AuthenticatedContext = {
       workflowInstanceCreate.name,
       workflowInstanceApply.name,
       workflowInstanceRead.name,
+      agentCards.name,
       callsStepReport.name,
       receivedMessageList.name,
       turnRead.name,
@@ -87,22 +91,9 @@ const SOURCE = {
 const route = (r: { resource: string; method: string }) =>
   `${r.resource}/${r.method}`;
 
-function safeJson(value: unknown, safe: (text: string) => string): unknown {
-  if (typeof value === "string") return safe(value);
-  if (Array.isArray(value)) return value.map((item) => safeJson(item, safe));
-  if (value !== null && typeof value === "object") {
-    const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(value)) {
-      out[safe(k)] = safeJson(v, safe);
-    }
-    return out;
-  }
-  return value;
-}
-
-// 시작 입력, report·hand_now·retried의 글, step_stalled 오류 글, report의 refs/data, step 메시지 본문을 redaction한다.
-// 줄의 글에도 원문 secret이 남지 않게 같은 redactor를 지난다. 본문만 받는 session 기록에 들어가므로 call 본문처럼 blob으로 준비한다.
-function withStepText(
+// 시작 입력(text·inputs), report·hand_now·retried의 글, step_stalled 오류 글, report의 refs/data, step 메시지 본문을 redaction한다.
+// 줄의 글과 inputs_json에도 원문 secret이 남지 않게 같은 redactor를 지난다. 본문만 받는 session 기록에 들어가므로 call 본문처럼 blob으로 준비한다.
+export function withStepText(
   writer: Writer,
   deps: {
     relay(): BodyPrepare | undefined;
@@ -124,6 +115,16 @@ function withStepText(
       if (done === null) unfinished = true;
       return done ?? text;
     };
+    const safeJson = (value: unknown): unknown => {
+      const done = redactJsonValues(value, (text) =>
+        redact(SOURCE, "text/plain", text),
+      );
+      if (!done.ok) {
+        unfinished = true;
+        return value;
+      }
+      return done.value;
+    };
     const bodies: string[] = [];
     const safeHandoff = <H extends { delivery: { body: string } | null }>(
       handoff: H,
@@ -141,6 +142,9 @@ function withStepText(
       input = {
         ...raw,
         input: safe(raw.input),
+        ...(raw.inputs !== undefined
+          ? { inputs: safeJson(raw.inputs) as Record<string, unknown> }
+          : {}),
         handoff: raw.handoff === null ? null : safeHandoff(raw.handoff),
       };
     } else {
@@ -156,7 +160,7 @@ function withStepText(
               ? { refs: change.refs.map(safe) }
               : {}),
             ...(change.data !== undefined
-              ? { data: safeJson(change.data, safe) as typeof change.data }
+              ? { data: safeJson(change.data) as typeof change.data }
               : {}),
           };
           break;
@@ -515,9 +519,30 @@ export const workflowsWiring: WiringFactory = () => {
         },
       };
 
+      // project workspace에서 호출 가능한 agent 목록은 reader의 agents/cards를 재사용한다(a2a-lists·app-calls와 같은 출처).
+      const agents: WorkflowAgents = {
+        async listCallable(project) {
+          const listed = await ctx.runtime.readers.read(
+            agentCards,
+            WORKFLOWS_CONTEXT,
+            { workspace: { kind: "project", id: project } },
+          );
+          if (!listed.ok) return listed;
+          const { cards } = listed.value as Output<typeof agentCards>;
+          return ok(
+            cards.map((card) => ({
+              name: card.handle,
+              label: card.name,
+              kind: card.runtime,
+            })),
+          );
+        },
+      };
+
       const built = createWorkflowService({
         files: createWorkflowFiles(ctx.root.path),
         projects,
+        agents,
         turns,
         store,
         flows,

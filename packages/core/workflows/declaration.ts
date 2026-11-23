@@ -4,6 +4,7 @@ import {
   FLOW_STEP_BY,
   type InstanceStep,
   type Participant,
+  validateInputDeclaration,
   type WorkflowDeclaration,
   workflowDeclarationSchema,
   type WorkflowEntry,
@@ -44,13 +45,30 @@ export function parseDeclaration(file: DefinitionFile): ParsedDeclaration {
   if (!shaped.success) {
     const issue = shaped.error.issues[0];
     const path = issue.path.map(String).join(".") || "(root)";
+    const reason =
+      issue.path[0] === "inputs" ? "invalid_inputs" : "invalid_declaration";
     return {
       ok: false,
       problem: {
-        reason: "invalid_declaration",
+        reason,
         message: `${path}: ${issue.message}`,
       },
     };
+  }
+  if (shaped.data.inputs !== undefined) {
+    const checked = validateInputDeclaration(shaped.data.inputs);
+    if (!checked.ok) {
+      const details = Object.entries(checked.errors)
+        .map(([field, msg]) => `inputs.${field}: ${msg}`)
+        .join("; ");
+      return {
+        ok: false,
+        problem: {
+          reason: "invalid_inputs",
+          message: details,
+        },
+      };
+    }
   }
   return { ok: true, declaration: shaped.data };
 }
@@ -118,6 +136,12 @@ export function entryOf(
     };
   }
   const declaration = parsed.declaration;
+  const io = {
+    ...(declaration.inputs !== undefined ? { inputs: declaration.inputs } : {}),
+    ...(declaration.outputs !== undefined
+      ? { outputs: declaration.outputs }
+      : {}),
+  };
   if (declaration.kind === "flow") {
     return {
       ...base,
@@ -127,6 +151,7 @@ export function entryOf(
       problem: file.flow
         ? null
         : { reason: "no_flow_file", message: "flow.ts is missing" },
+      ...io,
       participants: null,
       steps: flowStepsOf(declaration).map((s) => ({
         name: s.name,
@@ -142,6 +167,7 @@ export function entryOf(
     kind: "agent",
     startable: true,
     problem: null,
+    ...io,
     participants: participantsOf(declaration),
     steps: stepsOf(declaration).map((s) => ({
       name: s.name,

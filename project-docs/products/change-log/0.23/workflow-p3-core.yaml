@@ -1,0 +1,23 @@
+id: workflow-p3-core
+version: 0.23.144
+title: Workflow Phase 3 core 선언 inputs 검증, callable_agents 조회, StartWorkflow 입력 검증·redaction·저장, YAML Inputs 주입, CLI --inputs를 구현한다
+modules:
+  - packages/core/workflows
+  - packages/core/main
+  - packages/cli
+change: |
+  - 선언 파싱(`packages/core/workflows/declaration.ts`): `validateInputDeclaration`으로 `inputs` 선언을 검사해 잘못된 선언을 `reason: "invalid_inputs"` 문제 항목으로 돌려주고(목록 조회가 깨지지 않음), 유효한 `WorkflowEntry`에 `inputs`와 `outputs`를 싣는다.
+  - 호출 가능 agent 조회(`ports.ts`, `service.ts`, `wiring/workflows.ts`): `WorkflowAgents` 포트를 추가하고 `wiring/workflows.ts`에서 기존 `agents/cards` reader를 재사용해 `ListWorkflows` 응답의 `callable_agents`와 `StartWorkflow`의 `type: "agent"` 입력 검증에 연결한다.
+  - `StartWorkflow` 검증·redaction·저장(`service.ts`, `commands.ts`, `store.ts`, `rows.ts`, `reads.ts`, `wiring/workflows.ts`):
+    - workflow가 `inputs`를 선언하면 `validateWorkflowInputs`로 검증하고 실패 시 필드 오류 요약과 함께 `invalid_input`을 돌려준다.
+    - `withStepText`에서 `redactJsonValues`로 `inputs` 안 모든 문자열(key·value·중첩 배열/객체)을 재귀적으로 fail-closed redaction한 뒤 `workflow_instances.inputs_json`에 저장한다.
+    - `ReadWorkflowInstance`와 `ListWorkflowInstances` 요약에 파싱된 `inputs`를 싣고, `flow` workflow 시작 시 redaction된 `inputs`를 `flows.launch`로 넘긴다.
+  - YAML shorthand `Inputs:` 주입(`plan.ts`): `kind: "agent"` workflow에서 검증된 `inputs`가 비어 있지 않으면 첫 step hand-off 본문에 `Inputs:` 섹션을 포함한다.
+  - CLI(`packages/cli/commands/workflow.ts`): `lophn workflow start`에 `--inputs <json>` 옵션을 더하고 `workflow.list` 출력에 `callable_agents`를 포함한다.
+why: |
+  선언적 `inputs` 계약을 core 실행 경로와 CLI에 연결해, 잘못된 선언을 목록에서 안전하게 드러내고, 시작 시점의 입력 검증·secret redaction·영속화·agent 본문 주입·flow 전달을 일관되게 보장한다.
+decisions:
+  - text: "project workspace에서 호출 가능한 agent 목록은 `agents/cards` reader(`ListAgentCards`)를 `WorkflowAgents` 포트로 재사용해 `a2a-lists`·`app-calls`와 같은 출처를 쓴다. 버린 길: `workflows` wiring에서 agent 정의 파일을 별도로 읽거나 추측하기."
+    by: agent
+  - text: "`insertInstance`는 `inputs`가 없을 때 `inputs_json` 열을 INSERT 열 목록에서 생략해 기존 단위 테스트 DB 호환과 NULL 기본값을 함께 유지한다. 버린 길: 모든 테스트 DB 셋업에 `WORKFLOW_INPUTS_SCHEMA_STEP` 강제 전파."
+    by: agent

@@ -26,6 +26,7 @@ import {
   LEDGER_SCHEMA_STEPS,
 } from "../storage/ledger/mod.ts";
 import { createSql } from "../storage/ledger/sqlite.ts";
+import { WORKFLOW_INPUTS_SCHEMA_STEP } from "./inputs-schema.ts";
 import { workflowLinesSchemaSteps } from "./lines-schema.ts";
 import { createWorkflowReads } from "./reads.ts";
 import { workflowsNoHarnessKindSteps, workflowsSchemaSteps } from "./schema.ts";
@@ -53,6 +54,7 @@ function openDb(dbPath = ":memory:"): { db: DatabaseSync; sql: Sql } {
     ...workflowsSchemaSteps,
     ...workflowsNoHarnessKindSteps,
     ...workflowLinesSchemaSteps,
+    WORKFLOW_INPUTS_SCHEMA_STEP,
     ...conversationTestSteps,
     ...turnSchemaSteps,
     ...toolsSchemaSteps,
@@ -516,6 +518,63 @@ test("refs extracts deduplicated explicit report refs in order independent of li
       "notes/context.txt",
       "reports/final.md",
     ]);
+  } finally {
+    db.close();
+  }
+});
+
+test("inputs_json round-trips through ReadWorkflowInstance and ListWorkflowInstances summaries", () => {
+  const { db, sql } = openDb();
+  try {
+    const inputs = {
+      env: "prod",
+      limit: 5,
+      dry_run: false,
+      tags: ["smoke", "nightly"],
+      reviewer: "coding_codex",
+    };
+    insertInstance(sql, {
+      id: WFI,
+      project: PRJ,
+      workflow: "release-check",
+      input: "run release check",
+      inputs,
+      participants: {},
+      steps: [],
+      current: { step: "check", human_turn: false },
+      started_by: { kind: "user" },
+      created_at: AT,
+    });
+    insertInstance(sql, {
+      id: WFI_OTHER,
+      project: PRJ,
+      workflow: "legacy-wf",
+      input: "no inputs",
+      participants: {},
+      steps: [],
+      current: null,
+      started_by: { kind: "user" },
+      created_at: AT,
+    });
+
+    const reads = createWorkflowReads();
+    const readWithInputs = reads.read.handle(snapshotOf(sql), CTX, {
+      instance: WFI,
+    });
+    assert.ok(readWithInputs.ok);
+    assert.deepStrictEqual(readWithInputs.value.instance.inputs, inputs);
+
+    const readWithoutInputs = reads.read.handle(snapshotOf(sql), CTX, {
+      instance: WFI_OTHER,
+    });
+    assert.ok(readWithoutInputs.ok);
+    assert.equal(readWithoutInputs.value.instance.inputs, undefined);
+
+    const listed = reads.list.handle(snapshotOf(sql), CTX, { project: PRJ });
+    assert.ok(listed.ok);
+    const byId = new Map(listed.value.instances.map((i) => [i.id, i]));
+    assert.deepStrictEqual(byId.get(WFI)?.inputs, inputs);
+    assert.equal(byId.get(WFI_OTHER)?.inputs, undefined);
   } finally {
     db.close();
   }

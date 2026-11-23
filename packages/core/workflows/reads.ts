@@ -351,6 +351,9 @@ export function createWorkflowReads(deps: WorkflowReadDeps = {}): {
             state: instance.state,
             current: instance.current,
             input: instance.input,
+            ...(instance.inputs !== undefined
+              ? { inputs: instance.inputs }
+              : {}),
             started_by: instance.started_by,
             created_at: instance.created_at,
             finished_at: instance.finished_at,

@@ -14,6 +14,7 @@ import {
   workflowDataSchema,
   workflowEdit,
   workflowEditInputSchema,
+  workflowInputValuesSchema,
   workflowInstanceRead,
   workflowKeySchema,
   workflowList,
@@ -68,10 +69,13 @@ const list = defineCommand({
   run: async (input, ctx) => {
     const read = await ctx.core.read(workflowList, input);
     if (!read.ok) return read;
-    const { workflows } = read.value;
+    const { workflows, callable_agents } = read.value;
     return ok({
       summary: `${workflows.length} workflows`,
-      content: { workflows },
+      content: {
+        workflows,
+        ...(callable_agents !== undefined ? { callable_agents } : {}),
+      },
       arrayKeys: ["workflows"],
     });
   },
@@ -227,13 +231,16 @@ const start = defineCommand({
   name: "workflow.start",
   summary: "Start a workflow instance",
   description:
-    "Starts an instance of <project name>/<name> with the given text and prints its id. Without --step it begins at the declaration's start step.",
+    "Starts an instance of <project name>/<name> with the given text and prints its id. Without --step it begins at the declaration's start step. Use --inputs '<json>' to pass declarative workflow inputs as a JSON object.",
   input: z.strictObject({
     workflow: workflowKeySchema,
     text: z.string().min(1),
     step: stepNameSchema
       .optional()
       .describe("first step name (default: the declaration's start step)"),
+    inputs: workflowInputValuesSchema
+      .optional()
+      .describe("declarative workflow inputs as a JSON object"),
   }),
   positional: ["workflow", "text"],
   effect: "write",

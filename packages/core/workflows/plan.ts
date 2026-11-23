@@ -87,11 +87,13 @@ export function planHandoff(input: {
   // 요청한 값. 시작은 null이다.
   session: SessionChoice | null;
   received: string;
+  // 시작 시 검증된 선언적 입력. 첫 step hand-off 본문에 Inputs: 섹션으로 주입한다.
+  inputs?: Record<string, unknown>;
   // 그 참가자가 이 instance에서 마지막으로 step 메시지를 받은 session(다른 컴퓨터의 참가자면 그 컴퓨터의 session).
   sameSession(participant: string): string | null;
   remote: Remote;
 }): HandoffPlan {
-  const { instance, step: name, cause, session, received } = input;
+  const { instance, step: name, cause, session, received, inputs } = input;
   const base = { step: name, cause, session };
   const fail = (problem: NotHanded): HandoffPlan => ({
     ...base,
@@ -130,7 +132,7 @@ export function planHandoff(input: {
   if ("reason" in resolved) return fail(resolved);
 
   const same = session === "same" ? input.sameSession(key) : null;
-  const body = stepBody({ step, received });
+  const body = stepBody({ step, received, inputs });
   if ("remote" in resolved) {
     const { machine, computer, agent, workspace } = resolved.remote;
     // 글 크기는 redaction 뒤에 Router의 sendStep이 본다(not_handed 줄이 된다).
@@ -167,15 +169,80 @@ export function planHandoff(input: {
   };
 }
 
+function formatInputValue(value: unknown): string {
+  if (typeof value === "string") {
+    return value.includes("\n")
+      ? `\n  ${value.split("\n").join("\n  ")}`
+      : value;
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  if (
+    Array.isArray(value) &&
+    value.every(
+      (item) =>
+        typeof item === "string" ||
+        typeof item === "number" ||
+        typeof item === "boolean",
+    )
+  ) {
+    return value.map(String).join(", ");
+  }
+  return JSON.stringify(value);
+}
+
+// inputs·report data 안의 모든 문자열(객체 key·value, 중첩 배열·객체)을 재귀적으로 redaction한다.
+// 한 문자열이라도 null(redaction 미완료)이 나오면 fail-closed로 ok: false를 돌려준다.
+export function redactJsonValues(
+  value: unknown,
+  redact: (text: string) => string | null,
+): { ok: true; value: unknown } | { ok: false } {
+  if (typeof value === "string") {
+    const done = redact(value);
+    return done === null ? { ok: false } : { ok: true, value: done };
+  }
+  if (Array.isArray(value)) {
+    const out: unknown[] = [];
+    for (const item of value) {
+      const done = redactJsonValues(item, redact);
+      if (!done.ok) return done;
+      out.push(done.value);
+    }
+    return { ok: true, value: out };
+  }
+  if (value !== null && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) {
+      const safeKey = redact(k);
+      if (safeKey === null) return { ok: false };
+      const safeVal = redactJsonValues(v, redact);
+      if (!safeVal.ok) return safeVal;
+      out[safeKey] = safeVal.value;
+    }
+    return { ok: true, value: out };
+  }
+  return { ok: true, value };
+}
+
 // 고정 영어 label이라 받는 쪽 이력의 글이 바뀌지 않는다.
 export function stepBody({
   step,
   received,
+  inputs,
 }: {
   step: InstanceStep;
   received: string;
+  inputs?: Record<string, unknown>;
 }): string {
   const lines = [step.prompt, ""];
+  if (inputs !== undefined && Object.keys(inputs).length > 0) {
+    lines.push("Inputs:");
+    for (const [key, value] of Object.entries(inputs)) {
+      lines.push(`- ${key}: ${formatInputValue(value)}`);
+    }
+    lines.push("");
+  }
   if (step.in !== "") lines.push(`Receives: ${step.in}`);
   lines.push("Received:", received);
   if (step.out !== "") lines.push(`Produces: ${step.out}`);

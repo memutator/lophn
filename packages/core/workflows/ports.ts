@@ -2,6 +2,7 @@ import type { Result } from "../../base/mod.ts";
 import type { Id } from "../../protocol/base/mod.ts";
 import type { TurnOutcome } from "../../protocol/lophn-agent/mod.ts";
 import type {
+  CallableAgentOption,
   WorkflowInstance,
   workflowInstanceApply,
   workflowInstanceCreate,
@@ -97,6 +98,11 @@ export type WorkflowRemote = {
   handOf(call: string): Result<{ instance: Id<"wfi">; step: string } | null>;
 };
 
+// project workspace에서 호출 가능한 agent 목록. 구현은 workflows wiring이 agents/cards로 끼운다.
+export type WorkflowAgents = {
+  listCallable(project: Id<"prj">): Promise<Result<CallableAgentOption[]>>;
+};
+
 // flow process를 띄우고 멈춘다. 구현은 flows wiring이 끼운다.
 export type WorkflowFlows = {
   // err이면 service가 programExited로 instance를 닫는다.
@@ -105,6 +111,7 @@ export type WorkflowFlows = {
     project: Id<"prj">;
     workflow: string;
     input: string;
+    inputs?: Record<string, unknown>;
     // flow의 앱 tool 호출을 맡는 agent 이름(선언의 agent, 없으면 lophn).
     agent: string;
   }): Promise<Result<void>>;

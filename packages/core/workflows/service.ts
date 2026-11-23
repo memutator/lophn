@@ -14,18 +14,19 @@ import {
 } from "../../protocol/lophn-agent/mod.ts";
 import type { Mail } from "../../protocol/lophn-agent/mail.ts";
 import type { Input, Output } from "../../protocol/server/mod.ts";
-import type {
-  LineBy,
-  ReportLine,
-  StartedBy,
-  workflowEdit,
-  workflowInstanceApply,
-  workflowInstanceRead,
-  workflowList,
-  workflowReport,
-  workflowRetry,
-  workflowStart,
-  workflowStop,
+import {
+  type LineBy,
+  type ReportLine,
+  type StartedBy,
+  validateWorkflowInputs,
+  type workflowEdit,
+  type workflowInstanceApply,
+  type workflowInstanceRead,
+  type workflowList,
+  type workflowReport,
+  type workflowRetry,
+  type workflowStart,
+  type workflowStop,
 } from "../../protocol/workflows/mod.ts";
 import {
   entryOf,
@@ -37,6 +38,7 @@ import {
 import { planHandoff, retryContinueBody } from "./plan.ts";
 import { remoteTurnEndedText } from "./remote.ts";
 import type {
+  WorkflowAgents,
   WorkflowFiles,
   WorkflowFlows,
   WorkflowProjects,
@@ -216,6 +218,7 @@ function retryTargetOf(
 export function createWorkflowService(deps: {
   files: WorkflowFiles;
   projects: WorkflowProjects;
+  agents?: WorkflowAgents;
   turns: WorkflowTurns;
   store: WorkflowStore;
   flows: WorkflowFlows;
@@ -223,7 +226,8 @@ export function createWorkflowService(deps: {
   ids: IdSource;
   logger: Logger;
 }) {
-  const { files, projects, turns, store, flows, remote, ids, logger } = deps;
+  const { files, projects, agents, turns, store, flows, remote, ids, logger } =
+    deps;
 
   const skip = (id: string, code: string): void => {
     logger.warn({
@@ -346,7 +350,7 @@ export function createWorkflowService(deps: {
     async list(
       input: z.output<typeof workflowList.input>,
       defaultProject: string | null,
-    ) {
+    ): Promise<Result<z.output<typeof workflowList.output>>> {
       const ref = input.project ?? defaultProject;
       if (ref === null) {
         return fail("invalid_input", "give a project");
@@ -355,10 +359,17 @@ export function createWorkflowService(deps: {
       if (!project.ok) return project;
       const listed = await files.list(project.value.id);
       if (!listed.ok) return listed;
+      const workflows = listed.value.map((file) =>
+        entryOf(project.value.id, `${project.value.name}/${file.name}`, file),
+      );
+      if (agents === undefined) {
+        return ok({ workflows });
+      }
+      const callable = await agents.listCallable(project.value.id);
+      if (!callable.ok) return callable;
       return ok({
-        workflows: listed.value.map((file) =>
-          entryOf(project.value.id, `${project.value.name}/${file.name}`, file),
-        ),
+        workflows,
+        callable_agents: callable.value,
       });
     },
 
@@ -380,6 +391,37 @@ export function createWorkflowService(deps: {
           entry.problem?.message ?? "workflow cannot be started",
         );
       }
+      let validatedInputs: Record<string, unknown> | undefined;
+      if (parsed.declaration.inputs !== undefined) {
+        let callableAgents: ReadonlySet<string> | undefined;
+        const needsAgents = Object.values(parsed.declaration.inputs).some(
+          (field) => field.type === "agent",
+        );
+        if (needsAgents && agents !== undefined) {
+          const callable = await agents.listCallable(project.value.id);
+          if (!callable.ok) return callable;
+          callableAgents = new Set(callable.value.map((a) => a.name));
+        }
+        const checked = validateWorkflowInputs(
+          parsed.declaration.inputs,
+          input.inputs ?? {},
+          callableAgents === undefined ? {} : { callableAgents },
+        );
+        if (!checked.ok) {
+          const summary = Object.entries(checked.errors)
+            .map(([field, msg]) => `${field}: ${msg}`)
+            .join("; ");
+          return fail("invalid_input", `invalid workflow inputs: ${summary}`);
+        }
+        if (Object.keys(checked.value).length > 0) {
+          validatedInputs = checked.value;
+        }
+      } else if (
+        input.inputs !== undefined &&
+        Object.keys(input.inputs).length > 0
+      ) {
+        validatedInputs = input.inputs;
+      }
       if (parsed.declaration.kind === "flow") {
         if (input.step !== undefined) {
           return fail("invalid_input", "a flow has no step to start from");
@@ -390,18 +432,22 @@ export function createWorkflowService(deps: {
           project: project.value.id,
           workflow: name,
           input: input.text,
+          ...(validatedInputs !== undefined ? { inputs: validatedInputs } : {}),
           participants: {},
           steps: flowStepsOf(parsed.declaration),
           started_by: by,
           handoff: null,
         });
         if (!created.ok) return created;
-        // process 인자에는 redaction을 거친 instance.input을 넘긴다.
+        // process 인자에는 redaction을 거친 instance.input·instance.inputs를 넘긴다.
         const launched = await flows.launch({
           instance: id,
           project: project.value.id,
           workflow: name,
           input: created.value.instance.input,
+          ...(created.value.instance.inputs !== undefined
+            ? { inputs: created.value.instance.inputs }
+            : {}),
           agent: parsed.declaration.agent ?? LOPHN_AGENT_HANDLE,
         });
         if (launched.ok) return created;
@@ -429,6 +475,7 @@ export function createWorkflowService(deps: {
         project: project.value.id,
         workflow: name,
         input: input.text,
+        ...(validatedInputs !== undefined ? { inputs: validatedInputs } : {}),
         participants,
         steps,
         started_by: by,
@@ -438,6 +485,7 @@ export function createWorkflowService(deps: {
           cause: "start",
           session: null,
           received: input.text,
+          ...(validatedInputs !== undefined ? { inputs: validatedInputs } : {}),
           sameSession: () => null,
           remote,
         }),
@@ -638,6 +686,10 @@ export function createWorkflowService(deps: {
               cause: "retry",
               session,
               received: lastReport?.text ?? state.instance.input,
+              ...(lastReport === undefined &&
+              state.instance.inputs !== undefined
+                ? { inputs: state.instance.inputs }
+                : {}),
               sameSession: sameSessionIn(state),
               remote,
             }),

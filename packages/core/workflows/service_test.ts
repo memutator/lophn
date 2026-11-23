@@ -2,15 +2,30 @@ import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { createIdSource, err, type Logger, ok } from "../../base/mod.ts";
+import {
+  createKnownSecretRegistry,
+  createProductRedactor,
+} from "../../base/redaction/mod.ts";
 import type { Id } from "../../protocol/base/mod.ts";
 import { DEFAULT_CALL_POLICY } from "../../protocol/lophn-agent/call-policy.ts";
+import { blocksText } from "../../protocol/lophn-agent/mod.ts";
 import type { Tx } from "../../protocol/server/mod.ts";
 import { createRouter } from "../router/mod.ts";
 import type { RoutedInput } from "../router/ports.ts";
 import { createSql } from "../storage/ledger/sqlite.ts";
 import { createWorkflowCommands } from "./commands.ts";
+import { entryOf } from "./declaration.ts";
+import { WORKFLOW_INPUTS_SCHEMA_STEP } from "./inputs-schema.ts";
 import { workflowLinesSchemaSteps } from "./lines-schema.ts";
-import type { StepTurn, WorkflowFlows, WorkflowRemote } from "./ports.ts";
+import { redactJsonValues, stepBody } from "./plan.ts";
+import type {
+  DefinitionFile,
+  StepTurn,
+  WorkflowAgents,
+  WorkflowFiles,
+  WorkflowFlows,
+  WorkflowRemote,
+} from "./ports.ts";
 import { workflowsSchemaSteps } from "./schema.ts";
 import { createWorkflowService } from "./service.ts";
 import {
@@ -613,4 +628,425 @@ test("retry continues same session when blocked, rejects working/stopped with co
   } finally {
     h.db.close();
   }
+});
+
+// Phase 3 Core: declaration invalid_inputs, ListWorkflows callable_agents, StartWorkflow validation
+// (missing required, when-hidden skipped, callable agent check), YAML Inputs: injection, and
+// recursive fail-closed redaction of inputs before persisting / launching flow.
+test("declaration reports invalid_inputs without crashing and ListWorkflows returns inputs, outputs, and callable_agents", async () => {
+  const validYaml = [
+    "kind: agent",
+    "inputs:",
+    "  env:",
+    "    type: select",
+    "    options: [staging, prod]",
+    "    default: staging",
+    "outputs:",
+    "  report:",
+    "    type: path",
+    "participants:",
+    "  worker: { agent: lophn }",
+    "steps:",
+    "  run:",
+    "    by: worker",
+    "    prompt: do work",
+  ].join("\n");
+  const badSelectYaml = [
+    "kind: agent",
+    "inputs:",
+    "  env:",
+    "    type: select",
+    "participants:",
+    "  worker: { agent: lophn }",
+    "steps:",
+    "  run:",
+    "    by: worker",
+    "    prompt: do work",
+  ].join("\n");
+  const badTypeYaml = [
+    "kind: agent",
+    "inputs:",
+    "  env:",
+    "    type: not_a_type",
+    "participants:",
+    "  worker: { agent: lophn }",
+    "steps:",
+    "  run:",
+    "    by: worker",
+    "    prompt: do work",
+  ].join("\n");
+
+  const defFiles: DefinitionFile[] = [
+    {
+      name: "good",
+      declaration: validYaml,
+      flow: false,
+      artifacts: { static: false, instance: false },
+    },
+    {
+      name: "bad-select",
+      declaration: badSelectYaml,
+      flow: false,
+      artifacts: { static: false, instance: false },
+    },
+    {
+      name: "bad-type",
+      declaration: badTypeYaml,
+      flow: false,
+      artifacts: { static: false, instance: false },
+    },
+  ];
+  const directBad = entryOf(PRJ as Id<"prj">, "demo/bad-select", defFiles[1]!);
+  assert.equal(directBad.state, "invalid");
+  assert.equal(directBad.startable, false);
+  assert.equal(directBad.problem?.reason, "invalid_inputs");
+  assert.match(directBad.problem?.message ?? "", /inputs\.env/);
+
+  const files: WorkflowFiles = {
+    list: () => Promise.resolve(ok(defFiles)),
+  };
+  const agents: WorkflowAgents = {
+    listCallable: () =>
+      Promise.resolve(
+        ok([
+          { name: "lophn", label: "Lophn", kind: "lophn" },
+          { name: "coding_codex", label: "Codex", kind: "codex" },
+        ]),
+      ),
+  };
+  const service = createWorkflowService({
+    files,
+    projects: {
+      resolve: () =>
+        Promise.resolve(ok({ id: PRJ as Id<"prj">, name: "demo" })),
+      nameOf: () => Promise.resolve(ok("demo")),
+    },
+    agents,
+    turns: {} as never,
+    store: {} as never,
+    flows: {} as never,
+    remote: {} as never,
+    ids: createIdSource({
+      clock: { now: () => AT } as never,
+      random: {} as never,
+    }),
+    logger,
+  });
+
+  const listed = await service.list({ project: "demo" }, null);
+  assert.ok(listed.ok);
+  assert.equal(listed.value.workflows.length, 3);
+  assert.deepStrictEqual(listed.value.callable_agents, [
+    { name: "lophn", label: "Lophn", kind: "lophn" },
+    { name: "coding_codex", label: "Codex", kind: "codex" },
+  ]);
+
+  const good = listed.value.workflows.find((w) => w.name === "good")!;
+  assert.equal(good.startable, true);
+  assert.ok(good.inputs?.env !== undefined);
+  assert.ok(good.outputs?.report !== undefined);
+
+  const badSelect = listed.value.workflows.find(
+    (w) => w.name === "bad-select",
+  )!;
+  assert.equal(badSelect.startable, false);
+  assert.equal(badSelect.problem?.reason, "invalid_inputs");
+
+  const badType = listed.value.workflows.find((w) => w.name === "bad-type")!;
+  assert.equal(badType.startable, false);
+  assert.equal(badType.problem?.reason, "invalid_inputs");
+});
+
+test("StartWorkflow validates inputs (required, when-hidden, callable agent), injects Inputs: into YAML body, and forwards redacted inputs to flow launch", async () => {
+  const h = makeHarness();
+  try {
+    h.db.exec(WORKFLOW_INPUTS_SCHEMA_STEP.sql);
+    const agentYaml = [
+      "kind: agent",
+      "inputs:",
+      "  mode:",
+      "    type: select",
+      "    options: [fast, deep]",
+      "    default: fast",
+      "  reviewer:",
+      "    type: agent",
+      "    required: true",
+      "  deep_reason:",
+      "    type: string",
+      "    required: true",
+      "    when:",
+      "      field: mode",
+      "      equals: deep",
+      "  tags:",
+      "    type: multiselect",
+      "    options: [smoke, perf]",
+      "participants:",
+      "  worker: { agent: lophn }",
+      "steps:",
+      "  plan:",
+      "    by: worker",
+      "    prompt: Make a plan",
+    ].join("\n");
+    const flowYaml = [
+      "kind: flow",
+      "inputs:",
+      "  token_note:",
+      "    type: string",
+      "    required: true",
+      "  retries:",
+      "    type: number",
+      "    default: 2",
+      "steps:",
+      "  run: {}",
+    ].join("\n");
+
+    const launched: unknown[] = [];
+    const secret = "SECRET_INPUT_VALUE_424242";
+    const registry = createKnownSecretRegistry();
+    registry.register([secret]);
+    const readyRedactor = createProductRedactor({
+      match: (t) => registry.match(t),
+      ready: true,
+    });
+    const redactionSource = {
+      concern: "workflows",
+      revision: "1",
+      scope: "step-text",
+    };
+
+    let idSeq = 0;
+    const service = createWorkflowService({
+      files: {
+        list: () =>
+          Promise.resolve(
+            ok([
+              {
+                name: "agent-wf",
+                declaration: agentYaml,
+                flow: false,
+                artifacts: { static: false, instance: false },
+              },
+              {
+                name: "flow-wf",
+                declaration: flowYaml,
+                flow: true,
+                artifacts: { static: false, instance: false },
+              },
+            ]),
+          ),
+      },
+      projects: {
+        resolve: () =>
+          Promise.resolve(ok({ id: PRJ as Id<"prj">, name: "demo" })),
+        nameOf: () => Promise.resolve(ok("demo")),
+      },
+      agents: {
+        listCallable: () =>
+          Promise.resolve(
+            ok([
+              { name: "lophn", label: "Lophn", kind: "lophn" },
+              { name: "coding_codex", label: "Codex", kind: "codex" },
+            ]),
+          ),
+      },
+      turns: {
+        stopSession: () => Promise.resolve(ok(undefined)),
+        stepTurn: () => Promise.resolve(ok(null)),
+        openOutgoingCalls: () => Promise.resolve(ok(0)),
+      },
+      remote: {
+        computer: () => err({ code: "not_found", message: "none" }),
+        workspace: () => err({ code: "not_found", message: "none" }),
+        isPrivate: () => false,
+        receivedStep: () => Promise.resolve(ok(null)),
+        report: () => Promise.resolve(ok(undefined)),
+        handOf: () => ok(null),
+      },
+      flows: {
+        launch: (start) => {
+          launched.push(start);
+          return Promise.resolve(ok(undefined));
+        },
+        stop: () => Promise.resolve(ok(undefined)),
+      },
+      store: {
+        create: (input) => {
+          // withStepText와 같은 재귀 redaction 경로를 거쳐 저장된다.
+          let redactedInputs = input.inputs;
+          if (redactedInputs !== undefined) {
+            const done = redactJsonValues(redactedInputs, (t) =>
+              readyRedactor(redactionSource, "text/plain", t),
+            );
+            assert.ok(done.ok);
+            redactedInputs = done.value as Record<string, unknown>;
+          }
+          return Promise.resolve(
+            h.commands.create.handle(
+              h.tx,
+              h.ctx,
+              {
+                ...input,
+                ...(redactedInputs !== undefined
+                  ? { inputs: redactedInputs }
+                  : {}),
+              },
+              {},
+            ),
+          );
+        },
+        apply: (input, compare) =>
+          Promise.resolve(h.commands.apply.handle(h.tx, h.ctx, input, compare)),
+        read: (id) => {
+          const instance = loadInstance(h.sql, id);
+          const lines = loadLines(h.sql, id, { after: 0, limit: null });
+          const reports = lastReports(h.sql, id);
+          assert.ok(
+            instance.ok && instance.value !== null && lines.ok && reports.ok,
+          );
+          return Promise.resolve(
+            ok({
+              instance: instance.value,
+              lines: lines.value,
+              last_reports: reports.value,
+              remote_steps: [],
+              as_of_seq: "1",
+              next_cursor: null,
+            }),
+          );
+        },
+        running: () => Promise.resolve(runningInstances(h.sql)),
+      },
+      ids: {
+        newId: (prefix: string) =>
+          `${prefix}_01hzzzzzzzzzzzzzzzzzzzzzz${String.fromCharCode(97 + idSeq++)}`,
+      } as never,
+      logger,
+    });
+
+    // 1) missing required field -> invalid_input
+    const missing = await service.start(
+      { workflow: "demo/agent-wf", text: "go", inputs: {} },
+      { kind: "user" },
+    );
+    assert.ok(!missing.ok);
+    assert.equal(missing.error.code, "invalid_input");
+    assert.match(missing.error.message, /reviewer/);
+
+    // 2) invalid (uncallable) agent -> invalid_input
+    const badAgent = await service.start(
+      {
+        workflow: "demo/agent-wf",
+        text: "go",
+        inputs: { reviewer: "ghost_agent" },
+      },
+      { kind: "user" },
+    );
+    assert.ok(!badAgent.ok);
+    assert.equal(badAgent.error.code, "invalid_input");
+    assert.match(badAgent.error.message, /ghost_agent/);
+
+    // 3) when-hidden required field (deep_reason when mode=fast) is skipped and excluded;
+    //    valid callable agent passes and Inputs: is injected into the first step hand-off body.
+    const startedAgent = await service.start(
+      {
+        workflow: "demo/agent-wf",
+        text: "Check latency",
+        inputs: {
+          reviewer: "coding_codex",
+          tags: ["smoke", "perf"],
+          deep_reason: "should be stripped",
+        },
+      },
+      { kind: "user" },
+    );
+    assert.ok(startedAgent.ok);
+    assert.deepStrictEqual(startedAgent.value.instance.inputs, {
+      mode: "fast",
+      reviewer: "coding_codex",
+      tags: ["smoke", "perf"],
+    });
+    assert.equal(h.delivered.length, 1);
+    const bodyText = blocksText(h.delivered[0]!.input.body);
+    assert.match(bodyText, /Inputs:/);
+    assert.match(bodyText, /- mode: fast/);
+    assert.match(bodyText, /- reviewer: coding_codex/);
+    assert.match(bodyText, /- tags: smoke, perf/);
+    assert.ok(!bodyText.includes("deep_reason"));
+    assert.match(bodyText, /Received:\nCheck latency/);
+
+    // 4) flow workflow persists redacted inputs and forwards redacted inputs to flows.launch
+    const startedFlow = await service.start(
+      {
+        workflow: "demo/flow-wf",
+        text: "run flow",
+        inputs: { token_note: `bearer=${secret}` },
+      },
+      { kind: "user" },
+    );
+    assert.ok(startedFlow.ok);
+    const storedNote = String(startedFlow.value.instance.inputs?.token_note);
+    assert.ok(!storedNote.includes(secret));
+    assert.equal(startedFlow.value.instance.inputs?.retries, 2);
+    assert.equal(launched.length, 1);
+    const launchArg = launched[0] as { inputs?: Record<string, unknown> };
+    assert.deepStrictEqual(launchArg.inputs, startedFlow.value.instance.inputs);
+  } finally {
+    h.db.close();
+  }
+});
+
+test("redactJsonValues recursively redacts strings across nested objects/arrays and fails closed when unready", () => {
+  const secret = "TOP_SECRET_NESTED_KEY_99999";
+  const registry = createKnownSecretRegistry();
+  registry.register([secret]);
+  const ready = createProductRedactor({
+    match: (t) => registry.match(t),
+    ready: true,
+  });
+  const unready = createProductRedactor({
+    match: (t) => registry.match(t),
+    ready: false,
+  });
+  const src = { concern: "workflows", revision: "1", scope: "step-text" };
+  const sample = {
+    plain: "ok",
+    token: `api=${secret}`,
+    nested: {
+      list: ["a", `inner=${secret}`],
+      count: 3,
+      flag: true,
+      empty: null,
+    },
+  };
+
+  const redacted = redactJsonValues(sample, (t) => ready(src, "text/plain", t));
+  assert.ok(redacted.ok);
+  const out = redacted.value as typeof sample;
+  assert.equal(out.plain, "ok");
+  assert.ok(!out.token.includes(secret));
+  assert.ok(!String(out.nested.list[1]).includes(secret));
+  assert.equal(out.nested.count, 3);
+  assert.equal(out.nested.flag, true);
+  assert.equal(out.nested.empty, null);
+
+  const failedClosed = redactJsonValues(sample, (t) =>
+    unready(src, "text/plain", t),
+  );
+  assert.equal(failedClosed.ok, false);
+
+  // stepBody omits Inputs: when inputs is undefined or empty
+  const noInputsBody = stepBody({
+    step: {
+      name: "s",
+      by: "w",
+      with: null,
+      prompt: "Prompt",
+      in: "",
+      out: "",
+      next: [],
+    },
+    received: "hello",
+    inputs: {},
+  });
+  assert.ok(!noInputsBody.includes("Inputs:"));
 });

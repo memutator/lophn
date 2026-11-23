@@ -270,6 +270,7 @@ export function createWorkflowCommands(
           project: input.project as Id<"prj">,
           workflow: input.workflow,
           input: input.input,
+          ...(input.inputs !== undefined ? { inputs: input.inputs } : {}),
           participants: input.participants,
           steps: input.steps,
           current: null,

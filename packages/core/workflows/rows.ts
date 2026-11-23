@@ -10,11 +10,20 @@ import {
 export function instanceFromRow(
   row: Record<string, unknown>,
 ): Result<WorkflowInstance> {
+  let inputs: unknown;
+  if (row.inputs_json !== undefined && row.inputs_json !== null) {
+    try {
+      inputs = JSON.parse(String(row.inputs_json));
+    } catch {
+      return err({ code: "internal", message: "invalid stored workflow" });
+    }
+  }
   const parsed = workflowInstanceSchema.safeParse({
     id: row.id,
     project: row.project,
     workflow: row.workflow,
     input: row.input,
+    ...(inputs !== undefined ? { inputs } : {}),
     state: row.state,
     participants: JSON.parse(String(row.participants)),
     steps: JSON.parse(String(row.steps)),

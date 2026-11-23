@@ -4,32 +4,38 @@
 // read를 가진 jobs/register.ts와 따로 둔다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import type { Id } from "../../../../protocol/base/mod.ts";
-import type { Sql } from "../../../../protocol/server/mod.ts";
-import {
-  jobEventPolicyPort,
-  jobMachinePort,
-  jobTargetsPort,
-  jobZonePort,
-} from "../../../jobs/ports.ts";
-import type { JobEventPolicy, JobTargets } from "../../../jobs/ports.ts";
 import {
   DEFAULT_CALL_POLICY,
   isPrivate,
   mayReachWorkspace,
 } from "../../../../protocol/lophn-agent/call-policy.ts";
+import type { Sql } from "../../../../protocol/server/mod.ts";
 import { appStatusOf } from "../../../apps/lookups.ts";
 import { loadActiveDeclaration } from "../../../apps/releases/store.ts";
 import { callPolicyAt } from "../../../config/setting-declarations.ts";
-import { dataRootOf } from "../../../lophn-agent/agents/store.ts";
-import { readMachineIdSync } from "../../../machine/mod.ts";
+import type {
+  JobEventPolicy,
+  JobTargetAvailability,
+  JobTargets,
+} from "../../../jobs/ports.ts";
 import {
-  createSessionDirectory,
-  workspaceDepsOf,
-} from "../../../lophn-agent/workspaces/mod.ts";
+  jobEventPolicyPort,
+  jobMachinePort,
+  jobTargetAvailabilityPort,
+  jobTargetsPort,
+  jobZonePort,
+} from "../../../jobs/ports.ts";
+import { dataRootOf } from "../../../lophn-agent/agents/store.ts";
 import {
   loadSession,
   workspaceOf,
 } from "../../../lophn-agent/session/model.ts";
+import {
+  createSessionDirectory,
+  workspaceDepsOf,
+} from "../../../lophn-agent/workspaces/mod.ts";
+import { readMachineIdSync } from "../../../machine/mod.ts";
+import { projectStatusOf } from "../../../projects/lookups.ts";
 import {
   defineTxPort,
   type ReaderRegistration,
@@ -137,12 +143,22 @@ function machineReader(): (sql: Query) => { id(): Result<Id<"mch">> } {
   });
 }
 
+function targetAvailabilityOf(sql: Query): JobTargetAvailability {
+  return {
+    appActive: (id) => appStatusOf(sql, id) === "active",
+    projectActive: (id) => projectStatusOf(sql, id) === "active",
+  };
+}
+
 export function createCoreRegistration() {
   const machineOf = machineReader();
   return {
     ports: [
       defineTxPort(jobMachinePort, (tx) => machineOf(tx.sql)),
       defineTxPort(jobTargetsPort, (tx) => targetsOf(tx.sql)),
+      defineTxPort(jobTargetAvailabilityPort, (tx) =>
+        targetAvailabilityOf(tx.sql),
+      ),
       defineTxPort(jobEventPolicyPort, (tx) => eventPolicyOf(tx.sql)),
       defineTxPort(jobZonePort, () => ({
         zone: () => Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -158,6 +174,10 @@ export function createReaderRegistration(): ReaderRegistration {
     ports: new Map<unknown, unknown>([
       [jobMachinePort, snapshotPort((snapshot) => machineOf(snapshot.sql))],
       [jobTargetsPort, snapshotPort((snapshot) => targetsOf(snapshot.sql))],
+      [
+        jobTargetAvailabilityPort,
+        snapshotPort((snapshot) => targetAvailabilityOf(snapshot.sql)),
+      ],
       [
         jobEventPolicyPort,
         snapshotPort((snapshot) => eventPolicyOf(snapshot.sql)),

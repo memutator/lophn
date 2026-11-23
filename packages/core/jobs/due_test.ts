@@ -6,9 +6,21 @@ import type { JobAction, MissedPolicy } from "../../protocol/jobs/mod.ts";
 import type { Tx } from "../../protocol/server/mod.ts";
 import { createSql } from "../storage/ledger/sqlite.ts";
 import { createDueCommands } from "./due.ts";
-import { jobMachinePort, jobZonePort } from "./ports.ts";
+import {
+  jobEventPolicyPort,
+  jobMachinePort,
+  jobTargetAvailabilityPort,
+  jobZonePort,
+} from "./ports.ts";
+import { createJobReads } from "./reads.ts";
+import {
+  approveJob,
+  insertJob,
+  insertJobRun,
+  loadJob,
+  loadJobRuns,
+} from "./store.ts";
 import { jobsTestSteps, THIS_MACHINE } from "./test-steps.ts";
-import { approveJob, insertJob, insertJobRun, loadJobRuns } from "./store.ts";
 
 const T = (hour: number, minute = 0) =>
   `2026-10-22T${String(hour).padStart(2, "0")}:${String(minute).padStart(
@@ -295,5 +307,143 @@ test("a turn handled over 10 minutes late counts as missed and hold asks", () =>
     );
   } finally {
     r.db.close();
+  }
+});
+
+// 보관된 앱·project의 job은 enabled를 끄지 않고 동적으로 건너뛰고(next_due_at만 다음 주기로 밀고 job_runs·hold를 만들지 않는다),
+// idle-exit(activity)에서 빠지며, 보관 해제하면 다음 주기부터 놓친 차례를 따라잡지 않고 저절로 다시 돈다.
+test("archived app or project jobs skip dynamically without mutating enabled, exclude activity, and resume on unarchive", () => {
+  const db = new DatabaseSync(":memory:");
+  try {
+    for (const step of jobsTestSteps) db.exec(step.sql);
+    const sql = createSql(db, () => true);
+    let now = T(0);
+    let seq = 0;
+    let appActive = false;
+    let projectActive = false;
+    const ports = new Map<unknown, unknown>([
+      [jobZonePort, { zone: () => "UTC" }],
+      [jobMachinePort, { id: () => ok(THIS_MACHINE) }],
+      [
+        jobEventPolicyPort,
+        {
+          declares: () => true,
+        },
+      ],
+      [
+        jobTargetAvailabilityPort,
+        {
+          appActive: (id: string) => (id === APP ? appActive : true),
+          projectActive: (id: string) => (id === PRJ ? projectActive : true),
+        },
+      ],
+    ]);
+    const tx = {
+      sql,
+      now: () => now,
+      as_of_seq: "1",
+      newId: (prefix: string) =>
+        `${prefix}_01h${"z".repeat(21)}${String(seq++).padStart(2, "0")}`,
+      port: (key: unknown) => ports.get(key) ?? { push: () => {} },
+    } as unknown as Tx;
+    const due = createDueCommands();
+    const reads = createJobReads();
+
+    const add = (action: JobAction, policy: MissedPolicy) => {
+      const id = tx.newId("job");
+      insertJob(sql, {
+        id,
+        title: action.kind,
+        creator: { agent: "lophn_home", workspace: null },
+        every: "1h",
+        at: null,
+        action,
+        missed_policy: policy,
+        enabled: true,
+        machine: THIS_MACHINE,
+        created_at: T(0),
+      });
+      approveJob(sql, id, { approved_at: T(0), next_due_at: T(1) });
+      return id;
+    };
+
+    const toolJob = add(TOOL, "run");
+    const wfJob = add(WORKFLOW, "hold");
+    const agentInPrj = add(
+      {
+        kind: "agent_run",
+        agent: "lophn_home",
+        agent_workspace: { kind: "project", id: PRJ as never },
+        prompt: "check",
+      },
+      "run",
+    );
+
+    // 모두 보관 상태: job.list에 target_unavailable: true가 붙고, activity는 false다.
+    const listedArchived = reads.list.handle(tx as never, USER, {});
+    assert.ok(listedArchived.ok);
+    assert.deepStrictEqual(
+      listedArchived.value.jobs.map((j) => [j.id, j.target_unavailable]),
+      [
+        [toolJob, true],
+        [wfJob, true],
+        [agentInPrj, true],
+      ],
+    );
+    const actArchived = reads.activity.handle(tx as never, MACHINE, {});
+    assert.ok(actArchived.ok && actArchived.value.busy === false);
+
+    // T(3, 30)에 startup claim: 실행 줄도 hold도 만들지 않고 enabled=true 유지하며 next_due_at만 T(4)로 민다.
+    now = T(3, 30);
+    const skipped = due.claimDue.handle(
+      tx,
+      MACHINE,
+      { startup: true },
+      {} as never,
+    );
+    assert.ok(skipped.ok);
+    assert.deepStrictEqual(skipped.value.start, []);
+    for (const id of [toolJob, wfJob, agentInPrj]) {
+      const loaded = loadJob(sql, id, THIS_MACHINE);
+      assert.ok(loaded.ok && loaded.value !== null);
+      assert.equal(loaded.value.enabled, true);
+      assert.equal(loaded.value.next_due_at, T(4));
+      const runs = loadJobRuns(sql, id, { limit: 10 });
+      assert.ok(runs.ok && runs.value.length === 0);
+    }
+
+    // 앱·project 보관 해제: target_unavailable이 사라지고 activity는 true가 되며 T(4)에 정상적으로 1회만 돈다(missed_count: 0).
+    appActive = true;
+    projectActive = true;
+    const listedActive = reads.list.handle(tx as never, USER, {});
+    assert.ok(listedActive.ok);
+    assert.deepStrictEqual(
+      listedActive.value.jobs.map((j) => j.target_unavailable),
+      [undefined, undefined, undefined],
+    );
+    const actActive = reads.activity.handle(tx as never, MACHINE, {});
+    assert.ok(actActive.ok && actActive.value.busy === true);
+
+    now = T(4, 0);
+    const resumed = due.claimDue.handle(
+      tx,
+      MACHINE,
+      { startup: false },
+      {} as never,
+    );
+    assert.ok(resumed.ok);
+    assert.deepStrictEqual(
+      resumed.value.start.map((turn) => [
+        turn.job.id,
+        turn.job_run.missed_count,
+      ]),
+      [
+        [toolJob, 0],
+        [wfJob, 0],
+        [agentInPrj, 0],
+      ],
+    );
+  } finally {
+    db.close();
   }
 });

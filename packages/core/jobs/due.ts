@@ -1,19 +1,27 @@
 import { err, ok, type Result } from "../../base/mod.ts";
 import { parseActor } from "../../protocol/base/mod.ts";
 import {
+  type JobRunRecord,
+  type JobTurn,
   jobClaimDue,
   jobDecideHold,
   jobRunEnded,
-  type JobRunRecord,
   jobRunStarted,
-  type JobTurn,
 } from "../../protocol/jobs/mod.ts";
 import type {
   CommandDefinition,
   RequestContext,
   Tx,
 } from "../../protocol/server/mod.ts";
-import { jobHeld, jobMachinePort, jobsChanged, jobZonePort } from "./ports.ts";
+import {
+  isJobTargetUnavailable,
+  type JobTargetAvailability,
+  jobHeld,
+  jobMachinePort,
+  jobsChanged,
+  jobZonePort,
+  targetAvailabilityOf,
+} from "./ports.ts";
 import { jobRunFromRow } from "./rows.ts";
 import { dueTurns } from "./schedule.ts";
 import {
@@ -118,6 +126,7 @@ function turnFor(
   now: string,
   zone: string,
   me: string,
+  availability: JobTargetAvailability,
 ): Result<void> {
   const loaded = loadJob(tx.sql, id, me);
   if (!loaded.ok) return loaded;
@@ -136,6 +145,15 @@ function turnFor(
   const spec = { every: job.every, at: job.at, zone };
   const came = job.next_due_at !== null && job.next_due_at <= now;
   const turns = came ? dueTurns(spec, job.next_due_at!, now) : null;
+  // 보관된 앱·project의 job은 enabled를 건드리지 않고 실행 줄을 만들지 않으며 next_due_at만 다음 주기로 민다.
+  // 보관 해제하면 역방향 수정 없이 다음 주기부터 저절로 다시 돈다.
+  if (isJobTargetUnavailable(job, availability)) {
+    if (turns !== null) {
+      setNextDue(tx.sql, id, turns.next);
+      jobsChanged(tx);
+    }
+    return ok(undefined);
+  }
   const count = turns?.count ?? 0;
   const interrupted = closed.has(id) ? 1 : 0;
   // 기준은 가장 오래된 온 차례(next_due_at)다. 잠든 사이 여럿이 쌓여도 잡힌다.
@@ -263,8 +281,18 @@ export function createDueCommands(): {
             .map((row) => row.id as string),
           ...closed.keys(),
         ]);
+        const availability = targetAvailabilityOf(tx);
         for (const id of [...ids].sort()) {
-          const turn = turnFor(tx, id, input.startup, closed, now, zone, me);
+          const turn = turnFor(
+            tx,
+            id,
+            input.startup,
+            closed,
+            now,
+            zone,
+            me,
+            availability,
+          );
           if (!turn.ok) return turn;
         }
         const start = handOut(tx, now, me);

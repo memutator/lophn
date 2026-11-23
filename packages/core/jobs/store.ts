@@ -1,16 +1,17 @@
 import { ok, type Result } from "../../base/mod.ts";
-import type { AgentAtWorkspace } from "../../protocol/lophn-agent/mod.ts";
 import type {
   JobAction,
+  JobEvent,
   JobRecord,
   JobRunRecord,
-  JobEvent,
   JobRunState,
   JobSkipReason,
   JobTrigger,
   MissedPolicy,
 } from "../../protocol/jobs/mod.ts";
+import type { AgentAtWorkspace } from "../../protocol/lophn-agent/mod.ts";
 import type { Sql } from "../../protocol/server/mod.ts";
+import { isJobTargetUnavailable, type JobTargetAvailability } from "./ports.ts";
 import { creatorColumns, jobFromRow, jobRunFromRow } from "./rows.ts";
 
 type Query = Pick<Sql, "get" | "all">;
@@ -254,14 +255,41 @@ export function loadOpenRuns(sql: Query): Result<JobRunRecord[]> {
   );
 }
 
-// idle-exit가 보는 일. 켜진 job은 승인 여부로 다시 거르지 않는다. 주인이 이 기계가 아닌 job은 돌지 않으니 세지 않는다.
-export function hasActivity(sql: Query, me: string): Result<boolean> {
-  const row = sql.get(
-    `SELECT EXISTS (SELECT 1 FROM jobs WHERE enabled = 1 AND machine = ?)
-       OR EXISTS (SELECT 1 FROM job_runs WHERE ${OPEN_JOB_RUNS} AND ${OF_THIS_MACHINE}) AS busy`,
-    [me, me],
+// idle-exit가 보는 일. 켜진 job은 승인 여부로 다시 거르지 않는다. 주인이 이 기계가 아닌 job과
+// 대상 앱·project가 보관(archived)됐거나 지워진 job은 돌지 않으니 세지 않는다.
+export function hasActivity(
+  sql: Query,
+  me: string,
+  availability?: JobTargetAvailability,
+): Result<boolean> {
+  if (availability === undefined) {
+    const row = sql.get(
+      `SELECT EXISTS (SELECT 1 FROM jobs WHERE enabled = 1 AND machine = ?)
+         OR EXISTS (SELECT 1 FROM job_runs WHERE ${OPEN_JOB_RUNS} AND ${OF_THIS_MACHINE}) AS busy`,
+      [me, me],
+    );
+    return ok(Number(row?.["busy"] ?? 0) === 1);
+  }
+  const openRun = sql.get(
+    `SELECT EXISTS (SELECT 1 FROM job_runs WHERE ${OPEN_JOB_RUNS} AND ${OF_THIS_MACHINE}) AS busy`,
+    [me],
   );
-  return ok(Number(row?.["busy"] ?? 0) === 1);
+  if (Number(openRun?.["busy"] ?? 0) === 1) return ok(true);
+  const rows = sql.all(
+    "SELECT action, trigger FROM jobs WHERE enabled = 1 AND machine = ?",
+    [me],
+  );
+  for (const row of rows) {
+    const action = JSON.parse(String(row["action"])) as JobAction;
+    const trigger =
+      row["trigger"] === null || row["trigger"] === undefined
+        ? null
+        : (JSON.parse(String(row["trigger"])) as JobTrigger);
+    if (!isJobTargetUnavailable({ action, trigger }, availability)) {
+      return ok(true);
+    }
+  }
+  return ok(false);
 }
 
 // claimed_at은 sj-jobs-due만 읽고 쓴다.

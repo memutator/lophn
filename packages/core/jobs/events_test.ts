@@ -15,14 +15,15 @@ import {
 } from "../apps/events/publish.ts";
 import { createSql } from "../storage/ledger/sqlite.ts";
 import { createJobCommands } from "./commands.ts";
-import { createJobReads } from "./reads.ts";
 import { createEventCommands } from "./events.ts";
 import {
   jobEventPolicyPort,
   jobMachinePort,
+  jobTargetAvailabilityPort,
   jobTargetsPort,
   jobZonePort,
 } from "./ports.ts";
+import { createJobReads } from "./reads.ts";
 import { approveJob, insertJob, loadJob, replaceJobRun } from "./store.ts";
 import { jobsTestSteps, THIS_MACHINE } from "./test-steps.ts";
 
@@ -775,6 +776,199 @@ test("다른 컴퓨터의 event와 remote 표시가 붙은 이 기계의 event�
     assert.equal(eventOf(fromLocalRemote).remote, true);
     assert.equal(eventOf(fromLocalRemote).machine, undefined);
     assert.equal(eventOf(fromLocal).remote, undefined);
+  } finally {
+    db.close();
+  }
+});
+
+// 보관된 앱·project를 가리키는 event job은 enabled를 끄지 않고 event를 건너뛰며, 보관 해제하면 다시 돈다.
+// 다른 컴퓨터의 앱 event trigger는 이 기계에 앱이 없어도 target_unavailable이 아니다.
+test("event trigger dispatch skips jobs whose target app or project is archived without mutating enabled and resumes on unarchive", () => {
+  const db = new DatabaseSync(":memory:");
+  try {
+    for (const step of jobsTestSteps) db.exec(step.sql);
+    const sql = createSql(db, () => true);
+    let seq = 0;
+    let appActive = false;
+    let projectActive = false;
+    const ports = new Map<unknown, unknown>([
+      [jobZonePort, { zone: () => "UTC" }],
+      [jobMachinePort, { id: () => ok(THIS_MACHINE) }],
+      [
+        jobEventPolicyPort,
+        {
+          declares: () => true,
+          reaches: () => true,
+          isPrivate: () => false,
+          drivenSession: () => false,
+        },
+      ],
+      [
+        jobTargetAvailabilityPort,
+        {
+          appActive: (id: string) => (id === APP ? appActive : true),
+          projectActive: (id: string) => (id === PRJ_A ? projectActive : true),
+        },
+      ],
+    ]);
+    const tx = {
+      sql,
+      as_of_seq: "1",
+      now: () => "2026-11-11T00:00:00.000Z",
+      newId: (prefix: string) =>
+        `${prefix}_01hzzzzzzzzzzzzzzzzzzzz${String(seq++).padStart(3, "0")}`,
+      port: (key: unknown) => ports.get(key) ?? { push: () => {} },
+    } as unknown as Tx;
+
+    const addEventJob = (
+      id: string,
+      trigger: JobTrigger,
+      action:
+        | { kind: "tool_run"; app: string; tool: string }
+        | {
+            kind: "workflow_start";
+            project: string;
+            workflow: string;
+            text: string;
+          }
+        | {
+            kind: "agent_run";
+            agent: "lophn_home";
+            agent_workspace: null;
+            prompt: string;
+          },
+    ) => {
+      insertJob(sql, {
+        id,
+        title: id,
+        creator: { agent: "lophn_home", workspace: null },
+        every: null,
+        at: null,
+        trigger,
+        action: action as never,
+        missed_policy: "run",
+        enabled: true,
+        machine: THIS_MACHINE,
+        created_at: "2026-11-10T00:00:00.000Z",
+      });
+      approveJob(sql, id, {
+        approved_at: "2026-11-10T00:00:00.000Z",
+        next_due_at: null,
+      });
+    };
+
+    const wfOnSession = "job_01hzzzzzzzzzzzzzzzzzzzzzza";
+    const localAppTrigger = "job_01hzzzzzzzzzzzzzzzzzzzzzzb";
+    const remoteAppTrigger = "job_01hzzzzzzzzzzzzzzzzzzzzzzc";
+    addEventJob(
+      wfOnSession,
+      {
+        source: "lophn",
+        app: null,
+        event: "session.idle",
+        min_interval: "5m",
+        pass_event: false,
+      },
+      {
+        kind: "workflow_start",
+        project: PRJ_A,
+        workflow: "review",
+        text: "go",
+      },
+    );
+    addEventJob(
+      localAppTrigger,
+      {
+        source: "masup",
+        app: APP as never,
+        event: "usage.limit",
+        min_interval: "5m",
+        pass_event: false,
+      },
+      {
+        kind: "agent_run",
+        agent: "lophn_home",
+        agent_workspace: null,
+        prompt: "wrap",
+      },
+    );
+    addEventJob(
+      remoteAppTrigger,
+      {
+        source: APP,
+        app: APP as never,
+        source_machine: LAPTOP as never,
+        event: "usage.limit",
+        min_interval: "5m",
+        pass_event: false,
+      },
+      {
+        kind: "agent_run",
+        agent: "lophn_home",
+        agent_workspace: null,
+        prompt: "wrap",
+      },
+    );
+
+    const events = createEventCommands();
+    const reads = createJobReads();
+    const listed = reads.list.handle(
+      tx as never,
+      { actor: "user" } as never,
+      {},
+    );
+    assert.ok(listed.ok);
+    assert.deepStrictEqual(
+      listed.value.jobs.map((j) => [j.id, j.target_unavailable]),
+      [
+        [wfOnSession, true],
+        [localAppTrigger, true],
+        [remoteAppTrigger, undefined],
+      ],
+    );
+
+    const fireSession = () =>
+      events.fire.handle(
+        tx,
+        machine,
+        {
+          publisher: "lophn",
+          event: "session.idle",
+          payload: {},
+          chain: [],
+          session: { id: "ses_01hzzzzzzzzzzzzzzzzzzzzzza", workspace: null },
+        },
+        {} as never,
+      );
+    const fireLocalApp = () =>
+      events.fire.handle(
+        tx,
+        machine,
+        {
+          publisher: APP,
+          event: "usage.limit",
+          payload: {},
+          chain: [],
+          session: null,
+        },
+        {} as never,
+      );
+
+    // 보관 상태에서는 job_runs를 만들지 않고 enabled=true를 유지한다.
+    assert.deepStrictEqual(fireSession(), ok({ fired: 0, skipped: 0 }));
+    assert.deepStrictEqual(fireLocalApp(), ok({ fired: 0, skipped: 0 }));
+    assert.equal(sql.all("SELECT id FROM job_runs", []).length, 0);
+    for (const id of [wfOnSession, localAppTrigger]) {
+      const loaded = loadJob(sql, id, THIS_MACHINE);
+      assert.ok(loaded.ok && loaded.value?.enabled === true);
+    }
+
+    // 보관 해제하면 다음 event부터 즉시 다시 돈다.
+    appActive = true;
+    projectActive = true;
+    assert.deepStrictEqual(fireSession(), ok({ fired: 1, skipped: 0 }));
+    assert.deepStrictEqual(fireLocalApp(), ok({ fired: 1, skipped: 0 }));
+    assert.equal(sql.all("SELECT id FROM job_runs", []).length, 2);
   } finally {
     db.close();
   }

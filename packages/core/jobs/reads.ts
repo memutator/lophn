@@ -11,9 +11,14 @@ import {
   jobRunOpen,
 } from "../../protocol/jobs/mod.ts";
 import type { AgentAtWorkspace } from "../../protocol/lophn-agent/mod.ts";
-import type { ReadDefinition } from "../../protocol/server/mod.ts";
-import type { Sql } from "../../protocol/server/mod.ts";
-import { jobEventPolicyPort, jobMachinePort, jobTargetsPort } from "./ports.ts";
+import type { ReadDefinition, Sql } from "../../protocol/server/mod.ts";
+import {
+  isJobTargetUnavailable,
+  jobEventPolicyPort,
+  jobMachinePort,
+  jobTargetsPort,
+  targetAvailabilityOf,
+} from "./ports.ts";
 import {
   hasActivity,
   loadHolds,
@@ -82,15 +87,23 @@ export function createJobReads(): {
         );
         if (!loaded.ok) return loaded;
         // event job의 앱이 지금 그 event를 내지 않으면 표시한다(읽을 때 선언을 한 번 본다).
+        // 대상 앱·project가 보관됐거나 지워졌으면 enabled를 건드리지 않고 target_unavailable을 달아 보인다.
         const policy = snapshot.port(jobEventPolicyPort);
-        const page = loaded.value.slice(0, PAGE).map((job) =>
+        const availability = targetAvailabilityOf(snapshot);
+        const page = loaded.value.slice(0, PAGE).map((job) => {
           // 다른 컴퓨터의 앱 event로 도는 job은 이 컴퓨터의 선언으로 알 수 없다.
-          job.trigger?.app != null &&
-          job.trigger.source_machine === undefined &&
-          !policy.declares(job.trigger.app as Id<"app">, job.trigger.event)
-            ? { ...job, source_gone: true }
-            : job,
-        );
+          const sourceGone =
+            job.trigger?.app != null &&
+            job.trigger.source_machine === undefined &&
+            !policy.declares(job.trigger.app as Id<"app">, job.trigger.event);
+          const targetUnavailable = isJobTargetUnavailable(job, availability);
+          if (!sourceGone && !targetUnavailable) return job;
+          return {
+            ...job,
+            ...(sourceGone ? { source_gone: true } : {}),
+            ...(targetUnavailable ? { target_unavailable: true } : {}),
+          };
+        });
         return ok({
           jobs: page,
           as_of_seq: snapshot.as_of_seq,
@@ -178,7 +191,11 @@ export function createJobReads(): {
       handle(snapshot) {
         const machine = snapshot.port(jobMachinePort).id();
         if (!machine.ok) return machine;
-        const busy = hasActivity(snapshot.sql, machine.value);
+        const busy = hasActivity(
+          snapshot.sql,
+          machine.value,
+          targetAvailabilityOf(snapshot),
+        );
         return busy.ok
           ? ok({
               busy: busy.value,

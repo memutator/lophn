@@ -1,10 +1,10 @@
 import { ok, type Result } from "../../base/mod.ts";
 import { type Id, parseActor } from "../../protocol/base/mod.ts";
 import {
-  jobEventTriggers,
-  jobFireEvent,
   type JobEvent,
   type JobRecord,
+  jobEventTriggers,
+  jobFireEvent,
 } from "../../protocol/jobs/mod.ts";
 import type {
   CommandDefinition,
@@ -13,8 +13,14 @@ import type {
   Tx,
 } from "../../protocol/server/mod.ts";
 import { allowAppEvent, allowSessionEvent } from "../events/mod.ts";
-import { jobsChanged, jobEventPolicyPort, jobMachinePort } from "./ports.ts";
-import { loadJob, insertJobRun, noteFired, noteSkipped } from "./store.ts";
+import {
+  isJobTargetUnavailable,
+  jobEventPolicyPort,
+  jobMachinePort,
+  jobsChanged,
+  targetAvailabilityOf,
+} from "./ports.ts";
+import { insertJobRun, loadJob, noteFired, noteSkipped } from "./store.ts";
 
 const UNIT_MS = { m: 60_000, h: 3_600_000, d: 86_400_000 } as const;
 
@@ -155,12 +161,17 @@ export function createEventCommands(): {
                 input.machine ?? null,
               ],
         );
+        const availability = targetAvailabilityOf(tx);
         let fired = 0;
         let skipped = 0;
         for (const row of rows) {
           const job = loadJob(tx.sql, String(row["id"]), machine.value);
           if (!job.ok) return job;
           if (job.value === null) continue;
+          // 대상 앱·project가 보관됐거나 지워졌으면 enabled를 건드리지 않고 건너뛴다(job_runs 줄을 만들지 않는다).
+          if (isJobTargetUnavailable(job.value, availability)) {
+            continue;
+          }
           const workspace = job.value.creator.workspace?.id;
           if (
             workspace !== undefined &&

@@ -5,26 +5,29 @@ import {
   JOB_TRIGGER_DEFAULT_INTERVAL,
   type JobAction,
   type JobActionInput,
+  type JobRecord,
+  type JobTrigger,
+  type JobTriggerInput,
   jobApprove,
   jobCreate,
   jobDelete,
-  type JobRecord,
   jobTakeOver,
-  type JobTrigger,
-  type JobTriggerInput,
   jobUpdate,
 } from "../../protocol/jobs/mod.ts";
+import type {
+  AgentAtWorkspace,
+  Workspace,
+} from "../../protocol/lophn-agent/mod.ts";
 import { SESSION_EVENTS } from "../../protocol/lophn-agent/session-lifecycle.ts";
-import type { AgentAtWorkspace } from "../../protocol/lophn-agent/mod.ts";
 import type {
   CommandDefinition,
   RequestContext,
   Tx,
 } from "../../protocol/server/mod.ts";
 import {
-  jobsChanged,
   jobEventPolicyPort,
   jobMachinePort,
+  jobsChanged,
   jobTargetsPort,
   jobZonePort,
 } from "./ports.ts";
@@ -244,6 +247,66 @@ function loadOwned(
   return ok(job);
 }
 
+export type ErasedJobSpec = {
+  id: Id<"job">;
+  title: string;
+  summary: string;
+};
+
+// 삭제된 job 명세를 인계 본문에 실을 한 줄 요약으로 만든다.
+function summarizeJobRow(row: Record<string, unknown>): string {
+  const every = row["every"] as string | null;
+  const at = row["at"] as string | null;
+  const rawTrigger = row["trigger"] as string | null;
+  const when =
+    every !== null
+      ? `every ${every}${at !== null ? ` at ${at}` : ""}`
+      : rawTrigger !== null
+        ? (() => {
+            const parsed = JSON.parse(rawTrigger) as {
+              source?: string;
+              event?: string;
+            };
+            return `on ${parsed.source ?? "unknown"}.${parsed.event ?? "unknown"}`;
+          })()
+        : "unscheduled";
+  const action = JSON.parse(String(row["action"])) as JobAction;
+  let what: string;
+  switch (action.kind) {
+    case "agent_run":
+      what = `agent_run(${action.agent}${
+        action.agent_workspace === null ? "" : ` @ ${action.agent_workspace.id}`
+      })`;
+      break;
+    case "tool_run":
+      what = `tool_run(${action.app}.${action.tool})`;
+      break;
+    case "workflow_start":
+      what = `workflow_start(${action.project}/${action.workflow})`;
+      break;
+  }
+  return `${when} -> ${what}`;
+}
+
+function eraseJobRows(
+  tx: Tx,
+  rows: Record<string, unknown>[],
+): ErasedJobSpec[] {
+  if (rows.length === 0) return [];
+  const erased: ErasedJobSpec[] = [];
+  for (const row of rows) {
+    const id = String(row["id"]) as Id<"job">;
+    erased.push({
+      id,
+      title: String(row["title"]),
+      summary: summarizeJobRow(row),
+    });
+    deleteJob(tx.sql, id);
+  }
+  jobsChanged(tx);
+  return erased;
+}
+
 // 앱을 지우면 그 앱을 부르는 job(앱 tool, 앱 workspace의 agent 호출)과 그 앱 workspace가 만든 job을 지운다.
 // 도는 run은 끝까지 돈다(job 지우기와 같다).
 export function eraseJobsOfApp(tx: Tx, app: string): void {
@@ -263,6 +326,84 @@ export function eraseJobsOfApp(tx: Tx, app: string): void {
     deleteJob(tx.sql, id);
     jobsChanged(tx);
   }
+}
+
+// agent를 지우면 그 agent가 만든 job과 그 agent를 부르는 agent_run job을 같은 tx에서 지우고 명세를 돌려준다.
+// 전역 agent(workspace === null)는 어느 workspace의 job이든 지우고, 범위 agent는 해당 workspace 범위로 맞춘다.
+export function eraseJobsOfAgent(
+  tx: Tx,
+  agent: {
+    id: string;
+    handle: string;
+    workspace: Workspace | null;
+  },
+): ErasedJobSpec[] {
+  const rows =
+    agent.workspace === null
+      ? tx.sql.all(
+          `SELECT id, title, every, at, trigger, action FROM jobs
+           WHERE creator_agent = ?1
+              OR (json_extract(action, '$.kind') = 'agent_run'
+                  AND json_extract(action, '$.agent') IN (?1, ?2))
+           ORDER BY id`,
+          [agent.id, agent.handle],
+        )
+      : tx.sql.all(
+          `SELECT id, title, every, at, trigger, action FROM jobs
+           WHERE (creator_agent = ?1 AND creator_workspace = ?4)
+              OR (json_extract(action, '$.kind') = 'agent_run'
+                  AND json_extract(action, '$.agent') IN (?1, ?2)
+                  AND json_extract(action, '$.agent_workspace.kind') = ?3
+                  AND json_extract(action, '$.agent_workspace.id') = ?4)
+           ORDER BY id`,
+          [agent.id, agent.handle, agent.workspace.kind, agent.workspace.id],
+        );
+  return eraseJobRows(tx, rows);
+}
+
+// workflow를 지우면 그 workflow를 시작하는 workflow_start job과 job_runs를 같은 tx에서 지우고 명세를 돌려준다.
+export function eraseJobsOfWorkflow(
+  tx: Tx,
+  project: Id<"prj">,
+  workflow: string,
+): ErasedJobSpec[] {
+  const rows = tx.sql.all(
+    `SELECT id, title, every, at, trigger, action FROM jobs
+     WHERE json_extract(action, '$.kind') = 'workflow_start'
+       AND json_extract(action, '$.project') = ?1
+       AND json_extract(action, '$.workflow') = ?2
+     ORDER BY id`,
+    [project, workflow],
+  );
+  return eraseJobRows(tx, rows);
+}
+
+// workflow 이름을 바꾸면 같은 project에서 그 workflow를 시작하는 workflow_start job의 action.workflow를 함께 바꾼다.
+export function renameJobsOfWorkflow(
+  tx: Tx,
+  project: Id<"prj">,
+  from: string,
+  to: string,
+): number {
+  if (from === to) return 0;
+  const rows = tx.sql.all(
+    `SELECT id, action FROM jobs
+     WHERE json_extract(action, '$.kind') = 'workflow_start'
+       AND json_extract(action, '$.project') = ?1
+       AND json_extract(action, '$.workflow') = ?2
+     ORDER BY id`,
+    [project, from],
+  );
+  if (rows.length === 0) return 0;
+  for (const row of rows) {
+    const action = JSON.parse(String(row["action"])) as Record<string, unknown>;
+    tx.sql.run("UPDATE jobs SET action = ? WHERE id = ?", [
+      JSON.stringify({ ...action, workflow: to }),
+      String(row["id"]),
+    ]);
+  }
+  jobsChanged(tx);
+  return rows.length;
 }
 
 export function createJobCommands(): {

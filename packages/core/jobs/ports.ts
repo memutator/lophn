@@ -1,7 +1,6 @@
 import type { Clock, Logger, Result } from "../../base/mod.ts";
 import type { Id } from "../../protocol/base/mod.ts";
 import { definePort } from "../../protocol/base/mod.ts";
-import { afterCommit } from "../storage/ledger/after-commit.ts";
 import type {
   JobRecord,
   JobRunRecord,
@@ -12,6 +11,7 @@ import type {
   AgentAtWorkspace,
 } from "../../protocol/lophn-agent/mod.ts";
 import type { Tx } from "../../protocol/server/mod.ts";
+import { afterCommit } from "../storage/ledger/after-commit.ts";
 
 // 시각은 Clock으로 읽고 timer는 이 port로 받는다. 테스트는 가짜를 꽂는다.
 export type JobTimers = {
@@ -38,6 +38,65 @@ export type JobTargets = {
   resolveProject(ref: string): Result<Id<"prj">>;
 };
 export const jobTargetsPort = definePort<JobTargets>("jobs.targets");
+
+// job이 가리키는 앱·project가 active인지 본다(보관됐거나 지워졌으면 false).
+// jobs는 apps·projects 표를 직접 읽지 않으므로 조립(jobs-registration)이 꽂는다.
+export type JobTargetAvailability = {
+  appActive(id: Id<"app">): boolean;
+  projectActive(id: Id<"prj">): boolean;
+};
+export const jobTargetAvailabilityPort = definePort<JobTargetAvailability>(
+  "jobs.target_availability",
+);
+
+export const ALL_TARGETS_AVAILABLE: JobTargetAvailability = {
+  appActive: () => true,
+  projectActive: () => true,
+};
+
+// 격리된 단위 테스트가 이 port를 꽂지 않았으면 모두 active로 본다.
+export function targetAvailabilityOf(
+  holder: Pick<Tx, "port">,
+): JobTargetAvailability {
+  const port = holder.port(jobTargetAvailabilityPort) as
+    | Partial<JobTargetAvailability>
+    | undefined;
+  if (
+    typeof port?.appActive === "function" &&
+    typeof port?.projectActive === "function"
+  ) {
+    return port as JobTargetAvailability;
+  }
+  return ALL_TARGETS_AVAILABLE;
+}
+
+// job의 대상(action의 앱·project 또는 이 기계 앱의 event trigger)이 보관됐거나 지워졌으면 true다.
+// 다른 컴퓨터의 앱 event trigger(source_machine 있음)는 이 기계에 앱이 없을 수 있어 건너뛰지 않는다.
+export function isJobTargetUnavailable(
+  job: Pick<JobRecord, "action" | "trigger">,
+  availability: JobTargetAvailability,
+): boolean {
+  const { action, trigger } = job;
+  if (
+    trigger != null &&
+    trigger.app != null &&
+    trigger.source_machine === undefined &&
+    !availability.appActive(trigger.app as Id<"app">)
+  ) {
+    return true;
+  }
+  switch (action.kind) {
+    case "tool_run":
+      return !availability.appActive(action.app as Id<"app">);
+    case "agent_run":
+      if (action.agent_workspace == null) return false;
+      return action.agent_workspace.kind === "app"
+        ? !availability.appActive(action.agent_workspace.id as Id<"app">)
+        : !availability.projectActive(action.agent_workspace.id as Id<"prj">);
+    case "workflow_start":
+      return !availability.projectActive(action.project as Id<"prj">);
+  }
+}
 
 // event를 때로 가진 job이 쓰는 판정. 앱 이름 풀기와 선언된 event, call 정책의 보이는 범위는 다른 module의 일이라 조립이 꽂는다.
 export type JobEventPolicy = {

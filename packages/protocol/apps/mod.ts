@@ -49,3 +49,4 @@ export * from "./phone-request.ts";
 export * from "./app-sync.ts";
 export * from "./app-files.ts";
 export * from "./update-state.ts";
+export * from "./updates.ts";

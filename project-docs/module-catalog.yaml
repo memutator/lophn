@@ -87,6 +87,10 @@ modules:
   - path: packages/core/events
     boundary: events
 
+  - path: packages/core/follow-ups
+    boundary: core
+    notes: 작업 공간 통합 후속 정리 항목(follow_up_items)과 flow_sdk/platform 검토 기록(flow_sdk_reviews, platform_reviews)을 관리한다. feature module·harness와 서로 의존하지 않는 바닥 module이며 P12 세션 작업 공간 판정은 followUpPorts로 주입한다.
+
   - path: packages/core/install-and-update
     boundary: core
     notes: 맞는 하위 boundary가 없어 core로 둔다(data root 해석, 실행 metadata, instance lock).

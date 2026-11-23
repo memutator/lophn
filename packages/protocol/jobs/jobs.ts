@@ -42,6 +42,8 @@ export const jobRecordSchema = z.object({
   last_skip_reason: jobSkipReasonSchema.nullable(),
   // event job의 앱이 지금 그 event를 내지 않는다(보관·지움, active release가 선언을 뺌). job은 켜져 있어도 돌지 않는다. `job.list`만 채운다.
   source_gone: z.boolean(),
+  // 주기·event job이나 workflow_start가 가리키는 앱·project가 보관(archived)됐거나 지워졌다. enabled를 건드리지 않고 동적으로 건너뛴다.
+  target_unavailable: z.boolean().optional(),
   action: jobActionSchema,
   missed_policy: missedPolicySchema,
   enabled: z.boolean(),

@@ -39,6 +39,7 @@ const ID_PREFIXES = {
   pub: "Publication",
   sdr: "SdkReview",
   sdf: "SdkFeature",
+  fup: "FollowUp",
   tab: "Tab",
   hrq: "HostRequest",
   dev: "Device",

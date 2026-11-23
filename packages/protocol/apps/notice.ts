@@ -44,6 +44,7 @@ export const PROGRAM_NOTICE_KINDS = [
   "app_data_restored",
   "lophn_updated",
   "sdk_update_needed",
+  "workspace_update_needed",
   "session_stopped_by_app",
   "phone_changed",
   "app_sync_away",
@@ -56,6 +57,7 @@ export const ALERT_PROGRAM_KINDS: ReadonlySet<NoticeKind> = new Set([
   "app_unavailable",
   "app_data_restored",
   "sdk_update_needed",
+  "workspace_update_needed",
   "session_stopped_by_app",
   "phone_changed",
   "app_sync_away",
@@ -162,6 +164,13 @@ export const noticeRecordInputSchema = z.discriminatedUnion("kind", [
     required: z.number().int().min(0).max(9999),
     available: z.number().int().min(0).max(9999),
   }),
+  variant("workspace_update_needed", {
+    required_apps: z.number().int().min(0).max(9999),
+    required_workflows: z.number().int().min(0).max(9999),
+    unreviewed_apps: z.number().int().min(0).max(9999),
+    unreviewed_workflows: z.number().int().min(0).max(9999),
+    unreviewed_notes: z.number().int().min(0).max(9999),
+  }),
   // 기준 폰이 바뀌었다. apps: 폰 화면이 있는 활성 앱 수(옛 폰 크기로 그린 화면이라 다시 그려야 한다).
   variant("phone_changed", { apps: z.number().int().min(1).max(9999) }),
   // 이 기계가 그 앱에서 다른 기계의 horizon 밖이 되었다. held: 풀리지 않은 held 변경 수. back: 다시 따라잡았다(같은 key의
@@ -198,6 +207,8 @@ export const noticesObserveVersion = defineCommand({
     fresh: z.boolean(),
     // 설치 사본을 못 읽었으면 빼고, 그 기동은 SDK 판을 견주지 않는다.
     sdks: z.record(short, short).optional(),
+    // 플랫폼 역량 메모(platform-notes.json)의 순서 ID 목록.
+    platform_notes: z.array(z.string().min(1)).optional(),
   }),
   output: z.object({
     // 판이 바뀐 기동이면 true. fresh이거나 같은 판이면 false다.
@@ -206,6 +217,7 @@ export const noticesObserveVersion = defineCommand({
     from: z.string().nullable(),
     // 설치된 SDK 판이 적힌 것과 달랐으면 true. fresh이거나 같으면 false다. 적힌 것이 없던 옛 data root는 true다.
     sdks_changed: z.boolean(),
+    platform_notes_changed: z.boolean().optional(),
   }),
   actors: ["machine"],
   errors: ["invalid_input", "forbidden", "unavailable"],

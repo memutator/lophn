@@ -2678,3 +2678,27 @@ flows:
     crosses_process: false
     risk: [data-loss, sandbox]
     docs: [architecture/project-identity.md]
+
+  - id: artifacts-delete
+    title: project 또는 app의 artifact 폴더를 삭제하고 필요 시 인계 follow-up을 남긴다
+    actor: person
+    entries: [route:artifacts/delete]
+    boundary: [projects, core-api]
+    code: [packages/core/projects/artifacts/mod.ts]
+    steps:
+      - 대상 폴더를 검증해 삭제하고 clean_up 지정에 따라 후속 정리를 인계한다
+    outcomes:
+      - id: deleted
+        observe: [disk:artifact-folder, response]
+      - id: not-found
+        code: not_found
+        when: artifact가 없다
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: 권한 밖 작업 공간이다
+        observe: [response]
+    crosses_process: false
+    risk: [data-loss]
+    docs: [architecture/artifact.md]
+    declared_only: [invalid_input, unavailable]

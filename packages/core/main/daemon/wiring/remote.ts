@@ -122,6 +122,7 @@ import {
 import { workflowLinesSchemaSteps } from "../../../workflows/mod.ts";
 import { WORKFLOW_INPUTS_SCHEMA_STEP } from "../../../workflows/inputs-schema.ts";
 import { WORKFLOW_CHECKPOINTS_SCHEMA_STEP } from "../../../workflows/checkpoint-schema.ts";
+import { WORKSPACE_LIFECYCLE_SCHEMA_STEP } from "../../../follow-ups/mod.ts";
 import {
   memberRunsOnSchemaSteps,
   remoteSenderMessagesSchemaSteps,
@@ -951,6 +952,7 @@ export function remoteWiring(
       ...workflowLinesSchemaSteps,
       WORKFLOW_INPUTS_SCHEMA_STEP,
       WORKFLOW_CHECKPOINTS_SCHEMA_STEP,
+      WORKSPACE_LIFECYCLE_SCHEMA_STEP,
     ],
     dataSteps: [
       hostKeyMachineStep,

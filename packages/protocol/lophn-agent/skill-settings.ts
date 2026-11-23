@@ -78,7 +78,7 @@ export const BUILTIN_SKILLS: readonly {
   },
   {
     name: "migrate-sdk",
-    workspaces: ["home", "app"],
+    workspaces: ["home", "project", "app"],
     can_disable: false,
     menu: false,
   },

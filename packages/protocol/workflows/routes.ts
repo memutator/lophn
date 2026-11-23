@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { cleanUpModeSchema, followUpItemSchema } from "../base/follow-ups.ts";
 import { defineMemory, defineRead } from "../base/route.ts";
 import { idSchema } from "../base/ids.ts";
 import { readCursorSchema, seqSchema } from "../base/values.ts";
@@ -227,10 +228,53 @@ export const workflowInstanceActivity = defineRead({
   errors: [...readErrors],
 });
 
+export const workflowRename = defineMemory({
+  resource: "workflows",
+  method: "rename",
+  name: "RenameWorkflow",
+  changes: ["projects", "jobs", "workflow_instances"],
+  input: z.strictObject({
+    project: idSchema("prj").optional(),
+    from: workflowNameSchema,
+    to: workflowNameSchema,
+  }),
+  output: z.object({
+    project: idSchema("prj"),
+    from: workflowNameSchema,
+    to: workflowNameSchema,
+    updated_jobs: z.number().int().nonnegative(),
+  }),
+  actors: ["user", "agent"],
+  errors: [...readErrors, "conflict"],
+});
+
+export const workflowDelete = defineMemory({
+  resource: "workflows",
+  method: "delete",
+  name: "DeleteWorkflow",
+  changes: ["projects", "jobs", "workflow_instances", "follow_ups", "sessions"],
+  input: z.strictObject({
+    project: idSchema("prj").optional(),
+    name: workflowNameSchema,
+    clean_up: cleanUpModeSchema.optional(),
+  }),
+  output: z.object({
+    project: idSchema("prj"),
+    name: workflowNameSchema,
+    erased_jobs: z.number().int().nonnegative(),
+    follow_ups: z.array(followUpItemSchema),
+    handoff_session: idSchema("ses").nullable(),
+  }),
+  actors: ["user", "agent"],
+  errors: [...readErrors, "conflict"],
+});
+
 export const WORKFLOW_ROUTES = [
   workflowList,
   workflowStart,
   workflowCheck,
+  workflowRename,
+  workflowDelete,
   workflowReport,
   workflowEdit,
   workflowRetry,

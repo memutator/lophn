@@ -351,6 +351,11 @@ export const workflowEntrySchema = z
     name: workflowNameSchema,
     state: z.enum(["ok", "invalid"]),
     kind: z.enum(["agent", "flow"]).nullable(),
+    flow_sdk: z.string().nullable().optional(),
+    flow_sdk_status: z
+      .enum(["current", "available", "required"])
+      .nullable()
+      .optional(),
     startable: z.boolean(),
     problem: z
       .object({

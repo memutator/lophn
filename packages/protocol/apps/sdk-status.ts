@@ -42,7 +42,7 @@ export const sdkFeatureStateSchema = z.enum(SDK_FEATURE_STATES);
 export type SdkFeatureState = z.infer<typeof sdkFeatureStateSchema>;
 
 export const sdkFeatureSchema = z.object({
-  id: idSchema("sdf"),
+  id: z.union([idSchema("sdf"), idSchema("fup")]),
   title: z.string().min(1),
   state: sdkFeatureStateSchema,
   outcome: z.string().nullable(),

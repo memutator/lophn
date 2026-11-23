@@ -77,6 +77,23 @@ const appRemoved = defineTransientEvent("AppRemoved", {
   payload: z.strictObject({}),
 });
 
+// project의 workflow 폴더 이름을 바꾼 뒤 낸다. 열린 project 창이 desk key를 따라 바꾸어 Main으로 합쳐지지 않게 한다.
+const workflowRenamed = defineTransientEvent("WorkflowRenamed", {
+  subject: idSchema("prj"),
+  payload: z.strictObject({
+    from: z.string().min(1),
+    to: z.string().min(1),
+  }),
+});
+
+// project의 workflow를 지운 뒤 낸다. 열린 project 창이 workflow 탭·desk를 정리한다.
+const workflowRemoved = defineTransientEvent("WorkflowRemoved", {
+  subject: idSchema("prj"),
+  payload: z.strictObject({
+    name: z.string().min(1),
+  }),
+});
+
 // crash loop 기록이 commit된 뒤 core가 낸다. 사람에게 앱이 멈췄다고 알리는 toast만 듣는다.
 const appRestartHalted = defineTransientEvent("AppRestartHalted", {
   subject: idSchema("app"),
@@ -311,6 +328,8 @@ export const transientEventSchema = z.discriminatedUnion("type", [
   }),
   transientEventEnvelopeSchema(appViewChanged),
   transientEventEnvelopeSchema(appRemoved),
+  transientEventEnvelopeSchema(workflowRenamed),
+  transientEventEnvelopeSchema(workflowRemoved),
   transientEventEnvelopeSchema(appSyncChanged),
   transientEventEnvelopeSchema(appRestartHalted),
   transientEventEnvelopeSchema(activationConsentRequested),

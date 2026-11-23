@@ -1433,3 +1433,72 @@ flows:
     docs: [architecture/folder-sync.md, architecture/project-identity.md]
     declared_only: [unavailable]
     unclear: []
+
+  - id: follow-up-list
+    title: workspace의 follow-up item 목록을 읽는다
+    actor: agent
+    entries: [route:follow-ups/list]
+    boundary: [agents, core-api, core]
+    code: [packages/core/follow-ups/store.ts]
+    steps:
+      - user와 Home agent는 전체 또는 지정한 workspace의 follow-up item을 조회하고, project·app agent는 자기 workspace 항목만 조회한다
+    outcomes:
+      - id: ok
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: 다른 workspace의 follow-up을 요청했다
+        observe: [response]
+    crosses_process: false
+    risk: [permission]
+    docs: [architecture/agent-definition.md]
+    declared_only: [invalid_input, unauthorized, unavailable]
+
+  - id: follow-up-report
+    title: follow-up item 처리 결과를 보고한다
+    actor: agent
+    entries: [route:follow-ups/report]
+    boundary: [agents, core-api, core]
+    code: [packages/core/follow-ups/store.ts]
+    steps:
+      - agent 또는 user가 follow-up item의 state(done·changed·skipped)와 outcome을 기록한다
+      - 자기 workspace 밖 item이나 없는 id는 not_found로 거절한다
+    outcomes:
+      - id: ok
+        observe: [ledger:follow_up_items, response]
+      - id: not-found
+        code: not_found
+        when: 항목이 없거나 다른 workspace 소유다
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: 허락되지 않은 actor다
+        observe: [response]
+    crosses_process: false
+    risk: [permission]
+    docs: [architecture/agent-definition.md]
+    declared_only: [invalid_input, unauthorized, unavailable, conflict]
+
+  - id: impact-read
+    title: 삭제·수정 전 작업 공간 정본 영향 범위를 읽는다
+    actor: person
+    entries: [route:impact/read]
+    boundary: [agents, core-api, core]
+    code: [packages/protocol/lophn-agent/follow-ups.ts]
+    steps:
+      - "앱·agent·artifact·workflow의 즉각 삭제 대상과 declared·mentioned 인계 대상을 조회한다 (P12, user와 Home agent만 호출)"
+    outcomes:
+      - id: ok
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: 대상이 없다
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: project·app agent가 호출했다
+        observe: [response]
+    crosses_process: false
+    risk: [permission]
+    docs: [architecture/agent-definition.md]
+    declared_only: [invalid_input, unauthorized, unavailable]

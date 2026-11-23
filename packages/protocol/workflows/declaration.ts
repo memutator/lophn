@@ -34,6 +34,10 @@ export const declarationStepSchema = z.looseObject({
 // flow code 유무에 따른 `steps` 필수 여부와 step 모양 검사는 core가 맡는다.
 export const workflowDeclarationSchema = z.looseObject({
   kind: z.enum(["agent", "flow"]).optional(),
+  flow_sdk: z
+    .string()
+    .regex(/^\d+\.\d+\.\d+$/)
+    .optional(),
   inputs: workflowInputsSchema.optional(),
   outputs: workflowOutputsSchema.optional(),
   agent: z.string().min(1).optional(),

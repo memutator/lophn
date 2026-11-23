@@ -36,6 +36,8 @@ export const CHANGE_NAMES = [
   "carry_files",
   "agent_calls",
   "mail_holds",
+  "follow_ups",
+  "artifacts",
 ] as const;
 
 export type ChangeName = (typeof CHANGE_NAMES)[number];

@@ -124,6 +124,7 @@ areas:
       - packages/protocol/lophn-agent/team.ts
       - packages/protocol/lophn-agent/instructions.ts
       - packages/protocol/lophn-agent/skill-settings.ts
+      - packages/protocol/lophn-agent/follow-ups.ts
       - packages/core/agent-workspaces/skills/
     owns:
       - agent 정의 만들기, 고치기, 지우기, 정의 file 읽기
@@ -223,6 +224,7 @@ areas:
       - packages/protocol/apps/app-sync.ts
       - packages/protocol/apps/app-files.ts
       - packages/protocol/apps/update-state.ts
+      - packages/protocol/apps/updates.ts
       - packages/protocol/folder/
     owns:
       - 앱 등록, 지우기, source 폴더

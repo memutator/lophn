@@ -1,5 +1,10 @@
 import { z } from "zod";
 import type { Result } from "../../base/mod.ts";
+import {
+  cleanUpModeSchema,
+  erasedJobSpecSchema,
+  followUpItemSchema,
+} from "../base/follow-ups.ts";
 import { archiveStateSchema } from "../base/values.ts";
 import { defineCommand, defineRead } from "../base/route.ts";
 import { defineEvent } from "../base/event.ts";
@@ -164,12 +169,19 @@ export const appDelete = defineCommand({
     "agents",
     "jobs",
     "share_requests",
+    "follow_ups",
   ],
-  input: appInputSchema,
+  input: z.strictObject({
+    app: appIdSchema,
+    clean_up: cleanUpModeSchema.optional(),
+  }),
   output: z.object({
     id: appIdSchema,
     slug: slugSchema,
     sessions: z.array(z.string().min(1)),
+    erased_jobs: z.array(erasedJobSpecSchema).optional(),
+    follow_ups: z.array(followUpItemSchema).optional(),
+    handoff_session: idSchema("ses").nullable().optional(),
   }),
   compare: appCompareSchema,
   actors: ["user"],

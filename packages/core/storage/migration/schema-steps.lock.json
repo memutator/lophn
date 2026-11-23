@@ -426,5 +426,9 @@
   {
     "id": "workflows.checkpoints-and-snapshot",
     "sha256": "69a748e67316ea7944434cd7ea456794b8c73f844c3e42b14328aadd2e7e9aa4"
+  },
+  {
+    "id": "workspace.lifecycle.tables",
+    "sha256": "f299d2d8bfff545f0a0b4a85c7f0692f72618c0a250a2ada01d7effd0b947b7a"
   }
 ]

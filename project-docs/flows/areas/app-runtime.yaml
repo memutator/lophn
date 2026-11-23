@@ -3128,3 +3128,41 @@ flows:
     crosses_process: false
     risk: [sandbox]
     docs: [architecture/app-call.md]
+
+  - id: update-status-read
+    title: 앱 SDK·workflow flow_sdk·플랫폼 역량 메모 상태를 한 번에 읽는다
+    actor: agent
+    entries: [route:updates/status]
+    boundary: [app-runtime, core-api]
+    code: [packages/core/apps/sdk-status/decide.ts]
+    steps:
+      - 활성 앱, flow.ts 기반 workflow, 미검토 플랫폼 메모, 열린 follow-up, 자산 요약을 읽는다
+    outcomes:
+      - id: ok
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: Home agent 또는 user가 아니다
+        observe: [response]
+    crosses_process: false
+    docs: [architecture/activation.md]
+    declared_only: [invalid_input, unauthorized, unavailable]
+
+  - id: update-decide
+    title: 앱 SDK·workflow flow_sdk·플랫폼 업데이트 결정을 내리고 handoff를 보낸다
+    actor: agent
+    entries: [route:updates/decide, route:updates/record]
+    boundary: [app-runtime, core-api]
+    code: [packages/core/apps/sdk-status/decide.ts]
+    steps:
+      - 앱·workflow·플랫폼 검토 기록과 follow-up item을 한 transaction에 저장하고 대상 workspace에 handoff를 보낸다
+    outcomes:
+      - id: recorded
+        observe: [ledger:follow_up_items, response]
+      - id: forbidden
+        code: forbidden
+        when: Home agent 또는 user가 아니다
+        observe: [response]
+    crosses_process: false
+    docs: [architecture/activation.md]
+    declared_only: [invalid_input, not_found, conflict, unavailable]

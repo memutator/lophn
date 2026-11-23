@@ -14,6 +14,7 @@ import {
 import { readyAttestationSchema } from "../runtime.ts";
 import {
   bundleManifestSchema,
+  contractChangeSchema,
   dataChangeSchema,
   releasesGetInputSchema,
   releasesListInputSchema,
@@ -120,6 +121,7 @@ export const releaseRecord = defineCommand({
     release: releaseRecordSchema,
     removed_public_tools: z.array(removedPublicToolSchema),
     removed_public_skills: z.array(removedPublicSkillSchema),
+    contract_changes: z.array(contractChangeSchema).optional(),
   }),
   actors: ["machine"],
   errors: ["forbidden", "invalid_input", "conflict", "unavailable"],

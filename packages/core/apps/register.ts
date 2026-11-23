@@ -83,6 +83,11 @@ import { createDataRecordStore } from "./data/store.ts";
 import { appIcon, appSkills } from "../../protocol/apps/declaration/read.ts";
 import { appSdkDecide, appSdkStatus } from "../../protocol/apps/sdk-status.ts";
 import { sdkReviewCommands } from "./sdk-status/commands.ts";
+import { updateRecordCommand } from "./sdk-status/mod.ts";
+import {
+  workspaceUpdateDecide,
+  workspaceUpdateStatus,
+} from "../../protocol/apps/mod.ts";
 import {
   appTrayList,
   appPhoneRequest,
@@ -237,6 +242,7 @@ export function createLedgerRegistration(
       sdk.registerVersion,
       sdkReviewCommands.recordReview,
       sdkReviewCommands.recordFeature,
+      updateRecordCommand,
       data.recordBackup,
       data.recordDataChange,
       data.recordDataRestore,
@@ -278,6 +284,8 @@ export function createLedgerRegistration(
       // handler는 wiring/apps.ts가 붙인다.
       appRemoteCall,
       appSdkDecide,
+      workspaceUpdateStatus,
+      workspaceUpdateDecide,
       appTraySet,
       appTrayList,
       appWidgetSet,

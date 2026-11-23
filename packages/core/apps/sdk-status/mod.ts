@@ -7,6 +7,7 @@ export {
 export {
   SDK_REVIEW_CONTEXT,
   sdkDecideHandler,
+  updateRecordCommand,
   withSdkDecide,
 } from "./decide.ts";
 export { sdkReviewCommands } from "./commands.ts";

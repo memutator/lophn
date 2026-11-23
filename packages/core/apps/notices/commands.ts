@@ -165,6 +165,7 @@ export function recordProgramNotice(
   const appless =
     input.kind === "lophn_updated" ||
     input.kind === "sdk_update_needed" ||
+    input.kind === "workspace_update_needed" ||
     input.kind === "phone_changed";
   if (appless !== (input.app === undefined)) {
     return err({

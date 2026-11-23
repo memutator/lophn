@@ -1,4 +1,9 @@
 import { z } from "zod";
+import {
+  cleanUpModeSchema,
+  erasedJobSpecSchema,
+  followUpItemSchema,
+} from "../base/follow-ups.ts";
 import { withReadCommon } from "../base/envelope.ts";
 import { idSchema } from "../base/ids.ts";
 import {
@@ -250,11 +255,25 @@ export const agentDelete = defineCommand({
   resource: "agents",
   method: "delete",
   name: "DeleteAgent",
-  changes: [{ name: "agents", id: (input) => input.agent }],
-  input: z.strictObject({ agent: agentIdSchema }),
-  output: z.object({ agent: agentIdSchema, hash: sha256Schema }),
+  changes: [
+    { name: "agents", id: (input) => input.agent },
+    "sessions",
+    "jobs",
+    "follow_ups",
+  ],
+  input: z.strictObject({
+    agent: agentIdSchema,
+    clean_up: cleanUpModeSchema.optional(),
+  }),
+  output: z.object({
+    agent: agentIdSchema,
+    hash: sha256Schema,
+    erased_jobs: z.array(erasedJobSpecSchema).optional(),
+    follow_ups: z.array(followUpItemSchema).optional(),
+    handoff_session: idSchema("ses").nullable().optional(),
+  }),
   compare: existingCompareSchema,
-  actors: ["user"],
+  actors: ["user", "agent"],
   errors: [...writeErrors],
 });
 

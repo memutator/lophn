@@ -6,9 +6,11 @@ import {
   appSdkDecide,
   appSdkReviewRecord,
 } from "../../../protocol/apps/sdk-status.ts";
+import { workspaceUpdateRecord } from "../../../protocol/apps/updates.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
 import type {
   AuthenticatedContext,
+  CommandDefinition,
   Input,
 } from "../../../protocol/server/mod.ts";
 import type { Writer } from "../../storage/ledger/mod.ts";
@@ -181,3 +183,16 @@ export function withSdkDecide(
     },
   };
 }
+
+// Step 0 등록 자리 표시. Wave 2A(update-engine)가 실제 기록 구현을 채운다.
+export const updateRecordCommand: CommandDefinition<
+  typeof workspaceUpdateRecord
+> = {
+  route: workspaceUpdateRecord,
+  handle() {
+    return err({
+      code: "unavailable",
+      message: "update.record is not yet implemented",
+    });
+  },
+};

@@ -32,6 +32,7 @@ import {
   inputRequestAnswerSecret,
 } from "./input-request.ts";
 import { ASK_ROUTES } from "./ask-tool.ts";
+import { FOLLOW_UP_ROUTES } from "./follow-ups.ts";
 import { MESSAGE_IMAGE_ROUTES } from "./message-images.ts";
 import { RECEIVED_MESSAGE_ROUTES } from "./received-messages.ts";
 import { messageSearch } from "./message-search.ts";
@@ -78,6 +79,7 @@ export const ROUTES = [
   // handoff note: session이 남기는 입구와 이 컴퓨터의 사람이 다른 컴퓨터의 note를 읽는 입구.
   ...HANDOFF_ROUTES,
   ...TEAM_ROUTES,
+  ...FOLLOW_UP_ROUTES,
   sendMessage,
   recordShellMessage,
   ...QUEUED_INPUT_ROUTES,

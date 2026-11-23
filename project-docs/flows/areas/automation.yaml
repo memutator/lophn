@@ -1666,3 +1666,46 @@ flows:
         observe: [response]
     crosses_process: false
     docs: [architecture/job.md, architecture/platform.md]
+
+  - id: workflow-rename
+    title: project 안의 workflow 이름을 바꾸고 관련 기록·job·창 layout을 갱신한다
+    actor: person
+    entries: [route:workflows/rename]
+    boundary: [workflows, core-api]
+    code: [packages/core/workflows/service.ts, packages/core/main/daemon/wiring/workflows.ts]
+    steps:
+      - workflow 폴더 이름을 바꾸고 ledger 기록, workflow_start job, 창 desk layout을 새 이름으로 옮긴 뒤 WorkflowRenamed를 발행한다
+    outcomes:
+      - id: renamed
+        observe: [disk:workflow-folder, event:WorkflowRenamed, response]
+      - id: conflict
+        code: conflict
+        when: 대상 이름이 이미 존재한다
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: 원래 workflow가 없다
+        observe: [response]
+    crosses_process: false
+    risk: [data-loss]
+    docs: [architecture/workflow.md]
+
+  - id: workflow-delete
+    title: project 안의 workflow를 삭제하고 실행 중 instance·job·참조 정리를 처리한다
+    actor: person
+    entries: [route:workflows/delete]
+    boundary: [workflows, core-api]
+    code: [packages/core/workflows/service.ts, packages/core/main/daemon/wiring/workflows.ts]
+    steps:
+      - 도는 instance를 멈추고 workflow_start job과 폴더·layout 항목을 지운 뒤 WorkflowRemoved를 발행하고 clean_up 지정 시 follow-up을 인계한다
+    outcomes:
+      - id: deleted
+        observe: [disk:workflow-folder, event:WorkflowRemoved, response]
+      - id: not-found
+        code: not_found
+        when: workflow가 없다
+        observe: [response]
+    crosses_process: false
+    risk: [data-loss]
+    docs: [architecture/workflow.md]
+    declared_only: [conflict]

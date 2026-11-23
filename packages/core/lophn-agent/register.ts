@@ -18,6 +18,7 @@ import {
   agentAvatarImageRead,
   agentAvatarImageUpload,
   finishRewindSummary,
+  impactRead,
   instructionsGet,
   instructionsReadGlobal,
   instructionsWriteGlobal,
@@ -63,12 +64,19 @@ import {
   messageDirectory,
   messageRouter,
 } from "../router/mod.ts";
+import {
+  followUpCommands,
+  followUpPorts,
+  followUpReads,
+} from "../follow-ups/mod.ts";
 import { eraseBlobRefs } from "../storage/blobs/mod.ts";
 import {
   defineTxPort,
   type ReaderRegistration,
+  snapshotPort,
   turnAdmission,
 } from "../storage/ledger/mod.ts";
+import { loadSession, workspaceOf } from "./session/model.ts";
 import {
   type AgentDeps,
   type AgentFileSystem,
@@ -887,6 +895,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       revertCommands.rewind,
       revertCommands.amend,
       revertCommands.apps,
+      followUpCommands.report,
     ],
     reads: [
       reads.read,
@@ -920,6 +929,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       revertReads.preview,
       revertReads.checkpoints,
       revertReads.list,
+      followUpReads.list,
       instructionsGetRoute(),
     ],
     // model.call 본문은 blob 참조만 남는다. tool call 입력·출력도 같은 종류다.
@@ -930,10 +940,19 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       ...turnBodyFields,
       ...messageBodyFields,
     ],
-    ports: [turnAdmissionPort],
+    ports: [
+      turnAdmissionPort,
+      defineTxPort(followUpPorts, (tx) => ({
+        sessionWorkspace(session) {
+          const row = loadSession({ sql: tx.sql }, session);
+          return row === undefined ? null : { workspace: workspaceOf(row) };
+        },
+      })),
+    ],
     // file tool의 쓰기 기록, "Summarize from here" 요청과 MCP OAuth 입구인 core 메모리 route다.
     memoryRoutes: [
       stageRewindFile,
+      impactRead,
       recordRewindWrite,
       requestRewindSummary,
       readRewindSummary,
@@ -1023,8 +1042,19 @@ export function createLophnAgent(ports: LophnAgentPorts) {
         commandReads.list,
         toolReads.read,
         traceReads.read,
+        followUpReads.list,
       ],
-      ports: new Map(),
+      ports: new Map<unknown, unknown>([
+        [
+          followUpPorts,
+          snapshotPort((snapshot) => ({
+            sessionWorkspace(session: string) {
+              const row = loadSession({ sql: snapshot.sql }, session);
+              return row === undefined ? null : { workspace: workspaceOf(row) };
+            },
+          })),
+        ],
+      ]),
     };
   }
 

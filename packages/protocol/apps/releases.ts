@@ -91,6 +91,15 @@ export const removedPublicSkillSchema = z.object({
   skill: z.string().min(1),
 });
 
+// activation 전 release.prepare에서 앱 agent가 확인하는 자기 계약(command·skill·event) 변경 요약. P12: 외부 이름은 싣지 않고 개수만 싣는다.
+export const contractChangeSchema = z.object({
+  surface: z.enum(["command", "skill", "event"]),
+  name: z.string().min(1),
+  change: z.enum(["removed", "changed"]),
+  external_user_count: z.number().int().nonnegative(),
+});
+export type ContractChange = z.infer<typeof contractChangeSchema>;
+
 // 앱 workspace의 session이 앱 source의 HEAD commit으로 release를 준비한다. 검사에 떨어진 것은 오류가 아니라
 // failed 출력이다: 오류 code는 model에 고정 글만 닿아 떨어진 이유가 가려진다.
 // source 폴더가 없거나 commit이 없는 것도 build 단계의 failed다.
@@ -107,6 +116,7 @@ const releasePrepareOutputSchema = z.discriminatedUnion("status", [
     }),
     removed_public_tools: z.array(removedPublicToolSchema),
     removed_public_skills: z.array(removedPublicSkillSchema),
+    contract_changes: z.array(contractChangeSchema).optional(),
   }),
   z.object({
     status: z.literal("failed"),

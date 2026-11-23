@@ -88,5 +88,12 @@ export function programNoticeText(input: NoticeRecordInput): {
         body: `${parts.join(", ")}.`,
       };
     }
+    case "workspace_update_needed": {
+      const { required_apps, required_workflows } = input.params;
+      return {
+        title: "Workspace updates available",
+        body: `${required_apps} apps and ${required_workflows} workflows need updates.`,
+      };
+    }
   }
 }

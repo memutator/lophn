@@ -26,6 +26,7 @@ export * from "./option-axes.ts";
 export * from "./page-view.ts";
 export * from "./workspaces.ts";
 export * from "./custom-provider.ts";
+export * from "./follow-ups.ts";
 export * from "./provider-inputs.ts";
 export * from "./provider-values.ts";
 export * from "./providers.ts";

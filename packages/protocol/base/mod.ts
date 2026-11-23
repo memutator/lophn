@@ -3,6 +3,7 @@ export * from "./confirmation-handle.ts";
 export * from "./envelope.ts";
 export * from "./errors.ts";
 export * from "./event.ts";
+export * from "./follow-ups.ts";
 export * from "./frame.ts";
 export * from "./icon.ts";
 export * from "./ids.ts";

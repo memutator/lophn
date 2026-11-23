@@ -3,11 +3,12 @@ version: 0.23.136
 title: Workflow Run 화면(session tree·refs·cross-workspace [Open session]·[Retry])과 title bar DeskSwitcher 진행 표시를 더한다
 modules:
   - packages/shell/renderer
+  - packages/shell/main
   - packages/design
 change: |
-  - `WorkspaceSource`(`source.ts`, `core-source.ts`, `fake-source.ts`) 확장:
+  - `WorkspaceSource`(`source.ts`, `core-source.ts`, `fake-source.ts`) 확장 및 shell main allowlist:
     - `WorkflowInstanceDetailView`에 `derived_status?`, `sessions?`, `refs?`를, `WorkflowInstanceSummaryView`에 `derived_status?`를 싣고, `WorkflowLineView`에 `step_stalled`·`retried`·`escalated`·`code_updated`와 `report.refs`·`report.data`를 더한다.
-    - `retryWorkflowStep(instance, step?)`를 `WorkspaceSource`에 더해 `core-source.ts`에서 `workflowRetry`(`RetryWorkflowStep`) route로 잇고 `fake-source.ts`에 stub을 둔다.
+    - `retryWorkflowStep(instance, step?)`를 `WorkspaceSource`에 더해 `core-source.ts`에서 `workflowRetry`(`RetryWorkflowStep`) route로 잇고, `packages/shell/main/desktop/core/allowlist.ts`(`RENDERER_MEMORY_ROUTES`)에 `"memory:workflows/retry"`를 허용하며 `fake-source.ts`에 stub을 둔다.
   - Workflow Run 화면(`packages/shell/renderer/workflow/*`, `packages/shell/renderer/workspace/kinds/workflow.tsx`):
     - **Sessions tree**: 메인 step session과 `spawned_by` 자식 worker를 들여쓰기 tree로 보이고, 집계 요약(`done/total · running · waiting · failed`), live 상태 점(`running | waiting | idle | failed`), 마지막 assistant 앞 160자 평문 미리보기, `last_error`, 각 session별 `[Open session]`을 제공한다.
     - **Output files (`refs`)**: report에 명시된 파일 경로 목록을 보이고, 누르면 문서 편집기(`openFile`, 상대 경로는 project 폴더 기준 풀이)로 연다.

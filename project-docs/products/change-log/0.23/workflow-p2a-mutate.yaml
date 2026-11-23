@@ -1,5 +1,5 @@
 id: workflow-p2a-mutate
-version: 0.23.136
+version: 0.23.140
 title: Workflow 2a 로컬 step stall 감지, RetryWorkflowStep, report refs/data 저장과 CLI를 더한다
 modules:
   - packages/protocol

@@ -1,5 +1,5 @@
 id: workflow-p3-contract
-version: 0.23.143
+version: 0.23.144
 title: Workflow Phase 3 선언적 inputs/outputs/when 계약, 순수 검증기, inputs_json schema step, job workflow_start inputs 계약을 더한다
 modules:
   - packages/protocol

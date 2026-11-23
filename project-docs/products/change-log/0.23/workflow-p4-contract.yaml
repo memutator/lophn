@@ -1,5 +1,5 @@
 id: workflow-p4-contract
-version: 0.23.149
+version: 0.23.150
 title: Workflow Phase 4 durable engine 계약, workflow_checkpoints·code_snapshot migration, ResumeWorkflow·UpsertWorkflowCheckpoint route를 더한다
 modules:
   - packages/protocol

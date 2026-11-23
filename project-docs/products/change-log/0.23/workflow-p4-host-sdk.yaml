@@ -1,5 +1,5 @@
 id: workflow-p4-host-sdk
-version: 0.23.154
+version: 0.23.155
 title: "@lophn/flow 2.0.0 durable SDK, v2 flow-wire, durable flow-host 및 snapshot 실행 배선을 구현한다"
 modules:
   - packages/protocol

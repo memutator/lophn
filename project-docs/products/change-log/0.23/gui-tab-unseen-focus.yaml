@@ -1,5 +1,5 @@
 id: gui-tab-unseen-focus
-version: 0.23.133
+version: 0.23.134
 title: core가 연 GUI 터미널 탭과 복원된 GUI 탭도 고르면 완료 dot이 꺼진다
 modules: [packages/shell/renderer]
 change: |

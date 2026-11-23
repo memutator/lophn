@@ -1,5 +1,5 @@
 id: workflow-p2a-place
-version: 0.23.136
+version: 0.23.142
 title: workflow_origin이 있는 GUI 팀원·터미널 탭을 원 workflow의 workspace와 workflow desk에 연다
 modules:
   - packages/core/terminal-agents

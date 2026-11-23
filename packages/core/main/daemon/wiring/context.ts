@@ -99,6 +99,7 @@ import type {
 import type { TerminalView } from "../../../terminal-view/mod.ts";
 import type { PersonEnv, Terminals } from "../../../terminals/ports.ts";
 import type { createWorkflowService } from "../../../workflows/mod.ts";
+import type { FlowEventRegistry } from "../../../workflows/event-subscriptions.ts";
 import type { WorkflowFlows } from "../../../workflows/ports.ts";
 import type { CoreOptions } from "../core.ts";
 import type { Assembled } from "../registration.ts";
@@ -348,6 +349,8 @@ type Late = {
   workflowService: ReturnType<typeof createWorkflowService>;
   // flows wiring이 낸다. workflows wiring이 먼저 만들어지므로 부를 때 읽는다.
   flowHost: WorkflowFlows;
+  // jobs wiring이 낸다. 비영속 flow onEvent 메모리 구독 표다(flows wiring이 부를 때 읽는다).
+  flowEvents: FlowEventRegistry;
   // notices wiring이 낸다. program이 사람에게 남기는 기록을 쓴다. 다른 wiring이 부를 때 읽는다.
   noticeRecorder: NoticeRecorder;
   // attention wiring이 낸다. 기기 목록과 push 보내기를 꽂고(`bindPush`) 기기가 끊길 때 보고를 지운다(`forgetReporter`). 터미널
@@ -481,6 +484,7 @@ const LATE_KEYS: Record<keyof Late, true> = {
   runService: true,
   workflowService: true,
   flowHost: true,
+  flowEvents: true,
   noticeRecorder: true,
   attention: true,
   alwaysOn: true,

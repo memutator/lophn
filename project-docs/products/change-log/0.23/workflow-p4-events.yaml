@@ -1,0 +1,26 @@
+id: workflow-p4-events
+version: 0.23.150
+title: job·flow 공용 event 도달·고리 정책을 추출하고 비영속 flow onEvent 메모리 구독 registry와 daemon bus 연결을 더한다
+modules:
+  - packages/core/events
+  - packages/core/jobs
+  - packages/core/workflows
+  - packages/core/main
+change: |
+  - `packages/core/events/event-policy.ts`(및 `packages/core/events/mod.ts` 재노출):
+    - `reachCheckerOf`, `allowAppEvent`, `allowSessionEvent` 순수 정책 함수를 바닥 core module(`core/events`)에 두어 `core/jobs`와 `core/workflows`가 feature module 간 금지된 cross-import 없이 같은 도달(`mayReachWorkspace`)·고리 제외 규칙을 공유한다.
+  - `packages/core/jobs/events.ts`:
+    - `consider`의 session event·앱 event 도달 범위 및 고리 제외 판정을 `allowSessionEvent`·`allowAppEvent`로 위임한다(기존 job 동작 변화 없음).
+  - `packages/core/workflows/event-subscriptions.ts`:
+    - ledger 저장이나 재시작 replay 없는 비영속 메모리 구독 표 `createFlowEventRegistry`를 더한다(`subscribe`, `unsubscribe`, `unsubscribeInstance`, `hasSessionSubscribers`, `hasAppSubscribers`, `dispatchAppEvent`, `dispatchSessionEvent`, `clear`).
+    - 구독 flow의 project workspace 도달 검사, 자기 workflow instance 인과 사슬의 앱 event 제외, 비사람·workflow·job session event 제외, listener 예외 격리를 적용한다.
+  - `packages/core/main/daemon/wiring/jobs.ts` 및 `packages/core/main/daemon/wiring/context.ts`:
+    - daemon context에 `flowEvents` 슬롯을 더하고 `jobsWiring`에서 `createFlowEventRegistry`를 생성·제공한다.
+    - `ctx.eventDelivery.addInternal`에서 앱 event(부모 invocation·세션 `workflow_origin`·상위 workflow `started_by`에서 인과 instance 사슬 추출)와 `lophn` session event(`spawned_by`·`called_from_kind`·`workflow_origin`·`job_runs`·unattended/step message 판정)를 `flowEvents`로 전달하고, 활성 session 구독이 있으면 `wantsSource("lophn")`을 켠다.
+why: |
+  Phase 4 flow의 `onEvent()`가 `job`과 동일한 비영속·도달 범위·고리 방지 규칙으로 앱 event와 session event를 구독할 수 있는 기반을 마련한다.
+decisions:
+  - text: "공용 event 도달·고리 정책을 `packages/core/jobs/` 대신 바닥 core module인 `packages/core/events/event-policy.ts`에 두고 `packages/core/events/mod.ts`로 재노출한다. 버린 길: `core/jobs/event-policy.ts`를 두고 `core/workflows`가 import하기(`tools/check-deps.ts`의 feature module 상호 import 금지 규칙 위반)."
+    by: agent
+  - text: "flow `onEvent`의 `dispatchAppEvent`는 `machine`이 붙은 원격 기계 event를 전달하지 않고 이 기계 event만 받는다(현재 `flowSubscribeRequestSchema`에 `machine` 지정이 없고, 로컬 job trigger와 일관)."
+    by: agent

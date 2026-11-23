@@ -1028,6 +1028,10 @@ files:
       - workflow-stop:stopped
     note: 멈춘 instance는 넘기지 않고 줄만 남는다
 
+  - path: packages/core/workflows/event-subscriptions_test.ts
+    covers: []
+    note: "flow onEvent 비영속 메모리 구독 registry(createFlowEventRegistry): 도달 범위(mayReachWorkspace), 자기 workflow instance 인과 사슬 제외, 비사람·자동화 session 제외, unsubscribe·unsubscribeInstance 정리, listener 오류 격리를 본다"
+
   - path: packages/core/workflows/reads_test.ts
     covers:
       - workflow-instance-read:ok

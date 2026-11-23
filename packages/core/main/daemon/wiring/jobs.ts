@@ -14,8 +14,11 @@ import type { BusEvent } from "../../../../protocol/events/mod.ts";
 import type {
   AuthenticatedContext,
   Output,
+  Sql,
 } from "../../../../protocol/server/mod.ts";
 import { workflowInstanceRead } from "../../../../protocol/workflows/mod.ts";
+import type { Flight } from "../../../apps/calls/intake.ts";
+import { reachCheckerOf } from "../../../events/mod.ts";
 import {
   JOB_HELD_TOPIC,
   JOBS_CHANGED_TOPIC,
@@ -25,12 +28,21 @@ import {
 import { createJobScheduler } from "../../../jobs/scheduler.ts";
 import { type RunOrigin, systemTimers } from "../../../runs/mod.ts";
 import type { MachineCandidate } from "../../../../protocol/machine/requester.ts";
-import { type Writer, withAfterCommit } from "../../../storage/ledger/mod.ts";
+import {
+  type LedgerConnection,
+  openConnection,
+  type Writer,
+  withAfterCommit,
+} from "../../../storage/ledger/mod.ts";
 import { callPolicySetting } from "../../../config/setting-declarations.ts";
 import {
   DEFAULT_CALL_POLICY,
   isPrivate,
 } from "../../../../protocol/lophn-agent/call-policy.ts";
+import {
+  createFlowEventRegistry,
+  type FlowEventRegistry,
+} from "../../../workflows/event-subscriptions.ts";
 import type { WiringContext, WiringFactory } from "./context.ts";
 
 // scheduler가 차례를 가져가고 줄을 닫고 workflow instance 상태를 읽는 core 안 machine 자격이다.
@@ -213,16 +225,136 @@ export function createJobStarter(deps: {
   };
 }
 
+type ReadSql = Pick<Sql, "get">;
+
+function parseJsonObject(raw: unknown): Record<string, unknown> | null {
+  if (typeof raw !== "string") return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed !== null && typeof parsed === "object"
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+// 사람이 연 session(터미널·앱 화면 포함)이 아니면 true다. jobs-registration의 drivenSession과 같은 기준에
+// job_runs·workflow_origin을 함께 본다.
+function isDrivenSession(sql: ReadSql, session: string): boolean {
+  if (session.startsWith("term:")) return false;
+  const row = sql.get(
+    "SELECT spawned_by, called_from_kind, workflow_origin FROM sessions WHERE id = ?",
+    [session],
+  );
+  if (row === undefined) return true;
+  if (
+    row["spawned_by"] !== null ||
+    row["called_from_kind"] !== null ||
+    row["workflow_origin"] !== null
+  ) {
+    return true;
+  }
+  if (
+    sql.get("SELECT 1 AS found FROM job_runs WHERE session = ? LIMIT 1", [
+      session,
+    ]) !== undefined
+  ) {
+    return true;
+  }
+  return (
+    sql.get(
+      `SELECT 1 AS found FROM messages
+        WHERE session = ? AND ((from_kind = 'human' AND unattended = 1) OR step_instance IS NOT NULL)
+        LIMIT 1`,
+      [session],
+    ) !== undefined
+  );
+}
+
+// 앱 event의 부모 invocation 사슬에서 이 event를 일으킨 workflow instance(및 상위 workflow)를 모은다.
+function originInstancesOf(sql: ReadSql, parent: Flight | null): string[] {
+  if (parent === null) return [];
+  const seeds = new Set<string>();
+  const visitedInv = new Set<string>();
+  let current: string | null = parent.id;
+  while (current !== null && !visitedInv.has(current)) {
+    visitedInv.add(current);
+    const row = sql.get(
+      "SELECT caller, caller_kind, session FROM invocations WHERE id = ?",
+      [current],
+    );
+    if (row === undefined) {
+      // 기록되지 않은 읽기 invocation이 부모이면 살아 있는 flight의 상위로 한 번 올라간다.
+      current = current === parent.id ? parent.parent : null;
+      continue;
+    }
+    const caller = parseJsonObject(row["caller"]);
+    if (caller === null) break;
+    if (caller["kind"] === "flow" && typeof caller["instance"] === "string") {
+      seeds.add(caller["instance"]);
+      break;
+    }
+    if (caller["kind"] === "agent" && typeof row["session"] === "string") {
+      const ses = sql.get("SELECT workflow_origin FROM sessions WHERE id = ?", [
+        row["session"],
+      ]);
+      const origin = parseJsonObject(ses?.["workflow_origin"]);
+      if (typeof origin?.["instance"] === "string") {
+        seeds.add(origin["instance"]);
+      }
+      break;
+    }
+    if (
+      (caller["kind"] === "app" || caller["kind"] === "event") &&
+      typeof caller["parent_invocation"] === "string"
+    ) {
+      current = caller["parent_invocation"];
+      continue;
+    }
+    break;
+  }
+
+  // sub-workflow가 낳은 앱 event가 상위 workflow의 onEvent로 돌아오지 않게 조상 instance까지 담는다.
+  const all = new Set<string>();
+  const queue = [...seeds];
+  while (queue.length > 0) {
+    const id = queue.shift()!;
+    if (all.has(id)) continue;
+    all.add(id);
+    const row = sql.get(
+      "SELECT started_by FROM workflow_instances WHERE id = ?",
+      [id],
+    );
+    const startedBy = parseJsonObject(row?.["started_by"]);
+    if (
+      startedBy?.["kind"] === "workflow" &&
+      typeof startedBy["instance"] === "string" &&
+      !all.has(startedBy["instance"])
+    ) {
+      queue.push(startedBy["instance"]);
+    }
+  }
+  return [...all];
+}
+
 // 규칙은 jobs module의 scheduler가 갖는다. 여기는 port를 core에 잇기만 한다.
 // runs·workflows 뒤다: 켤 때 둘을 맞춘 뒤에 첫 claim이 돈다.
 export const jobsWiring: WiringFactory = () => {
   let scheduler: ReturnType<typeof createJobScheduler> | undefined;
   let closing = false;
   let stopEvents: (() => void) | undefined;
+  let flowEvents: FlowEventRegistry | undefined;
+  let connection: LedgerConnection | undefined;
   return {
     name: "jobs",
     records: () => [JOBS_CONTEXT],
     build(ctx) {
+      const opened = openConnection(ctx.ledgerPath);
+      if (!opened.ok) return opened;
+      connection = opened.value;
+      const { sql } = opened.value;
+
       const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
       // 접은 writer를 쓴다. ctx.writer는 build가 다 끝난 뒤 채워지므로 부를 때 읽는다.
       const command = async <T>(
@@ -316,12 +448,74 @@ export const jobsWiring: WiringFactory = () => {
           ),
         ];
       };
+      const registry = createFlowEventRegistry({
+        reaches: reachCheckerOf(
+          () => ctx.settings.get(callPolicySetting) ?? DEFAULT_CALL_POLICY,
+        ),
+        isDrivenSession: (sessionId) => isDrivenSession(sql, sessionId),
+        onListenerError: ({ subscriptionId, instance, event, error }) => {
+          ctx.telemetry.logger.warn({
+            component: "workflows",
+            event: "flow_event_listener_failed",
+            fields: {
+              subscription: subscriptionId,
+              instance,
+              event_name: event,
+              message: error instanceof Error ? error.message : String(error),
+            },
+          });
+        },
+      });
+      flowEvents = registry;
+      ctx.provide("flowEvents", registry);
+
       const offEvents = ctx.eventDelivery.addInternal({
         wantsSource: (source) =>
-          source === "lophn" && triggers.some((one) => one.app === null),
+          source === "lophn" &&
+          (triggers.some((one) => one.app === null) ||
+            registry.hasSessionSubscribers()),
         deliver(event) {
           const publisher =
             event.publisher === "lophn" ? null : event.publisher;
+          // lophn의 session event는 그 session과 workspace를 싣는다(보이는 범위와 비사람 session 걸러내기).
+          const line = event.payload as {
+            session?: string;
+            workspace?: { kind: "project" | "app"; id: string } | null;
+            spawned_by?: string | null;
+            workflow?: { instance?: string } | null;
+          } | null;
+          const session =
+            publisher === null && typeof line?.session === "string"
+              ? {
+                  id: line.session,
+                  workspace: line.workspace ?? null,
+                  ...(line.spawned_by != null || line.workflow != null
+                    ? { driven: true as const }
+                    : {}),
+                }
+              : null;
+
+          // 비영속 flow onEvent 구독자 전달(job과 같은 도달·고리 규칙을 적용한다).
+          if (publisher === null) {
+            registry.dispatchSessionEvent({
+              event: event.event,
+              payload: event.payload,
+              session,
+            });
+          } else if (registry.hasAppSubscribers(publisher, event.event)) {
+            registry.dispatchAppEvent({
+              app: publisher,
+              source: event.source,
+              event: event.event,
+              payload: event.payload,
+              appChain: event.chain,
+              originInstances: originInstancesOf(sql, event.parent),
+              ...(event.machine === undefined
+                ? {}
+                : { machine: event.machine }),
+            });
+          }
+
           if (
             !triggers.some(
               (one) =>
@@ -332,15 +526,6 @@ export const jobsWiring: WiringFactory = () => {
           ) {
             return;
           }
-          // lophn의 session event는 그 session과 workspace를 싣는다(job의 보이는 범위와 자기 run 걸러내기).
-          const line = event.payload as {
-            session?: string;
-            workspace?: { kind: "project" | "app"; id: string } | null;
-          } | null;
-          const session =
-            publisher === null && typeof line?.session === "string"
-              ? { id: line.session, workspace: line.workspace ?? null }
-              : null;
           void command(jobFireEvent, {
             publisher: event.publisher,
             event: event.event,
@@ -353,7 +538,10 @@ export const jobsWiring: WiringFactory = () => {
                   skip_workspaces: privateWorkspaces(event.machine),
                 }),
             ...(event.remote === true ? { remote: true as const } : {}),
-            session,
+            session:
+              session === null
+                ? null
+                : { id: session.id, workspace: session.workspace },
           }).then((done) => {
             if (!done.ok) {
               ctx.telemetry.logger.warn({
@@ -409,7 +597,10 @@ export const jobsWiring: WiringFactory = () => {
     async closeWork() {
       closing = true;
       stopEvents?.();
+      flowEvents?.clear();
       await scheduler?.stop();
+      connection?.close();
+      connection = undefined;
     },
   };
 };

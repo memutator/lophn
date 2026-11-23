@@ -12,6 +12,7 @@ import type {
   RequestContext,
   Tx,
 } from "../../protocol/server/mod.ts";
+import { allowAppEvent, allowSessionEvent } from "../events/mod.ts";
 import { jobsChanged, jobEventPolicyPort, jobMachinePort } from "./ports.ts";
 import { loadJob, insertJobRun, noteFired, noteSkipped } from "./store.ts";
 
@@ -59,38 +60,29 @@ function consider(
   now: string,
 ): "fired" | "skipped" | "ignored" {
   const trigger = job.trigger!;
+  const policy = tx.port(jobEventPolicyPort);
   if (trigger.app === null) {
-    // lophn의 session event. job의 workspace가 call 정책으로 닿을 수 있는 session만 본다.
-    if (input.session === null) return "ignored";
-    const policy = tx.port(jobEventPolicyPort);
-    if (!policy.reaches(workspaceOf(job), input.session.workspace)) {
-      return "ignored";
-    }
-    // 사람이 연 session의 event만 job을 깨운다. 어느 job(이 job이든 다른 job이든)의 run이 연 session, run·workflow step·팀·call로 열린
-    // session은 건너뛰지도 세지도 않는다(job이 job을 깨우는 고리). 앱 화면이 연 session은 사람이 보는 중이라 깨운다.
-    const driven = tx.sql.get(
-      "SELECT 1 AS found FROM job_runs WHERE session = ?",
-      [input.session.id],
-    );
-    if (driven !== undefined || policy.drivenSession(input.session.id)) {
-      return "ignored";
-    }
+    // lophn의 session event: 도달 범위와 비사람·자동화 session 제외 규칙을 flow onEvent와 함께 쓴다.
+    const allowed = allowSessionEvent({
+      subscriberWorkspace: workspaceOf(job),
+      session: input.session,
+      reaches: (from, to) => policy.reaches(from, to),
+      isDrivenSession: (sessionId) =>
+        tx.sql.get("SELECT 1 AS found FROM job_runs WHERE session = ?", [
+          sessionId,
+        ]) !== undefined || policy.drivenSession(sessionId),
+    });
+    if (!allowed) return "ignored";
   } else {
-    // 앱 event: job의 workspace가 그 앱 workspace에 call 정책으로 닿을 수 있어야 본다(private 앱의 event가 다른 workspace의 job을 깨우지 않는다).
-    if (
-      !tx
-        .port(jobEventPolicyPort)
-        .reaches(workspaceOf(job), { kind: "app", id: trigger.app })
-    ) {
-      return "ignored";
-    }
-    if (
-      job.action.kind === "tool_run" &&
-      input.chain.includes(job.action.app)
-    ) {
-      // 이 job이 부르는 앱이 이 event의 인과에 이미 있다: 그 앱의 호출이 낸 event가 이 job으로 돌아오는 고리다.
-      return "ignored";
-    }
+    // 앱 event: 도달 범위와 같은 앱 tool_run 고리 제외 규칙을 flow onEvent와 함께 쓴다.
+    const allowed = allowAppEvent({
+      subscriberWorkspace: workspaceOf(job),
+      sourceApp: trigger.app,
+      appChain: input.chain,
+      excludedApp: job.action.kind === "tool_run" ? job.action.app : undefined,
+      reaches: (from, to) => policy.reaches(from, to),
+    });
+    if (!allowed) return "ignored";
   }
 
   const open = tx.sql.get(

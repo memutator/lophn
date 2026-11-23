@@ -23,7 +23,7 @@ const reasonOf = (thrown: unknown) =>
 // 이미 같은 곳을 가리키면 그대로 둔다. `workflow.check`와 launch가 같은 폴더를 동시에 볼 수 있다.
 export async function linkFlowSdk(input: {
   dataRoot: string;
-  // `packageInstallPath`의 값. 예: `sdk/flow/1.0.0`.
+  // `packageInstallPath`의 값. 예: `sdk/flow/1.1.0`.
   installPath: string;
   platform?: OsPlatform;
 }): Promise<Result<void>> {

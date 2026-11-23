@@ -257,6 +257,10 @@ files:
     covers: []
     note: "cap-store·cap-tool·cap-problem을 lophn-phone 조건으로 묶으면 node: import가 남지 않는다(폰 backend는 Node 내장 module이 없다). outcome이 없다"
 
+  - path: packages/sdk/flow/wire_test.ts
+    covers: []
+    note: "flow SDK의 start 줄 해석(inputs 기본 빈 객체, frozen, 객체 아닌 inputs 거절)과 mod.ts의 inputs export를 본다"
+
   - path: tests/support/fake-oauth/issuer_test.ts
     covers: []
     note: 테스트용 fake OAuth 발급자 support

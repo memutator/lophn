@@ -1,0 +1,23 @@
+id: workflow-p3-flowsdk
+version: 0.23.144
+title: "@lophn/flow 1.1.0 inputs export, flow-host start inputs 전달, write-workflow skill과 migrate-sdk 메모를 더한다"
+modules:
+  - packages/protocol
+  - packages/sdk
+  - packages/core/main
+  - packages/core/agent-workspaces
+change: |
+  - SDK `@lophn/flow` 1.0.0 → 1.1.0(`supported_from` 1.0.0 유지) 및 `FLOW_SDK_VERSION` `"1.1.0"` 갱신(`package-lock.json` pin 포함):
+    - `packages/sdk/flow/wire.ts`에 `parseStartLine`을 두고 `start` 줄의 선택적 `inputs` 객체(없으면 `{}`)를 frozen `Readonly<Record<string, unknown>>`으로 `FlowPort`에 싣는다(객체가 아닌 값은 거절).
+    - `packages/sdk/flow/mod.ts`에서 `inputs: Readonly<Record<string, unknown>>`를 export한다.
+    - `packages/sdk/flow/guide.md`에 `inputs` API와 예제를 더했다.
+  - `packages/core/main/flow-host/host.ts`: `FlowLaunchStart`와 `startMessage`로 선택적 `inputs?: Record<string, unknown>`을 받아 flow process의 `start` frame에 싣는다(`FlowHost`는 `WorkflowFlows`와 양립).
+  - `packages/core/agent-workspaces/skills/write-workflow/SKILL.md`: 선언적 `inputs`/`outputs`/`when`, `invalid_inputs` 문제, `kind: agent` 첫 step의 `Inputs:` 주입, `@lophn/flow`의 `inputs` export를 문서화했다.
+  - `packages/core/agent-workspaces/skills/migrate-sdk/flow-1.1.0.md`(`## Instruction diff` 포함)와 `project-docs/flows/areas/sdk.yaml`(`sdk:flow/inputs`)을 더했다.
+why: |
+  선언적 `inputs`를 쓰는 `kind: flow` workflow가 시작 시 검증된 입력 값을 `@lophn/flow`의 `inputs`로 읽을 수 있게 하고, workflow 작성 agent가 새 선언·주입·SDK 규칙을 따르게 한다.
+decisions:
+  - text: "`createFlowHost` 반환형 `FlowHost`의 `launch`가 선택적 `inputs?: Record<string, unknown>`을 받게 해 `packages/core/workflows/ports.ts`에 `inputs`가 붙기 전후 모두 `WorkflowFlows`와 타입 호환되게 둔다. 버린 길: `ports.ts`를 같이 수정해 `p3-core`와 충돌시키기."
+    by: agent
+  - text: "`inputs`는 `start.inputs ?? {}`를 shallow freeze한 읽기 전용 객체로 노출한다(선언이 없어도 `inputs`는 `{}`로 안전하게 접근 가능). 버린 길: 선언이 없을 때 `undefined`로 두기."
+    by: agent

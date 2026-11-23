@@ -11,10 +11,11 @@ workflow의 `flow.ts`가 바깥과 닿는 길이다. flow code는 agent를 부�
 ## 공개 API와 type
 
 ```ts
-import { agent, input, instance, report, tool } from "@lophn/flow";
+import { agent, input, inputs, instance, report, tool } from "@lophn/flow";
 ```
 
-- `input: string` — 이 instance를 시작할 때 받은 입력이다.
+- `input: string` — 이 instance를 시작할 때 받은 입력 글이다.
+- `inputs: Readonly<Record<string, unknown>>` — `workflow.yaml`에 선언한 `inputs`로 받은 구조화 입력이다(선언이 없거나 값이 없으면 `{}`). 시작 시 core가 검증·기본값 적용·redaction을 끝낸 읽기 전용(frozen) 객체다.
 - `instance: string` — instance id다.
 - `agent({ agent, prompt, input?, schema? })` — agent 한 명에게 일을 시키고 답을
   기다린다. `agent`는 `{ agent, workspace? }`다(`agent`는 agent handle, `workspace`는
@@ -69,10 +70,11 @@ Node가 type만 지우고 code를 바로 실행한다. import할 수 있는 것�
 ## 예제
 
 ```ts
-import { agent, input, report, tool } from "@lophn/flow";
+import { agent, input, inputs, report, tool } from "@lophn/flow";
 
+const target = typeof inputs.target === "string" ? inputs.target : "notes";
 const draft = await agent<{ title: string }>({
-  agent: { agent: "lophn", workspace: { app: "notes" } },
+  agent: { agent: "lophn", workspace: { app: target } },
   prompt: "Write a title for this note.",
   input,
   schema: { type: "object", required: ["title"] },
@@ -80,7 +82,7 @@ const draft = await agent<{ title: string }>({
 if (!draft.ok) {
   await report({ step: "draft", text: draft.message, next: "end" });
 } else {
-  await tool({ app: "notes", tool: "notes.add", input: draft.result });
+  await tool({ app: target, tool: "notes.add", input: draft.result });
   await report({ step: "draft", text: draft.result.title, next: "end" });
 }
 ```

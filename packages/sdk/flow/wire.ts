@@ -27,14 +27,56 @@ export type RequestBody =
   | ({ type: "tool" } & ToolRequest)
   | ({ type: "report" } & ReportRequest);
 
-type StartLine = { type: "start"; instance: string; input: string };
+type StartLine = {
+  type: "start";
+  instance: string;
+  input: string;
+  inputs?: Record<string, unknown>;
+};
 type ResponseLine = { type: "response"; id: string; outcome: Outcome };
 
 export type FlowPort = {
   instance: string;
   input: string;
+  inputs: Readonly<Record<string, unknown>>;
   request(body: RequestBody): Promise<Outcome>;
 };
+
+export type ParsedStart = {
+  instance: string;
+  input: string;
+  inputs: Readonly<Record<string, unknown>>;
+};
+
+export function parseStartLine(
+  line: string,
+): { ok: true; value: ParsedStart } | { ok: false; message: string } {
+  let start: StartLine;
+  try {
+    start = JSON.parse(line);
+  } catch {
+    return { ok: false, message: "flow: first line is not JSON" };
+  }
+  if (
+    start?.type !== "start" ||
+    typeof start.instance !== "string" ||
+    typeof start.input !== "string" ||
+    (start.inputs !== undefined &&
+      (typeof start.inputs !== "object" ||
+        start.inputs === null ||
+        Array.isArray(start.inputs)))
+  ) {
+    return { ok: false, message: "flow: first line is not a start message" };
+  }
+  return {
+    ok: true,
+    value: {
+      instance: start.instance,
+      input: start.input,
+      inputs: Object.freeze({ ...(start.inputs ?? {}) }),
+    },
+  };
+}
 
 // process -> core 한 줄 상한이다. flow-host의 FLOW_LINE_MAX_BYTES와 같은 값이다.
 const LINE_MAX_BYTES = 1024 * 1024;
@@ -147,21 +189,10 @@ async function readLines(onFirst: (line: string) => void): Promise<void> {
 export function connect(): Promise<void> {
   return new Promise((resolve) => {
     void readLines((line) => {
-      let start: StartLine;
-      try {
-        start = JSON.parse(line);
-      } catch {
-        return fail(2, "flow: first line is not JSON");
-      }
-      if (
-        start?.type !== "start" ||
-        typeof start.instance !== "string" ||
-        typeof start.input !== "string"
-      )
-        return fail(2, "flow: first line is not a start message");
+      const parsed = parseStartLine(line);
+      if (!parsed.ok) return fail(2, parsed.message);
       const port: FlowPort = {
-        instance: start.instance,
-        input: start.input,
+        ...parsed.value,
         request,
       };
       (globalThis as Store)[FLOW_PORT] = port;

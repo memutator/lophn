@@ -12,6 +12,7 @@ import {
   FLOW_SDK_VERSION,
   type FlowOutcome,
   type FlowRequest,
+  type FlowStartMessage,
 } from "../../../protocol/workflows/flow-wire.ts";
 import {
   WORKFLOW_FLOW_FILE,
@@ -65,6 +66,33 @@ const EXIT_GRACE_MS = 200;
 // 죽고 program_exited 줄에 끝 code와 stderr 끝이 남는다.
 const FLOW_HEAP_LIMIT_MB = 512;
 
+export type FlowLaunchStart = {
+  instance: Id<"wfi">;
+  project: Id<"prj">;
+  workflow: string;
+  input: string;
+  inputs?: Record<string, unknown>;
+  agent: string;
+};
+
+export type FlowHost = Omit<WorkflowFlows, "launch"> & {
+  launch(start: FlowLaunchStart): Promise<Result<void>>;
+  close(): Promise<void>;
+};
+
+export function startMessage(
+  start: Pick<FlowLaunchStart, "instance" | "input" | "inputs">,
+): FlowStartMessage {
+  return start.inputs === undefined
+    ? { type: "start", instance: start.instance, input: start.input }
+    : {
+        type: "start",
+        instance: start.instance,
+        input: start.input,
+        inputs: start.inputs,
+      };
+}
+
 export function flowCommand(entry: string, flowFile: string): NodeCommand {
   return nodeCommand(
     entry,
@@ -95,9 +123,7 @@ const failure = (reason: string, message: string): FlowOutcome => ({
 
 const messageOf = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-export function createFlowHost(
-  deps: FlowHostDeps,
-): WorkflowFlows & { close(): Promise<void> } {
+export function createFlowHost(deps: FlowHostDeps): FlowHost {
   const { dataRoot, clock } = deps;
   const flowsRoot = `${dataRoot}/${FLOWS_FOLDER}`;
   const processes = new Map<string, Entry>();
@@ -240,13 +266,7 @@ export function createFlowHost(
     };
   }
 
-  async function launch(start: {
-    instance: Id<"wfi">;
-    project: Id<"prj">;
-    workflow: string;
-    input: string;
-    agent: string;
-  }): Promise<Result<void>> {
+  async function launch(start: FlowLaunchStart): Promise<Result<void>> {
     const { instance, project } = start;
     const unavailable = (message: string) =>
       err({ code: "unavailable" as const, message });
@@ -371,7 +391,7 @@ export function createFlowHost(
     });
 
     try {
-      await writer.start({ type: "start", instance, input: start.input });
+      await writer.start(startMessage(start));
     } catch (e) {
       entry.quiet = true;
       processes.delete(instance);

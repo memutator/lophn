@@ -61,9 +61,35 @@ does not read it or call it wrong.
   - `in`, `out`: what it receives and what it produces, in words.
   - `next`: the candidate next steps, step names or `end`. `end` cannot be a
     step name.
+- `inputs`: optional map from input key (1-63 chars) to a start-time form field:
+  `{ type, label?, description?, required?, default?, placeholder?, when?, options?, min?, max?, kind? }`.
+  - `type`: `string`, `text`, `number` (`min?`, `max?`), `boolean`, `select`
+    (`options`: non-empty list of strings or `{ value, label? }`), `multiselect`
+    (`options`), `agent` (callable agents on the workspace), or `path`
+    (`kind?: file | dir | any`).
+  - `when`: show and validate the field only when a condition holds:
+    `{ field, equals }`, `{ field, in: [...] }`, `{ field, truthy: true | false }`,
+    or an array of conditions (all must hold, AND). Hidden fields are not
+    required and are omitted from the validated values. Unknown targets,
+    self-references, and cycles fail validation (`invalid_inputs`).
+- `outputs`: optional map from output key to
+  `{ type?: string | number | boolean | json | path | refs, description?, required? }`.
 
 ```yaml
 kind: agent
+inputs:
+  mode:
+    type: select
+    label: Mode
+    options: [quick, full]
+    default: quick
+  budget:
+    type: number
+    min: 1
+    max: 100
+    when: { field: mode, equals: full }
+outputs:
+  report_path: { type: path, description: "Generated report.md" }
 participants:
   me: { kind: human }
   experimenter: { agent: experimenter }
@@ -102,16 +128,18 @@ along. The folder is:
 └── artifacts/        optional
 ```
 
-lophn reads `kind: flow`, `agent` and `steps` from `workflow.yaml`. The keys of
-`steps` are the step names that the screens and `report` use. The other fields
-(`by`, `prompt`, `participants`) are not read by lophn; use them as notes only.
+lophn reads `kind: flow`, `agent`, `inputs`, `outputs` and `steps` from
+`workflow.yaml`. The keys of `steps` are the step names that the screens and
+`report` use. The other fields (`by`, `prompt`, `participants`) are not read by
+lophn; use them as notes only.
 `flow.ts` may import other files of the same folder by a relative path.
 
 ```ts
-import { agent, input, report, tool } from "@lophn/flow";
+import { agent, input, inputs, report, tool } from "@lophn/flow";
 
+const target = typeof inputs.target === "string" ? inputs.target : "notes";
 const draft = await agent<{ title: string }>({
-  agent: { agent: "lophn", workspace: { app: "notes" } },
+  agent: { agent: "lophn", workspace: { app: target } },
   prompt: "Write a title for this note.",
   input,
   schema: { type: "object", required: ["title"] },
@@ -119,14 +147,16 @@ const draft = await agent<{ title: string }>({
 if (!draft.ok) {
   await report({ step: "draft", text: draft.message, next: "end" });
 } else {
-  await tool({ app: "notes", tool: "notes.add", input: draft.result });
+  await tool({ app: target, tool: "notes.add", input: draft.result });
   await report({ step: "draft", text: draft.result.title, next: "end" });
 }
 ```
 
-The SDK `@lophn/flow` gives five things:
+The SDK `@lophn/flow` gives six things:
 
 - `input`: the text the instance was started with.
+- `inputs`: read-only (`Readonly<Record<string, unknown>>`) object of validated,
+  default-filled values from the declared `inputs` (or `{}` when none).
 - `instance`: the instance id.
 - `agent({ agent, prompt, input?, schema? })`: calls one agent as a run, waits
   until it ends and gives its answer. `agent` is `{ agent, workspace? }` (workspace left
@@ -169,16 +199,20 @@ After you write or change `flow.ts`, run `lophn workflow check` with
 `<project>/<name>` and read the type errors. It does not run the flow, so it
 does not show that the flow works. No errors means it passes.
 
-Starting: a person (the screen, the CLI) or a job starts it. You and other
-agents cannot. The start text arrives as `input`.
+Starting: a person (the screen, the CLI with optional `--inputs <json>`) or a
+job (`workflow_start` with optional `inputs`) starts it. You and other agents
+cannot. The start text arrives as `input` and the validated structured inputs
+arrive as `inputs`.
 
 ## A step message is all a participant gets
 
 A participant receives its own step's `prompt`, what it receives (`in` and the
 text of the report before it), what it produces (`out`) and the next candidates
 (`next`). The message labels are `Receives:`, `Received:`, `Produces:` and
-`Next candidates:`. It does not know `workflow.md`, the other steps or the whole
-workflow.
+`Next candidates:`. When a `kind: agent` workflow starts with declared `inputs`,
+lophn also injects an `Inputs:` section (one `key: value` line per validated
+input) into the first step's message alongside `Received:`. It does not know
+`workflow.md`, the other steps or the whole workflow.
 
 So write each `prompt` so that it works when read alone: the absolute paths it
 needs, where it leaves its result, and in what words it reports when done. If a
@@ -187,10 +221,12 @@ participant has to read `workflow.md`, that step's `prompt` says so.
 ## After you write it
 
 Run `lophn workflow list`. A wrong declaration drops only that workflow, and its
-`problem` says why. A flow whose declaration is wrong or whose `flow.ts` is
-missing shows a `problem` too (`no_flow_file`). The names that `by`, `with` and
-`next` point to are not checked when the file is read: a wrong one shows up when
-a step is handed, as a step that could not be handed.
+`problem` says why (for example `invalid_inputs` for a malformed `inputs` block
+such as missing `options`, invalid `default`/`min`/`max`, or unknown/cyclic
+`when`). A flow whose declaration is wrong or whose `flow.ts` is missing shows a
+`problem` too (`no_flow_file`). The names that `by`, `with` and `next` point to
+are not checked when the file is read: a wrong one shows up when a step is
+handed, as a step that could not be handed.
 
 The declaration is copied when an instance starts. Changing the file does not
 change a running instance. The participants of that instance change its steps

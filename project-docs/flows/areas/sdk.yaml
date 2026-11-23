@@ -614,7 +614,7 @@ flows:
     boundary: [sdk-api, child-supervision-protocol, workflows]
     code: [packages/sdk/flow/wire.ts, packages/sdk/flow/mod.ts]
     steps:
-      - "flow host가 준 start 줄(instance, 입력)을 port로 잡는다. flow process 밖에서 import하면 mod.ts가 Error를 던진다"
+      - "flow host가 준 start 줄(instance, 입력, 선언적 inputs)을 port로 잡는다. flow process 밖에서 import하면 mod.ts가 Error를 던진다"
       - "요청을 type을 붙인 JSON 한 줄로 stdout에 쓴다. JSON이 아니거나 1 MiB를 넘으면 core에 보내지 않고 invalid_input 답을 준다. process는 산다"
       - "요청마다 id를 붙여 같은 id의 응답 줄을 기다린다. core의 outcome을 ok, result 또는 reason, message 꼴로 그대로 넘긴다"
       - "core가 stdin을 닫으면 기다리던 요청을 버리고 process를 1로 끝낸다"
@@ -774,4 +774,5 @@ ignore:
   - {entry: "sdk:declaration/validateDeclaration", reason: "정본 검증기의 재내보내기다. core의 declaration-check와 release 준비가 같은 함수를 쓴다"}
   - {entry: "sdk:declaration/validateInput", reason: "정본 입력 검사의 재내보내기다. command 입력은 app-command-call의 child가 같은 함수로 검사한다"}
   - {entry: "sdk:flow/input", reason: "start 줄의 입력 글을 옮겨 담은 상수다. 시작은 workflow-start-flow가 한다"}
+  - {entry: "sdk:flow/inputs", reason: "start 줄의 선언적 inputs 객체(없으면 빈 객체, frozen)를 옮겨 담은 상수다. 시작은 workflow-start-flow가 한다"}
   - {entry: "sdk:flow/instance", reason: "start 줄의 instance id를 옮겨 담은 상수다. 시작은 workflow-start-flow가 한다"}

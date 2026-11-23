@@ -22,6 +22,11 @@ function need(): FlowPort {
 const port = need();
 
 export const input: string = port.input;
+export const inputs: Readonly<Record<string, unknown>> = port.inputs
+  ? Object.isFrozen(port.inputs)
+    ? port.inputs
+    : Object.freeze({ ...port.inputs })
+  : Object.freeze({});
 export const instance: string = port.instance;
 
 // result의 type T는 부르는 쪽의 단언이다. 검사하지 않는다.

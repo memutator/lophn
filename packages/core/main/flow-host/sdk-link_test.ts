@@ -4,21 +4,24 @@ import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { FLOW_SDK_NAME } from "../../../protocol/workflows/mod.ts";
+import {
+  FLOW_SDK_NAME,
+  FLOW_SDK_VERSION,
+} from "../../../protocol/workflows/mod.ts";
 import { linkFlowSdk } from "./sdk-link.ts";
 
 // flow.ts가 SDK 사본이 아닌 다른 것을 import하면 project workspace의 agent가 쓴 code가 검사한 것과 다르게 돈다.
 test("a flow file resolves @lophn/flow to the installed SDK copy", async () => {
   const dataRoot = await mkdtemp(join(tmpdir(), "flow-sdk-link-"));
   try {
-    const installPath = "sdk/flow/1.0.0";
+    const installPath = `sdk/flow/${FLOW_SDK_VERSION}`;
     const sdk = join(dataRoot, installPath);
     await mkdir(sdk, { recursive: true });
     await writeFile(
       join(sdk, "package.json"),
       JSON.stringify({
         name: FLOW_SDK_NAME,
-        version: "1.0.0",
+        version: FLOW_SDK_VERSION,
         type: "module",
         exports: "./mod.ts",
       }),

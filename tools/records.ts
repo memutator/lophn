@@ -40,12 +40,28 @@ const CHANGE_KEYS = [
   "title",
   "modules",
   "checked",
+  "platform_note",
   "change",
   "why",
   "decisions",
   "follow_up",
   "checklist",
 ];
+
+export const CAPABILITY_SURFACE_MODULES = [
+  "packages/protocol",
+  "packages/cli",
+  "packages/sdk",
+  "packages/core/agent-workspaces",
+  "packages/core/workflows",
+  "packages/core/lophn-agent",
+] as const;
+
+const PLATFORM_NOTE_CUTOFF_VERSION = "0.23.155";
+const PLATFORM_NOTE_CUTOFF_EXEMPT_ID = "workflow-p4-host-sdk";
+const PLATFORM_NOTES_MANIFEST =
+  "packages/core/agent-workspaces/skills/update/platform-notes.json";
+const PLATFORM_NOTES_DIR = "packages/core/agent-workspaces/skills/update/notes";
 
 function read(path: string): string {
   return readFileSync(`${ROOT}/${path}`, "utf8");
@@ -120,6 +136,104 @@ export function compare(a: string, b: string): number {
   return 0;
 }
 
+export type PlatformNoteContext = {
+  noteIds: ReadonlySet<string> | null;
+  hasNoteFile: (slug: string) => boolean;
+  manifestError?: string;
+};
+
+export function isAfterPlatformNoteCutoff(
+  version: string,
+  id: string,
+): boolean {
+  if (!SEMVER.test(version)) return false;
+  const cmp = compare(version, PLATFORM_NOTE_CUTOFF_VERSION);
+  return cmp > 0 || (cmp === 0 && id !== PLATFORM_NOTE_CUTOFF_EXEMPT_ID);
+}
+
+export function touchesCapabilitySurface(modules: readonly string[]): boolean {
+  return modules.some((mod) =>
+    CAPABILITY_SURFACE_MODULES.some(
+      (prefix) => mod === prefix || mod.startsWith(`${prefix}/`),
+    ),
+  );
+}
+
+export function validateChangePlatformNote(
+  entry: {
+    id: string;
+    version: string;
+    modules: readonly string[];
+    platform_note?: unknown;
+  },
+  context?: PlatformNoteContext,
+): string[] {
+  const value = entry.platform_note;
+  if (value === undefined) {
+    if (
+      isAfterPlatformNoteCutoff(entry.version, entry.id) &&
+      touchesCapabilitySurface(entry.modules)
+    ) {
+      return [
+        "역량 표면 modules를 바꾼 항목은 platform_note(<slug> 또는 none)가 있어야 함",
+      ];
+    }
+    return [];
+  }
+  if (typeof value !== "string" || !KEBAB.test(value)) {
+    return ["none 또는 kebab-case slug여야 함"];
+  }
+  if (value === "none") return [];
+  if (context?.manifestError) {
+    return [
+      `${PLATFORM_NOTES_MANIFEST}을 읽을 수 없음: ${context.manifestError}`,
+    ];
+  }
+  if (context && context.noteIds !== null) {
+    const errors: string[] = [];
+    if (!context.noteIds.has(value)) {
+      errors.push(`${PLATFORM_NOTES_MANIFEST}에 없는 note id: ${value}`);
+    }
+    if (!context.hasNoteFile(value)) {
+      errors.push(`note file이 없음: ${PLATFORM_NOTES_DIR}/${value}.md`);
+    }
+    return errors;
+  }
+  return [];
+}
+
+function readPlatformNoteContext(root: string): PlatformNoteContext {
+  const manifestPath = `${root}/${PLATFORM_NOTES_MANIFEST}`;
+  if (!existsSync(manifestPath)) {
+    return { noteIds: null, hasNoteFile: () => false };
+  }
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(manifestPath, "utf8"));
+    if (!Array.isArray(parsed)) {
+      return {
+        noteIds: null,
+        hasNoteFile: () => false,
+        manifestError: "배열이어야 함",
+      };
+    }
+    const noteIds = new Set(
+      parsed.filter((item): item is string => typeof item === "string"),
+    );
+    return {
+      noteIds,
+      hasNoteFile: (slug: string) =>
+        existsSync(`${root}/${PLATFORM_NOTES_DIR}/${slug}.md`),
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      noteIds: null,
+      hasNoteFile: () => false,
+      manifestError: message.split("\n")[0] ?? message,
+    };
+  }
+}
+
 type Problem = { file: string; text: string };
 
 function check(only: string | undefined, partial: boolean): Problem[] {
@@ -128,6 +242,7 @@ function check(only: string | undefined, partial: boolean): Problem[] {
     problems.push({ file, text: `${file}: ${field}: ${message}` });
   const modules = catalogPaths();
   const registry = registryIds();
+  const platformNotes = readPlatformNoteContext(ROOT);
 
   const text = (file: string, data: Obj, field: string, required: boolean) => {
     const v = data[field];
@@ -209,6 +324,18 @@ function check(only: string | undefined, partial: boolean): Problem[] {
         add(file, "checklist", "비지 않은 글의 목록이어야 함");
     }
     moduleList(file, data);
+    const id = typeof data.id === "string" ? data.id : basename(file, ".yaml");
+    for (const message of validateChangePlatformNote(
+      {
+        id,
+        version,
+        modules: strings(data.modules),
+        platform_note: data.platform_note,
+      },
+      platformNotes,
+    )) {
+      add(file, "platform_note", message);
+    }
     for (const c of strings(data.checked))
       if (!registry.has(c)) add(file, "checked", `registry에 없는 ID: ${c}`);
     if (data.decisions !== undefined) {

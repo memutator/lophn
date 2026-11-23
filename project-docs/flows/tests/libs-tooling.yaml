@@ -292,3 +292,7 @@ files:
   - path: tools/install-checklist_test.ts
     covers: []
     note: 설치 체크리스트가 깔린 판 초과 설치할 판 이하의 항목만 모으고 downgrade는 경고만 내는지 보는 도구 test
+
+  - path: tools/records_test.ts
+    covers: []
+    note: change-log의 platform_note 규칙(0.23.155 cutoff, 역량 표면 module prefix, slug 형식, manifest 대조)과 platform-notes.json·note header 검증을 보는 도구 test

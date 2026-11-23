@@ -9,8 +9,23 @@ type Issue = { where: string; message: string };
 type Sdk = { folder: string; part: string; version: string; floor: unknown };
 
 const NOTES = "packages/core/agent-workspaces/skills/migrate-sdk";
+const PLATFORM_UPDATE_DIR = "packages/core/agent-workspaces/skills/update";
+const PLATFORM_NOTES_MANIFEST = `${PLATFORM_UPDATE_DIR}/platform-notes.json`;
+const PLATFORM_NOTES_DIR = `${PLATFORM_UPDATE_DIR}/notes`;
 const SEMVER = /^\d+\.\d+\.\d+$/;
 const NOTE_FILE = /^(.+)-(\d+\.\d+\.\d+)\.md$/;
+const KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const PLATFORM_BREAKING = /^Breaking:[ \t]*(yes|no)(?:$|[\s.,:;—–(-])/m;
+const PLATFORM_AREAS_LINE = /^Areas:[ \t]*(.*)$/m;
+
+export const PLATFORM_NOTE_AREAS = [
+  "home",
+  "project",
+  "workflow",
+  "agent",
+  "app",
+] as const;
+const PLATFORM_AREA_SET = new Set<string>(PLATFORM_NOTE_AREAS);
 
 function compare(a: string, b: string): number {
   const left = a.split(".").map(Number);
@@ -133,6 +148,113 @@ export async function checkSdkNotes(root: string): Promise<Issue[]> {
       });
     }
   }
+  issues.push(...(await checkPlatformNotes(root)));
+  return issues;
+}
+
+export async function checkPlatformNotes(root: string): Promise<Issue[]> {
+  let raw: string;
+  try {
+    raw = await readFile(`${root}/${PLATFORM_NOTES_MANIFEST}`, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException)?.code === "ENOENT") return [];
+    throw error;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return [
+      { where: PLATFORM_NOTES_MANIFEST, message: `JSON이 아니다: ${message}` },
+    ];
+  }
+  if (!Array.isArray(parsed)) {
+    return [
+      {
+        where: PLATFORM_NOTES_MANIFEST,
+        message: "note id 문자열 배열이어야 한다.",
+      },
+    ];
+  }
+
+  const issues: Issue[] = [];
+  const ids = new Set<string>();
+  for (const [index, item] of parsed.entries()) {
+    if (typeof item !== "string" || !KEBAB.test(item) || item === "none") {
+      issues.push({
+        where: PLATFORM_NOTES_MANIFEST,
+        message: `[${index}] 유효한 kebab-case note id가 아니다: ${String(item)}`,
+      });
+      continue;
+    }
+    if (ids.has(item)) {
+      issues.push({
+        where: PLATFORM_NOTES_MANIFEST,
+        message: `중복된 note id: ${item}`,
+      });
+      continue;
+    }
+    ids.add(item);
+  }
+
+  let noteFiles = new Set<string>();
+  try {
+    noteFiles = new Set(await readdir(`${root}/${PLATFORM_NOTES_DIR}`));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException)?.code !== "ENOENT") throw error;
+  }
+
+  for (const id of ids) {
+    const file = `${id}.md`;
+    const where = `${PLATFORM_NOTES_DIR}/${file}`;
+    if (!noteFiles.has(file)) {
+      issues.push({
+        where: PLATFORM_NOTES_MANIFEST,
+        message: `메모 파일이 없다: ${where}`,
+      });
+      continue;
+    }
+    const text = await readFile(`${root}/${where}`, "utf8");
+    if (!PLATFORM_BREAKING.test(text)) {
+      issues.push({
+        where,
+        message: "`Breaking: yes` 또는 `Breaking: no` 줄이 없다.",
+      });
+    }
+    const areasMatch = PLATFORM_AREAS_LINE.exec(text);
+    if (areasMatch === null) {
+      issues.push({
+        where,
+        message: "`Areas: <home|project|workflow|agent|app, ...>` 줄이 없다.",
+      });
+    } else {
+      const rawAreas = areasMatch[1].trim();
+      const areas = rawAreas
+        ? rawAreas.split(",").map((part) => part.trim())
+        : [];
+      const invalid = areas.filter((area) => !PLATFORM_AREA_SET.has(area));
+      if (areas.length === 0 || invalid.length > 0) {
+        issues.push({
+          where,
+          message: `Areas는 ${PLATFORM_NOTE_AREAS.join(", ")} 가운데 하나 이상이어야 한다: ${rawAreas || "(비어 있음)"}`,
+        });
+      }
+    }
+  }
+
+  for (const file of [...noteFiles].sort()) {
+    if (!file.endsWith(".md")) continue;
+    const id = file.slice(0, -3);
+    if (!ids.has(id)) {
+      issues.push({
+        where: `${PLATFORM_NOTES_DIR}/${file}`,
+        message: `${PLATFORM_NOTES_MANIFEST}에 없는 고아 메모 파일이다.`,
+      });
+    }
+  }
+
   return issues;
 }
 

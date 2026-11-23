@@ -5,19 +5,20 @@
 // schemaSteps가 아니라 목록 맨 뒤 wiring의 schemaStepsAfterTeams에 둔다.
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { err, ok, type Result } from "../../../../base/mod.ts";
+import { err, errorCode, ok, type Result } from "../../../../base/mod.ts";
 import {
   type NoticeRecordInput,
   noticeRecord,
   noticesObserveVersion,
 } from "../../../../protocol/apps/notice.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
-import { readInstalledVersions } from "../../../apps/sdk-status/mod.ts";
+import { BUNDLED_SKILLS_ROOT } from "../../../agent-workspaces/skills/root.ts";
 import {
   noticeUnifiedSchemaSteps,
   productVersionSchemaSteps,
 } from "../../../apps/notices/mod.ts";
 import { appDeleteSchemaSteps } from "../../../apps/registration/mod.ts";
+import { readInstalledVersions } from "../../../apps/sdk-status/mod.ts";
 import type { WiringFactory } from "./context.ts";
 
 const NOTICE_RECORDER_PRINCIPAL = "machine:notice-recorder";
@@ -51,6 +52,27 @@ async function readProductVersion(): Promise<Result<string>> {
     // 아래 오류로 이어진다.
   }
   return err({ code: "internal", message: "product version is unreadable" });
+}
+
+export async function readPlatformNoteIds(
+  skillsRoot = BUNDLED_SKILLS_ROOT,
+): Promise<string[]> {
+  try {
+    const raw = await readFile(
+      `${skillsRoot}/update/platform-notes.json`,
+      "utf8",
+    );
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (entry): entry is string => typeof entry === "string" && entry.length > 0,
+    );
+  } catch (cause) {
+    if (errorCode(cause) === "ENOENT" || cause instanceof SyntaxError) {
+      return [];
+    }
+    throw cause;
+  }
 }
 
 export function createNoticesWiring(
@@ -110,11 +132,16 @@ export function createNoticesWiring(
           return undefined;
         },
       );
+      const platformNotes = await readPlatformNoteIds().catch((thrown) => {
+        logFailure("platform_notes_failed", thrown);
+        return [];
+      });
       const done = await ctx.writer.command(NOTICE_RECORDER_CONTEXT, {
         command: noticesObserveVersion.name,
         input: {
           version: version.value,
           sdks,
+          platform_notes: platformNotes,
           // 이번 기동이 step을 전부 새로 적용했으면 새 data root다.
           fresh: ctx.migrationsApplied === ctx.schemaSteps.length,
         },
@@ -128,6 +155,7 @@ export function createNoticesWiring(
         changed: boolean;
         from: string | null;
         sdks_changed: boolean;
+        platform_notes_changed?: boolean;
       };
       for (const listener of ctx.productStartListeners) {
         try {
@@ -135,7 +163,8 @@ export function createNoticesWiring(
             version: version.value,
             changed: observed.changed,
             from: observed.from,
-            sdksChanged: observed.sdks_changed,
+            sdksChanged:
+              observed.sdks_changed || observed.platform_notes_changed === true,
           });
         } catch (thrown) {
           logFailure("product_start_listener_failed", thrown);

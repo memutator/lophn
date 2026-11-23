@@ -1,12 +1,12 @@
 // 세 질문
-// - contract: boundary `sdk`·`app-runtime`(`app.sdk_decide`는 home lophn의 결정을 review로 남기고 update면 같은 동작으로 그 앱의
-//   lophn에게 handoff call을 보낸다. `app.sdk_feature`는 앱 lophn이 자기 앱의 기능 결과만 낸다).
-// - 현실적 회귀: 거절된 handoff 뒤에 review가 남아 다음 round가 맡긴 일이 있다고 믿는 것, handoff 글에 판·메모·기능 ID가 빠지는 것,
-//   private 앱의 고정 예외가 막히는 것, 앱 lophn이 남의 앱 기능 결과를 쓰는 것, 그대로 두기로 한 앱의 `unreviewed`가 남는 것.
-// - 왜 지금 test로 못 잡나: sdk-status의 unit은 fake router와 sqlite만 본다. 메인 스레드 handler가 설치 사본과 메모 file을 읽고, 쓰기 앞
+// - contract: boundary `sdk`·`app-runtime`(`update.decide`는 home lophn의 결정을 review·follow_up_items로 남기고 update면 같은 동작으로
+//   대상 workspace의 lophn에게 handoff call을 보낸다. `follow_up.report`는 대상 workspace lophn이 자기 workspace의 항목 결과만 낸다).
+// - 현실적 회귀: 거절된 handoff 뒤에 review·follow_up_items가 남아 다음 round가 맡긴 일이 있다고 믿는 것, handoff 글에 판·메모·follow-up ID·
+//   ownership-split 안내가 빠지는 것, private 앱의 고정 예외가 막히는 것, 앱 lophn이 남의 앱 follow-up 결과를 쓰는 것, 그대로 두기로 한 앱의 `unreviewed`가 남는 것.
+// - 왜 지금 test로 못 잡나: unit은 fake router와 sqlite만 본다. 메인 스레드 handler가 설치 사본과 메모 file을 읽고, 쓰기 앞
 //   처리기와 machine 자격, call 본문 준비, Router(call 정책)를 지나 받는 앱 session의 첫 입력이 되는 길은 process를 건너야 보인다.
 //
-// 앱은 셋이다: Masup(update, 기능 하나), Mahas(leave, 이어서 call 정책이 막은 update), Secret(private, update). 앞서 깐 설치 사본의
+// 앱은 셋이다: Masup(update, 항목 하나), Mahas(leave, 이어서 call 정책이 막은 update), Secret(private, update). 앞서 깐 설치 사본의
 // 지금 판을 지원 하한 판 이름으로 복사해 세 앱이 그 판을 고정한다(하한 아래면 required라 하한이 가장 옛 `available`이다).
 import assert from "node:assert/strict";
 import { chmod, cp, readdir, readFile, rm, writeFile } from "node:fs/promises";
@@ -17,7 +17,7 @@ import {
   cryptoRandom,
   systemClock,
 } from "../../packages/base/mod.ts";
-import { appSdkStatus } from "../../packages/protocol/apps/sdk-status.ts";
+import { workspaceUpdateStatus } from "../../packages/protocol/apps/updates.ts";
 import {
   lophnIdOf,
   workspaceSessionList,
@@ -38,12 +38,12 @@ import {
   waitTurnEnd,
 } from "../support/core/human.ts";
 import { bootCore, type Core, createRun } from "../support/core/mod.ts";
+import { lophnCall, lophnCommands } from "../support/fake-server/lophn.ts";
 import {
   type JournalEntry,
-  startFakeServer,
   type Step,
+  startFakeServer,
 } from "../support/fake-server/mod.ts";
-import { lophnCall, lophnCommands } from "../support/fake-server/lophn.ts";
 import { idIn, lastToolResult } from "../support/fake-server/probe.ts";
 
 const ids = createIdSource({ clock: systemClock, random: cryptoRandom });
@@ -123,14 +123,18 @@ function resultOf(entries: JournalEntry[], id: string) {
       return JSON.parse(raw) as {
         status: string;
         code: string;
-        content: { call: string | null };
+        content: {
+          calls: string[];
+          follow_ups: { id: string; title: string }[];
+          handoff_sessions: string[];
+        };
       };
     }
   }
   throw new Error(`tool call ${id}의 결과가 없다`);
 }
 
-test("E2E home lophn의 SDK 결정은 review로 남고 update는 그 앱의 lophn에게 같은 동작으로 맡겨지며, 거절된 handoff는 아무것도 남기지 않고 앱 lophn은 자기 앱의 기능 결과만 낸다", async () => {
+test("E2E home lophn의 update.decide 결정은 review와 follow_up_items로 남고 update는 그 앱의 lophn에게 같은 동작으로 맡겨지며, 거절된 handoff는 아무것도 남기지 않고 앱 lophn은 자기 앱의 follow-up 결과만 낸다", async () => {
   const run = await createRun();
   const fake = await startFakeServer();
   let core: Core | undefined;
@@ -180,22 +184,25 @@ test("E2E home lophn의 SDK 결정은 review로 남고 update는 그 앱의 loph
         db.close();
       }
     };
-    const status = async () =>
-      new Map(
-        (await c.call(appSdkStatus, {})).apps.map((app) => [app.app, app]),
-      );
+    const updateStatus = async () => await c.call(workspaceUpdateStatus, {});
+    const statusByApp = async () =>
+      new Map((await updateStatus()).apps.map((app) => [app.app, app]));
     const note = `agent-${current}.md`;
-    const feature = [
+    const items = [
       {
         title: "Daily total in tray",
         proposal: "Show today's total from the tray popup.",
-        note,
+        source_ref: note,
       },
     ];
 
     // 처음에는 어느 앱도 결정이 없고 지금 판의 메모가 모두 `unreviewed`다.
+    const initial = await updateStatus();
+    assert.strictEqual(initial.workspace_summary.active_apps, 3);
+    assert.deepStrictEqual(initial.open_follow_ups, []);
+    const initialByApp = new Map(initial.apps.map((app) => [app.app, app]));
     for (const app of [masup, mahas, secret]) {
-      const first = (await status()).get(app.app)!;
+      const first = initialByApp.get(app.app)!;
       assert.strictEqual(first.review, null);
       const agent = first.sdks.find((sdk) => sdk.sdk === "@lophn/agent")!;
       assert.deepStrictEqual(
@@ -211,7 +218,7 @@ test("E2E home lophn의 SDK 결정은 review로 남고 update는 그 앱의 loph
       match: (request: JournalEntry) => {
         const body = JSON.stringify(request.body);
         return (
-          lophnCommands(request).includes("app sdk-feature") &&
+          lophnCommands(request).includes("follow-up report") &&
           body.includes("SDK update for this app") &&
           body.includes(app.app)
         );
@@ -229,26 +236,26 @@ test("E2E home lophn의 SDK 결정은 review로 남고 update는 그 앱의 loph
             calls: [
               lophnCall(
                 "own",
-                `app sdk-feature ${idIn(JSON.stringify(request.body), "sdf")} --state done --note built`,
+                `follow-up report ${idIn(JSON.stringify(request.body), "fup")} --state done --outcome built`,
               ),
             ],
           }),
         },
         {
-          // Home이 Secret을 먼저 결정했으므로 Secret의 기능 ID는 이미 ledger에 있다.
+          // Home이 Secret을 먼저 결정했으므로 Secret의 follow-up ID는 이미 ledger에 있다.
           reply: () => ({
             kind: "tool" as const,
             calls: [
               lophnCall(
                 "foreign",
-                `app sdk-feature ${rows(`select id from sdk_features where app = '${secret.app}'`)[0]!.id} --state done`,
+                `follow-up report ${rows(`select id from follow_up_items where workspace_kind = 'app' and workspace_id = '${secret.app}'`)[0]!.id} --state done --outcome sneaky`,
               ),
             ],
           }),
         },
         tool(
           "made-up",
-          "app sdk-feature sdf_0zzzzzzzzzzzzzzzzzzzzzzzzz --state done",
+          "follow-up report fup_0zzzzzzzzzzzzzzzzzzzzzzzzz --state done --outcome nope",
         ),
         { reply: { kind: "text", text: "reported" } },
       ],
@@ -257,35 +264,34 @@ test("E2E home lophn의 SDK 결정은 review로 남고 update는 그 앱의 loph
     const home = {
       name: "home",
       match: (request: JournalEntry) =>
-        lophnCommands(request).includes("app sdk-decide"),
+        lophnCommands(request).includes("update decide"),
     };
     fake.script(
       [
-        tool("secret", "app sdk-decide", {
-          app: secret.app,
-          decision: "update",
-          features: feature,
+        tool("secret", "update decide", {
+          decisions: [
+            { kind: "app_sdk", app: secret.app, decision: "update", items },
+          ],
         }),
-        tool("mahas-leave", "app sdk-decide", {
-          app: mahas.app,
-          decision: "leave",
+        tool("mahas-leave", "update decide", {
+          decisions: [{ kind: "app_sdk", app: mahas.app, decision: "leave" }],
         }),
-        tool("mahas-update", "app sdk-decide", {
-          app: mahas.app,
-          decision: "update",
-          features: feature,
+        tool("mahas-update", "update decide", {
+          decisions: [
+            { kind: "app_sdk", app: mahas.app, decision: "update", items },
+          ],
         }),
-        tool("masup", "app sdk-decide", {
-          app: masup.app,
-          decision: "update",
-          features: feature,
+        tool("masup", "update decide", {
+          decisions: [
+            { kind: "app_sdk", app: masup.app, decision: "update", items },
+          ],
         }),
         { reply: { kind: "text", text: "decided" } },
       ],
       home,
     );
     const homeSession = await openLophnSession(c);
-    await say(c, homeSession, "decide the SDK updates");
+    await say(c, homeSession, "decide the workspace updates");
     await waitTurnEnd(c, homeSession, 0);
 
     const homeResults = fake.journal().filter((entry) => entry.lane === "home");
@@ -301,13 +307,13 @@ test("E2E home lophn의 SDK 결정은 review로 남고 update는 그 앱의 loph
         results.secret.status,
         results.masup.status,
         results["mahas-leave"].status,
-        results["mahas-leave"].content.call,
+        results["mahas-leave"].content.calls.length,
         results["mahas-update"].code,
       ],
-      ["success", "success", "success", null, "forbidden"],
+      ["success", "success", "success", 0, "forbidden"],
     );
 
-    // ledger: 거절된 update의 review·기능·call은 없다. 결정은 앱마다 마지막 한 줄씩이다.
+    // ledger: 거절된 update의 review·follow_up·call은 없다. 결정은 앱마다 마지막 한 줄씩이다.
     const reviews = rows(
       "select app, decision, call, through from sdk_reviews",
     );
@@ -322,20 +328,23 @@ test("E2E home lophn의 SDK 결정은 review로 남고 update는 그 앱의 loph
     const through = JSON.parse(String(reviews[0]!.through));
     assert.strictEqual(through["@lophn/agent"], current);
     assert.deepStrictEqual(
-      rows("select app, state from sdk_features order by app").map(
-        (row) => row.state,
-      ),
-      ["open", "open"],
+      rows(
+        "select workspace_id, state, origin from follow_up_items order by workspace_id",
+      ).map((row) => [row.state, row.origin]),
+      [
+        ["open", "app_sdk"],
+        ["open", "app_sdk"],
+      ],
     );
     assert.strictEqual(rows("select call from agent_calls").length, 2);
 
-    // fake: 받은 앱 lophn의 첫 입력에 program이 채운 판, 메모 file, 기능 ID가 있다.
+    // fake: 받은 앱 lophn의 첫 입력에 program이 채운 판, 메모 file, follow-up ID, 보고 명령이 있다.
     for (const app of [masup, secret]) {
       await until("handoff session", async () =>
         fake.journal().find((entry) => entry.lane === `handoff-${app.slug}`),
       );
       const id = rows(
-        `select id from sdk_features where app = '${app.app}'`,
+        `select id from follow_up_items where workspace_kind = 'app' and workspace_id = '${app.app}'`,
       )[0]!.id;
       const first = JSON.stringify(
         fake.journal().find((entry) => entry.lane === `handoff-${app.slug}`)!
@@ -345,6 +354,8 @@ test("E2E home lophn의 SDK 결정은 review로 남고 update는 그 앱의 loph
         `@lophn/agent: ${pinned} -> ${current}`,
         note,
         String(id),
+        "lophn follow-up report",
+        "LOPHN.md",
       ]) {
         assert.ok(
           first.includes(part),
@@ -361,7 +372,7 @@ test("E2E home lophn의 SDK 결정은 review로 남고 update는 그 앱의 loph
       .find((id) => id !== masup.lophn)!;
     await waitTurnEnd(c, received, 0);
 
-    // 앱 lophn은 자기 앱의 기능 결과만 낸다. 남의 앱 기능과 없는 ID는 없는 것과 같은 답이다.
+    // 앱 lophn은 자기 앱의 follow-up 결과만 낸다. 남의 앱 항목과 없는 ID는 없는 것과 같은 답이다.
     const reports = fake
       .journal()
       .filter((entry) => entry.lane === "handoff-masup");
@@ -370,13 +381,18 @@ test("E2E home lophn의 SDK 결정은 review로 남고 update는 그 앱의 loph
       ["ok", "not_found", "not_found"],
     );
 
-    const after = await status();
+    const afterStatus = await updateStatus();
+    const after = await statusByApp();
     assert.deepStrictEqual(
       [
         after.get(masup.app)!.review!.features[0]!.state,
         after.get(secret.app)!.review!.features[0]!.state,
       ],
       ["done", "open"],
+    );
+    assert.deepStrictEqual(
+      afterStatus.open_follow_ups.map((item) => item.workspace?.id),
+      [secret.app],
     );
     // 그대로 두기로 한 앱은 새 메모가 없다. 판 올리기가 끝나지 않은 update는 migrated가 false다.
     assert.deepStrictEqual(

@@ -1,6 +1,10 @@
 import type { NoticeRecordInput } from "../../../protocol/apps/notice.ts";
 
 const apps = (count: number) => `${count} ${count === 1 ? "app" : "apps"}`;
+const workflows = (count: number) =>
+  `${count} ${count === 1 ? "workflow" : "workflows"}`;
+const platformUpdates = (count: number) =>
+  `${count} ${count === 1 ? "platform update" : "platform updates"}`;
 
 // program 줄의 글은 여기 template과 매개변수로만 만든다. 앱이 쓴 글이 program 줄에 들어가지 않게 하려고
 // command 입력에 title·body를 두지 않았다. 매개변수는 짧은 식별자와 core가 정한 이유 코드다(protocol/apps/notice.ts).
@@ -89,10 +93,39 @@ export function programNoticeText(input: NoticeRecordInput): {
       };
     }
     case "workspace_update_needed": {
-      const { required_apps, required_workflows } = input.params;
+      const {
+        required_apps,
+        required_workflows,
+        unreviewed_apps,
+        unreviewed_workflows,
+        unreviewed_notes,
+      } = input.params;
+      const requiredTotal = required_apps + required_workflows;
+      const requiredParts = [
+        required_apps > 0 ? apps(required_apps) : "",
+        required_workflows > 0 ? workflows(required_workflows) : "",
+      ].filter((part) => part !== "");
+      const unreviewedParts = [
+        unreviewed_apps > 0 ? apps(unreviewed_apps) : "",
+        unreviewed_workflows > 0 ? workflows(unreviewed_workflows) : "",
+        unreviewed_notes > 0 ? platformUpdates(unreviewed_notes) : "",
+      ].filter((part) => part !== "");
+      const sentences: string[] = [];
+      if (requiredParts.length > 0) {
+        sentences.push(`Required: ${requiredParts.join(", ")} must update.`);
+      }
+      if (unreviewedParts.length > 0) {
+        sentences.push(`Unreviewed: ${unreviewedParts.join(", ")}.`);
+      }
       return {
-        title: "Workspace updates available",
-        body: `${required_apps} apps and ${required_workflows} workflows need updates.`,
+        title:
+          requiredTotal > 0
+            ? `Workspace updates (${requiredTotal} required)`
+            : "Workspace updates available",
+        body:
+          sentences.length > 0
+            ? sentences.join(" ")
+            : "All workspace updates have been reviewed.",
       };
     }
   }

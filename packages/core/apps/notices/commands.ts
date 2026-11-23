@@ -5,15 +5,19 @@ import {
   type Notice,
   type NoticeAction,
   type NoticeKind,
+  type NoticeRecordInput,
   noticeDismiss,
   noticeMarkRead,
   noticePost,
-  type NoticeRecordInput,
   noticeRecord,
   noticesObserveVersion,
 } from "../../../protocol/apps/notice.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
 import type { CommandDefinition, Tx } from "../../../protocol/server/mod.ts";
+import {
+  insertPlatformReview,
+  loadLastPlatformReview,
+} from "../../follow-ups/mod.ts";
 import { afterCommit } from "../../storage/ledger/after-commit.ts";
 import { loadApp } from "../registration/store.ts";
 import { programNoticeText } from "./program-text.ts";
@@ -156,8 +160,22 @@ function trimApp(
   }
 }
 
+function markLegacySdkUpdateRead(tx: Pick<Tx, "sql" | "now" | "port">): void {
+  const legacy = tx.sql.get(
+    `select id from notices
+     where source = 'program' and coalesce(app, '') = '' and kind = 'sdk_update_needed' and read_at is null
+     order by created_at desc, id desc limit 1`,
+    [],
+  );
+  if (legacy === undefined) return;
+  const legacyId = String(legacy["id"]);
+  const at = tx.now();
+  tx.sql.run("update notices set read_at = ? where id = ?", [at, legacyId]);
+  pushRead(tx, null, legacyId, at);
+}
+
 // 다른 command가 자기 transaction 안에서 program 기록을 남기는 길이다. 상태 변경과 같이 commit되어 한 번만 남는다.
-// 글(title·body)은 template과 매개변수로만 만든다. `lophn_updated`·`sdk_update_needed`·`phone_changed`만 앱이 없고 나머지는 있는 앱이어야 한다.
+// 글(title·body)은 template과 매개변수로만 만든다. `lophn_updated`·`sdk_update_needed`·`workspace_update_needed`·`phone_changed`만 앱이 없고 나머지는 있는 앱이어야 한다.
 export function recordProgramNotice(
   tx: Pick<Tx, "sql" | "now" | "newId" | "port">,
   input: NoticeRecordInput,
@@ -178,6 +196,44 @@ export function recordProgramNotice(
     if (!app.ok) return app;
     if (app.value === null) {
       return err({ code: "not_found", message: "app not found" });
+    }
+  }
+  if (input.kind === "workspace_update_needed") {
+    const {
+      required_apps,
+      required_workflows,
+      unreviewed_apps,
+      unreviewed_workflows,
+      unreviewed_notes,
+    } = input.params;
+    const total =
+      required_apps +
+      required_workflows +
+      unreviewed_apps +
+      unreviewed_workflows +
+      unreviewed_notes;
+    markLegacySdkUpdateRead(tx);
+    if (total === 0) {
+      const key = input.key ?? "workspace_update_needed";
+      const existing = tx.sql.get(
+        `select id, read_at from notices
+         where source = 'program' and coalesce(app, '') = '' and (key = ? or kind = 'workspace_update_needed')
+         order by created_at desc, id desc limit 1`,
+        [key],
+      );
+      if (existing === undefined) {
+        return err({
+          code: "not_found",
+          message: "no workspace_update_needed notice to resolve",
+        });
+      }
+      const id = String(existing["id"]) as Notice["id"];
+      if (existing["read_at"] === null) {
+        const at = tx.now();
+        tx.sql.run("update notices set read_at = ? where id = ?", [at, id]);
+        pushRead(tx, null, id, at);
+      }
+      return ok({ id });
     }
   }
   const text = programNoticeText(input);
@@ -285,6 +341,7 @@ export function createNoticeCommands(): {
             [key, value],
           );
         const last = readMeta("product_version");
+        const isFresh = last === null && input.fresh;
         // SDK 판 묶음은 제품 판 옆 같은 표에 정렬한 JSON으로 적는다. 판이 같아도 SDK 사본만 바뀐 기동을 알아채려는 것이다.
         let sdksChanged = false;
         if (input.sdks !== undefined) {
@@ -297,17 +354,55 @@ export function createNoticeCommands(): {
             sdksChanged = !(lastSdks === null && input.fresh);
           }
         }
-        if (last === input.version)
-          return ok({ changed: false, from: last, sdks_changed: sdksChanged });
+        // 플랫폼 역량 메모 순서 목록을 추적한다. 새 설치(fresh: true)만 마지막 메모 ID로 platform_reviews를 초기화한다.
+        let platformNotesChanged = false;
+        if (input.platform_notes !== undefined) {
+          const nowNotes = JSON.stringify(input.platform_notes);
+          const lastNotes = readMeta("platform_notes");
+          if (lastNotes !== nowNotes) {
+            writeMeta("platform_notes", nowNotes);
+            platformNotesChanged = !(lastNotes === null && isFresh);
+          }
+          const lastNoteId = input.platform_notes.at(-1);
+          if (isFresh && lastNoteId !== undefined) {
+            const hasPlatformReviews =
+              tx.sql.get(
+                "select 1 as ok from sqlite_master where type = 'table' and name = 'platform_reviews'",
+                [],
+              ) !== undefined;
+            if (hasPlatformReviews && loadLastPlatformReview(tx.sql) === null) {
+              insertPlatformReview(tx, { through: lastNoteId, session: null });
+            }
+          }
+        }
+        if (last === input.version) {
+          return ok({
+            changed: false,
+            from: last,
+            sdks_changed: sdksChanged,
+            platform_notes_changed: platformNotesChanged,
+          });
+        }
         writeMeta("product_version", input.version);
-        if (last === null && input.fresh)
-          return ok({ changed: false, from: null, sdks_changed: sdksChanged });
+        if (isFresh) {
+          return ok({
+            changed: false,
+            from: null,
+            sdks_changed: sdksChanged,
+            platform_notes_changed: platformNotesChanged,
+          });
+        }
         const recorded = recordProgramNotice(tx, {
           kind: "lophn_updated",
           params: { from: last ?? "unknown", to: input.version },
         });
         if (!recorded.ok) return recorded;
-        return ok({ changed: true, from: last, sdks_changed: sdksChanged });
+        return ok({
+          changed: true,
+          from: last,
+          sdks_changed: sdksChanged,
+          platform_notes_changed: platformNotesChanged,
+        });
       },
     },
     // 사람만 지운다. route의 actors가 같은 경계를 먼저 막고, 여기서 한 번 더 본다.

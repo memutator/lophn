@@ -70,6 +70,7 @@ const events: BusEvent[] = [
   notice("app", "app"),
   notice("program", "release_failed"),
   notice("program", "sdk_update_needed"),
+  notice("program", "workspace_update_needed"),
 ].map((event) => event as unknown as BusEvent);
 
 test("push 글과 data 어디에도 대화 글, 명령, 질문 글, 앱 body가 없다", () => {

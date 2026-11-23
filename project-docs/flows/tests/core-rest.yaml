@@ -1028,6 +1028,11 @@ files:
       - workflow-stop:stopped
     note: 멈춘 instance는 넘기지 않고 줄만 남는다
 
+  - path: packages/core/workflows/reads_test.ts
+    covers:
+      - workflow-instance-read:ok
+    note: ReadWorkflowInstance와 ListWorkflowInstances의 derived_status 계산(working/needs_you/blocked와 retry/report 해제), workflow_origin 세션 트리의 160자 redaction 미리보기·last_error, report refs 중복 제거 수집을 본다
+
   - path: packages/core/workflows/schema_test.ts
     covers: [ledger-migrate:applied]
     note: harness 참가자 저장 행이 step 뒤 새 schema로 읽힌다

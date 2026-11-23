@@ -74,15 +74,27 @@ export function register(
       >;
       if (!Array.isArray(pageLines)) return null;
       lines.push(...pageLines);
-      size += JSON.stringify(pageLines).length;
+      size += Buffer.byteLength(JSON.stringify(pageLines), "utf8");
       if (size > ARTIFACT_MAX_BYTES) return null;
       if (typeof next !== "string" || next === cursor) {
-        const { instance: state, last_reports } = page as Record<
-          string,
-          unknown
-        >;
-        const json = JSON.stringify({ instance: state, last_reports, lines });
-        return json.length > ARTIFACT_MAX_BYTES ? null : json;
+        const {
+          instance: state,
+          last_reports,
+          derived_status,
+          sessions,
+          refs,
+        } = page as Record<string, unknown>;
+        const json = JSON.stringify({
+          instance: state,
+          derived_status,
+          last_reports,
+          lines,
+          sessions,
+          refs,
+        });
+        return Buffer.byteLength(json, "utf8") > ARTIFACT_MAX_BYTES
+          ? null
+          : json;
       }
       cursor = next;
     }

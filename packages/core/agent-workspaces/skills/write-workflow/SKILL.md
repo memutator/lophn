@@ -215,10 +215,13 @@ The static artifact (`artifacts/static/index.html`) writes its steps straight in
 the HTML: it cannot read `workflow.yaml`, which is outside its folder.
 
 The instance artifact (`artifacts/instance/index.html`) reads
-`fetch("data/_instance.json")`, which gives `{ instance, last_reports, lines }`:
+`fetch("data/_instance.json")`, which gives
+`{ instance, derived_status, last_reports, lines, sessions, refs }`:
 `instance.steps` (name, `by`, `next`, ...), `instance.current`,
-`instance.state`, the last report of each step in `last_reports[step]`, and the
-history in `lines`. For a very large instance the response is an error body
+`instance.state`, `derived_status` (`working | needs_you | blocked | ended | stopped`),
+the last report of each step in `last_reports[step]`, the history in `lines`,
+connected sessions in `sessions`, and explicit report file paths in `refs`.
+For a very large instance the response is an error body
 (`{"error": ...}`) with no `instance`: show that as text.
 
 The whole page reloads each time the instance changes, so nothing inside the

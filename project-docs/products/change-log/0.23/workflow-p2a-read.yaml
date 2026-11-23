@@ -1,0 +1,21 @@
+id: workflow-p2a-read
+version: 0.23.136
+title: ReadWorkflowInstance·ListWorkflowInstances의 derived_status·세션 트리·명시적 refs와 _instance.json 확장을 구현한다
+modules:
+  - packages/core/workflows
+  - packages/shell/main
+  - packages/core/agent-workspaces
+change: |
+  - `ReadWorkflowInstance` (`packages/core/workflows/reads.ts`, `store.ts`):
+    - `derived_status`(`working | needs_you | blocked | ended | stopped`)를 `instance.state`, `workflow_lines`(`handed`, `retried`, `report`, `step_stalled`, `not_handed`, `lophn_restarted`, `program_exited`, `escalated`), `remote_steps`(`held`), 연결된 세션 상태(`waiting_for` approval/question)에서 계산한다. `step_stalled` 뒤의 `retried`·`report`·`handed`는 `blocked`를 해제한다.
+    - `sessions` 트리: `workflow_origin ->> '$.instance'` partial index로 연결 세션을 조회해 `session`, `parent`(`spawned_by`), `agent`, `workspace`, `state`, `waiting_for`, 마지막 assistant 텍스트 앞 160자 redaction 미리보기(`last_assistant_preview`, LLM 요약 없음), 마지막 실패 turn 사유(`last_error`)를 채운다.
+    - `refs`: `report` 줄의 `refs` 필드에 명시된 경로만 cursor와 무관하게 순서대로 중복 제거해 모은다(파일 시스템 추정 없음).
+  - `ListWorkflowInstances`: 각 요약 항목에 `derived_status`를 채워 `DeskSwitcher`와 Run 목록이 실시간 상태를 표시할 수 있게 한다.
+  - `_instance.json`: `packages/shell/main/desktop/wiring/artifact.ts`와 `packages/shell/main/artifact/serve.ts`가 확장된 `derived_status`, `sessions`, `refs`를 4 MiB UTF-8 바이트 상한 안에서 그대로 전달하고, `write-workflow/SKILL.md`의 `_instance.json` 모양 설명을 맞춘다.
+why: |
+  Run 화면, instance artifact(`_instance.json`), title bar `DeskSwitcher`가 단일 `workflow_origin` 정본에서 실시간 진행·대기·막힘 상태와 세션 트리·산출물 경로를 일관되게 읽을 수 있게 한다.
+decisions:
+  - text: "assistant 미리보기는 자르기 전에 `createProductRedactor(KNOWN_SECRETS)`를 먼저 적용해 경계에 걸친 secret 앞부분 유출을 막고, `KNOWN_SECRETS.ready`가 거짓이면 `null`로 fail-closed 처리한다."
+    by: agent
+  - text: "`derived_status`와 `refs`는 `ReadWorkflowInstance`의 200줄 cursor 페이지가 아니라 ledger 표의 전체 이력에서 직접 조회해 페이지를 넘겨도 값이 바뀌지 않게 한다."
+    by: agent

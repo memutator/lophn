@@ -537,7 +537,7 @@ const turnStarted = (turn: string): AcpUpdate => ({
   at,
 });
 
-// 결정 B: core가 연 탭은 project마다 8개까지다. 아홉째는 열지 않고 실패로 돌려준다.
+// 결정 B: core가 연 탭은 project마다 일하는 것이 8개까지다. 아홉째는 자리가 날 때까지 줄 서고, 자리는 일하던 탭이 끝나면 난다.
 test("a ninth call in a project waits for a free slot instead of failing back, and opens when a working tab ends", async () => {
   const kit = setup();
   try {

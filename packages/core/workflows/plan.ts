@@ -184,3 +184,20 @@ export function stepBody({
   }
   return lines.join("\n");
 }
+
+// [Retry]가 기록된 같은 session에 보내는 짧은 이어가기 안내다. 새 session으로 처음부터 돌리지 않는다.
+export function retryContinueBody(
+  step: InstanceStep | null,
+  stepName: string,
+): string {
+  const lines = [
+    `Continue step "${stepName}" from where you left off and report your result using \`workflow report\` when done.`,
+  ];
+  if (step !== null) {
+    if (step.out !== "") lines.push(`Produces: ${step.out}`);
+    if (step.next.length > 0) {
+      lines.push(`Next candidates: ${step.next.join(", ")}`);
+    }
+  }
+  return lines.join("\n");
+}

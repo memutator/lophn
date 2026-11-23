@@ -128,8 +128,8 @@ flows:
     code: [packages/core/workflows/service.ts, packages/core/workflows/commands.ts, packages/core/main/daemon/wiring/workflows.ts]
     steps:
       - "다른 컴퓨터에서 받은 step이면(그 session이 그 instance·step의 step 입력을 받았다) 이 컴퓨터에는 instance가 없다. 글을 redaction해 calls/step-report로 그 call의 reply mail을 내고 line 없이 답한다. 그 session이 받지 않은 step은 이 컴퓨터의 instance를 찾아 not_found다"
-      - "report의 글을 redaction한 뒤, next가 step이면 받는 곳과 step 메시지 본문을 command 앞에서 정한다"
-      - "ApplyWorkflowChange가 report 줄을 쓴다. instance가 stopped면 줄만 남고 넘기지 않는다"
+      - "report의 글과 선택적 refs·data 안 문자열을 redaction한 뒤, next가 step이면 받는 곳과 step 메시지 본문을 command 앞에서 정한다"
+      - "ApplyWorkflowChange가 report 줄(선택적 refs·data 포함)을 쓴다. instance가 stopped면 줄만 남고 넘기지 않는다"
       - "next가 step이면 그 담당에게 넘기고 handed 줄과 current를 남긴다. 못 넘기면 not_handed 줄"
       - "next가 end면 ended 줄로 닫는다. next가 없으면 진행 글이라 상태를 바꾸지 않는다"
       - "같은 instance를 동시에 고쳐 state_seq가 어긋나면 다시 읽어 최대 3번까지 건다"
@@ -223,17 +223,18 @@ flows:
     actor: person
     entries: [route:workflows/retry]
     uses: [route:workflow_instances/apply]
-    boundary: [core-api, workflows]
-    code: [packages/protocol/workflows/routes.ts]
+    boundary: [core-api, workflows, router]
+    code: [packages/protocol/workflows/routes.ts, packages/core/workflows/service.ts, packages/core/workflows/commands.ts, packages/core/workflows/plan.ts, packages/core/main/daemon/wiring/workflows.ts]
     steps:
-      - "running이면서 계산 상태가 blocked인 step인지 확인한다(아니면 conflict)"
-      - "retried 줄을 쓰고 기록된 같은 session에 이어서 하라는 입력을 넣는다(session이 열리기 전이면 넘기기를 다시 시도한다)"
+      - "running이면서 대상 step(기본은 현재 막힌 step)이 blocked 상태(step_stalled, not_handed, lophn_restarted 또는 실패한 turn)인지 확인한다(stopped나 정상 working이면 conflict)"
+      - "retried 줄을 쓰고 기록된 같은 session이 있으면 그 session에만 이어서 하라는 입력을 넣는다(fallback: new 없음 — 닫힌 session이면 conflict로 tx를 되돌린다)"
+      - "아직 session이 열리기 전(not_handed)이면 넘기기를 다시 시도해 handed(cause: retry)나 not_handed 줄을 남긴다"
     outcomes:
       - id: retried
         observe: [ledger:workflow_instances, ledger:workflow_lines, event:StateChanged, response]
       - id: conflict
         code: conflict
-        when: "instance가 stopped이거나 해당 step이 blocked 상태가 아님"
+        when: "instance가 running이 아니거나 해당 step이 blocked 상태가 아니거나 기록된 session이 이미 닫혔음"
         observe: [response]
       - id: not_found
         code: not_found
@@ -241,12 +242,32 @@ flows:
         observe: [response]
       - id: unavailable
         code: unavailable
-        when: "입력을 넣거나 redaction을 끝내지 못함"
+        when: "입력을 넣거나 redaction·blob 준비를 끝내지 못함"
         observe: [response]
       - id: internal
         code: internal
         when: "저장된 instance나 줄이 깨져 읽지 못함"
         observe: [response]
+    crosses_process: false
+    docs: [architecture/workflow.md]
+
+  - id: workflow-step-stalled
+    title: "local non-human step의 turn이 완료 report 없이 끝나고 열린 하위 call도 없으면 step_stalled 줄을 남긴다"
+    actor: system
+    entries: [system:workflow-step-stalled]
+    uses: [route:workflow_instances/apply]
+    boundary: [workflows, router]
+    code: [packages/core/workflows/service.ts, packages/core/workflows/commands.ts, packages/core/main/daemon/wiring/workflows.ts]
+    steps:
+      - "workflows wiring이 Bus의 TurnEnded를 구독한다(restarted 종료는 workflow-restart가 맡는다)"
+      - "running instance의 현재 step 담당 session이 turn을 마쳤을 때 human_turn step, 이미 완료 report(next 있음)나 stall·restart 기록이 있는 시도, 열린 outgoing agent_calls가 남아 있는 session은 건너뛴다"
+      - "조건에 맞으면 넘김·retry 시도당 최대 1회 step_stalled 줄(실패·중단 turn이면 redaction된 reason·message 포함)을 남긴다"
+    outcomes:
+      - id: stalled
+        observe: [ledger:workflow_lines, event:StateChanged]
+      - id: skipped
+        when: "human step이거나 이미 완료·stall 기록됨, 열린 agent_calls가 남아 있음, 또는 읽고 쓰기에 실패함"
+        observe: [ledger:workflow_lines]
     crosses_process: false
     docs: [architecture/workflow.md]
 
@@ -379,7 +400,7 @@ flows:
     code: [packages/core/workflows/commands.ts, packages/core/workflows/service.ts]
     steps:
       - "machine 자격만 받는다. state_seq가 읽은 값과 다르면 conflict로 되돌린다(service가 다시 읽어 최대 3번 건다)"
-      - "change(report, edit, stop, lophn_restarted, program_exited, flow_restarted)대로 줄을 쓰고 상태를 옮긴다. stopped면 넘기지 않는다"
+      - "change(report, edit, stop, lophn_restarted, program_exited, flow_restarted, step_stalled, retried)대로 줄을 쓰고 상태를 옮긴다. stopped면 넘기지 않는다"
       - "handoff가 있으면 Router에 넣고 handed나 not_handed 줄을 남긴다. Router가 err를 주면 tx 전체를 되돌린다"
       - "commit 뒤 StateChanged(workflow_instances)를 한 번 낸다"
     outcomes:

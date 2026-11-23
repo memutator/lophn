@@ -468,6 +468,71 @@ export function createWorkflowCommands(
             endDraft(scope);
             break;
           }
+          case "step_stalled": {
+            line = addLine(scope, {
+              kind: "step_stalled",
+              by: LOPHN,
+              step: change.step,
+              session: change.session,
+              ...(change.reason !== undefined ? { reason: change.reason } : {}),
+              ...(change.message !== undefined
+                ? { message: change.message }
+                : {}),
+            });
+            break;
+          }
+          case "retried": {
+            if (scope.draft.state !== "running") {
+              return fail("conflict", "workflow instance is not running");
+            }
+            line = addLine(scope, {
+              kind: "retried",
+              by: { kind: "user" },
+              step: change.step,
+              session: change.session,
+            });
+            if (change.session !== null) {
+              if (change.body === undefined) {
+                return fail("conflict", "retry continuation body is required");
+              }
+              const made = router(tx);
+              if (!made.ok) return made;
+              // 기록된 같은 session에만 넣는다(fallback: "new" 없음 — 새 session으로 처음부터 돌리지 않는다).
+              const routed = made.value.route(tx, {
+                from: { kind: "program" },
+                to: { session: change.session as Id<"ses"> },
+                reply: "none",
+                body: textBlocks(change.body),
+                refs: [],
+                reply_to: null,
+                dedup: null,
+                kind: "step",
+                delivery: "next_turn",
+                step: {
+                  instance: scope.instance as Id<"wfi">,
+                  step: change.step,
+                },
+                workflowOrigin: {
+                  project: scope.project as Id<"prj">,
+                  workflow: scope.workflow,
+                  instance: scope.instance as Id<"wfi">,
+                  step: change.step,
+                },
+                unattended: true,
+              });
+              if (!routed.ok) return routed;
+              if (routed.value.state === "failed") {
+                return fail(
+                  "conflict",
+                  FAILURE_TEXTS[routed.value.fail_reason!],
+                );
+              }
+            } else {
+              const done = hand();
+              if (!done.ok) return done;
+            }
+            break;
+          }
         }
         const instance = finish(tx, scope);
         return instance.ok

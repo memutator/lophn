@@ -10,6 +10,7 @@ import { createRouter } from "../router/mod.ts";
 import type { RoutedInput } from "../router/ports.ts";
 import { createSql } from "../storage/ledger/sqlite.ts";
 import { createWorkflowCommands } from "./commands.ts";
+import { workflowLinesSchemaSteps } from "./lines-schema.ts";
 import { workflowsSchemaSteps } from "./schema.ts";
 import { loadInstance, loadLines } from "./store.ts";
 
@@ -181,6 +182,181 @@ test("a stopped instance is not handed: report with next records the line only a
     assert.deepStrictEqual(handNow.error.code, "conflict");
     assert.deepStrictEqual(delivered.length, 2);
     assert.deepStrictEqual(count(), lines + 1);
+  } finally {
+    db.close();
+  }
+});
+
+// report의 refs/data가 줄에 저장되어 다시 읽히고, same-session retry는 새 session을 열지 않으며(no fallback: "new")
+// 닫힌 session이면 conflict로 tx 전체가 되돌아간다.
+test("report persists refs/data and same-session retried never opens a new session", () => {
+  const db = new DatabaseSync(":memory:");
+  try {
+    db.exec(workflowsSchemaSteps[0]!.sql);
+    db.exec(workflowLinesSchemaSteps[0]!.sql);
+    const sql = createSql(db, () => true);
+    const delivered: { session: string; input: RoutedInput }[] = [];
+    let openedCount = 0;
+    let sessionAccepting = true;
+    const tx = {
+      sql,
+      now: () => "2026-10-22T00:00:00.000Z",
+      newId: (prefix: string) => `${prefix}_01hzzzzzzzzzzzzzzzzzzzzzzb`,
+      port: () => ({ push: () => {} }),
+    } as unknown as Tx;
+    const router = createRouter({
+      directory: {
+        find: (session) =>
+          session === SES
+            ? ({
+                session: SES,
+                transport: "lophn",
+                agent: lophnAtWorkspace,
+                accepting: sessionAccepting,
+                open: sessionAccepting,
+                spawned_by: null,
+                opened_by_machine: null,
+                runs_on: null,
+              } as never)
+            : null,
+        resolveAddress: () => ok(lophnAtWorkspace),
+        archive: () => ok(false),
+        membersOn: () => [],
+        membersFrom: () => [],
+        membersUnder: () => [],
+        setWorkflowOrigin: () => {},
+        openMember: () =>
+          err({ code: "forbidden", message: "not in this test" }),
+        open: () => {
+          openedCount += 1;
+          return ok({
+            session: SES,
+            transport: "lophn",
+            agent: lophnAtWorkspace,
+            accepting: true,
+            runs_on: null,
+          } as never);
+        },
+        app: () => null,
+        accepts: () => null,
+        listOpen: () => [],
+        projectOfIdentity: () => null,
+        identityOfProject: () => ok("pri_test"),
+        appIdOf: () => err({ code: "not_found", message: "app not found" }),
+      },
+      store: {} as never,
+      outbox: {} as never,
+      seen: {} as never,
+      self: () => "mch_self",
+      steps: {} as never,
+      announce: () => {},
+      callPolicy: () => DEFAULT_CALL_POLICY,
+      transport: {
+        deliver: (_tx, to, input) => {
+          delivered.push({ session: to.session, input });
+          return ok(undefined);
+        },
+        cancel: () => ok(undefined),
+        withdraw: () => ok(undefined),
+      },
+    });
+    const commands = createWorkflowCommands(() => ok(router));
+    const ctx = { actor: "machine" } as never;
+    const seq = () => {
+      const loaded = loadInstance(sql, WFI);
+      assert.ok(loaded.ok && loaded.value !== null);
+      return loaded.value.state_seq;
+    };
+
+    const created = commands.create.handle(
+      tx,
+      ctx,
+      {
+        id: WFI,
+        project: PRJ,
+        workflow: "demo",
+        input: "go",
+        participants: { planner: { agent: "lophn" } },
+        steps: [],
+        started_by: { kind: "user" },
+        handoff: { ...plan("a"), cause: "start" },
+      },
+      {},
+    );
+    assert.ok(created.ok);
+    assert.equal(openedCount, 1);
+
+    // refs와 data가 report 줄에 그대로 남는다.
+    const reported = commands.apply.handle(
+      tx,
+      ctx,
+      {
+        instance: WFI,
+        change: {
+          kind: "report",
+          step: "a",
+          text: "progress",
+          next: null,
+          session: "new",
+          refs: ["reports/a.md"],
+          data: { score: 42, ok: true },
+        },
+        by: { kind: "agent", session: SES },
+        handoff: null,
+      },
+      { state_seq: seq() },
+    );
+    assert.ok(reported.ok);
+    const afterReport = loadLines(sql, WFI, { after: 0, limit: null });
+    assert.ok(afterReport.ok);
+    const reportLine = afterReport.value.find((l) => l.kind === "report");
+    assert.ok(reportLine?.kind === "report");
+    assert.deepStrictEqual(reportLine.refs, ["reports/a.md"]);
+    assert.deepStrictEqual(reportLine.data, { score: 42, ok: true });
+
+    // same-session retry는 같은 session으로 배달하고 새 session을 열지 않는다.
+    const retried = commands.apply.handle(
+      tx,
+      ctx,
+      {
+        instance: WFI,
+        change: {
+          kind: "retried",
+          step: "a",
+          session: SES,
+          body: "continue step a",
+        },
+        by: { kind: "user" },
+        handoff: null,
+      },
+      { state_seq: seq() },
+    );
+    assert.ok(retried.ok);
+    assert.equal(openedCount, 1);
+    assert.equal(delivered.length, 2);
+    assert.equal(delivered[1]!.session, SES);
+
+    // session이 닫혔으면 새 session으로 fallback하지 않고 conflict다.
+    sessionAccepting = false;
+    const closedRetry = commands.apply.handle(
+      tx,
+      ctx,
+      {
+        instance: WFI,
+        change: {
+          kind: "retried",
+          step: "a",
+          session: SES,
+          body: "continue again",
+        },
+        by: { kind: "user" },
+        handoff: null,
+      },
+      { state_seq: seq() },
+    );
+    assert.ok(!closedRetry.ok);
+    assert.equal(closedRetry.error.code, "conflict");
+    assert.equal(openedCount, 1);
   } finally {
     db.close();
   }

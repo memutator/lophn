@@ -3,6 +3,7 @@ import {
   workflowEdit,
   workflowList,
   workflowReport,
+  workflowRetry,
   workflowStart,
   workflowStop,
 } from "../../protocol/workflows/mod.ts";
@@ -35,6 +36,7 @@ export function createLedgerRegistration(
       workflowStart,
       workflowReport,
       workflowEdit,
+      workflowRetry,
       workflowStop,
       workflowCheck,
     ],

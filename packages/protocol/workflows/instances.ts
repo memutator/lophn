@@ -249,7 +249,7 @@ export const workflowLineSchema = z.discriminatedUnion("kind", [
     // 다른 컴퓨터로 넘겼으면 null이고 remote가 있다.
     receiver: idSchema("ses").nullable(),
     human_turn: z.boolean(),
-    cause: z.enum(["start", "report", "edit"]),
+    cause: z.enum(["start", "report", "edit", "retry"]),
     session: sessionChoiceSchema.nullable(),
     // 옛 줄에는 없다(이 컴퓨터로 넘긴 step과 같다).
     remote: remoteHandSchema.nullable().optional(),
@@ -276,6 +276,8 @@ export const workflowLineSchema = z.discriminatedUnion("kind", [
   line("step_stalled", lophnBy, {
     step: z.string(),
     session: idSchema("ses").nullable(),
+    reason: z.string().optional(),
+    message: z.string().optional(),
   }),
   // 사람의 [Retry]: 기록된 같은 session에 이어서 하라는 입력을 넣었다(session이 열리기 전이면 넘기기를 다시 했다).
   line("retried", userBy, {

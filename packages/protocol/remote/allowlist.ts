@@ -244,6 +244,7 @@ import {
   workflowInstanceList,
   workflowInstanceRead,
   workflowList,
+  workflowRetry,
   workflowStart,
   workflowStop,
 } from "../workflows/routes.ts";
@@ -382,6 +383,7 @@ export const REMOTE_ALLOWED_ROUTES = [
   workflowInstanceList,
   workflowInstanceRead,
   workflowStart,
+  workflowRetry,
   workflowStop,
   projectSearch,
   // 다른 컴퓨터의 창이 이 컴퓨터의 artifact를 읽는다(읽기 전용, artifact 폴더 안만)

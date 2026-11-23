@@ -21,6 +21,7 @@ import {
   workflowInstanceRead,
   workflowList,
   workflowReport,
+  workflowRetry,
   workflowStart,
   workflowStop,
 } from "../../../../protocol/workflows/mod.ts";
@@ -86,8 +87,21 @@ const SOURCE = {
 const route = (r: { resource: string; method: string }) =>
   `${r.resource}/${r.method}`;
 
-// 시작 입력, report·hand_now의 글, step 메시지 본문을 redaction한다. 줄의 글에도 원문 secret이 남지 않게
-// 같은 redactor를 지난다. 본문만 받는 session 기록에 들어가므로 call 본문처럼 blob으로 준비한다.
+function safeJson(value: unknown, safe: (text: string) => string): unknown {
+  if (typeof value === "string") return safe(value);
+  if (Array.isArray(value)) return value.map((item) => safeJson(item, safe));
+  if (value !== null && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) {
+      out[safe(k)] = safeJson(v, safe);
+    }
+    return out;
+  }
+  return value;
+}
+
+// 시작 입력, report·hand_now·retried의 글, step_stalled 오류 글, report의 refs/data, step 메시지 본문을 redaction한다.
+// 줄의 글에도 원문 secret이 남지 않게 같은 redactor를 지난다. 본문만 받는 session 기록에 들어가므로 call 본문처럼 blob으로 준비한다.
 function withStepText(
   writer: Writer,
   deps: {
@@ -132,22 +146,48 @@ function withStepText(
     } else {
       const raw = envelope.input as Input<typeof workflowInstanceApply>;
       const change = raw.change;
+      let nextChange: Input<typeof workflowInstanceApply>["change"] = change;
+      switch (change.kind) {
+        case "report":
+          nextChange = {
+            ...change,
+            text: safe(change.text),
+            ...(change.refs !== undefined
+              ? { refs: change.refs.map(safe) }
+              : {}),
+            ...(change.data !== undefined
+              ? { data: safeJson(change.data, safe) as typeof change.data }
+              : {}),
+          };
+          break;
+        case "edit":
+          if (change.edit.op === "hand_now" && change.edit.text !== undefined) {
+            nextChange = {
+              ...change,
+              edit: { ...change.edit, text: safe(change.edit.text) },
+            };
+          }
+          break;
+        case "program_exited":
+          // process stderr는 AI가 짠 code가 쓴 글이다. 줄에 남는 글은 여기가 마지막 관문이다.
+          nextChange = { ...change, stderr_tail: safe(change.stderr_tail) };
+          break;
+        case "step_stalled":
+          if (change.message !== undefined) {
+            nextChange = { ...change, message: safe(change.message) };
+          }
+          break;
+        case "retried":
+          if (change.body !== undefined) {
+            const body = safe(change.body);
+            bodies.push(body);
+            nextChange = { ...change, body };
+          }
+          break;
+      }
       input = {
         ...raw,
-        change:
-          change.kind === "report"
-            ? { ...change, text: safe(change.text) }
-            : change.kind === "edit" &&
-                change.edit.op === "hand_now" &&
-                change.edit.text !== undefined
-              ? {
-                  ...change,
-                  edit: { ...change.edit, text: safe(change.edit.text) },
-                }
-              : // process stderr는 AI가 짠 code가 쓴 글이다. 줄에 남는 글은 여기가 마지막 관문이다.
-                change.kind === "program_exited"
-                ? { ...change, stderr_tail: safe(change.stderr_tail) }
-                : change,
+        change: nextChange,
         handoff: raw.handoff === null ? null : safeHandoff(raw.handoff),
       };
     }
@@ -184,6 +224,7 @@ function withStepText(
 // router 뒤에 돈다: 켤 때 router가 돌던 turn을 닫은 뒤여야 끊긴 step을 알아본다(runs와 같다).
 export const workflowsWiring: WiringFactory = () => {
   let service: ReturnType<typeof createWorkflowService> | undefined;
+  let unsubscribe: (() => void) | undefined;
   return {
     name: "workflows",
     schemaStepsAfterTeams: workflowsNoHarnessKindSteps,
@@ -318,6 +359,16 @@ export const workflowsWiring: WiringFactory = () => {
           if (!record.ok) return record;
           const { state, outcome } = record.value.turn;
           return ok({ turn: found.turn as Id<"trn">, state, outcome });
+        },
+        openOutgoingCalls(session: Id<"ses">) {
+          const found = ledgerSnapshot(ctx.ledgerPath, (lookup) => {
+            const row = lookup.sql.get(
+              "SELECT count(*) AS open FROM agent_calls WHERE from_session = ? AND state = 'accepted'",
+              [session],
+            );
+            return Number(row?.["open"] ?? 0);
+          });
+          return Promise.resolve(found);
         },
       };
 
@@ -529,6 +580,7 @@ export const workflowsWiring: WiringFactory = () => {
             handler((i, who) => built.report(i, byOf(who))),
           ],
           [route(workflowEdit), handler((i, who) => built.edit(i, byOf(who)))],
+          [route(workflowRetry), handler((i) => built.retry(i))],
           [route(workflowStop), handler((i, who) => built.stop(i, byOf(who)))],
           [
             route(workflowCheck),
@@ -550,7 +602,32 @@ export const workflowsWiring: WiringFactory = () => {
           fields: { error: String(e) },
         });
       }
+      // TurnEnded는 commit 뒤 Bus로 오므로 tx 밖이다(custom-reply와 같은 패턴).
+      unsubscribe = ctx.bus.subscribe([{ types: ["TurnEnded"] }], {
+        send(event) {
+          if (event.type !== "TurnEnded") return;
+          void service!
+            .turnEnded({
+              session: event.session as Id<"ses">,
+              turn: event.payload.turn as Id<"trn">,
+              outcome: event.payload.outcome,
+              error: event.payload.error,
+            })
+            .catch((e) => {
+              ctx.telemetry.logger.error({
+                component: "workflows",
+                event: "stall_check_failed",
+                fields: { error: String(e) },
+              });
+            });
+        },
+        close() {},
+      });
       return ok(undefined);
+    },
+    closeIntake() {
+      unsubscribe?.();
+      unsubscribe = undefined;
     },
   };
 };

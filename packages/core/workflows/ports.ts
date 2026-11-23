@@ -47,6 +47,8 @@ export type WorkflowTurns = {
     instance: Id<"wfi">,
     step: string,
   ): Promise<Result<StepTurn | null>>;
+  // 그 session이 보낸 열린(accepted) agent_calls 개수. worker 응답을 기다리는 중에는 stall로 보지 않는다.
+  openOutgoingCalls(session: Id<"ses">): Promise<Result<number>>;
 };
 
 // 두 command를 machine 자격으로 부른다.

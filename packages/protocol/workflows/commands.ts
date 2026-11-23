@@ -41,7 +41,7 @@ export const handoffPlanSchema = z
     step: z.string(),
     participant: participantKeySchema.nullable(),
     human_turn: z.boolean(),
-    cause: z.enum(["start", "report", "edit"]),
+    cause: z.enum(["start", "report", "edit", "retry"]),
     session: sessionChoiceSchema.nullable(),
     // 이 컴퓨터의 받는 곳(to)이거나, 다른 컴퓨터의 받는 곳(remote: 명단의 그 컴퓨터와 기계를 건너는 주소)이다.
     delivery: z
@@ -128,6 +128,21 @@ const changeSchema = z.discriminatedUnion("kind", [
   // 켤 때 running인 flow instance마다 wf-service가 by lophn으로 부른다(process는 다시 띄우지 않는다).
   // lophn_restarted 줄(step null, receiver null)을 남기고 running이면 ended로 닫는다.
   z.strictObject({ kind: z.literal("flow_restarted") }),
+  // 명시적 완료(report) 없이 turn이 끝났고 열린 call도 없을 때 wf-service가 by lophn으로 부른다.
+  z.strictObject({
+    kind: z.literal("step_stalled"),
+    step: z.string(),
+    session: idSchema("ses").nullable(),
+    reason: z.string().min(1).optional(),
+    message: z.string().min(1).optional(),
+  }),
+  // 사람의 [Retry]: 기록된 같은 session에 이어서 하라는 입력(body)을 넣거나, session이 열리기 전(not_handed)이면 handoff로 다시 넘긴다.
+  z.strictObject({
+    kind: z.literal("retried"),
+    step: z.string(),
+    session: idSchema("ses").nullable(),
+    body: z.string().min(1).optional(),
+  }),
 ]);
 
 export const workflowInstanceApply = defineCommand({

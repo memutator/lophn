@@ -10,6 +10,7 @@ import type { Id } from "../../protocol/base/mod.ts";
 import {
   blocksText,
   LOPHN_AGENT_HANDLE,
+  type TurnOutcome,
 } from "../../protocol/lophn-agent/mod.ts";
 import type { Mail } from "../../protocol/lophn-agent/mail.ts";
 import type { Input, Output } from "../../protocol/server/mod.ts";
@@ -22,6 +23,7 @@ import type {
   workflowInstanceRead,
   workflowList,
   workflowReport,
+  workflowRetry,
   workflowStart,
   workflowStop,
 } from "../../protocol/workflows/mod.ts";
@@ -32,7 +34,7 @@ import {
   participantsOf,
   stepsOf,
 } from "./declaration.ts";
-import { planHandoff } from "./plan.ts";
+import { planHandoff, retryContinueBody } from "./plan.ts";
 import { remoteTurnEndedText } from "./remote.ts";
 import type {
   WorkflowFiles,
@@ -63,6 +65,152 @@ function sameSessionIn(state: Pick<State, "lines" | "remote_steps">) {
     const sent = state.remote_steps.find((each) => each.call === call);
     return (sent?.session ?? null) as Id<"ses"> | null;
   };
+}
+
+// 이 session이 지금 도는 non-human step의 담당이며, 이번 넘김/retry 시도에서 아직 완료 report도
+// stall/restart 기록도 없을 때 그 step 이름을 돌려준다. 사람 step은 대화가 turn 끝으로 멈추지 않으므로 제외한다.
+function stalledStepFor(state: State, session: Id<"ses">): string | null {
+  const { instance, lines } = state;
+  if (
+    instance.state !== "running" ||
+    instance.current === null ||
+    instance.current.human_turn
+  ) {
+    return null;
+  }
+  const handedAt = lines.findLastIndex((l) => l.kind === "handed");
+  const handed = lines[handedAt];
+  if (
+    handed?.kind !== "handed" ||
+    handed.receiver !== session ||
+    handed.human_turn ||
+    handed.step !== instance.current.step
+  ) {
+    return null;
+  }
+  // 같은 넘김(handed) 뒤에 사람이 retry로 이어 갔으면 그 retried를 새 시도로 본다.
+  let attemptAt = handedAt;
+  for (let i = lines.length - 1; i > handedAt; i--) {
+    const line = lines[i]!;
+    if (line.kind === "retried" && line.step === handed.step) {
+      attemptAt = i;
+      break;
+    }
+  }
+  const afterAttempt = lines.slice(attemptAt + 1);
+  const resolved = afterAttempt.some(
+    (l) =>
+      (l.kind === "report" && l.step === handed.step && l.next !== null) ||
+      l.kind === "not_handed" ||
+      (l.kind === "step_stalled" && l.step === handed.step) ||
+      (l.kind === "lophn_restarted" && l.step === handed.step),
+  );
+  return resolved ? null : handed.step;
+}
+
+type RetryTarget =
+  | { mode: "re_handoff"; step: string }
+  | {
+      mode: "same_session";
+      step: string;
+      session: Id<"ses">;
+      blockedByLine: boolean;
+    };
+
+function retryTargetOf(
+  state: State,
+  explicitStep: string | undefined,
+): Result<RetryTarget> {
+  const { instance, lines } = state;
+  if (instance.state !== "running") {
+    return fail("conflict", `workflow instance is ${instance.state}`);
+  }
+  let step: string;
+  if (explicitStep !== undefined) {
+    const known =
+      instance.steps.some((s) => s.name === explicitStep) ||
+      lines.some(
+        (l) =>
+          (l.kind === "handed" || l.kind === "not_handed") &&
+          l.step === explicitStep,
+      );
+    if (!known) return fail("not_found", "step not found");
+    step = explicitStep;
+  } else {
+    const lastProgressAt = lines.findLastIndex(
+      (l) =>
+        l.kind === "handed" ||
+        l.kind === "not_handed" ||
+        l.kind === "retried" ||
+        (l.kind === "report" && l.next !== null),
+    );
+    const lastProgress = lines[lastProgressAt];
+    if (lastProgress?.kind === "not_handed") {
+      step = lastProgress.step;
+    } else if (instance.current !== null) {
+      step = instance.current.step;
+    } else {
+      return fail("conflict", "workflow instance has no active step to retry");
+    }
+  }
+
+  // session이 아직 열리지 않았거나(not_handed) 원격 step 실패로 not_handed가 최신이면 넘기기를 다시 시도한다.
+  const lastNotHandedAt = lines.findLastIndex(
+    (l) => l.kind === "not_handed" && l.step === step,
+  );
+  if (lastNotHandedAt >= 0) {
+    const afterNotHanded = lines.slice(lastNotHandedAt + 1);
+    const movedOn = afterNotHanded.some(
+      (l) =>
+        l.kind === "handed" ||
+        (l.kind === "report" && l.step === step && l.next !== null),
+    );
+    if (!movedOn) {
+      return ok({ mode: "re_handoff", step });
+    }
+  }
+
+  // 이미 local session으로 넘긴 현재 step: 기록된 같은 session에 이어서 하라는 입력을 넣는다.
+  const handedAt = lines.findLastIndex((l) => l.kind === "handed");
+  const handed = lines[handedAt];
+  if (
+    handed?.kind !== "handed" ||
+    handed.step !== step ||
+    handed.receiver === null ||
+    instance.current?.step !== step
+  ) {
+    return fail("conflict", "workflow step is not blocked");
+  }
+  const afterHanded = lines.slice(handedAt + 1);
+  if (
+    afterHanded.some(
+      (l) =>
+        (l.kind === "report" && l.step === step && l.next !== null) ||
+        l.kind === "not_handed",
+    )
+  ) {
+    return fail("conflict", "workflow step already moved on");
+  }
+  let attemptAt = handedAt;
+  for (let i = lines.length - 1; i > handedAt; i--) {
+    const line = lines[i]!;
+    if (line.kind === "retried" && line.step === step) {
+      attemptAt = i;
+      break;
+    }
+  }
+  const afterAttempt = lines.slice(attemptAt + 1);
+  const blockedByLine = afterAttempt.some(
+    (l) =>
+      (l.kind === "step_stalled" || l.kind === "lophn_restarted") &&
+      l.step === step,
+  );
+  return ok({
+    mode: "same_session",
+    step,
+    session: handed.receiver as Id<"ses">,
+    blockedByLine,
+  });
 }
 
 export function createWorkflowService(deps: {
@@ -335,6 +483,8 @@ export function createWorkflowService(deps: {
             text: input.text,
             next,
             session,
+            ...(input.refs !== undefined ? { refs: input.refs } : {}),
+            ...(input.data !== undefined ? { data: input.data } : {}),
           },
           by,
           handoff: hands
@@ -456,6 +606,152 @@ export function createWorkflowService(deps: {
       return done.ok
         ? ok({ line: done.value.line, handed: done.value.handed })
         : done;
+    },
+
+    async retry(input: z.output<typeof workflowRetry.input>) {
+      let seen: string | null = null;
+      let last: Result<never> | null = null;
+      for (let attempt = 0; ; attempt++) {
+        const read = await store.read(input.instance as Id<"wfi">);
+        if (!read.ok) return read;
+        const state = read.value;
+        if (seen === state.instance.state_seq) return last!;
+        const target = retryTargetOf(state, input.step);
+        if (!target.ok) return target;
+        let applyInput: ApplyInput;
+        if (target.value.mode === "re_handoff") {
+          const { step } = target.value;
+          const lastReport = state.lines.findLast(
+            (l): l is ReportLine => l.kind === "report",
+          );
+          const session =
+            lastReport !== undefined && lastReport.next === step
+              ? lastReport.session
+              : null;
+          applyInput = {
+            instance: state.instance.id,
+            change: { kind: "retried", step, session: null },
+            by: { kind: "user" },
+            handoff: planHandoff({
+              instance: state.instance,
+              step,
+              cause: "retry",
+              session,
+              received: lastReport?.text ?? state.instance.input,
+              sameSession: sameSessionIn(state),
+              remote,
+            }),
+          };
+        } else {
+          const { step, session, blockedByLine } = target.value;
+          if (!blockedByLine) {
+            const found = await turns.stepTurn(
+              session,
+              state.instance.id as Id<"wfi">,
+              step,
+            );
+            if (!found.ok) return found;
+            const turn = found.value;
+            const failedTurn =
+              turn !== null &&
+              turn.state === "finished" &&
+              (turn.outcome?.kind === "failed" ||
+                turn.outcome?.kind === "interrupted");
+            if (!failedTurn) {
+              return fail("conflict", "workflow step is not blocked");
+            }
+          }
+          const stepDef =
+            state.instance.steps.find((s) => s.name === step) ?? null;
+          applyInput = {
+            instance: state.instance.id,
+            change: {
+              kind: "retried",
+              step,
+              session,
+              body: retryContinueBody(stepDef, step),
+            },
+            by: { kind: "user" },
+            handoff: null,
+          };
+        }
+        const done = await store.apply(applyInput, {
+          state_seq: state.instance.state_seq,
+        });
+        if (done.ok) {
+          return ok({ instance: done.value.instance, line: done.value.line });
+        }
+        if (done.error.code !== "conflict" || attempt >= 2) return done;
+        seen = state.instance.state_seq;
+        last = done;
+      }
+    },
+
+    // local non-human step을 받은 session의 turn이 끝났을 때, 명시적 완료 report도 열린 하위 call도 없으면
+    // 넘김/retry 시도당 최대 한 번 step_stalled 줄을 남긴다.
+    async turnEnded(event: {
+      session: Id<"ses">;
+      turn: Id<"trn">;
+      outcome: TurnOutcome;
+      error?: { code: string; message: string } | null;
+    }): Promise<void> {
+      // 재시작으로 끊긴 turn은 reconcile()이 lophn_restarted 줄을 남긴다.
+      if (
+        event.outcome.kind === "interrupted" &&
+        event.outcome.reason === "restarted"
+      ) {
+        return;
+      }
+      const running = await store.running();
+      if (!running.ok) return;
+      let reason: string | undefined;
+      let message: string | undefined;
+      if (event.outcome.kind === "failed") {
+        reason = event.outcome.reason;
+        message =
+          event.error?.message !== undefined && event.error.message !== ""
+            ? event.error.message
+            : event.outcome.reason.replaceAll("_", " ");
+      } else if (event.outcome.kind === "interrupted") {
+        reason = event.outcome.reason;
+        message = event.outcome.reason.replaceAll("_", " ");
+      }
+      for (const item of running.value) {
+        if (item.current === null || item.current.human_turn) continue;
+        const read = await store.read(item.id as Id<"wfi">);
+        if (!read.ok) {
+          skip(item.id, read.error.code);
+          continue;
+        }
+        if (stalledStepFor(read.value, event.session) === null) continue;
+        const open = await turns.openOutgoingCalls(event.session);
+        if (!open.ok) {
+          skip(item.id, open.error.code);
+          continue;
+        }
+        if (open.value > 0) continue;
+        let alreadyResolved = false;
+        const done = await apply(item.id, (freshState) => {
+          const step = stalledStepFor(freshState, event.session);
+          if (step === null) {
+            alreadyResolved = true;
+            return fail("conflict", "step already resolved");
+          }
+          return ok({
+            instance: freshState.instance.id,
+            change: {
+              kind: "step_stalled",
+              step,
+              session: event.session,
+              ...(reason !== undefined ? { reason } : {}),
+              ...(message !== undefined ? { message } : {}),
+            },
+            by: { kind: "lophn" },
+            handoff: null,
+          });
+        });
+        if (!done.ok && !alreadyResolved) skip(item.id, done.error.code);
+      }
     },
 
     async stop(input: z.output<typeof workflowStop.input>, by: LineBy) {

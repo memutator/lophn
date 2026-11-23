@@ -534,6 +534,7 @@ links:
   - {entry: "cli:workflow.edit", flow: workflow-edit}
   - {entry: "cli:workflow.check", flow: workflow-check}
   - {entry: "cli:workflow.start", flow: workflow-start-agent}
+  - {entry: "cli:workflow.retry", flow: workflow-retry}
   - {entry: "cli:workflow.stop", flow: workflow-stop}
 
 ignore: []

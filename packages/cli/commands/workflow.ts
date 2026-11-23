@@ -1,6 +1,6 @@
-// `lophn workflow list|get|report|edit|check|start|stop`: workflow를 읽고, report하고, 고치고, 시작하고, 멈춘다.
-// lophn agent와 사람(binary)이 같은 명령을 쓰고, 부른 쪽은 core가 credential로 안다. start와 stop은 route가 user 전용이라
-// workspace 종류를 비워 binary만 부른다: agent의 시작은 job의 workflow_start가 맡고, 멈추는 것은 사람이 정한다.
+// `lophn workflow list|get|report|edit|check|start|retry|stop`: workflow를 읽고, report하고, 고치고, 시작하고, 재시도하고, 멈춘다.
+// lophn agent와 사람(binary)이 같은 명령을 쓰고, 부른 쪽은 core가 credential로 안다. start·retry·stop은 route가 user 전용이라
+// workspace 종류를 비워 binary만 부른다: agent의 시작은 job의 workflow_start가 맡고, 재시도와 멈춤은 사람이 정한다.
 import { z } from "zod";
 import { ok } from "../../base/mod.ts";
 import { idSchema } from "../../protocol/base/ids.ts";
@@ -11,12 +11,15 @@ import {
   stepNameSchema,
   stepNextSchema,
   workflowCheck,
+  workflowDataSchema,
   workflowEdit,
   workflowEditInputSchema,
   workflowInstanceRead,
   workflowKeySchema,
   workflowList,
+  workflowRefsSchema,
   workflowReport,
+  workflowRetry,
   workflowStart,
   workflowStop,
   workflowTextSchema,
@@ -127,13 +130,19 @@ const get = defineCommand({
 const report = defineCommand({
   name: "workflow.report",
   summary: "Report a step's result and hand over to the next step",
-  description: `Report a step result. --next hands a step or ends the instance (end); omit it for a progress note. --session new|same chooses whether the next step opens a new session. The report stays even if handing fails; the summary explains why. For a step that came from another computer, the same command sends the report back to that computer (only the session that got the step; a report with --next ends the step there). ${TEXT_NOTE} ${STATE_NOTE}`,
+  description: `Report a step result. --next hands a step or ends the instance (end); omit it for a progress note. --session new|same chooses whether the next step opens a new session. --refs lists output file paths (repeat the flag for multiple paths) and --data attaches optional structured JSON. The report stays even if handing fails; the summary explains why. For a step that came from another computer, the same command sends the report back to that computer (only the session that got the step; a report with --next ends the step there). ${TEXT_NOTE} ${STATE_NOTE}`,
   input: z.strictObject({
     instance,
     step: stepNameSchema,
     text: workflowTextSchema,
     next: stepNextSchema.optional().describe("next step name or end"),
     session: sessionChoiceSchema.optional(),
+    refs: workflowRefsSchema
+      .optional()
+      .describe("output file paths produced by this step"),
+    data: workflowDataSchema
+      .optional()
+      .describe("optional structured JSON output"),
   }),
   positional: ["instance", "step", "text"],
   effect: "write",
@@ -246,6 +255,33 @@ const start = defineCommand({
   },
 });
 
+const retry = defineCommand({
+  name: "workflow.retry",
+  summary: "Retry a blocked workflow step",
+  description:
+    "Retries a blocked step of a running workflow instance. Continues in the recorded session when one exists, or re-attempts handing off when the step was not handed. Omit step to retry the current blocked step.",
+  input: z.strictObject({
+    instance,
+    step: stepNameSchema
+      .optional()
+      .describe("step to retry (default: the current blocked step)"),
+  }),
+  positional: ["instance", "step"],
+  effect: "write",
+  routes: [workflowRetry],
+  workspaces: [],
+  run: async (input, ctx) => {
+    const retried = await ctx.core.read(workflowRetry, input);
+    if (!retried.ok) return retried;
+    const { instance: inst, line } = retried.value;
+    return ok({
+      summary: `retried (line ${line})`,
+      content: { instance: inst, line },
+      text: `line: ${line}`,
+    });
+  },
+});
+
 const stop = defineCommand({
   name: "workflow.stop",
   summary: "Stop a workflow instance",
@@ -266,4 +302,13 @@ const stop = defineCommand({
   },
 });
 
-export const WORKFLOW_COMMANDS = [list, get, report, edit, check, start, stop];
+export const WORKFLOW_COMMANDS = [
+  list,
+  get,
+  report,
+  edit,
+  check,
+  start,
+  retry,
+  stop,
+];

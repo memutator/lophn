@@ -679,3 +679,43 @@ export function workflowDeskStatus(
           }),
   };
 }
+
+/** workflow 선언 problem을 화면 글로 정리한다. `invalid_inputs`는 이유 머릿말을 덧붙인다. */
+export function workflowProblemText(
+  problem: NonNullable<WorkflowEntryView["problem"]>,
+): string {
+  if (problem.reason === "invalid_inputs") {
+    const title = t("workflow.note.problem-invalid-inputs");
+    return problem.message.trim() === ""
+      ? title
+      : `${title}: ${problem.message}`;
+  }
+  return problem.message;
+}
+
+export interface RunInputRow {
+  readonly key: string;
+  readonly value: string;
+}
+
+/** run이 받은 선언적 input 값을 읽기 전용 요약 글로 바꾼다. */
+export function formatInputValue(value: unknown): string {
+  if (typeof value === "boolean") {
+    return t(value ? "workflow.label.input-yes" : "workflow.label.input-no");
+  }
+  if (typeof value === "number") return String(value);
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) return value.map(formatInputValue).join(", ");
+  if (value === null || value === undefined) return "";
+  return JSON.stringify(value);
+}
+
+/** run detail에 담긴 선언적 inputs 요약 행. 없거나 비었으면 빈 배열이다. */
+export function runInputsOf(detail: WorkflowInstanceDetailView): RunInputRow[] {
+  const inputs = detail.inputs ?? detail.instance.inputs;
+  if (inputs === undefined) return [];
+  return Object.entries(inputs).map(([key, value]) => ({
+    key,
+    value: formatInputValue(value),
+  }));
+}

@@ -1,11 +1,13 @@
 // WorkspaceSource의 메모리 구현. dev seed와 화면 시험이 쓴다. 연결 폴더 둘(하위 폴더 하나 포함)과 폴더별
 // 파일 tree를 갖고, `list(path)`가 폴더 한 단계씩 돌려준다. 문서 목록은 비어 있고 layout은 저장만 받는다.
+import { validateWorkflowInputs } from "../../../protocol/workflows/inputs.ts";
 import {
   createLayoutSource,
   memoryWorkspaceLayoutBridge,
 } from "../shell/layout-source.ts";
 import { fakeFileSearchSource } from "./search/fake-source.ts";
 import type {
+  CallableAgentOptionView,
   FolderEntry,
   ProjectFolderView,
   ReadResult,
@@ -77,6 +79,12 @@ const PARTICIPANTS = {
 } as const;
 
 const FLOW_STEPS = ["fetch", "summarize", "publish"] as const;
+
+export const FAKE_CALLABLE_AGENTS: readonly CallableAgentOptionView[] = [
+  { name: "lophn", label: "lophn", kind: "lophn" },
+  { name: "Eval analyst", label: "Eval analyst", kind: "project" },
+  { name: "coding_codex", label: "Codex coder", kind: "coding" },
+];
 
 export const FAKE_WORKFLOWS: readonly WorkflowEntryView[] = [
   {
@@ -155,6 +163,117 @@ export const FAKE_WORKFLOWS: readonly WorkflowEntryView[] = [
     steps: null,
     artifacts: { static: false, instance: false },
   },
+  {
+    key: "phroner/experiment-suite",
+    project: PROJECT,
+    name: "experiment-suite",
+    invalid: false,
+    kind: "agent",
+    startable: true,
+    problem: null,
+    inputs: {
+      mode: {
+        type: "select",
+        label: "Mode",
+        description: "How broad the experiment run should be.",
+        required: true,
+        default: "quick",
+        options: [
+          { value: "quick", label: "Quick smoke" },
+          { value: "full", label: "Full sweep" },
+          { value: "custom", label: "Custom" },
+        ],
+      },
+      suites: {
+        type: "multiselect",
+        label: "Suites",
+        description: "Scenario groups to include in this run.",
+        required: true,
+        default: ["quests"],
+        options: ["quests", "inventory", "routing", "hygiene"],
+      },
+      repeats: {
+        type: "number",
+        label: "Repeats",
+        description: "Attempts per scenario.",
+        required: true,
+        default: 2,
+        min: 1,
+        max: 10,
+        when: { field: "mode", in: ["full", "custom"] },
+      },
+      use_custom_agent: {
+        type: "boolean",
+        label: "Override reviewer",
+        description: "Pick a specific callable agent for review.",
+        default: false,
+      },
+      reviewer: {
+        type: "agent",
+        label: "Reviewer agent",
+        description: "Agent that reviews the experiment output.",
+        required: true,
+        when: { field: "use_custom_agent", truthy: true },
+      },
+      rubric_path: {
+        type: "path",
+        kind: "file",
+        label: "Rubric file",
+        description: "Scoring rubric file for custom runs.",
+        placeholder: "eval/rubrics/query-hygiene.json",
+        required: true,
+        when: { field: "mode", equals: "custom" },
+      },
+      output_dir: {
+        type: "path",
+        kind: "dir",
+        label: "Output folder",
+        description: "Directory where run outputs are written.",
+        default: "eval/results",
+      },
+      tag: {
+        type: "string",
+        label: "Run tag",
+        description: "Optional short label attached to this run.",
+        placeholder: "exp-016",
+      },
+      notes: {
+        type: "text",
+        label: "Notes",
+        description: "Additional guidance passed to the first step.",
+        placeholder: "Constraints, hypotheses, or focus areas...",
+      },
+    },
+    outputs: {
+      report_path: {
+        type: "path",
+        description: "Generated experiment summary path.",
+        required: true,
+      },
+    },
+    participants: PARTICIPANTS,
+    steps: [
+      { name: "plan", by: "lophn", with: null, next: ["execute"] },
+      { name: "execute", by: "analyst", with: null, next: ["report"] },
+      { name: "report", by: "lophn", with: null, next: ["end"] },
+    ],
+    artifacts: { static: false, instance: true },
+  },
+  {
+    key: "phroner/bad-inputs",
+    project: PROJECT,
+    name: "bad-inputs",
+    invalid: true,
+    kind: "agent",
+    startable: false,
+    problem: {
+      reason: "invalid_inputs",
+      message: "inputs.mode: select requires non-empty options",
+    },
+    participants: PARTICIPANTS,
+    steps: null,
+    artifacts: { static: false, instance: false },
+  },
 ];
 
 const IDS = {
@@ -170,6 +289,7 @@ const IDS = {
   remoteHeld: "wfi_01h455vb4pex5v6nkc6gd5fd10",
   remoteFailed: "wfi_01h455vb4pex5v6nkc6gd5fd11",
   remoteTurnEnded: "wfi_01h455vb4pex5v6nkc6gd5fd12",
+  suiteInputs: "wfi_01h455vb4pex5v6nkc6gd5fd13",
 } as const;
 
 const EVAL_STEPS = [
@@ -1129,7 +1249,66 @@ const remoteTurnEnded: WorkflowInstanceDetailView = {
   ],
 };
 
-/** eval-loop의 instance 여섯 뒤에 nightly-flow의 instance 셋, 그 뒤에 다른 컴퓨터로 step을 넘긴 셋이 붙는다. */
+const suiteInputsValues = {
+  mode: "full",
+  suites: ["quests", "routing"],
+  repeats: 3,
+  use_custom_agent: true,
+  reviewer: "Eval analyst",
+  output_dir: "eval/results/exp-016",
+  tag: "exp-016",
+} as const;
+const suiteInputsText = "Run the full quest and routing sweep for exp-016";
+const suiteInputsPlan = reportOf(
+  IDS.suiteInputs,
+  3,
+  18,
+  LOPHN_SESSION,
+  "plan",
+  "Prepared full sweep for quests and routing (3 repeats, reviewer Eval analyst).",
+  "execute",
+);
+const suiteInputs: WorkflowInstanceDetailView = {
+  instance: {
+    ...instanceOf(
+      IDS.suiteInputs,
+      suiteInputsText,
+      "running",
+      { step: "execute", human_turn: false },
+      20,
+      null,
+    ),
+    workflow: "experiment-suite",
+    inputs: suiteInputsValues,
+    steps: EVAL_STEPS.filter((step) => step.name !== "review").map((step) => ({
+      ...step,
+      next: [...step.next],
+    })),
+  },
+  derived_status: "working",
+  inputs: suiteInputsValues,
+  last_reports: { plan: suiteInputsPlan },
+  lines: [
+    ...startLines(IDS.suiteInputs, suiteInputsText, 20),
+    suiteInputsPlan,
+    {
+      instance: IDS.suiteInputs,
+      seq: "4",
+      at: minutesAgo(18),
+      by: lophn,
+      kind: "handed",
+      step: "execute",
+      participant: "analyst",
+      receiver: ANALYST_SESSION,
+      human_turn: false,
+      cause: "report",
+      session: "new",
+    },
+  ],
+  remote_steps: [],
+};
+
+/** eval-loop의 instance 여섯 뒤에 nightly-flow의 instance 셋, 그 뒤에 다른 컴퓨터로 step을 넘긴 셋, 끝에 선언적 inputs instance가 붙는다. */
 export const FAKE_WORKFLOW_INSTANCES: readonly WorkflowInstanceDetailView[] = [
   running,
   humanTurn,
@@ -1143,6 +1322,7 @@ export const FAKE_WORKFLOW_INSTANCES: readonly WorkflowInstanceDetailView[] = [
   remoteHeld,
   remoteFailed,
   remoteTurnEnded,
+  suiteInputs,
 ];
 
 const FOLDERS: readonly ProjectFolderView[] = [
@@ -1188,6 +1368,8 @@ interface FakeWorkspaceOptions {
   readonly failing?: readonly string[];
   /** workflow 정의 목록. project와 상관없이 그대로 돌려준다. 기본은 FAKE_WORKFLOWS다. */
   readonly workflows?: readonly WorkflowEntryView[];
+  /** `agent` 입력 칸 선택지. 기본은 FAKE_CALLABLE_AGENTS다. */
+  readonly callableAgents?: readonly CallableAgentOptionView[];
   /** workflow instance. 새것이 앞. 기본은 FAKE_WORKFLOW_INSTANCES다. */
   readonly workflowInstances?: readonly WorkflowInstanceDetailView[];
 }
@@ -1196,6 +1378,7 @@ function summaryOf(
   detail: WorkflowInstanceDetailView,
 ): WorkflowInstanceSummaryView {
   const { instance, lines } = detail;
+  const inputs = detail.inputs ?? instance.inputs;
   return {
     id: instance.id,
     project: instance.project,
@@ -1203,6 +1386,7 @@ function summaryOf(
     state: instance.state,
     current: instance.current,
     input: instance.input,
+    ...(inputs === undefined ? {} : { inputs }),
     started_by: instance.started_by,
     created_at: instance.created_at,
     finished_at: instance.finished_at,
@@ -1375,7 +1559,11 @@ export function fakeWorkspaceSource(
     },
     reveal: () => done,
     workflows: () =>
-      Promise.resolve({ ok: true, value: options.workflows ?? FAKE_WORKFLOWS }),
+      Promise.resolve({
+        ok: true,
+        value: options.workflows ?? FAKE_WORKFLOWS,
+        callableAgents: options.callableAgents ?? FAKE_CALLABLE_AGENTS,
+      }),
     workflowInstances: (filter) =>
       Promise.resolve({
         ok: true,
@@ -1397,7 +1585,7 @@ export function fakeWorkspaceSource(
           : { ok: true, value: detail },
       );
     },
-    startWorkflow({ workflow, text, step }) {
+    startWorkflow({ workflow, text, step, inputs }) {
       const entry = (options.workflows ?? FAKE_WORKFLOWS).find(
         (item) => item.key === workflow,
       );
@@ -1416,6 +1604,18 @@ export function fakeWorkspaceSource(
       if (!isFlow && !entry.steps.some((item) => item.name === first)) {
         return Promise.resolve({ ok: false, message: "not_found" });
       }
+      const callableAgents = options.callableAgents ?? FAKE_CALLABLE_AGENTS;
+      let normalizedInputs: Record<string, unknown> | undefined = inputs;
+      if (entry.inputs !== undefined) {
+        const validated = validateWorkflowInputs(entry.inputs, inputs ?? {}, {
+          callableAgents: new Set(callableAgents.map((agent) => agent.name)),
+        });
+        if (!validated.ok) {
+          return Promise.resolve({ ok: false, message: "invalid_input" });
+        }
+        normalizedInputs =
+          Object.keys(validated.value).length > 0 ? validated.value : undefined;
+      }
       const id = `wfi_fake${instances.length + 1}`;
       const at = FAKE_NOW.toISOString();
       const instance: WorkflowInstanceView = {
@@ -1423,6 +1623,7 @@ export function fakeWorkspaceSource(
         project: entry.project,
         workflow: entry.name,
         input: text,
+        ...(normalizedInputs === undefined ? {} : { inputs: normalizedInputs }),
         state: "running",
         participants: isFlow ? {} : PARTICIPANTS,
         steps: entry.steps.map((item) => ({
@@ -1439,6 +1640,9 @@ export function fakeWorkspaceSource(
       instances = [
         {
           instance,
+          ...(normalizedInputs === undefined
+            ? {}
+            : { inputs: normalizedInputs }),
           last_reports: {},
           lines: [
             {

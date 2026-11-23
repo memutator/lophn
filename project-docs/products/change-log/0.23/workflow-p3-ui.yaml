@@ -1,0 +1,27 @@
+id: workflow-p3-ui
+version: 0.23.144
+title: Workflow Phase 3 선언적 inputs 폼(InputsForm), StartBox·RunView 연동, callable_agents 및 invalid_inputs UI를 더한다
+modules:
+  - packages/shell/renderer
+  - packages/design
+change: |
+  - WorkspaceSource(`source.ts`, `core-source.ts`, `fake-source.ts`):
+    - `WorkflowEntryView`에 선택적 `inputs`, `outputs`와 `invalid_inputs` problem 이유를 더하고, `workflows(project)` 결과(`WorkflowListResult`)에 `ListWorkflows` 응답의 `callable_agents`(`callableAgents`)를 함께 싣는다.
+    - `WorkflowInstanceView`, `WorkflowInstanceSummaryView`, `WorkflowInstanceDetailView`에 선택적 `inputs?: Readonly<Record<string, unknown>>`를 더한다.
+    - `startWorkflow`가 선택적 `inputs`를 받아 `workflows/start`로 전달한다.
+    - `fake-source.ts`에 8종 입력 필드와 조건부 `when`을 덮는 `experiment-suite` workflow, `invalid_inputs` 예시 `bad-inputs`, `FAKE_CALLABLE_AGENTS`, 선언적 `inputs`를 가진 instance를 더한다.
+  - `InputsForm`(`inputs-form.tsx`, `inputs-form.module.css`):
+    - `@lophn/ui` 입력 control과 design token으로 8종 필드(`string`, `text`, `number`, `boolean`, `select`, `multiselect`, `agent`, `path`)를 그린다.
+    - `packages/protocol/workflows/inputs.ts`의 `resolveInputDefaults`, `evaluateInputWhen`을 직접 써서 core와 같은 고정점 가시성·기본값 규칙으로 조건부 필드를 숨기거나 보인다.
+    - `agent` 필드는 `callableAgents`가 있으면 `Select`, 비어 있으면 텍스트 입력 fallback을 쓰고, `path` 필드는 `file`/`dir` 종류에 맞는 placeholder를 보인다.
+  - `StartBox`, `WorkflowPage`, `useWorkflow`, `RunView`:
+    - `StartBox`가 workflow에 선언된 `inputs`가 있으면 `InputsForm`을 함께 렌더링하고, 제출 시 `validateWorkflowInputs`로 인라인 오류를 표시하거나 정규화된 `inputs`로 `startWorkflow`를 부른다.
+    - `WorkflowPage`가 `invalid_inputs` problem 상태를 전용 문구(`packages/design/i18n/catalog/workflow.ts`)와 critical 톤으로 표시한다.
+    - `RunView`가 `detail.inputs`가 비어 있지 않을 때 읽기 전용 `Inputs` 요약을 표시한다.
+why: |
+  선언적 `inputs`를 가진 workflow를 데스크톱 화면에서 바로 입력·검증·실행하고, 잘못된 입력 선언(`invalid_inputs`)과 run이 받은 파라미터를 명확히 확인할 수 있게 한다.
+decisions:
+  - text: "`WorkspaceSource.workflows(project)`의 성공 반환에 선택적 `callableAgents` 필드를 붙이는 `WorkflowListResult`를 쓴다. 버린 길: 별도 RPC/메서드 분리(중복 `workflows/list` 호출)나 반환 `value` 모양 변경(비소유 호출부 `workspace-window.tsx`·`workflow-panel.tsx` 깨짐)."
+    by: agent
+  - text: "`boolean`과 `multiselect` 필드에 `@lophn/ui`의 `Checkbox`를 쓴다(디자인 시스템 규칙상 제출형 선택은 `Checkbox`, 즉시 토글 설정은 `Switch`). `agent` 필드는 `callableAgents`가 비어 있을 때만 텍스트 입력 fallback과 미제한 검증을 허용한다."
+    by: agent

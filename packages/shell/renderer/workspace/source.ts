@@ -1,6 +1,10 @@
 // 작업대가 읽는 통로. projects get·문서 목록 read 결과와
 // layout 저장·복원만 담는다.
 // core를 직접 부르지 않고 화면이 주입한 통로만 쓴다.
+import type {
+  WorkflowInputsDeclaration,
+  WorkflowOutputsDeclaration,
+} from "../../../protocol/workflows/inputs.ts";
 import type { FileFailure } from "../../ipc/files.ts";
 import type { LayoutSource } from "../shell/layout-source.ts";
 import type { AgentsSource } from "./agents/source.ts";
@@ -44,6 +48,20 @@ export type FileOpResult =
   | { readonly ok: true }
   | { readonly ok: false; readonly code: FileFailure };
 
+export type WorkflowProblemReason =
+  | "no_declaration"
+  | "invalid_yaml"
+  | "invalid_declaration"
+  | "invalid_inputs"
+  | "no_flow_file";
+
+/** workflow `agent` 입력 칸의 선택지. ListWorkflows가 이 project에서 부를 수 있는 agent를 함께 돌려준다. */
+export interface CallableAgentOptionView {
+  readonly name: string;
+  readonly label?: string;
+  readonly kind?: string;
+}
+
 /** `workflows` 목록의 한 줄. 틀린 선언도 `invalid`로 남겨 자리를 잃지 않게 한다. workflow-shell의 desk selector도 읽는다. */
 export interface WorkflowEntryView {
   /** 보이는 이름 `<project 이름>/<name>`. 시작 입력으로도 쓴다. */
@@ -57,9 +75,13 @@ export interface WorkflowEntryView {
   readonly startable: boolean;
   readonly kind: "agent" | "flow" | null;
   readonly problem: {
-    readonly reason: string;
+    readonly reason: WorkflowProblemReason | (string & {});
     readonly message: string;
   } | null;
+  /** 선언적 시작 입력 폼 정의. 없으면 입력 글 칸만 보인다. */
+  readonly inputs?: WorkflowInputsDeclaration;
+  /** 선언적 출력 스키마. */
+  readonly outputs?: WorkflowOutputsDeclaration;
   /** 선언의 참가자(key → agent handle이나 사람). 틀린 선언이면 null이다. */
   readonly participants: Readonly<
     Record<
@@ -237,6 +259,7 @@ export interface WorkflowInstanceView {
   readonly project: string;
   readonly workflow: string;
   readonly input: string;
+  readonly inputs?: Readonly<Record<string, unknown>>;
   readonly state: WorkflowState;
   /** workflow.yaml의 참가자. agent는 agent 이름이고 workspace가 없으면 instance의 project다. */
   readonly participants: Readonly<
@@ -278,6 +301,7 @@ export interface WorkflowInstanceSummaryView {
   readonly state: WorkflowState;
   readonly current: WorkflowInstanceView["current"];
   readonly input: string;
+  readonly inputs?: Readonly<Record<string, unknown>>;
   readonly started_by: WorkflowStartedBy;
   readonly created_at: string;
   readonly finished_at: string | null;
@@ -304,11 +328,21 @@ export interface WorkflowInstanceDetailView {
   readonly derived_status?: WorkflowDerivedStatus;
   readonly sessions?: readonly WorkflowSessionNodeView[];
   readonly refs?: readonly string[];
+  readonly inputs?: Readonly<Record<string, unknown>>;
 }
 
 export type ReadResult<T> =
   | { ok: true; value: T }
   | { ok: false; message: string };
+
+/** `workflows(project)` 결과. 목록 외에 `agent` 입력용 callable agent 목록을 함께 싣는다. */
+export type WorkflowListResult =
+  | {
+      readonly ok: true;
+      readonly value: readonly WorkflowEntryView[];
+      readonly callableAgents?: readonly CallableAgentOptionView[];
+    }
+  | { readonly ok: false; readonly message: string };
 
 export interface WorkspaceSource {
   project(id: string): Promise<ReadResult<ProjectView>>;
@@ -354,7 +388,7 @@ export interface WorkspaceSource {
   /** project 키워드 검색 통로. 없으면 Search 탭과 여는 길을 두지 않는다. */
   readonly searchSource?: FileSearchSource;
   /** workflow 정의 목록. 틀린 선언도 이유와 함께 담긴다. 읽기 실패를 빈 목록으로 돌려주지 않는다. */
-  workflows(project: string): Promise<ReadResult<readonly WorkflowEntryView[]>>;
+  workflows(project: string): Promise<WorkflowListResult>;
   /** workflow instance 목록, 새것이 앞. */
   workflowInstances(
     filter: WorkflowInstanceFilter,
@@ -370,6 +404,7 @@ export interface WorkspaceSource {
     workflow: string;
     text: string;
     step?: string;
+    inputs?: Record<string, unknown>;
   }): Promise<ReadResult<{ instance: string }>>;
   stopWorkflow(instance: string): Promise<ReadResult<null>>;
   /** 막힌 step을 같은 session에서 이어서 다시 시도한다. step을 빼면 current step이다. */

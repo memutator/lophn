@@ -1,8 +1,12 @@
-/* 새 run 칸: 입력 글 아래에 시작할 step 고르기(왼쪽)와 [Start](오른쪽 끝). */
+/* 새 run 칸: 입력 글과 선언적 inputs 폼 아래에 시작할 step 고르기(왼쪽)와 [Start](오른쪽 끝). */
 .box {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+}
+
+.inputs {
+  min-width: var(--space-0);
 }
 
 .row {

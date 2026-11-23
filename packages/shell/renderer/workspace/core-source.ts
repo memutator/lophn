@@ -6,7 +6,11 @@
 
 import { jobList } from "../../../protocol/jobs/jobs.ts";
 import { projectApi } from "../../../protocol/projects/project-api.ts";
-import { workflowRetry } from "../../../protocol/workflows/routes.ts";
+import {
+  workflowList,
+  workflowRetry,
+  workflowStart,
+} from "../../../protocol/workflows/routes.ts";
 import type { FileReply, FilesApi } from "../../ipc/files.ts";
 import { commandCall } from "../command-call.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
@@ -18,6 +22,7 @@ import { createLayoutSource } from "../shell/layout-source.ts";
 import { coreAgentsSource } from "./agents/core-source.ts";
 import { coreFileSearchSource } from "./search/core-source.ts";
 import type {
+  CallableAgentOptionView,
   FileOpResult,
   FileRow,
   ProjectView,
@@ -61,6 +66,7 @@ interface WorkflowListValue {
   workflows: (Omit<WorkflowEntryView, "invalid"> & {
     state: "ok" | "invalid";
   })[];
+  callable_agents?: CallableAgentOptionView[];
 }
 
 interface WorkflowInstanceListValue {
@@ -372,17 +378,18 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
 
     async workflows(id) {
       const reply = await core.call({
-        kind: "memory",
-        resource: "workflows",
-        method: "list",
+        kind: workflowList.kind,
+        resource: workflowList.resource,
+        method: workflowList.method,
         body: { project: id },
       });
       if (!reply.ok) {
         return { ok: false, message: reply.error?.code ?? "internal" };
       }
+      const list = reply.value as WorkflowListValue;
       return {
         ok: true,
-        value: (reply.value as WorkflowListValue).workflows.map((entry) => ({
+        value: list.workflows.map((entry) => ({
           key: entry.key,
           project: entry.project,
           name: entry.name,
@@ -390,10 +397,15 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
           startable: entry.startable,
           kind: entry.kind,
           problem: entry.problem,
+          ...(entry.inputs === undefined ? {} : { inputs: entry.inputs }),
+          ...(entry.outputs === undefined ? {} : { outputs: entry.outputs }),
           participants: entry.participants ?? null,
           steps: entry.steps,
           artifacts: entry.artifacts,
         })),
+        ...(list.callable_agents === undefined
+          ? {}
+          : { callableAgents: list.callable_agents }),
       };
     },
 
@@ -419,6 +431,7 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
             state: entry.state,
             current: entry.current,
             input: entry.input,
+            ...(entry.inputs === undefined ? {} : { inputs: entry.inputs }),
             started_by: startedByOf(entry.started_by, titles),
             created_at: entry.created_at,
             finished_at: entry.finished_at,
@@ -467,16 +480,24 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
             : { derived_status: last!.derived_status }),
           ...(last!.sessions === undefined ? {} : { sessions: last!.sessions }),
           ...(last!.refs === undefined ? {} : { refs: last!.refs }),
+          ...(last!.instance.inputs === undefined
+            ? {}
+            : { inputs: last!.instance.inputs }),
         },
       };
     },
 
-    async startWorkflow({ workflow, text, step }) {
+    async startWorkflow({ workflow, text, step, inputs }) {
       const reply = await core.call({
-        kind: "memory",
-        resource: "workflows",
-        method: "start",
-        body: { workflow, text, ...(step === undefined ? {} : { step }) },
+        kind: workflowStart.kind,
+        resource: workflowStart.resource,
+        method: workflowStart.method,
+        body: {
+          workflow,
+          text,
+          ...(step === undefined ? {} : { step }),
+          ...(inputs === undefined ? {} : { inputs }),
+        },
       });
       if (!reply.ok) {
         return { ok: false, message: reply.error?.code ?? "internal" };

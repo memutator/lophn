@@ -5,6 +5,7 @@ import { t } from "@lophn/i18n";
 
 import { useFollowedRead } from "../desktop/connection/core-read.ts";
 import type {
+  CallableAgentOptionView,
   WorkflowEntryView,
   WorkflowInstanceDetailView,
   WorkflowInstanceSummaryView,
@@ -20,7 +21,11 @@ export type Definitions =
   | { readonly state: "loading" }
   | { readonly state: "failed" }
   /** entry가 null이면 이 이름의 workflow가 목록에 없다(지워졌다). */
-  | { readonly state: "ready"; readonly entry: WorkflowEntryView | null };
+  | {
+      readonly state: "ready";
+      readonly entry: WorkflowEntryView | null;
+      readonly callableAgents: readonly CallableAgentOptionView[];
+    };
 
 export interface UseWorkflow {
   readonly definitions: Definitions;
@@ -30,7 +35,11 @@ export interface UseWorkflow {
   closeNotice(): void;
   refresh(): void;
   /** 성공하면 true. 실패하면 알림을 띄우고 false다. */
-  start(text: string, step?: string): Promise<boolean>;
+  start(
+    text: string,
+    step?: string,
+    inputs?: Record<string, unknown>,
+  ): Promise<boolean>;
   stop(): void;
   retry(step?: string): void;
 }
@@ -75,6 +84,7 @@ export function useWorkflow({
         setDefinitions({
           state: "ready",
           entry: result.value.find((item) => item.name === workflow) ?? null,
+          callableAgents: result.callableAgents ?? [],
         });
       } else if (haveDefinitions.current) {
         unreadable(t("workflow.error.load-failed"));
@@ -129,17 +139,21 @@ export function useWorkflow({
       setDefinitionReads((count) => count + 1);
       reload();
     },
-    async start(text, step) {
+    async start(text, step, inputs) {
       if (entry === null) return false;
       const result = await source.startWorkflow({
         workflow: entry.key,
         text,
         step,
+        ...(inputs === undefined ? {} : { inputs }),
       });
       if (!result.ok) {
         setNotice({
           title: t("workflow.title.start-failed", { workflow }),
-          body: t("workflow.error.start-failed"),
+          body:
+            result.message === "invalid_input"
+              ? t("workflow.error.start-invalid-inputs")
+              : t("workflow.error.start-failed"),
         });
         return false;
       }

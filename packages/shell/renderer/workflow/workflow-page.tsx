@@ -24,7 +24,12 @@ import type {
   WorkflowEntryView,
   WorkspaceSource,
 } from "../workspace/source.ts";
-import { type FaceOf, relayOfEntry, runningCount } from "./model.ts";
+import {
+  type FaceOf,
+  relayOfEntry,
+  runningCount,
+  workflowProblemText,
+} from "./model.ts";
 import { Relay } from "./relay.tsx";
 import { RunList } from "./run-list.tsx";
 import { RunView } from "./run-view.tsx";
@@ -161,23 +166,36 @@ export function WorkflowPage(props: WorkflowPageProps): ReactElement {
           onRefresh={state.refresh}
         />
         {entry.problem === null ? null : (
-          <p className={styles.problem}>
+          <p className={styles.problem} data-problem={entry.problem.reason}>
             <span
               className={styles.problemMark}
-              data-tone={entry.invalid ? "critical" : "neutral"}
+              data-tone={
+                entry.invalid || entry.problem.reason === "invalid_inputs"
+                  ? "critical"
+                  : "neutral"
+              }
             >
               <Icon
-                icon={entry.invalid ? editorIcons.problem : homeIcons.details}
+                icon={
+                  entry.invalid || entry.problem.reason === "invalid_inputs"
+                    ? editorIcons.problem
+                    : homeIcons.details
+                }
                 pixels={iconPixels("base")}
               />
             </span>
-            <span>{entry.problem.message}</span>
+            <span>{workflowProblemText(entry.problem)}</span>
           </p>
         )}
         {steps.length === 0 ? null : <Relay steps={steps} faceOf={faceOf} />}
         {entry.invalid ? null : (
           <>
-            <StartBox entry={entry} onStart={state.start} />
+            <StartBox
+              key={entry.key}
+              entry={entry}
+              callableAgents={definitions.callableAgents}
+              onStart={state.start}
+            />
             <section className={styles.section}>
               <h2 className={styles.sectionTitle}>
                 {t("workflow.heading.instances")}

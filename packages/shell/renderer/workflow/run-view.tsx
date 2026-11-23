@@ -24,6 +24,7 @@ import {
   previewText,
   refsOf,
   relayOfRun,
+  runInputsOf,
   runTitle,
   type SessionNodeStatus,
   sessionOfStep,
@@ -419,6 +420,7 @@ export function RunView({
   const sessionRows = buildSessionTree(detail.sessions, dotOf);
   const sessionSummary = summarizeSessions(sessionRows);
   const refs = refsOf(detail);
+  const runInputs = runInputsOf(detail);
   // 머리 쪽 줄 가운데 한 장이 이미 말한 것(끝남, 멈춤, program 종료)은 다시 적지 않는다.
   // 한 장이 이미 여는 session은 step 줄에서 다시 단추로 두지 않는다.
   const nowSession =
@@ -501,6 +503,31 @@ export function RunView({
           <span className={styles.label}>{t("workflow.label.input")}</span>
           <p className={styles.inputText}>{instance.input}</p>
         </div>
+      )}
+      {runInputs.length === 0 ? null : (
+        <section
+          className={styles.section}
+          data-inputs=""
+          aria-label={t("workflow.heading.inputs")}
+        >
+          <div className={styles.sectionHead}>
+            <h2 className={styles.sectionTitle}>
+              {t("workflow.heading.inputs")}
+            </h2>
+          </div>
+          <dl className={styles.inputs}>
+            {runInputs.map((item) => (
+              <div
+                key={item.key}
+                className={styles.inputRow}
+                data-input-key={item.key}
+              >
+                <dt className={styles.inputKey}>{item.key}</dt>
+                <dd className={styles.inputValue}>{item.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
       )}
       <Relay steps={relay} faceOf={faceOf} />
       <NowCard

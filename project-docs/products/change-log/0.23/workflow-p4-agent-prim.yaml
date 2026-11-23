@@ -1,5 +1,5 @@
 id: workflow-p4-agent-prim
-version: 0.23.150
+version: 0.23.152
 title: 통합 workflow agent() 실행 primitive(turn|report, 열린 agent_calls 정산·stall, session same, cancel, 원격 on)와 router outgoing call 정산 helper를 더한다
 modules:
   - packages/core/workflows

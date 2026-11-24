@@ -1859,6 +1859,21 @@ export function fakeWorkspaceSource(
       Promise.resolve({ ok: true, value: { from, to } }),
     deleteWorkflow: () =>
       Promise.resolve({ ok: true, value: { handoff_session: null } }),
+    exportWorkflow: ({ name }) =>
+      Promise.resolve({
+        ok: true,
+        value: {
+          name,
+          files: [
+            {
+              path: "workflow.yaml",
+              content_base64: btoa("participants:\n  a: { agent: lophn }\n"),
+            },
+          ],
+        },
+      }),
+    importWorkflow: ({ files }) =>
+      Promise.resolve({ ok: true, value: { files_written: files.length } }),
     files: () => Promise.resolve({ ok: true, value: [] }),
     layout: fakeLayoutSource(),
   };

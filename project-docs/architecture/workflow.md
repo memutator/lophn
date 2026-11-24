@@ -165,7 +165,7 @@ workflow는 사람, agent, 앱 tool, 앱 event를 비결정적 함수처럼 조�
 
 - **boundary**: `workflows`, `jobs`, `lophn-agent`(세션 `workflow_origin`), `coding-agent`(GUI 탭 배치·실패 사유 보존), `attention`(unseen·알림). `workflows` module은 다른 feature module을 직접 import하지 않고 port와 공용 바닥 module로만 닿는다(`architecture/layers.md`).
 - **route (memory / read)**:
-  - `ListWorkflows`(user·agent, `callable_agents` 포함), `StartWorkflow`(user만, `inputs` 객체 추가), `ReportWorkflow`(user·agent, `refs`·`data` 선택 칸 추가), `EditWorkflow`(user·agent, YAML 축약형 전용), `RetryWorkflowStep`(user만, 같은 session 이어가기), `ResumeWorkflow`(user만, `use_latest_code?`), `StopWorkflow`(user만, 자식 연쇄 중지), `CheckWorkflow`(agent, project workspace 전용).
+  - `ListWorkflows`(user·agent, `callable_agents` 포함), `StartWorkflow`(user만, `inputs` 객체 추가), `ReportWorkflow`(user·agent, `refs`·`data` 선택 칸 추가), `EditWorkflow`(user·agent, YAML 축약형 전용), `RetryWorkflowStep`(user만, 같은 session 이어가기), `ResumeWorkflow`(user만, `use_latest_code?`), `StopWorkflow`(user만, 자식 연쇄 중지), `CheckWorkflow`(agent, project workspace 전용), `ExportWorkflow`(user, workflow 폴더의 파일 묶음 내보내기), `ImportWorkflow`(user, 대상 project의 workflows 폴더에 묶음 쓰기·선택적 덮어쓰기).
   - 읽기 route: `ReadWorkflowInstance`(user·agent·machine, `instance`, `derived_status`, `last_reports`, `lines`, `checkpoints`, `sessions`, `refs`, `children`, `remote_steps`), `ListWorkflowInstances`(user·agent, `derived_status` 요약 포함), `WorkflowInstanceActivity`(machine, idle-exit용).
   - 모든 경계 route·command 오류는 공통 오류 코드 일곱(`invalid_input`, `not_found`, `forbidden`, `unauthorized`, `conflict`, `unavailable`, `internal`)만 사용한다.
 - **agent tool / CLI**:

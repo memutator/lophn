@@ -12,6 +12,7 @@ import type { CleanUpMode } from "../../../../protocol/base/follow-ups.ts";
 import { workflowNameSchema } from "../../../ipc/artifact.ts";
 import { useFollowedRead } from "../../desktop/connection/core-read.ts";
 import { useScopeMachine } from "../../desktop/machines/context.tsx";
+import { useMachineHub } from "../../desktop/machines/scope.tsx";
 import {
   actionIcons,
   commonIcons,
@@ -31,6 +32,10 @@ import {
   TileIcon,
 } from "../../shell/panel-rows.tsx";
 import type { WorkflowEntryView, WorkspaceSource } from "../source.ts";
+import {
+  ExportWorkflowDialog,
+  useExportTargetMachines,
+} from "./export-workflow-dialog.tsx";
 import styles from "./workflow-panel.module.css";
 
 // 사람 차례인 run이 있으면 그것을 먼저 말한다.
@@ -62,6 +67,8 @@ export function WorkflowPanel({
   onNew?: () => void;
 }) {
   const remote = useScopeMachine() !== null;
+  const hub = useMachineHub();
+  const exportTargets = useExportTargetMachines();
   const openHandoff = useOpenHandoffSession();
   const [renaming, setRenaming] = useState<WorkflowEntryView | null>(null);
   const [nextName, setNextName] = useState("");
@@ -70,6 +77,7 @@ export function WorkflowPanel({
   const [deleting, setDeleting] = useState<WorkflowEntryView | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteFailed, setDeleteFailed] = useState(false);
+  const [exporting, setExporting] = useState<WorkflowEntryView | null>(null);
 
   const impact = useImpact(
     deleting === null
@@ -105,6 +113,10 @@ export function WorkflowPanel({
 
   const canRename = !remote && source.renameWorkflow !== undefined;
   const canDelete = !remote && source.deleteWorkflow !== undefined;
+  const canExport =
+    source.exportWorkflow !== undefined &&
+    hub !== null &&
+    exportTargets.length > 0;
 
   const startRename = (entry: WorkflowEntryView) => {
     setRenaming(entry);
@@ -211,6 +223,16 @@ export function WorkflowPanel({
           const count = running[entry.name] ?? 0;
           const waiting = needsYou[entry.name] ?? 0;
           const menuItems = [
+            ...(canExport
+              ? [
+                  {
+                    id: "export",
+                    label: t("workflow.button.export-machine"),
+                    data: { "data-menu-item": "export" },
+                    leading: <MenuIcon icon={actionIcons.send} />,
+                  },
+                ]
+              : []),
             ...(canRename
               ? [
                   {
@@ -254,7 +276,8 @@ export function WorkflowPanel({
                     }
                     items={menuItems}
                     onSelect={(id) => {
-                      if (id === "rename") startRename(entry);
+                      if (id === "export") setExporting(entry);
+                      else if (id === "rename") startRename(entry);
                       else if (id === "delete") {
                         setDeleteFailed(false);
                         setDeleting(entry);
@@ -376,6 +399,15 @@ export function WorkflowPanel({
             ) : null}
           </div>
         </Dialog>
+      )}
+      {exporting === null ? null : (
+        <ExportWorkflowDialog
+          project={project}
+          workflow={exporting.name}
+          source={source}
+          targets={exportTargets}
+          onClose={() => setExporting(null)}
+        />
       )}
     </>
   );

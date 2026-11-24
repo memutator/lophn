@@ -8,6 +8,8 @@ import { jobList } from "../../../protocol/jobs/jobs.ts";
 import { projectApi } from "../../../protocol/projects/project-api.ts";
 import {
   workflowDelete,
+  workflowExport,
+  workflowImport,
   workflowList,
   workflowRename,
   workflowResume,
@@ -616,6 +618,42 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
         ok: true,
         value: { handoff_session: value.handoff_session ?? null },
       };
+    },
+
+    async exportWorkflow({ project: projectId, name }) {
+      const reply = await core.call({
+        kind: workflowExport.kind,
+        resource: workflowExport.resource,
+        method: workflowExport.method,
+        body: { project: projectId, name },
+      });
+      if (!reply.ok) {
+        return { ok: false, message: reply.error?.code ?? "internal" };
+      }
+      const value = reply.value as {
+        name: string;
+        files: { path: string; content_base64: string }[];
+      };
+      return { ok: true, value: { name: value.name, files: value.files } };
+    },
+
+    async importWorkflow({ project: projectId, name, files, overwrite }) {
+      const reply = await core.call({
+        kind: workflowImport.kind,
+        resource: workflowImport.resource,
+        method: workflowImport.method,
+        body: {
+          project: projectId,
+          name,
+          files,
+          ...(overwrite === undefined ? {} : { overwrite }),
+        },
+      });
+      if (!reply.ok) {
+        return { ok: false, message: reply.error?.code ?? "internal" };
+      }
+      const value = reply.value as { files_written: number };
+      return { ok: true, value: { files_written: value.files_written } };
     },
 
     // 팔레트 파일 묶음. files.list의 원본 파일 중 문서로 잡힌 것만 탭으로 열 수 있다.

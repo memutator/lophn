@@ -33,6 +33,16 @@
   margin: var(--space-0);
 }
 
+.dialogNote {
+  margin: var(--space-0);
+  color: var(--color-text-secondary);
+}
+
+.dialogSuccess {
+  margin: var(--space-0);
+  color: var(--status-good-text);
+}
+
 .dialogError {
   margin: var(--space-0);
   color: var(--status-critical-text);

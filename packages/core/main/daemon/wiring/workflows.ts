@@ -29,7 +29,9 @@ import {
   workflowCheckpointUpsert,
   workflowDelete,
   workflowEdit,
+  workflowExport,
   workflowFolder,
+  workflowImport,
   workflowInstanceApply,
   workflowInstanceCreate,
   workflowInstanceRead,
@@ -882,6 +884,11 @@ export const workflowsWiring: WiringFactory = () => {
             ...(erasedJobs > 0 ? [{ name: "jobs" as const, id: null }] : []),
           ]);
         },
+        publishImported(project) {
+          publishStateChanged(ctx.bus, ctx.clock.now(), [
+            { name: "projects", id: project },
+          ]);
+        },
       };
 
       const built = createWorkflowService({
@@ -1337,6 +1344,18 @@ export const workflowsWiring: WiringFactory = () => {
               if (!scoped.ok) return scoped;
               return built.remove(i, scoped.value);
             }),
+          ],
+          [
+            route(workflowExport),
+            handler((i: Parameters<typeof built.exportWorkflow>[0]) =>
+              built.exportWorkflow(i),
+            ),
+          ],
+          [
+            route(workflowImport),
+            handler((i: Parameters<typeof built.importWorkflow>[0]) =>
+              built.importWorkflow(i),
+            ),
           ],
         ],
       });

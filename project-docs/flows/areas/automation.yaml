@@ -1709,3 +1709,56 @@ flows:
     risk: [data-loss]
     docs: [architecture/workflow.md]
     declared_only: [conflict]
+
+  - id: workflow-export
+    title: project 안의 workflow 정의 폴더를 다른 컴퓨터로 옮기기 위한 file 묶음으로 내보낸다
+    actor: person
+    entries: [route:workflows/export]
+    boundary: [workflows, core-api]
+    code: [packages/core/workflows/service.ts, packages/core/main/daemon/wiring/workflows-files.ts, packages/core/main/daemon/wiring/workflows.ts]
+    steps:
+      - symlink·node_modules·.git을 제외하고 workflow 폴더 안 파일을 base64 묶음으로 읽어 돌려준다
+    outcomes:
+      - id: exported
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: project나 workflow 폴더가 없다
+        observe: [response]
+      - id: invalid-input
+        code: invalid_input
+        when: 파일 수나 총 크기가 상한을 넘는다
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: workflow 폴더가 symlink이거나 workflows 폴더 밖을 가리킨다
+        observe: [response]
+    crosses_process: false
+    docs: [architecture/workflow.md, architecture/remote.md]
+
+  - id: workflow-import
+    title: 내보낸 workflow file 묶음을 대상 project의 workflows 폴더에 저장한다
+    actor: person
+    entries: [route:workflows/import]
+    boundary: [workflows, core-api]
+    code: [packages/core/workflows/service.ts, packages/core/main/daemon/wiring/workflows-files.ts, packages/core/main/daemon/wiring/workflows.ts]
+    steps:
+      - 상대 경로·크기·workflow.yaml 유무를 검증한 뒤 임시 폴더에 쓰고 대상 workflow 폴더로 원자적으로 옮긴 뒤 projects StateChanged를 발행한다
+    outcomes:
+      - id: imported
+        observe: [disk:workflow-folder, event:StateChanged, response]
+      - id: conflict
+        code: conflict
+        when: 같은 이름의 workflow가 이미 있고 overwrite가 거짓이다
+        observe: [response]
+      - id: invalid-input
+        code: invalid_input
+        when: 경로 탈출·중복·잘못된 base64·workflow.yaml 누락·크기 초과
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: 대상 폴더가 symlink이거나 원격 쓰기 허락이 없다
+        observe: [response]
+    crosses_process: false
+    risk: [data-loss]
+    docs: [architecture/workflow.md, architecture/remote.md]

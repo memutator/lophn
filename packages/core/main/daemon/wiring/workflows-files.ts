@@ -1,5 +1,7 @@
+import { randomBytes } from "node:crypto";
 import {
   lstat,
+  mkdir,
   readdir,
   readFile,
   realpath,
@@ -8,13 +10,16 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises";
-import { sep } from "node:path";
+import { dirname, posix, resolve, sep } from "node:path";
 import { err, errorCode, ok, type Result } from "../../../../base/mod.ts";
 import {
   FLOW_SDK_VERSION,
   WORKFLOW_ARTIFACT_ENTRY,
   WORKFLOW_DECLARATION_FILE,
+  WORKFLOW_EXPORT_MAX_FILES,
+  WORKFLOW_EXPORT_MAX_TOTAL_BYTES,
   WORKFLOW_FLOW_FILE,
+  type WorkflowExportFile,
   workflowArtifactFolder,
   workflowFolder,
   workflowNameSchema,
@@ -526,6 +531,25 @@ export function updateWorkspaceLayoutForWorkflowDelete(
   );
 }
 
+const EXPORT_EXCLUDED_DIRS = new Set(["node_modules", ".git"]);
+const BASE64_PATTERN =
+  /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+
+function isSafeExportPath(rel: string): boolean {
+  if (rel.length === 0 || rel.includes("\0") || rel.includes("\\")) {
+    return false;
+  }
+  if (rel.startsWith("/") || rel.endsWith("/")) return false;
+  const parts = rel.split("/");
+  return parts.every(
+    (part) =>
+      part !== "" &&
+      part !== "." &&
+      part !== ".." &&
+      !EXPORT_EXCLUDED_DIRS.has(part),
+  );
+}
+
 // symlink 폴더는 isDirectory()가 거짓이라 data root 밖을 가리키는 폴더가 빠진다.
 export function createWorkflowFiles(dataRoot: string): WorkflowFiles {
   async function verifyInsideWorkflowsRoot(
@@ -677,6 +701,241 @@ export function createWorkflowFiles(dataRoot: string): WorkflowFiles {
         });
       }
       return ok(undefined);
+    },
+
+    async exportBundle(project, name) {
+      if (!workflowNameSchema.safeParse(name).success) {
+        return err({
+          code: "invalid_input",
+          message: "invalid workflow name",
+        });
+      }
+      const rootDir = workflowFolder(dataRoot, project, name);
+      const verified = await verifyInsideWorkflowsRoot(project, rootDir);
+      if (!verified.ok) return verified;
+
+      const discovered: { rel: string; abs: string }[] = [];
+      async function walk(
+        relDir: string,
+        absDir: string,
+      ): Promise<Result<void>> {
+        let entries;
+        try {
+          entries = await readdir(absDir, { withFileTypes: true });
+        } catch {
+          return err({
+            code: "unavailable",
+            message: "workflow folder could not be read",
+          });
+        }
+        entries.sort((a, b) =>
+          a.name < b.name ? -1 : a.name > b.name ? 1 : 0,
+        );
+        for (const entry of entries) {
+          if (entry.isSymbolicLink()) continue;
+          const nextRel =
+            relDir === "" ? entry.name : `${relDir}/${entry.name}`;
+          const nextAbs = `${absDir}/${entry.name}`;
+          if (entry.isDirectory()) {
+            if (EXPORT_EXCLUDED_DIRS.has(entry.name)) continue;
+            const nested = await walk(nextRel, nextAbs);
+            if (!nested.ok) return nested;
+            continue;
+          }
+          if (!entry.isFile()) continue;
+          if (discovered.length >= WORKFLOW_EXPORT_MAX_FILES) {
+            return err({
+              code: "invalid_input",
+              message: `workflow exceeds maximum of ${WORKFLOW_EXPORT_MAX_FILES} files`,
+            });
+          }
+          discovered.push({ rel: posix.normalize(nextRel), abs: nextAbs });
+        }
+        return ok(undefined);
+      }
+
+      const walked = await walk("", rootDir);
+      if (!walked.ok) return walked;
+      discovered.sort((a, b) => (a.rel < b.rel ? -1 : a.rel > b.rel ? 1 : 0));
+      if (discovered.length === 0) {
+        return err({
+          code: "not_found",
+          message: "workflow folder has no files to export",
+        });
+      }
+
+      const files: WorkflowExportFile[] = [];
+      let totalBytes = 0;
+      for (const item of discovered) {
+        let bytes: Buffer;
+        try {
+          bytes = await readFile(item.abs);
+        } catch {
+          return err({
+            code: "unavailable",
+            message: `could not read workflow file ${item.rel}`,
+          });
+        }
+        totalBytes += bytes.byteLength;
+        if (totalBytes > WORKFLOW_EXPORT_MAX_TOTAL_BYTES) {
+          return err({
+            code: "invalid_input",
+            message: `workflow exceeds maximum export size of ${WORKFLOW_EXPORT_MAX_TOTAL_BYTES} bytes`,
+          });
+        }
+        files.push({
+          path: item.rel,
+          content_base64: bytes.toString("base64"),
+        });
+      }
+      return ok(files);
+    },
+
+    async importBundle(project, name, files, options) {
+      if (!workflowNameSchema.safeParse(name).success) {
+        return err({
+          code: "invalid_input",
+          message: "invalid workflow name",
+        });
+      }
+      if (files.length === 0 || files.length > WORKFLOW_EXPORT_MAX_FILES) {
+        return err({
+          code: "invalid_input",
+          message: `workflow import must contain 1 to ${WORKFLOW_EXPORT_MAX_FILES} files`,
+        });
+      }
+
+      const decoded: { rel: string; bytes: Buffer }[] = [];
+      const seenPaths = new Set<string>();
+      const dirPrefixes = new Set<string>();
+      let totalBytes = 0;
+      for (const file of files) {
+        if (!isSafeExportPath(file.path)) {
+          return err({
+            code: "invalid_input",
+            message: `invalid workflow file path: ${file.path}`,
+          });
+        }
+        const normalized = posix.normalize(file.path);
+        if (normalized !== file.path || seenPaths.has(normalized)) {
+          return err({
+            code: "invalid_input",
+            message: `duplicate or non-canonical workflow file path: ${file.path}`,
+          });
+        }
+        if (!BASE64_PATTERN.test(file.content_base64)) {
+          return err({
+            code: "invalid_input",
+            message: `invalid base64 content for ${file.path}`,
+          });
+        }
+        const bytes = Buffer.from(file.content_base64, "base64");
+        totalBytes += bytes.byteLength;
+        if (totalBytes > WORKFLOW_EXPORT_MAX_TOTAL_BYTES) {
+          return err({
+            code: "invalid_input",
+            message: `workflow import exceeds maximum size of ${WORKFLOW_EXPORT_MAX_TOTAL_BYTES} bytes`,
+          });
+        }
+        seenPaths.add(normalized);
+        const parts = normalized.split("/");
+        for (let i = 1; i < parts.length; i += 1) {
+          dirPrefixes.add(parts.slice(0, i).join("/"));
+        }
+        decoded.push({ rel: normalized, bytes });
+      }
+      for (const p of seenPaths) {
+        if (dirPrefixes.has(p)) {
+          return err({
+            code: "invalid_input",
+            message: `conflicting file and directory path: ${p}`,
+          });
+        }
+      }
+      if (!seenPaths.has(WORKFLOW_DECLARATION_FILE)) {
+        return err({
+          code: "invalid_input",
+          message: `${WORKFLOW_DECLARATION_FILE} is required`,
+        });
+      }
+
+      const parentDir = workflowsFolder(dataRoot, project);
+      const targetDir = workflowFolder(dataRoot, project, name);
+      const overwrite = options?.overwrite === true;
+      try {
+        await mkdir(parentDir, { recursive: true });
+      } catch {
+        return err({
+          code: "unavailable",
+          message: "could not create workflows directory",
+        });
+      }
+
+      const exists = await lstat(targetDir).then(
+        () => true,
+        () => false,
+      );
+      if (exists) {
+        if (!overwrite) {
+          return err({
+            code: "conflict",
+            message: `workflow '${name}' already exists`,
+          });
+        }
+        const verified = await verifyInsideWorkflowsRoot(project, targetDir);
+        if (!verified.ok) return verified;
+      }
+
+      const token = randomBytes(6).toString("hex");
+      const stageDir = `${parentDir}/.lophn-import-${token}`;
+      const backupDir = `${parentDir}/.lophn-replace-${token}`;
+      try {
+        await mkdir(stageDir, { recursive: true });
+        const stageRoot = resolve(stageDir);
+        for (const item of decoded) {
+          const dest = resolve(stageRoot, item.rel);
+          if (!dest.startsWith(stageRoot + sep)) {
+            return err({
+              code: "invalid_input",
+              message: `invalid workflow file path: ${item.rel}`,
+            });
+          }
+          await mkdir(dirname(dest), { recursive: true });
+          await writeFile(dest, item.bytes);
+        }
+
+        if (!exists) {
+          try {
+            await rename(stageDir, targetDir);
+          } catch (e) {
+            const code = errorCode(e);
+            if (code === "EEXIST" || code === "ENOTEMPTY") {
+              return err({
+                code: "conflict",
+                message: `workflow '${name}' already exists`,
+              });
+            }
+            throw e;
+          }
+        } else {
+          await rename(targetDir, backupDir);
+          try {
+            await rename(stageDir, targetDir);
+          } catch (e) {
+            await rename(backupDir, targetDir).catch(() => {});
+            throw e;
+          }
+          await rm(backupDir, { recursive: true, force: true }).catch(() => {});
+        }
+        return ok({ files_written: decoded.length });
+      } catch {
+        return err({
+          code: "unavailable",
+          message: "could not write imported workflow folder",
+        });
+      } finally {
+        await rm(stageDir, { recursive: true, force: true }).catch(() => {});
+      }
     },
   };
 }

@@ -482,6 +482,29 @@ export interface WorkspaceSource {
     readonly name: string;
     readonly cleanUp?: CleanUpMode;
   }): Promise<ReadResult<{ readonly handoff_session: string | null }>>;
+  /** workflow 폴더의 file 묶음을 다른 기계로 옮기기 위해 읽는다. */
+  exportWorkflow?(input: {
+    readonly project: string;
+    readonly name: string;
+  }): Promise<
+    ReadResult<{
+      readonly name: string;
+      readonly files: readonly {
+        readonly path: string;
+        readonly content_base64: string;
+      }[];
+    }>
+  >;
+  /** 내보낸 workflow file 묶음을 대상 project에 쓴다. */
+  importWorkflow?(input: {
+    readonly project: string;
+    readonly name: string;
+    readonly files: readonly {
+      readonly path: string;
+      readonly content_base64: string;
+    }[];
+    readonly overwrite?: boolean;
+  }): Promise<ReadResult<{ readonly files_written: number }>>;
   /** 팔레트 파일 묶음. 문서로 잡힌 파일만 탭으로 열 수 있다. */
   files(project: string): Promise<ReadResult<readonly FileRow[]>>;
   /** workspace(project)의 desk layout 읽기와 저장. */

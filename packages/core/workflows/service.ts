@@ -30,6 +30,8 @@ import {
   type workflowCheckpointUpsert,
   type workflowDelete,
   type workflowEdit,
+  type workflowExport,
+  type workflowImport,
   type workflowInstanceApply,
   type workflowInstanceRead,
   type workflowList,
@@ -1958,6 +1960,46 @@ export function createWorkflowService(deps: {
         erased_jobs: erasedJobs,
         follow_ups: [],
         handoff_session: null,
+      });
+    },
+
+    async exportWorkflow(
+      input: z.output<typeof workflowExport.input>,
+    ): Promise<Result<z.output<typeof workflowExport.output>>> {
+      const project = await projects.resolve(input.project);
+      if (!project.ok) return project;
+      if (typeof files.exportBundle !== "function") {
+        return fail("unavailable", "workflow export is not configured");
+      }
+      const exported = await files.exportBundle(project.value.id, input.name);
+      if (!exported.ok) return exported;
+      return ok({
+        project: project.value.id,
+        name: input.name,
+        files: exported.value,
+      });
+    },
+
+    async importWorkflow(
+      input: z.output<typeof workflowImport.input>,
+    ): Promise<Result<z.output<typeof workflowImport.output>>> {
+      const project = await projects.resolve(input.project);
+      if (!project.ok) return project;
+      if (typeof files.importBundle !== "function") {
+        return fail("unavailable", "workflow import is not configured");
+      }
+      const imported = await files.importBundle(
+        project.value.id,
+        input.name,
+        input.files,
+        { overwrite: input.overwrite === true },
+      );
+      if (!imported.ok) return imported;
+      lifecycle?.publishImported?.(project.value.id, input.name);
+      return ok({
+        project: project.value.id,
+        name: input.name,
+        files_written: imported.value.files_written,
       });
     },
 

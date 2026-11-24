@@ -9,6 +9,7 @@ import type {
   SessionChoice,
   SessionOpenMode,
   WorkflowCheckpoint,
+  WorkflowExportFile,
   WorkflowInstance,
   workflowCheckpointUpsert,
   workflowInstanceApply,
@@ -36,6 +37,16 @@ export type WorkflowFiles = {
   flowSdkInfo?(): Promise<FlowSdkInfo>;
   rename?(project: Id<"prj">, from: string, to: string): Promise<Result<void>>;
   remove?(project: Id<"prj">, name: string): Promise<Result<void>>;
+  exportBundle?(
+    project: Id<"prj">,
+    name: string,
+  ): Promise<Result<WorkflowExportFile[]>>;
+  importBundle?(
+    project: Id<"prj">,
+    name: string,
+    files: readonly WorkflowExportFile[],
+    options?: { overwrite?: boolean },
+  ): Promise<Result<{ files_written: number }>>;
 };
 
 // workflow 이름 변경·삭제 시 ledger(workflow_instances·flow_sdk_reviews·jobs), 창 layout, event 반영 port.
@@ -62,6 +73,7 @@ export type WorkflowLifecycle = {
     updatedJobs: number,
   ): void;
   publishRemoved?(project: Id<"prj">, name: string, erasedJobs: number): void;
+  publishImported?(project: Id<"prj">, name: string): void;
 };
 
 export type WorkflowProjects = {

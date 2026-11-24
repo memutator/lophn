@@ -2,6 +2,8 @@ import {
   workflowCheck,
   workflowDelete,
   workflowEdit,
+  workflowExport,
+  workflowImport,
   workflowList,
   workflowRename,
   workflowReport,
@@ -48,6 +50,8 @@ export function createLedgerRegistration(
       workflowCheck,
       workflowRename,
       workflowDelete,
+      workflowExport,
+      workflowImport,
     ],
   };
 }

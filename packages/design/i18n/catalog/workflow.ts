@@ -2,18 +2,41 @@ export const workflow = {
   "workflow.button.all-runs": "All runs",
   "workflow.button.ask-lophn": "Ask lophn for a workflow",
   "workflow.button.delete": "Delete",
+  "workflow.button.export": "Export",
+  "workflow.button.export-machine": "Export to other machine…",
   "workflow.button.more": "More actions for {name}",
   "workflow.button.rename": "Rename",
   "workflow.dialog.delete-text":
     "This deletes the workflow folder, stops any running runs, and removes jobs that start it.",
   "workflow.dialog.delete-title": "Delete {name}?",
+  "workflow.dialog.export-denied":
+    "Allow terminal input for this computer on {machine} (Settings › Remote › My devices) to export workflows there.",
+  "workflow.dialog.export-done":
+    "Exported {name} to {machine} ({count, plural, one {# file} other {# files}}).",
+  "workflow.dialog.export-empty-machines":
+    "No other connected computers are available.",
+  "workflow.dialog.export-empty-projects":
+    "No active projects on this computer.",
+  "workflow.dialog.export-loading-projects": "Loading projects…",
+  "workflow.dialog.export-machine-label": "Machine",
+  "workflow.dialog.export-name-label": "Workflow name",
+  "workflow.dialog.export-overwrite-label":
+    "Overwrite if a workflow with this name already exists",
+  "workflow.dialog.export-project-label": "Project",
+  "workflow.dialog.export-title": "Export {name}",
   "workflow.dialog.rename-label": "New name",
   "workflow.dialog.rename-title": "Rename {name}",
   "workflow.error.delete-failed": "{name} wasn't deleted. Try again.",
+  "workflow.error.export-conflict":
+    "A workflow named {name} already exists on {machine}. Check overwrite to replace it.",
+  "workflow.error.export-failed": "Couldn't export {name}. Try again.",
+  "workflow.error.export-projects-failed":
+    "Couldn't load projects from {machine}.",
   "workflow.error.rename-conflict": "A workflow named {name} already exists.",
   "workflow.error.rename-failed": "Couldn't rename {name}. Try again.",
   "workflow.error.rename-invalid":
     "Use lowercase letters, numbers, and hyphens, starting with a letter.",
+  "workflow.label.this-computer": "{name} (this computer)",
   "workflow.button.open-artifact": "Open artifact",
   "workflow.button.open-conversation": "Open conversation",
   "workflow.button.open-instance-artifact": "Open run artifact",

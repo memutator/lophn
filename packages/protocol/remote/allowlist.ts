@@ -248,6 +248,8 @@ import {
   secretStatus,
 } from "../secrets/secret-file.ts";
 import {
+  workflowExport,
+  workflowImport,
   workflowInstanceList,
   workflowInstanceRead,
   workflowList,
@@ -388,6 +390,7 @@ export const REMOTE_ALLOWED_ROUTES = [
   jobUpdate,
   // project workspace: workflow, file 내용 검색, file 목록과 글 읽기
   workflowList,
+  workflowExport,
   workflowInstanceList,
   workflowInstanceRead,
   workflowStart,
@@ -559,6 +562,8 @@ export const REMOTE_PERSON_ROUTES = [
   projectFilesCreate,
   projectFilesRename,
   projectFilesRemove,
+  // workflow 정의 폴더 가져오기(다른 컴퓨터로 내보내기 대상. 허락받은 기기만)
+  workflowImport,
   // 늘 켜 두기(다른 컴퓨터의 Settings › Remote › Keep running). 화면 없는 기계는 가서 켤 곳이 없다
   alwaysOnStatus,
   alwaysOnSet,

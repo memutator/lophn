@@ -1,0 +1,33 @@
+id: workflow-export-other-machine
+version: 0.23.162
+platform_note: none
+title: Export workflow to another paired machine from the Workflows sidebar menu
+modules:
+  - packages/protocol
+  - packages/core/workflows
+  - packages/core/main
+  - packages/design
+  - packages/shell/renderer
+change: >
+  Added `workflows/export` (in `REMOTE_ALLOWED_ROUTES`) and `workflows/import`
+  (in `REMOTE_PERSON_ROUTES`) routes to package and write a project workflow
+  folder (excluding symlinks, `node_modules`, and `.git`, bounded to 200 files
+  and 8 MiB) atomically with optional overwrite. Added an "Export to other
+  machine…" action to the Workflows sidebar tab's `⋯` menu that lets the user
+  choose a connected paired machine, auto-selects the project matching the
+  current project's cross-machine `identity` (`pri_…`) while allowing any
+  active project on the target machine, and supports renaming or overwriting on
+  conflict.
+why: >
+  Workflow definitions live in each machine's local data root, so sharing a
+  workflow across paired computers required manual file copying. Putting an
+  export action directly in the Workflows sidebar menu lets the user transfer a
+  workflow folder (including `flow.ts`, helper files, and `artifacts/`) to
+  another connected machine in a few clicks.
+decisions:
+  - text: >
+      Gate `workflows/import` behind `REMOTE_PERSON_ROUTES` (terminal-input
+      grant on the target computer) and default `overwrite` to `false` so
+      accidental overwrites require explicit opt-in, while matching the target
+      project automatically via cross-machine project `identity`.
+    by: agent

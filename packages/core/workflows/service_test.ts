@@ -1,4 +1,14 @@
 import assert from "node:assert/strict";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { createIdSource, err, type Logger, ok } from "../../base/mod.ts";
@@ -11,6 +21,7 @@ import { DEFAULT_CALL_POLICY } from "../../protocol/lophn-agent/call-policy.ts";
 import { blocksText } from "../../protocol/lophn-agent/mod.ts";
 import type { Tx } from "../../protocol/server/mod.ts";
 import {
+  createWorkflowFiles,
   removeWorkflowFromLayoutText,
   renameWorkflowInLayoutText,
 } from "../main/daemon/wiring/workflows-files.ts";
@@ -1590,4 +1601,148 @@ test("workspace layout JSON helpers rename and remove workflow desks and tabs cl
   );
   assert.equal(removed.desks._default.selected_tab, "host:t1");
   assert.deepEqual(removed.desks._default.groups, []);
+});
+
+test("ExportWorkflow and ImportWorkflow round-trip workflow folders, skip symlinks/node_modules, enforce conflict/overwrite, and reject path traversal", async () => {
+  const rootA = await mkdtemp(join(tmpdir(), "lophn-wf-export-a-"));
+  const rootB = await mkdtemp(join(tmpdir(), "lophn-wf-export-b-"));
+  const outside = await mkdtemp(join(tmpdir(), "lophn-wf-export-outside-"));
+  try {
+    const srcDir = join(rootA, "projects", PRJ, "workflows", "ship-it");
+    await mkdir(join(srcDir, "artifacts", "static"), { recursive: true });
+    await mkdir(join(srcDir, "node_modules", "pkg"), { recursive: true });
+    await writeFile(
+      join(srcDir, "workflow.yaml"),
+      "participants:\n  a: { agent: lophn }\nsteps:\n  go: { by: a, prompt: hi }\n",
+    );
+    await writeFile(join(srcDir, "flow.ts"), "export const v = 1;\n");
+    await writeFile(
+      join(srcDir, "artifacts", "static", "index.html"),
+      "<h1>hi</h1>",
+    );
+    await writeFile(join(srcDir, "node_modules", "pkg", "index.js"), "ignored");
+    await writeFile(join(outside, "secret.txt"), "do-not-export");
+    await symlink(join(outside, "secret.txt"), join(srcDir, "leak.txt"));
+
+    const importedEvents: string[] = [];
+    const makeSvc = (root: string) =>
+      createWorkflowService({
+        files: createWorkflowFiles(root),
+        projects: {
+          resolve: () =>
+            Promise.resolve(ok({ id: PRJ as Id<"prj">, name: "demo" })),
+          nameOf: () => Promise.resolve(ok("demo")),
+        },
+        turns: {} as never,
+        store: {} as never,
+        flows: {} as never,
+        remote: {} as never,
+        lifecycle: {
+          renameLedger: () => Promise.resolve(ok({ updated_jobs: 0 })),
+          deleteLedger: () => Promise.resolve(ok({ erased_jobs: 0 })),
+          publishImported: (project, name) =>
+            importedEvents.push(`${project}:${name}`),
+        },
+        ids: createIdSource({
+          clock: { now: () => AT } as never,
+          random: {} as never,
+        }),
+        logger,
+      });
+
+    const svcA = makeSvc(rootA);
+    const svcB = makeSvc(rootB);
+
+    const exported = await svcA.exportWorkflow({
+      project: PRJ as Id<"prj">,
+      name: "ship-it",
+    });
+    assert.ok(exported.ok);
+    assert.deepEqual(
+      exported.value.files.map((f) => f.path),
+      ["artifacts/static/index.html", "flow.ts", "workflow.yaml"],
+    );
+
+    const firstImport = await svcB.importWorkflow({
+      project: PRJ as Id<"prj">,
+      name: "ship-it",
+      files: exported.value.files,
+    });
+    assert.ok(firstImport.ok);
+    assert.equal(firstImport.value.files_written, 3);
+    assert.deepEqual(importedEvents, [`${PRJ}:ship-it`]);
+    assert.equal(
+      await readFile(
+        join(
+          rootB,
+          "projects",
+          PRJ,
+          "workflows",
+          "ship-it",
+          "artifacts",
+          "static",
+          "index.html",
+        ),
+        "utf8",
+      ),
+      "<h1>hi</h1>",
+    );
+
+    // 같은 이름이 이미 있으면 overwrite 없이 conflict로 거절한다.
+    const dup = await svcB.importWorkflow({
+      project: PRJ as Id<"prj">,
+      name: "ship-it",
+      files: exported.value.files,
+    });
+    assert.ok(!dup.ok);
+    assert.equal(dup.error.code, "conflict");
+
+    // overwrite: true면 기존 폴더를 원자적으로 교체한다.
+    const updatedFiles = exported.value.files.map((f) =>
+      f.path === "flow.ts"
+        ? {
+            ...f,
+            content_base64: Buffer.from("export const v = 2;\n").toString(
+              "base64",
+            ),
+          }
+        : f,
+    );
+    const overwritten = await svcB.importWorkflow({
+      project: PRJ as Id<"prj">,
+      name: "ship-it",
+      files: updatedFiles,
+      overwrite: true,
+    });
+    assert.ok(overwritten.ok);
+    assert.equal(
+      await readFile(
+        join(rootB, "projects", PRJ, "workflows", "ship-it", "flow.ts"),
+        "utf8",
+      ),
+      "export const v = 2;\n",
+    );
+
+    // 상위 경로 탈출은 거절한다.
+    const traversal = await svcB.importWorkflow({
+      project: PRJ as Id<"prj">,
+      name: "evil",
+      files: [
+        {
+          path: "workflow.yaml",
+          content_base64: Buffer.from("steps: {}\n").toString("base64"),
+        },
+        {
+          path: "../escape.txt",
+          content_base64: Buffer.from("nope").toString("base64"),
+        },
+      ],
+    });
+    assert.ok(!traversal.ok);
+    assert.equal(traversal.error.code, "invalid_input");
+  } finally {
+    await rm(rootA, { recursive: true, force: true });
+    await rm(rootB, { recursive: true, force: true });
+    await rm(outside, { recursive: true, force: true });
+  }
 });

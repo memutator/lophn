@@ -1,22 +1,9 @@
 import { z } from "zod";
-import { cleanUpModeSchema, followUpItemSchema } from "../base/follow-ups.ts";
-import { defineMemory, defineRead } from "../base/route.ts";
-import { idSchema } from "../base/ids.ts";
-import { readCursorSchema, seqSchema } from "../base/values.ts";
 import { withReadCommon } from "../base/envelope.ts";
-import {
-  sessionChoiceSchema,
-  sessionOpenModeSchema,
-  stepNameSchema,
-  stepNextSchema,
-  workflowKeySchema,
-  derivedStatusSchema,
-  workflowDataSchema,
-  workflowNameSchema,
-  workflowRefsSchema,
-  workflowStateSchema,
-  workflowTextSchema,
-} from "./values.ts";
+import { cleanUpModeSchema, followUpItemSchema } from "../base/follow-ups.ts";
+import { idSchema } from "../base/ids.ts";
+import { defineMemory, defineRead } from "../base/route.ts";
+import { readCursorSchema, seqSchema } from "../base/values.ts";
 import { workflowInputValuesSchema } from "./inputs.ts";
 import {
   handResultSchema,
@@ -31,6 +18,19 @@ import {
   workflowLineSchema,
   workflowSessionNodeSchema,
 } from "./instances.ts";
+import {
+  derivedStatusSchema,
+  sessionChoiceSchema,
+  sessionOpenModeSchema,
+  stepNameSchema,
+  stepNextSchema,
+  workflowDataSchema,
+  workflowKeySchema,
+  workflowNameSchema,
+  workflowRefsSchema,
+  workflowStateSchema,
+  workflowTextSchema,
+} from "./values.ts";
 
 const instanceRef = { instance: idSchema("wfi") };
 
@@ -272,12 +272,64 @@ export const workflowDelete = defineMemory({
   errors: [...readErrors, "conflict"],
 });
 
+export const WORKFLOW_EXPORT_MAX_FILES = 200;
+export const WORKFLOW_EXPORT_MAX_TOTAL_BYTES = 8 * 1024 * 1024;
+
+export const workflowExportFileSchema = z.strictObject({
+  path: z.string().min(1).max(512),
+  content_base64: z.string(),
+});
+
+export type WorkflowExportFile = z.infer<typeof workflowExportFileSchema>;
+
+export const workflowExport = defineMemory({
+  resource: "workflows",
+  method: "export",
+  name: "ExportWorkflow",
+  input: z.strictObject({
+    project: idSchema("prj"),
+    name: workflowNameSchema,
+  }),
+  output: z.object({
+    project: idSchema("prj"),
+    name: workflowNameSchema,
+    files: z.array(workflowExportFileSchema),
+  }),
+  actors: ["user"],
+  errors: [...readErrors, "forbidden"],
+});
+
+export const workflowImport = defineMemory({
+  resource: "workflows",
+  method: "import",
+  name: "ImportWorkflow",
+  changes: ["projects"],
+  input: z.strictObject({
+    project: idSchema("prj"),
+    name: workflowNameSchema,
+    files: z
+      .array(workflowExportFileSchema)
+      .min(1)
+      .max(WORKFLOW_EXPORT_MAX_FILES),
+    overwrite: z.boolean().optional(),
+  }),
+  output: z.object({
+    project: idSchema("prj"),
+    name: workflowNameSchema,
+    files_written: z.number().int().nonnegative(),
+  }),
+  actors: ["user"],
+  errors: [...readErrors, "forbidden", "conflict"],
+});
+
 export const WORKFLOW_ROUTES = [
   workflowList,
   workflowStart,
   workflowCheck,
   workflowRename,
   workflowDelete,
+  workflowExport,
+  workflowImport,
   workflowReport,
   workflowEdit,
   workflowRetry,

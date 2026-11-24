@@ -1,0 +1,16 @@
+id: browser-favicon-referer-origin
+version: 0.23.156
+title: browser favicon 요청의 Referer를 origin만 보내 cross-origin 차단을 고친다
+modules:
+  - packages/shell/main
+change: |
+  - `packages/shell/main/browser/favicon.ts`: `faviconReferer(pageUrl, targetUrl)`를 더해 `http(s)` 요청의 `Referer`를 `${page.origin}/`으로만 만들고, `https:` → `http:` 다운그레이드나 비-HTTP(S) URL에서는 `Referer`를 생략한다.
+  - `packages/shell/main/browser/electron-view.ts`: `page-favicon-updated`에서 full page URL 대신 `faviconReferer(pageUrl, target)`을 `Referer` 헤더로 싣는다.
+why: |
+  이전 수정(`browser-favicon-late-state`)에서 `contents.session.fetch`에 page의 full URL을 `headers.Referer`로 넣었는데, path가 있는 페이지가 CDN·다른 subdomain의 favicon을 요청할 때 Chromium의 기본 `strict-origin-when-cross-origin` 정책 검증(`NetworkServiceNetworkDelegate`)이 invalid referrer로 판정해 `net::ERR_BLOCKED_BY_CLIENT`로 요청을 차단했다.
+decisions:
+  - text: "same-origin과 cross-origin 모두 `${page.origin}/`만 `Referer`로 보낸다(`https:` → `http:`는 생략). 버린 길: `fetch` init의 `referrer` 옵션 사용(Electron 44 `session.fetch`에서 `Referer` 헤더가 실리지 않음), same-origin에 full URL 사용(cross-origin redirect 시 같은 차단에 걸릴 수 있고 URL path·query가 노출됨)."
+    by: agent
+checklist:
+  - "해야: 앱 다시 build"
+  - "path가 있는 페이지(예: Gemini, 디시인사이드 게시글)에서 cross-origin CDN favicon이 탭에 정상 표시되는지 본다"

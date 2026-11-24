@@ -27,6 +27,36 @@ type Fetch = (url: string) => Promise<{
 /** 큰 이미지나 content-type이 빠진 이미지 바이트를 작은 PNG로 바꾼다. 디코딩 못 하면 null. */
 export type FaviconResize = (body: Buffer) => Buffer | null;
 
+/**
+ * favicon 요청에 실을 `Referer` 헤더 값. Electron `session.fetch`는 기본
+ * `strict-origin-when-cross-origin` 정책에 어긋나는 `Referer`(cross-origin에 path 포함,
+ * https→http 다운그레이드)를 `ERR_BLOCKED_BY_CLIENT`로 차단한다. same-origin 요청도
+ * cross-origin redirect를 탈 수 있으므로 origin(`/`)만 싣는다.
+ */
+export function faviconReferer(
+  pageUrl: string,
+  targetUrl: string,
+): string | undefined {
+  let page: URL;
+  let target: URL;
+  try {
+    page = new URL(pageUrl);
+    target = new URL(targetUrl);
+  } catch {
+    return undefined;
+  }
+  if (page.protocol !== "http:" && page.protocol !== "https:") {
+    return undefined;
+  }
+  if (target.protocol !== "http:" && target.protocol !== "https:") {
+    return undefined;
+  }
+  if (page.protocol === "https:" && target.protocol === "http:") {
+    return undefined;
+  }
+  return `${page.origin}/`;
+}
+
 /** 바꿀 수 없으면(다른 scheme, 실패, 너무 큼, image 아님) null. */
 export async function faviconData(
   url: string,

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { faviconData, firstFaviconData } from "./favicon.ts";
+import { faviconData, faviconReferer, firstFaviconData } from "./favicon.ts";
 
 function fakeResponse(
   body: Buffer,
@@ -93,4 +93,32 @@ test("firstFaviconData falls back to next candidate and deduplicates", async () 
     "https://example.com/missing.ico",
     "https://example.com/good.png",
   ]);
+});
+
+test("faviconReferer sends origin only and drops https-to-http downgrade", () => {
+  assert.equal(
+    faviconReferer(
+      "https://gemini.google.com/app?foo=1",
+      "https://www.gstatic.com/lamda/icon.png",
+    ),
+    "https://gemini.google.com/",
+  );
+  assert.equal(
+    faviconReferer(
+      "https://example.com/secret/path",
+      "http://cdn.example.com/icon.ico",
+    ),
+    undefined,
+  );
+  assert.equal(
+    faviconReferer(
+      "http://127.0.0.1:2048/?tab=accounts",
+      "http://127.0.0.1:2048/favicon.ico",
+    ),
+    "http://127.0.0.1:2048/",
+  );
+  assert.equal(
+    faviconReferer("about:blank", "https://example.com/favicon.ico"),
+    undefined,
+  );
 });

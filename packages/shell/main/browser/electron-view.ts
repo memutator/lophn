@@ -26,7 +26,7 @@ import type {
 } from "./registry.ts";
 import { openDevtoolsView } from "./devtools.ts";
 import { decideNavigation } from "./navigation.ts";
-import { firstFaviconData } from "./favicon.ts";
+import { faviconReferer, firstFaviconData } from "./favicon.ts";
 import { windowOpenHandler } from "./popup-host.ts";
 
 interface ElectronBrowserViewsInput {
@@ -227,18 +227,18 @@ export function electronBrowserViews(
       if (favicons.length === 0) return;
       faviconSeq += 1;
       const seq = faviconSeq;
-      const referer = contents.getURL();
-      const headers =
-        referer.startsWith("http://") || referer.startsWith("https://")
-          ? { Referer: referer }
-          : undefined;
+      const pageUrl = contents.getURL();
       void firstFaviconData(
         favicons,
-        (target) =>
-          contents.session.fetch(
+        (target) => {
+          const referer = faviconReferer(pageUrl, target);
+          return contents.session.fetch(
             target,
-            headers === undefined ? undefined : { headers },
-          ),
+            referer === undefined
+              ? undefined
+              : { headers: { Referer: referer } },
+          );
+        },
         resizeFavicon,
       ).then((data) => {
         if (

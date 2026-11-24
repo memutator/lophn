@@ -48,6 +48,10 @@ test("깨진 bookmarks.json은 어떤 쓰기도 덮어쓰지 못하고 byte가 �
         await store.add({ title: "t", url: "https://b.example/" }),
         await store.update({ id: "x", title: "u" }),
         await store.remove("x"),
+        await store.syncFavicon(
+          "https://a.example/",
+          "data:image/png;base64,AA",
+        ),
       ];
       for (const r of results) {
         assert.deepEqual(r, { ok: false, reason: "corrupt" }, name);
@@ -78,6 +82,44 @@ test("정상 파일에 add한 항목을 list가 돌려주고 동시 쓰기가 �
         listed.value.bookmarks.map((x) => x.title),
         ["t", "하나", "둘"],
       );
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("syncFavicon은 비어 있는 같은 origin bookmark를 채우고 같은 주소는 갱신한다", async () => {
+  const { root, store } = await setup();
+  try {
+    await store.add({
+      title: "list",
+      url: "https://site.example/board/list",
+    });
+    await store.add({
+      title: "other",
+      url: "https://other.example/",
+    });
+    const icon1 = "data:image/png;base64,AAAA";
+    const icon2 = "data:image/png;base64,BBBB";
+    assert.deepEqual(
+      await store.syncFavicon("https://site.example/board/view/1", icon1),
+      { ok: true, value: true },
+    );
+    // 이미 같은 값이면 다시 쓰지 않는다.
+    assert.deepEqual(
+      await store.syncFavicon("https://site.example/board/view/1", icon1),
+      { ok: true, value: false },
+    );
+    // 정확히 같은 URL이면 새 favicon으로 갱신한다.
+    assert.deepEqual(
+      await store.syncFavicon("https://site.example/board/list", icon2),
+      { ok: true, value: true },
+    );
+    const listed = await store.list();
+    assert.equal(listed.ok && listed.value.state, "ok");
+    if (listed.ok && listed.value.state === "ok") {
+      assert.equal(listed.value.bookmarks[0]?.favicon, icon2);
+      assert.equal(listed.value.bookmarks[1]?.favicon, undefined);
     }
   } finally {
     await rm(root, { recursive: true, force: true });

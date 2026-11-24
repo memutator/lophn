@@ -64,6 +64,16 @@ function checkTitle(value: string): string | undefined {
   return title.length >= 1 && title.length <= TITLE_MAX ? title : undefined;
 }
 
+function originOf(value: string): string | undefined {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return undefined;
+    return url.origin;
+  } catch {
+    return undefined;
+  }
+}
+
 export function createBookmarkStore(
   dataRoot: string,
   deps: {
@@ -104,7 +114,7 @@ export function createBookmarkStore(
   function mutate<T>(
     change: (
       bookmarks: Bookmark[],
-    ) => Outcome<{ bookmarks: Bookmark[]; result: T }>,
+    ) => Outcome<{ bookmarks: Bookmark[]; result: T; unchanged?: true }>,
   ): Promise<Outcome<T>> {
     const run = async (): Promise<Outcome<T>> => {
       const current = await list();
@@ -115,12 +125,14 @@ export function createBookmarkStore(
       }
       const next = change(current.value.bookmarks);
       if (!next.ok) return next;
-      const written = await writeFileAtomic(
-        file,
-        JSON.stringify({ version: 1, bookmarks: next.value.bookmarks }),
-        impl,
-      );
-      if (!written.ok) return { ok: false, reason: "unwritable" };
+      if (!next.value.unchanged) {
+        const written = await writeFileAtomic(
+          file,
+          JSON.stringify({ version: 1, bookmarks: next.value.bookmarks }),
+          impl,
+        );
+        if (!written.ok) return { ok: false, reason: "unwritable" };
+      }
       return { ok: true, value: next.value.result };
     };
     const promise = tail.then(run);
@@ -215,6 +227,43 @@ export function createBookmarkStore(
             result: null,
           },
         };
+      });
+    },
+    /**
+     * page에서 favicon을 받았을 때 같은 주소(값이 달라졌으면 갱신)나 같은 origin(favicon이 비어 있으면 채움)의
+     * bookmark를 갱신한다. 바뀐 항목이 없으면 파일을 다시 쓰지 않고 false를 돌려준다.
+     */
+    syncFavicon(
+      pageUrl: string,
+      nextFavicon: string,
+    ): Promise<Outcome<boolean>> {
+      const normalized = checkUrl(pageUrl);
+      const origin =
+        normalized === undefined ? undefined : originOf(normalized);
+      if (
+        normalized === undefined ||
+        origin === undefined ||
+        !favicon.safeParse(nextFavicon).success
+      ) {
+        return Promise.resolve({ ok: true, value: false });
+      }
+      return mutate((bookmarks) => {
+        let changed = false;
+        const updated = bookmarks.map((item) => {
+          const exact = item.url === normalized && item.favicon !== nextFavicon;
+          const missingSameOrigin =
+            item.favicon === undefined && originOf(item.url) === origin;
+          if (!exact && !missingSameOrigin) return item;
+          changed = true;
+          return { ...item, favicon: nextFavicon };
+        });
+        if (!changed) {
+          return {
+            ok: true,
+            value: { bookmarks, result: false, unchanged: true },
+          };
+        }
+        return { ok: true, value: { bookmarks: updated, result: true } };
       });
     },
   };

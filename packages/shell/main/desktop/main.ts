@@ -100,14 +100,14 @@ function startDesktop(): void {
   add(crash.register(ctx));
   add(core.register(ctx));
   add(machines.register(ctx));
-  const browserViews = add(browser.register(ctx));
+  const bookmarkStore = add(bookmarks.register(ctx));
+  const browserViews = add(browser.register(ctx, bookmarkStore));
   const artifacts = add(artifact.register(ctx, browserViews));
   const views = add(appViews.register(ctx, browserViews, artifacts));
   const calls = add(appCalls.register(ctx, views));
   add(annotate.register(ctx, views, artifacts));
   add(appearance.register(ctx));
   const terminals = add(terminal.register(ctx, calls.appSessions));
-  add(bookmarks.register(ctx));
   add(threadBookmarks.register(ctx));
   add(editor.register(ctx));
   const detachedWindows = add(detached.register(ctx, views));

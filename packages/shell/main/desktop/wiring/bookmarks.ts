@@ -10,7 +10,14 @@ import {
 import { createBookmarkStore } from "../../browser/bookmarks.ts";
 import type { Registered, ShellContext } from "./context.ts";
 
-export function register(ctx: ShellContext): Registered {
+export type BookmarksWiring = Registered & {
+  /** page에서 받은 favicon으로 비어 있거나 바뀐 bookmark를 자동 갱신한다. */
+  syncFavicon(pageUrl: string, favicon: string): void;
+  /** 저장된 bookmark favicon으로 browser의 origin cache를 채운다. */
+  seedFavicons(seed: (url: string, favicon: string) => void): void;
+};
+
+export function register(ctx: ShellContext): BookmarksWiring {
   const { dataRoot, overlays, ipc, windows } = ctx;
 
   const store = createBookmarkStore(dataRoot, {
@@ -18,19 +25,36 @@ export function register(ctx: ShellContext): Registered {
     clock: { nowIso: () => new Date().toISOString() },
   });
 
+  const notify = () => {
+    for (const window of windows) {
+      if (window.isDestroyed()) continue;
+      window.webContents.send(BOOKMARKS_CHANGED_CHANNEL);
+    }
+  };
+
   registerBookmarkIpc(
     ipc,
     createBookmarkIpc({
       registry: overlays.overlayRegistry(),
       store,
-      notify: () => {
-        for (const window of windows) {
-          if (window.isDestroyed()) continue;
-          window.webContents.send(BOOKMARKS_CHANGED_CHANNEL);
-        }
-      },
+      notify,
     }),
   );
 
-  return { stop: () => removeBookmarkIpc(ipc) };
+  return {
+    syncFavicon(pageUrl, favicon) {
+      void store.syncFavicon(pageUrl, favicon).then((result) => {
+        if (result.ok && result.value) notify();
+      });
+    },
+    seedFavicons(seed) {
+      void store.list().then((result) => {
+        if (!result.ok || result.value.state !== "ok") return;
+        for (const item of result.value.bookmarks) {
+          if (item.favicon !== undefined) seed(item.url, item.favicon);
+        }
+      });
+    },
+    stop: () => removeBookmarkIpc(ipc),
+  };
 }

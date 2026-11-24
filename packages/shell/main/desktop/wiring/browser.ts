@@ -56,7 +56,15 @@ export type BrowserWiring = Registered & {
   webviewGuests: { add(resolver: WebviewGuestResolver): void };
 };
 
-export function register(ctx: ShellContext): BrowserWiring {
+export interface BrowserBookmarkHooks {
+  syncFavicon(pageUrl: string, favicon: string): void;
+  seedFavicons(seed: (url: string, favicon: string) => void): void;
+}
+
+export function register(
+  ctx: ShellContext,
+  bookmarks?: BrowserBookmarkHooks,
+): BrowserWiring {
   const { headless, overlays, ipc, log, windowRef, windowOfRef } = ctx;
 
   const activation = createActivation({ nowMs: () => Date.now() }, (id) =>
@@ -94,7 +102,11 @@ export function register(ctx: ShellContext): BrowserWiring {
     packaged: app.isPackaged,
     headless,
     orderOf,
+    ...(bookmarks === undefined
+      ? {}
+      : { onFavicon: (url, data) => bookmarks.syncFavicon(url, data) }),
   });
+  bookmarks?.seedFavicons((url, data) => host.seedFavicon(url, data));
 
   const sendTo = (channel: string) => (ref: string, payload: unknown) => {
     const window = windowOfRef(ref);
@@ -155,7 +167,10 @@ export function register(ctx: ShellContext): BrowserWiring {
         return window === undefined ? undefined : windowRef(window);
       },
       views,
-      clearData: (partition) => ensureSession(partition).clearData(),
+      clearData: async (partition) => {
+        await ensureSession(partition).clearData();
+        host.clearFaviconCache();
+      },
     }),
   );
   ctx.windowHooks.closed.push(({ ref }) => {

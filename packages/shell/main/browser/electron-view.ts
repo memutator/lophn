@@ -35,6 +35,8 @@ interface ElectronBrowserViewsInput {
   headless: HeadlessMode;
   /** 창마다 하나인 native view 층 순서. overlay 아래에 둔다. */
   orderOf(window: BrowserWindow): BrowserViewOrder<WebContentsView>;
+  /** page에서 favicon을 성공적으로 받았을 때 알린다(bookmark 자동 보강용). */
+  onFavicon?(pageUrl: string, favicon: string): void;
 }
 
 type NavigationEvent = ElectronEvent & { url: string; isMainFrame: boolean };
@@ -42,6 +44,48 @@ type NavigationEvent = ElectronEvent & { url: string; isMainFrame: boolean };
 // 취소(ERR_ABORTED). 새 navigation이 앞선 것을 대신할 때 나오고 실패가 아니다.
 const LOAD_ABORTED = -3;
 const FAVICON_SIZE = 32;
+const FAVICON_CACHE_MAX = 256;
+
+// Chromium의 page-favicon-updated는 did-finish-load까지 기다려 1~2초 늦게 온다.
+// dom-ready 시점에 DOM의 <link rel="...icon...">를 먼저 읽어 체감 지연을 줄인다.
+const READ_DOM_FAVICONS = `(() => {
+  const primary = [];
+  const touch = [];
+  for (const el of document.querySelectorAll("link[rel]")) {
+    const raw = el.getAttribute("rel");
+    if (!raw) continue;
+    const rel = raw.toLowerCase().trim().split(/\\s+/);
+    const href = el.href;
+    if (typeof href !== "string" || !href) continue;
+    if (rel.includes("icon")) primary.push(href);
+    else if (
+      rel.includes("apple-touch-icon") ||
+      rel.includes("apple-touch-icon-precomposed")
+    ) {
+      touch.push(href);
+    }
+  }
+  return primary.concat(touch);
+})()`;
+
+function originOfHttp(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return "";
+    return parsed.origin;
+  } catch {
+    return "";
+  }
+}
+
+function putLru(cache: Map<string, string>, key: string, value: string): void {
+  cache.delete(key);
+  cache.set(key, value);
+  if (cache.size > FAVICON_CACHE_MAX) {
+    const oldest = cache.keys().next().value;
+    if (oldest !== undefined) cache.delete(oldest);
+  }
+}
 
 function resizeFavicon(body: Buffer): Buffer | null {
   const image = nativeImage.createFromBuffer(body);
@@ -148,12 +192,20 @@ function hookBrowserContents(
 export type ElectronBrowserViews = BrowserViewHost & {
   /** shell 창에 붙은 <webview> guest contents에 hook을 건다. contents는 <webview>가 가진다. */
   guest(contents: WebContents, hooks: BrowserHooks): BrowserContents;
+  /** 시작 시 bookmark 등에 저장된 favicon으로 origin cache를 채운다. */
+  seedFavicon(url: string, favicon: string): void;
+  /** browsing data 삭제 시 메모리 favicon cache를 비운다. */
+  clearFaviconCache(): void;
 };
 
 export function electronBrowserViews(
   input: ElectronBrowserViewsInput,
 ): ElectronBrowserViews {
   const native = new Map<NativeViewContents, WebContentsView>();
+  // origin별·icon URL별 메모리 cache. 재방문 시 did-navigate에서 바로 보여 주고,
+  // dom-ready 뒤 같은 URL로 오는 page-favicon-updated의 중복 fetch를 막는다.
+  const byOrigin = new Map<string, string>();
+  const byIconUrl = new Map<string, string>();
 
   function live(ref: string): BrowserWindow | undefined {
     const window = input.windowOf(ref);
@@ -203,34 +255,54 @@ export function electronBrowserViews(
       canGoBack: false,
       canGoForward: false,
     };
-    // favicon은 page가 알릴 때 그 page의 session으로 받는다. 다른 origin으로 가면 비우고, 그 사이
-    // 늦게 끝난 받기는 버린다(origin 변경·새 favicon 알림마다 번호가 오른다).
+    // favicon은 dom-ready(조기 탐색)와 page-favicon-updated에서 그 page의 session으로 받는다.
+    // 다른 origin으로 가면 cache를 먼저 보이고, 그 사이 늦게 끝난 받기는 버린다.
     let favicon: string | undefined;
     let faviconSeq = 0;
+    let inFlightKey = "";
     let origin = "";
-    contents.on("did-navigate", (_event, url) => {
-      let next = "";
-      try {
-        next = new URL(url).origin;
-      } catch {
-        /* 빈 page */
+
+    const applyFavicon = (
+      pageUrl: string,
+      pageOrigin: string,
+      data: string,
+    ): void => {
+      if (pageOrigin !== "") putLru(byOrigin, pageOrigin, data);
+      if (pageUrl !== "") input.onFavicon?.(pageUrl, data);
+      if (favicon === data) return;
+      favicon = data;
+      hooks.onChange();
+    };
+
+    const loadFavicons = (rawUrls: readonly string[]): void => {
+      const candidates: string[] = [];
+      for (const raw of rawUrls) {
+        if (
+          typeof raw === "string" &&
+          raw !== "" &&
+          !candidates.includes(raw)
+        ) {
+          candidates.push(raw);
+        }
       }
-      if (next === origin) return;
-      origin = next;
-      faviconSeq += 1;
-      if (favicon !== undefined) {
-        favicon = undefined;
-        hooks.onChange();
+      if (candidates.length === 0) return;
+      const pageUrl = contents.getURL();
+      const pageOrigin = originOfHttp(pageUrl);
+      const firstCached = byIconUrl.get(candidates[0]!);
+      if (firstCached !== undefined) {
+        applyFavicon(pageUrl, pageOrigin, firstCached);
+        return;
       }
-    });
-    contents.on("page-favicon-updated", (_event, favicons) => {
-      if (favicons.length === 0) return;
+      const key = `${pageOrigin}\n${candidates.join("\n")}`;
+      if (inFlightKey === key) return;
       faviconSeq += 1;
       const seq = faviconSeq;
-      const pageUrl = contents.getURL();
+      inFlightKey = key;
+      let lastUrl: string | undefined;
       void firstFaviconData(
-        favicons,
+        candidates,
         (target) => {
+          lastUrl = target;
           const referer = faviconReferer(pageUrl, target);
           return contents.session.fetch(
             target,
@@ -241,17 +313,48 @@ export function electronBrowserViews(
         },
         resizeFavicon,
       ).then((data) => {
-        if (
-          data === null ||
-          seq !== faviconSeq ||
-          contents.isDestroyed() ||
-          favicon === data
-        ) {
+        if (inFlightKey === key) inFlightKey = "";
+        if (data === null || seq !== faviconSeq || contents.isDestroyed()) {
           return;
         }
-        favicon = data;
-        hooks.onChange();
+        if (lastUrl !== undefined) putLru(byIconUrl, lastUrl, data);
+        applyFavicon(pageUrl, pageOrigin, data);
       });
+    };
+
+    contents.on("did-navigate", (_event, url) => {
+      const next = originOfHttp(url);
+      if (next === origin) return;
+      origin = next;
+      faviconSeq += 1;
+      inFlightKey = "";
+      const cached = next === "" ? undefined : byOrigin.get(next);
+      if (favicon !== cached) {
+        favicon = cached;
+        hooks.onChange();
+      }
+    });
+    contents.on("dom-ready", () => {
+      if (contents.isDestroyed()) return;
+      const pageUrl = contents.getURL();
+      const pageOrigin = originOfHttp(pageUrl);
+      if (pageOrigin === "") return;
+      const seqAtStart = faviconSeq;
+      void contents.mainFrame
+        .executeJavaScript(READ_DOM_FAVICONS)
+        .then((raw: unknown) => {
+          if (contents.isDestroyed() || seqAtStart !== faviconSeq) return;
+          const links = Array.isArray(raw)
+            ? raw.filter((item): item is string => typeof item === "string")
+            : [];
+          loadFavicons(
+            links.length > 0 ? links : [`${pageOrigin}/favicon.ico`],
+          );
+        })
+        .catch(() => {});
+    });
+    contents.on("page-favicon-updated", (_event, favicons) => {
+      loadFavicons(favicons);
     });
     const adapter: BrowserContents = {
       id: contents.id,
@@ -288,6 +391,16 @@ export function electronBrowserViews(
 
   return {
     guest: (contents, hooks) => adapt(contents, hooks),
+    seedFavicon(url, data) {
+      const origin = originOfHttp(url);
+      if (origin !== "" && !byOrigin.has(origin)) {
+        putLru(byOrigin, origin, data);
+      }
+    },
+    clearFaviconCache() {
+      byOrigin.clear();
+      byIconUrl.clear();
+    },
     hasWindow: (ref) => live(ref) !== undefined,
     devtools(page, gone) {
       const target = electronContents.fromId(page.id);

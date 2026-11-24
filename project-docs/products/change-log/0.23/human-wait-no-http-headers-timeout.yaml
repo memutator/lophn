@@ -1,5 +1,5 @@
 id: human-wait-no-http-headers-timeout
-version: 0.23.165
+version: 0.23.166
 platform_note: none
 title: Remove 5-minute undici headersTimeout on loopback core calls waiting for person input
 modules:

@@ -1,0 +1,26 @@
+id: human-wait-no-http-headers-timeout
+version: 0.23.165
+platform_note: none
+title: Remove 5-minute undici headersTimeout on loopback core calls waiting for person input
+modules:
+  - packages/core/main
+  - packages/cli
+change: >
+  Switched default loopback core HTTP transport in `agent-runtime/core-http.ts`
+  and `cli/connection/client/core.ts` from Node's built-in `fetch` (undici,
+  which enforces a 300s default `headersTimeout`) to `node:http` with
+  `timeout: 0`. Long-blocking routes that wait for a person to answer
+  (`/ask/wait`, `/tool-gate/check`, secret/login/approval waits) no longer
+  fail with `unavailable` after 5 minutes.
+why: >
+  In attended turns (including workflow human steps), `ask` and approval waits
+  intentionally have no timeout (`architecture/approval.md`). Using undici
+  `fetch` caused `POST /ask/wait` to fail with `HeadersTimeoutError` at
+  300,000 ms, triggering an automatic retry and then closing the turn after 10
+  minutes with `"tool is unavailable"` before the person returned to answer.
+decisions:
+  - text: >
+      Use `node:http` (`timeout: 0`) for default loopback core RPCs in
+      `agent-runtime` and `cli` rather than relying on undici's 300s
+      `headersTimeout`, keeping injected `fetch` support for unit tests.
+    by: agent

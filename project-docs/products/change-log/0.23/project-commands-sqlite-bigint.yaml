@@ -1,5 +1,5 @@
 id: project-commands-sqlite-bigint
-version: 0.23.159
+version: 0.23.160
 title: ledger createSql의 bigint INTEGER 열 때문에 project commands가 빈 목록으로 읽히던 버그 수정
 modules:
   - packages/core/projects

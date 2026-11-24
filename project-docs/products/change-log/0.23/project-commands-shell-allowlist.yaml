@@ -1,5 +1,5 @@
 id: project-commands-shell-allowlist
-version: 0.23.164
+version: 0.23.165
 title: shell main의 renderer allowlist에 project_commands memory route 9종을 등록한다
 modules:
   - packages/shell/main

@@ -1,5 +1,5 @@
 id: project-commands
-version: 0.23.156
+version: 0.23.158
 platform_note: none
 title: "project commands를 core ledger·전용 PTY·승인·CLI·원격·네 진입점으로 구현한다"
 modules:

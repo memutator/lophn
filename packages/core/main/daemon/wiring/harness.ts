@@ -11,7 +11,6 @@ import {
 import type { Id } from "../../../../protocol/base/ids.ts";
 import { HARNESS_ADAPTER_OF_RUNTIME } from "../../../../protocol/coding-agent/harness-adapter.ts";
 import { harnessHomeName } from "../../../../protocol/coding-agent/harness-home.ts";
-import type { AcpApprovalSubject } from "../../../../protocol/approvals/gate-call.ts";
 import {
   type AgentId,
   type AgentRuntime,
@@ -370,6 +369,18 @@ export const harnessWiring: WiringFactory = () => {
 
       // GUI 탭 팀원(`member.ts`)과 background 실행기(`background.ts`)가 함께 쓰는 port다.
       const queued = new Set<(session: string) => void>();
+      const personTurns = new Set<
+        (
+          event:
+            | { kind: "started"; session: string }
+            | {
+                kind: "ended";
+                session: string;
+                end: MemberTurnEnd;
+                error: string | null;
+              },
+        ) => void
+      >();
       // 화면에 내지 않을 session인지(`hidingSessions`). session의 표시는 바뀌지 않으므로 한 번 읽어 둔다.
       const memberOf = new Map<string, boolean>();
       const members: HarnessMembers = {
@@ -681,6 +692,20 @@ export const harnessWiring: WiringFactory = () => {
         onTurnClosed(listener) {
           turnClosed.add(listener);
           return () => void turnClosed.delete(listener);
+        },
+        personTurnStarted(session) {
+          for (const listener of personTurns) {
+            listener({ kind: "started", session });
+          }
+        },
+        personTurnEnded(session, end, error) {
+          for (const listener of personTurns) {
+            listener({ kind: "ended", session, end, error });
+          }
+        },
+        onPersonTurn(listener) {
+          personTurns.add(listener);
+          return () => void personTurns.delete(listener);
         },
       };
       ctx.provide("harnessMembers", {

@@ -165,6 +165,51 @@ function stalledStepFor(state: State, session: Id<"ses">): string | null {
   return resolved ? null : handed.step;
 }
 
+// 이 session이 step_stalled 또는 lophn_restarted로 막힌 non-human step의 담당이고,
+// 아직 retried/report/handed 등으로 풀리지 않았으면 그 step 이름을 돌려준다.
+function stalledToResumeFor(state: State, session: Id<"ses">): string | null {
+  const { instance, lines } = state;
+  if (instance.state !== "running") return null;
+  const settledSteps = new Set<string>();
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i]!;
+    if (line.kind === "retried" && line.session === session) return null;
+    if (line.kind === "handed" && line.receiver === session) return null;
+    if (line.kind === "report") {
+      if (
+        (line.by.kind === "agent" && line.by.session === session) ||
+        line.next !== null
+      ) {
+        settledSteps.add(line.step);
+      }
+      continue;
+    }
+    if (line.kind === "not_handed") {
+      settledSteps.add(line.step);
+      continue;
+    }
+    if (line.kind === "step_stalled" && line.session === session) {
+      if (settledSteps.has(line.step)) return null;
+      if (instance.current?.step === line.step && instance.current.human_turn) {
+        return null;
+      }
+      return line.step;
+    }
+    if (
+      line.kind === "lophn_restarted" &&
+      line.receiver === session &&
+      line.step !== null
+    ) {
+      if (settledSteps.has(line.step)) return null;
+      if (instance.current?.step === line.step && instance.current.human_turn) {
+        return null;
+      }
+      return line.step;
+    }
+  }
+  return null;
+}
+
 type RetryTarget =
   | { mode: "re_handoff"; step: string }
   | {
@@ -1522,9 +1567,17 @@ export function createWorkflowService(deps: {
     reason?: string;
     message?: string;
   }): Promise<Result<void>> {
-    const done = await apply(input.instance, ({ instance }) =>
-      ok({
-        instance: instance.id,
+    let alreadyStalled = false;
+    const done = await apply(input.instance, (state) => {
+      if (
+        input.session !== null &&
+        stalledToResumeFor(state, input.session) === input.step
+      ) {
+        alreadyStalled = true;
+        return fail("conflict", "step already stalled");
+      }
+      return ok({
+        instance: state.instance.id,
         change: {
           kind: "step_stalled",
           step: input.step,
@@ -1534,9 +1587,9 @@ export function createWorkflowService(deps: {
         },
         by: { kind: "lophn" },
         handoff: null,
-      }),
-    );
-    return done.ok ? ok(undefined) : done;
+      });
+    });
+    return done.ok || alreadyStalled ? ok(undefined) : done;
   }
 
   async function reconcileOne(id: Id<"wfi">): Promise<{
@@ -2268,11 +2321,57 @@ export function createWorkflowService(deps: {
       }
     },
 
+    // 사람이 막힌(step_stalled·lophn_restarted) step의 session에 직접 새 turn을 시작하면
+    // 중복 입력 없이 retried 줄을 남겨 working 상태로 즉시 복구한다.
+    async sessionResumed(session: Id<"ses">): Promise<void> {
+      const running = await store.running();
+      if (!running.ok) return;
+      for (const item of running.value) {
+        const read = await store.read(item.id as Id<"wfi">);
+        if (!read.ok) {
+          skip(item.id, read.error.code);
+          continue;
+        }
+        const stalledStep = stalledToResumeFor(read.value, session);
+        if (stalledStep === null) continue;
+        let alreadyResolved = false;
+        let wasYaml = false;
+        const done = await apply(item.id, (freshState) => {
+          const step = stalledToResumeFor(freshState, session);
+          if (step === null) {
+            alreadyResolved = true;
+            return fail("conflict", "step already resumed");
+          }
+          wasYaml = !isFlowInstance(freshState.instance, freshState.lines);
+          return ok({
+            instance: freshState.instance.id,
+            change: {
+              kind: "retried",
+              step,
+              session,
+            },
+            by: { kind: "user" },
+            handoff: null,
+          });
+        });
+        if (done.ok && wasYaml) {
+          await recordYamlRetryCheckpoint(store, {
+            instance: item.id as Id<"wfi">,
+            step: stalledStep,
+            session,
+            humanTurn: false,
+          });
+        } else if (!done.ok && !alreadyResolved) {
+          skip(item.id, done.error.code);
+        }
+      }
+    },
+
     // local non-human step을 받은 session의 turn이 끝났을 때, 명시적 완료 report도 열린 하위 call도 없으면
     // 넘김/retry 시도당 최대 한 번 step_stalled 줄을 남긴다.
     async turnEnded(event: {
       session: Id<"ses">;
-      turn: Id<"trn">;
+      turn?: Id<"trn">;
       outcome: TurnOutcome;
       error?: { code: string; message: string } | null;
     }): Promise<void> {

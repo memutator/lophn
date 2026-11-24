@@ -30,6 +30,7 @@ import type {
   WorkflowFlows,
   WorkflowRemote,
 } from "./ports.ts";
+import { deriveWorkflowStatus } from "./reads.ts";
 import { workflowsSchemaSteps } from "./schema.ts";
 import { createWorkflowService } from "./service.ts";
 import {
@@ -476,6 +477,172 @@ test("turnEnded emits step_stalled once per attempt for non-human steps, skips h
     assert.equal(
       h.linesOf(AGENT).filter((l) => l.kind === "step_stalled").length,
       1,
+    );
+  } finally {
+    h.db.close();
+  }
+});
+
+// 사람이 stalled/restarted step의 session에서 직접 새 turn을 시작하면 중복 입력 없이 retried를 남겨
+// working으로 복구하고, 그 turn이 다시 report 없이 끝나면 재판정한다.
+test("sessionResumed clears step_stalled and lophn_restarted without injecting a duplicate prompt", async () => {
+  const h = makeHarness();
+  try {
+    const created = h.commands.create.handle(
+      h.tx,
+      h.ctx,
+      {
+        id: AGENT,
+        project: PRJ,
+        workflow: "demo",
+        input: "go",
+        participants: { worker: { agent: "lophn" } },
+        steps: [
+          {
+            name: "work",
+            by: "worker",
+            with: null,
+            prompt: "do work",
+            in: "",
+            out: "artifact",
+            next: ["end"],
+          },
+        ],
+        started_by: { kind: "user" },
+        handoff: {
+          step: "work",
+          participant: "worker",
+          human_turn: false,
+          cause: "start",
+          session: null,
+          delivery: {
+            to: { agent: "lophn", workspace: { project: PRJ } },
+            body: "do work",
+          },
+          unresolved: null,
+        },
+      },
+      {},
+    );
+    assert.ok(created.ok);
+    assert.equal(h.delivered.length, 1);
+
+    // 1) Esc 등으로 turn이 report 없이 끝나면 step_stalled -> blocked.
+    await h.service.turnEnded({
+      session: SES_A,
+      outcome: { kind: "failed", reason: "no_answer" },
+      error: null,
+    });
+    const stalledLines = h.linesOf(AGENT);
+    assert.deepStrictEqual(
+      stalledLines.map((l) => l.kind),
+      ["started", "handed", "step_stalled"],
+    );
+    assert.equal(
+      deriveWorkflowStatus({
+        state: "running",
+        current: { step: "work", human_turn: false },
+        latestStatusLine: "step_stalled",
+        sessions: [],
+        remoteSteps: [],
+      }),
+      "blocked",
+    );
+
+    // 2) 사람이 session에서 직접 새 turn을 시작하면 중복 메시지를 넣지 않고 retried를 남겨 working으로 돌아간다.
+    await h.service.sessionResumed(SES_A);
+    await h.service.sessionResumed(SES_A); // 멱등
+    assert.equal(h.delivered.length, 1);
+    const resumedLines = h.linesOf(AGENT);
+    assert.deepStrictEqual(
+      resumedLines.map((l) => l.kind),
+      ["started", "handed", "step_stalled", "retried"],
+    );
+    assert.equal(
+      deriveWorkflowStatus({
+        state: "running",
+        current: { step: "work", human_turn: false },
+        latestStatusLine: "retried",
+        sessions: [],
+        remoteSteps: [],
+      }),
+      "working",
+    );
+
+    // 3) 이어진 turn이 하위 call을 띄운 채 끝나면 stall로 보지 않는다.
+    h.setOpenCalls(() => 1);
+    await h.service.turnEnded({
+      session: SES_A,
+      outcome: { kind: "completed", reason: "answer_completed" },
+      error: null,
+    });
+    assert.equal(
+      h.linesOf(AGENT).filter((l) => l.kind === "step_stalled").length,
+      1,
+    );
+
+    // 4) 열린 call 없이 다시 report 없이 끝나면 새 step_stalled가 남는다.
+    h.setOpenCalls(() => 0);
+    await h.service.turnEnded({
+      session: SES_A,
+      outcome: { kind: "completed", reason: "answer_completed" },
+      error: null,
+    });
+    assert.equal(
+      h.linesOf(AGENT).filter((l) => l.kind === "step_stalled").length,
+      2,
+    );
+
+    // 5) lophn_restarted로 막힌 instance도 같은 session에서 새 turn이 시작되면 복구된다.
+    const restarted = h.commands.create.handle(
+      h.tx,
+      h.ctx,
+      {
+        id: FLOW,
+        project: PRJ,
+        workflow: "demo-restarted",
+        input: "go",
+        participants: { worker: { agent: "lophn" } },
+        steps: [
+          {
+            name: "work",
+            by: "worker",
+            with: null,
+            prompt: "do work",
+            in: "",
+            out: "",
+            next: ["end"],
+          },
+        ],
+        started_by: { kind: "user" },
+        handoff: {
+          step: "work",
+          participant: "worker",
+          human_turn: false,
+          cause: "start",
+          session: null,
+          delivery: {
+            to: { agent: "lophn", workspace: { project: PRJ } },
+            body: "do work",
+          },
+          unresolved: null,
+        },
+      },
+      {},
+    );
+    assert.ok(restarted.ok);
+    const deliveredBeforeRestart = h.delivered.length;
+    appendLine(h.sql, FLOW, AT, {
+      kind: "lophn_restarted",
+      by: { kind: "lophn" },
+      step: "work",
+      receiver: SES_B,
+    });
+    await h.service.sessionResumed(SES_B);
+    assert.equal(h.delivered.length, deliveredBeforeRestart);
+    assert.deepStrictEqual(
+      h.linesOf(FLOW).map((l) => l.kind),
+      ["started", "handed", "lophn_restarted", "retried"],
     );
   } finally {
     h.db.close();

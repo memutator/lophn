@@ -582,10 +582,7 @@ export function createWorkflowCommands(
               step: change.step,
               session: change.session,
             });
-            if (change.session !== null) {
-              if (change.body === undefined) {
-                return fail("conflict", "retry continuation body is required");
-              }
+            if (change.session !== null && change.body !== undefined) {
               const made = router(tx);
               if (!made.ok) return made;
               // 기록된 같은 session에만 넣는다(fallback: "new" 없음 — 새 session으로 처음부터 돌리지 않는다).
@@ -618,7 +615,7 @@ export function createWorkflowCommands(
                   FAILURE_TEXTS[routed.value.fail_reason!],
                 );
               }
-            } else {
+            } else if (change.session === null) {
               const done = hand();
               if (!done.ok) return done;
             }

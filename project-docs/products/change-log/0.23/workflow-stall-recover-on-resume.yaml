@@ -1,0 +1,30 @@
+id: workflow-stall-recover-on-resume
+version: 0.23.159
+platform_note: none
+title: Recover stalled workflow step when person resumes its session directly
+modules:
+  - packages/core/workflows
+  - packages/core/terminal-agents
+  - packages/core/main
+change: >
+  When a user manually starts a new turn in a session belonging to a stalled
+  (`step_stalled` or `lophn_restarted`) non-human workflow step — including
+  user-typed turns in GUI harness terminal tabs — workflows now appends a
+  `retried` line without injecting a duplicate continuation prompt, restoring
+  `derived_status` from `blocked` to `working`. If that resumed turn ends
+  without `workflow.report` and with no open outgoing `agent_calls`, stall
+  detection runs again for the new attempt.
+why: >
+  Pressing Esc in a workflow step session tab to interrupt and send tweaked
+  instructions marked the step `step_stalled` (`blocked`), and because GUI
+  terminal person turns do not emit ledger `TurnStarted`/`TurnEnded` events
+  and `TurnStarted` did not clear `step_stalled`, the workflow stayed stuck
+  in `Stalled` until the agent eventually reported or the user clicked Retry.
+decisions:
+  - text: >
+      Clear `step_stalled` / `lophn_restarted` by recording an empty-body
+      `retried` line on manual turn start (both ledger `TurnStarted` and GUI
+      tab `personTurnStarted`), and wire GUI `personTurnEnded` into workflow
+      stall re-evaluation so manually resumed turns follow the same lifecycle
+      as `[Retry]` without duplicate prompts.
+    by: agent

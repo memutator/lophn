@@ -132,6 +132,25 @@ export type HarnessMembers = {
   onTurnClosed?(
     listener: (event: { session: string; turn: string }) => void,
   ): () => void;
+  /** 사람이 GUI 탭에서 직접 turn을 시작하거나 끝냈다(workflow stall 해제·재감지용). */
+  personTurnStarted?(session: string): void;
+  personTurnEnded?(
+    session: string,
+    end: MemberTurnEnd,
+    error: string | null,
+  ): void;
+  onPersonTurn?(
+    listener: (
+      event:
+        | { kind: "started"; session: string }
+        | {
+            kind: "ended";
+            session: string;
+            end: MemberTurnEnd;
+            error: string | null;
+          },
+    ) => void,
+  ): () => void;
 };
 
 export const RUNTIME_OF_GUI: Readonly<Record<GuiHarness, HarnessRuntime>> = {
@@ -554,6 +573,7 @@ export function createGuiMembers(deps: {
   async function personTurn(member: Member, turn: Turn) {
     const members = deps.members();
     if (members === null || member.session === null) return;
+    members.personTurnStarted?.(member.session);
     const issued = await members.credential(member.session);
     if (!issued.ok) {
       deps.log(`gui member: no credential: ${issued.error.message}`);
@@ -567,11 +587,20 @@ export function createGuiMembers(deps: {
     writeFile(member, turn);
   }
 
-  function endTyped(member: Member, turn: Turn) {
+  function endTyped(
+    member: Member,
+    turn: Turn,
+    end: MemberTurnEnd = "completed",
+    error: string | null = null,
+  ) {
     if (member.typed === turn) member.typed = null;
     member.touched = true;
     clearFile(member, turn);
-    if (turn.credential !== null) deps.members()?.end(turn.credential.turn);
+    const members = deps.members();
+    if (turn.credential !== null) members?.end(turn.credential.turn);
+    if (member.session !== null) {
+      members?.personTurnEnded?.(member.session, end, error);
+    }
   }
 
   // 넣은 입력의 turn이 끝났다. result call을 받은 turn이 completed로 끝나면 그 turn의 마지막 agent 글을 남긴다(core의 자동 답이 보낸다).
@@ -696,7 +725,14 @@ export function createGuiMembers(deps: {
       return;
     } else if (change.type === "turn_ended") {
       const injected = member.injected;
-      if (member.typed?.acp === change.turn) endTyped(member, member.typed);
+      if (member.typed?.acp === change.turn) {
+        endTyped(
+          member,
+          member.typed,
+          change.outcome,
+          change.error?.message ?? null,
+        );
+      }
       if (injected?.acp === change.turn) {
         void endInjected(
           member,
@@ -712,7 +748,7 @@ export function createGuiMembers(deps: {
   }
 
   function closeTurns(member: Member) {
-    if (member.typed !== null) endTyped(member, member.typed);
+    if (member.typed !== null) endTyped(member, member.typed, "closed", null);
     for (const turn of [member.injected, member.ready]) {
       if (turn !== null) void endInjected(member, turn, "closed", null);
     }

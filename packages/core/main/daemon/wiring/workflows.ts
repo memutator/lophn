@@ -11,6 +11,7 @@ import {
   messageBody,
   receivedMessageList,
   stopTurn,
+  type TurnOutcome,
   turnList,
   turnRead,
   workspaceSessionRead,
@@ -318,6 +319,7 @@ function formatAgentStepBody(input: {
 export const workflowsWiring: WiringFactory = () => {
   let service: ReturnType<typeof createWorkflowService> | undefined;
   let unsubscribe: (() => void) | undefined;
+  let unsubscribePersonTurns: (() => void) | undefined;
   const turnEndedListeners = new Set<(event: AgentTurnEndedEvent) => void>();
   const turnStartedListeners = new Set<
     (event: AgentTurnStartedEvent) => void
@@ -1357,9 +1359,17 @@ export const workflowsWiring: WiringFactory = () => {
               return;
             }
             if (event.type === "TurnStarted") {
+              const session = event.session as Id<"ses">;
+              void service!.sessionResumed(session).catch((e) => {
+                ctx.telemetry.logger.error({
+                  component: "workflows",
+                  event: "stall_resume_failed",
+                  fields: { error: String(e) },
+                });
+              });
               if (turnStartedListeners.size === 0) return;
               const startedEvent: AgentTurnStartedEvent = {
-                session: event.session as Id<"ses">,
+                session,
                 turn: event.payload.turn as Id<"trn">,
               };
               for (const fn of [...turnStartedListeners]) {
@@ -1433,6 +1443,83 @@ export const workflowsWiring: WiringFactory = () => {
           close() {},
         },
       );
+      // GUI 터미널 탭에서 사람이 직접 입력한 turn은 ledger turn 없이 돌므로 harnessMembers 알림으로 stall 복구·재판정을 잇는다.
+      unsubscribePersonTurns = ctx.peek.harnessMembers?.onPersonTurn?.(
+        (event) => {
+          const session = event.session as Id<"ses">;
+          if (event.kind === "started") {
+            void service!.sessionResumed(session).catch((e) => {
+              ctx.telemetry.logger.error({
+                component: "workflows",
+                event: "stall_resume_failed",
+                fields: { error: String(e) },
+              });
+            });
+            for (const fn of [...turnStartedListeners]) {
+              try {
+                fn({ session });
+              } catch {
+                // ignore
+              }
+            }
+            return;
+          }
+          const outcome: TurnOutcome =
+            event.end === "completed"
+              ? { kind: "completed", reason: "answer_completed" }
+              : event.end === "failed"
+                ? { kind: "failed", reason: "model_error" }
+                : event.end === "stopped"
+                  ? { kind: "failed", reason: "no_answer" }
+                  : event.end === "unconfigured"
+                    ? { kind: "failed", reason: "configuration_unavailable" }
+                    : { kind: "failed", reason: "target_unavailable" };
+          const error =
+            event.error !== null && event.error !== ""
+              ? {
+                  code:
+                    outcome.kind === "failed" ? outcome.reason : "model_error",
+                  message: event.error,
+                }
+              : null;
+          void service!.turnEnded({ session, outcome, error }).catch((e) => {
+            ctx.telemetry.logger.error({
+              component: "workflows",
+              event: "stall_check_failed",
+              fields: { error: String(e) },
+            });
+          });
+          if (turnEndedListeners.size === 0) return;
+          const status =
+            event.end === "completed"
+              ? "completed"
+              : event.end === "stopped"
+                ? "stopped"
+                : "failed";
+          const errorReason =
+            outcome.kind === "completed"
+              ? undefined
+              : mapTurnOutcomeToReason(outcome, error?.code);
+          const errorMessage =
+            outcome.kind === "completed"
+              ? undefined
+              : (error?.message ?? outcome.reason.replaceAll("_", " "));
+          const endedEvent: AgentTurnEndedEvent = {
+            session,
+            status,
+            ...(errorReason !== undefined ? { errorReason } : {}),
+            ...(errorMessage !== undefined ? { errorMessage } : {}),
+            lastAssistantText: null,
+          };
+          for (const fn of [...turnEndedListeners]) {
+            try {
+              fn(endedEvent);
+            } catch {
+              // ignore
+            }
+          }
+        },
+      );
       try {
         await service!.reconcile();
       } catch (e) {
@@ -1447,6 +1534,8 @@ export const workflowsWiring: WiringFactory = () => {
     closeIntake() {
       unsubscribe?.();
       unsubscribe = undefined;
+      unsubscribePersonTurns?.();
+      unsubscribePersonTurns = undefined;
       turnEndedListeners.clear();
       turnStartedListeners.clear();
       callsSettledListeners.clear();

@@ -108,6 +108,15 @@ function setup() {
   ]);
   const emptied: string[] = [];
   const takenSeen: string[][] = [];
+  const personEvents: Array<
+    | { kind: "started"; session: string }
+    | {
+        kind: "ended";
+        session: string;
+        end: MemberTurnEnd;
+        error: string | null;
+      }
+  > = [];
   let ensured = 0;
   const members: HarnessMembers = {
     ensure: async (input) => {
@@ -152,6 +161,12 @@ function setup() {
     onQueued: (listener) => {
       listeners.add(listener);
       return () => void listeners.delete(listener);
+    },
+    personTurnStarted: (session) => {
+      personEvents.push({ kind: "started", session });
+    },
+    personTurnEnded: (session, end, error) => {
+      personEvents.push({ kind: "ended", session, end, error });
     },
   };
   const timers: (() => void)[] = [];
@@ -310,6 +325,7 @@ function setup() {
     closed,
     emptied,
     takenSeen,
+    personEvents,
     ensured: () => ensured,
     hold: (value: boolean) => {
       holding = value;
@@ -824,6 +840,16 @@ test("a member with cross-project workflow_origin opens in its exec project, for
     await kit.publish(kit.message("a1", "acp_1", "agent", "done"));
     await kit.publish(kit.ended("acp_1"));
     assert.deepEqual(kit.closed, []);
+    // 주입된 call turn에서는 personTurnEnded가 나지 않는다.
+    assert.equal(kit.personEvents.filter((e) => e.kind === "ended").length, 0);
+    // 사람이 탭에 직접 입력한 turn은 personTurnStarted·personTurnEnded를 알린다.
+    await kit.publish(turnStarted("acp_2"));
+    await kit.publish(kit.message("u2", "acp_2", "user", "tweak instruction"));
+    await kit.publish(kit.ended("acp_2", "completed"));
+    assert.deepEqual(kit.personEvents.slice(-2), [
+      { kind: "started", session: SESSION },
+      { kind: "ended", session: SESSION, end: "completed", error: null },
+    ]);
   } finally {
     kit.cleanup();
   }

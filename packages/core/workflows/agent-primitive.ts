@@ -464,6 +464,7 @@ export function runAgentPrimitive(
         return;
       }
       turnActive = true;
+      stalledNotified = false;
       clearGraceTimer();
     }
 

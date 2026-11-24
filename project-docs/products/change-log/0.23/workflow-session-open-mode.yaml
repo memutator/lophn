@@ -1,5 +1,5 @@
 id: workflow-session-open-mode
-version: 0.23.158
+version: 0.23.159
 platform_note: none
 title: "workflow와 harness agent의 session 열기 방식(tab | background)을 단일 개념으로 통합하고 agent·사용자 모두 선택·변경할 수 있게 한다"
 modules:

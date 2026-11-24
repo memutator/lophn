@@ -10,8 +10,8 @@ import {
   type ReceivedMessage,
   textBlocks,
 } from "../../../protocol/lophn-agent/mod.ts";
-import { type HistoryPart, shellInput } from "../prompt-assembly/mod.ts";
 import type { RoutedInput } from "../../router/ports.ts";
+import { type HistoryPart, shellInput } from "../prompt-assembly/mod.ts";
 import { type CoreCall, readOf } from "./core-call.ts";
 
 // Router 입력을 model에 user role로 넣는 본문이다. 출처는 tag로 밝히고 tag의 뜻은 lophn 지침이 가진다.
@@ -193,7 +193,7 @@ export function inputParts(
       const { instance, step } = input.step ?? { instance: "", step: "" };
       return assemble(
         wrapped(INPUT_TAGS.step, { instance, step }, input.body, [
-          "This was sent by lophn for a workflow instance. When your step is done, report it with `lophn workflow report`.",
+          "This was sent by lophn for a workflow instance. If you delegate work to sub-agents, use `lophn team spawn` so lophn tracks them under this workflow. When your step is done, report it with `lophn workflow report`.",
         ]),
       );
     }

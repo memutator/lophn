@@ -212,7 +212,8 @@ function handOff(
       step: plan.step,
     },
     ...(plan.open !== undefined ? { open: plan.open } : {}),
-    unattended: true,
+    // 사람 step(by: me / human())은 사람이 바로 대화·질문(ask)·승인에 답하는 자리이므로 attended turn으로 연다.
+    unattended: !plan.human_turn,
   });
   if (!routed.ok) return routed;
   if (routed.value.state === "failed") {
@@ -606,7 +607,10 @@ export function createWorkflowCommands(
                   instance: scope.instance as Id<"wfi">,
                   step: change.step,
                 },
-                unattended: true,
+                unattended: !(
+                  scope.draft.current?.step === change.step &&
+                  scope.draft.current.human_turn
+                ),
               });
               if (!routed.ok) return routed;
               if (routed.value.state === "failed") {

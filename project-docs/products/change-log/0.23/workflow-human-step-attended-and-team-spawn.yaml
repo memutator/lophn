@@ -1,0 +1,32 @@
+id: workflow-human-step-attended-and-team-spawn
+version: 0.23.161
+platform_note: none
+title: Open workflow human steps in attended mode and guide step sub-agents to lophn team spawn
+modules:
+  - packages/core/workflows
+  - packages/core/lophn-agent
+  - packages/core/agent-workspaces
+change: >
+  Workflow handoffs for human steps (`human_turn: true`, YAML `by: me` and flow
+  `human()`) now route with `unattended: false` so the first turn runs in
+  `attended` mode and the `ask` tool opens the question card instead of
+  returning `{ outcome: "unattended" }`. Non-human steps remain `unattended`.
+  Also added concise guidance in the `<lophn-step>` footer and `write-workflow`
+  skill recommending `lophn team spawn` when delegating sub-agent work inside a
+  workflow step so workers inherit `workflow_origin` and are tracked in the Run
+  screen and stall detector.
+why: >
+  Human workflow steps (such as interactive design steps) instruct the agent to
+  ask the person decisions with the `ask` tool on turn 1, but because
+  `commands.ts` hardcoded `unattended: true` for all workflow steps, `ask`
+  immediately returned `unattended` and never opened the question card.
+  Separately, directing step agents to use `lophn team spawn` ensures sub-agent
+  workers are visible and tracked under the workflow instance.
+decisions:
+  - text: >
+      Keep non-human workflow steps `unattended: true` while opening
+      `human_turn: true` steps as `attended` (`unattended: false`), and guide
+      workflow step sub-agent delegation toward `lophn team spawn` until
+      harness-native sub-agent tracking (e.g., Antigravity) is implemented in a
+      dedicated plan.
+    by: person

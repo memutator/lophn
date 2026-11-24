@@ -280,6 +280,15 @@ interact with the session:
   also override tab vs background per run in the workflow Start box or via
   `lophn workflow start --open tab|background`.
 
+## Sub-agents inside a step
+
+When a workflow step fans out parallel or sub-agent work from inside a step
+session, instruct the step agent to spawn workers with
+`lophn team spawn <handle> --body <text>` rather than harness-native sub-agent
+tools. Workers spawned via `lophn team spawn` inherit `workflow_origin`, appear
+as children in the Run screen's `sessions` tree and workflow desk, and keep
+stall detection aware of open outgoing `agent_calls` while the parent waits.
+
 ## A step message is all a participant gets
 
 In YAML shorthand workflows, a participant receives its step's `prompt`, `in`,

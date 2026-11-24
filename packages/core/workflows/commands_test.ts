@@ -1,10 +1,9 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
-
 import { DatabaseSync } from "node:sqlite";
+import { test } from "node:test";
 import { err, ok } from "../../base/mod.ts";
-import type { Tx } from "../../protocol/server/mod.ts";
 import { DEFAULT_CALL_POLICY } from "../../protocol/lophn-agent/call-policy.ts";
+import type { Tx } from "../../protocol/server/mod.ts";
 import type { HandoffPlan } from "../../protocol/workflows/mod.ts";
 import { createRouter } from "../router/mod.ts";
 import type { RoutedInput } from "../router/ports.ts";
@@ -136,14 +135,38 @@ test("a stopped instance is not handed: report with next records the line only a
     );
     assert.ok(created.ok);
     assert.deepStrictEqual(delivered.length, 1);
+    assert.equal(delivered[0]!.unattended, true);
+
+    // 사람 step(human_turn: true)은 ask·승인 카드가 첫 turn부터 열리도록 attended(unattended: false)로 넘긴다.
+    const toHuman = commands.apply.handle(
+      tx,
+      ctx,
+      {
+        instance: WFI,
+        change: {
+          kind: "report",
+          step: "a",
+          text: "ready for person",
+          next: "design",
+          session: "new",
+        },
+        by: { kind: "agent", session: SES },
+        handoff: { ...plan("design"), human_turn: true },
+      },
+      { state_seq: seq() },
+    );
+    assert.ok(toHuman.ok && toHuman.value.handed?.outcome === "handed");
+    assert.equal(delivered.at(-1)!.unattended, false);
 
     // 멈추기 전에는 같은 report가 입력을 하나 넣는다. 넘어가지 않으면 이 test가 헛돈다.
     const before = report();
     assert.ok(before.ok && before.value.handed?.outcome === "handed");
-    assert.deepStrictEqual(delivered.length, 2);
+    assert.deepStrictEqual(delivered.length, 3);
+    assert.equal(delivered.at(-1)!.unattended, true);
     // 넘길 때마다 받은 session의 workflow_origin을 갱신한다(session: same이면 step만 바뀐다).
     assert.deepStrictEqual(origins, [
       { session: SES, step: "a" },
+      { session: SES, step: "design" },
       { session: SES, step: "b" },
     ]);
 
@@ -164,7 +187,7 @@ test("a stopped instance is not handed: report with next records the line only a
     const after = report();
     assert.ok(after.ok);
     assert.deepStrictEqual(after.value.handed, null);
-    assert.deepStrictEqual(delivered.length, 2);
+    assert.deepStrictEqual(delivered.length, 3);
     assert.deepStrictEqual(count(), lines + 1);
 
     const handNow = commands.apply.handle(
@@ -180,7 +203,7 @@ test("a stopped instance is not handed: report with next records the line only a
     );
     assert.ok(!handNow.ok);
     assert.deepStrictEqual(handNow.error.code, "conflict");
-    assert.deepStrictEqual(delivered.length, 2);
+    assert.deepStrictEqual(delivered.length, 3);
     assert.deepStrictEqual(count(), lines + 1);
   } finally {
     db.close();

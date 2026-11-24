@@ -1,0 +1,146 @@
+/* session tree 줄. 자식 session은 깊이만큼 들여 쓴다. */
+.sessions {
+  display: flex;
+  flex-direction: column;
+  margin: var(--space-0);
+  padding: var(--space-0);
+  border: var(--border-width) solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+}
+
+.row:last-child {
+  border-bottom: var(--space-0);
+}
+
+.row[data-depth="1"] {
+  padding-inline-start: calc(var(--space-4) + var(--space-6));
+}
+
+.row[data-depth="2"] {
+  padding-inline-start: calc(var(--space-4) + var(--space-6) * 2);
+}
+
+.row[data-depth="3"] {
+  padding-inline-start: calc(var(--space-4) + var(--space-6) * 3);
+}
+
+.row[data-depth="4"] {
+  padding-inline-start: calc(var(--space-4) + var(--space-6) * 4);
+}
+
+.face {
+  display: flex;
+  flex: none;
+}
+
+.main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: var(--space-0);
+}
+
+/* 머리 줄의 높이는 얼굴과 같아 이름이 얼굴 가운데에 선다. */
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-4);
+  min-height: var(--space-7);
+}
+
+.agent {
+  color: var(--color-text-primary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  font-weight: var(--font-weight-semibold);
+}
+
+.state {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  font-weight: var(--font-weight-medium);
+}
+
+.dot {
+  flex: none;
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--status-neutral-marker);
+}
+
+.row[data-session-state="running"] .state {
+  color: var(--status-good-text);
+}
+
+.row[data-session-state="running"] .dot {
+  background: var(--status-good-marker);
+}
+
+.row[data-session-state="waiting"] .state {
+  color: var(--status-warning-text);
+}
+
+.row[data-session-state="waiting"] .dot {
+  background: var(--status-warning-marker);
+}
+
+.row[data-session-state="failed"] .state {
+  color: var(--status-critical-text);
+}
+
+.row[data-session-state="failed"] .dot {
+  background: var(--status-critical-marker);
+}
+
+.workspace {
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.preview {
+  margin: var(--space-0);
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  overflow-wrap: anywhere;
+}
+
+.error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: var(--space-0);
+  color: var(--status-critical-text);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  overflow-wrap: anywhere;
+}
+
+.error > :first-child {
+  flex: none;
+  margin-top: var(--space-1);
+}
+
+/* [Open session]은 줄 오른쪽 끝의 고정 칸이다. */
+.action {
+  display: flex;
+  flex: none;
+  margin-left: auto;
+}

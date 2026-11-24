@@ -88,7 +88,7 @@ export const workflowKind: TabKindDef = {
   },
 };
 
-/** 참가자 agent의 얼굴을 agent 목록에서 읽어 handle로 찾게 한다. 목록을 읽을 통로가 없으면 얼굴 없이 그린다. */
+/** agent의 얼굴을 agent 목록에서 읽어 handle이나 agent id로 찾게 한다. 목록을 읽을 통로가 없으면 얼굴 없이 그린다. */
 function useFaces(host: TabHost, project: string): FaceOf | undefined {
   const source = host.agents?.source;
   const { loaded } = useFollowedRead(
@@ -101,10 +101,10 @@ function useFaces(host: TabHost, project: string): FaceOf | undefined {
   );
   return useMemo(() => {
     if (loaded.state !== "ready" || source === undefined) return undefined;
+    // step의 참가자는 handle로, session을 돌리는 agent는 id(assignment)로 찾는다.
     const faces = new Map(
-      loaded.value.map((row) => [
-        row.handle,
-        {
+      loaded.value.flatMap((row) => {
+        const face = {
           name: row.name,
           avatar:
             (row.avatar.kind === "character"
@@ -120,10 +120,14 @@ function useFaces(host: TabHost, project: string): FaceOf | undefined {
                     row.avatar.image,
                   ),
                 }),
-        },
-      ]),
+        };
+        return [
+          [row.assignment, face],
+          [row.handle, face],
+        ] as const;
+      }),
     );
-    return (handle: string) => faces.get(handle);
+    return (handleOrId: string) => faces.get(handleOrId);
   }, [loaded, source, project]);
 }
 

@@ -1,0 +1,61 @@
+/* 접는 세부 묶음. 머리 줄은 글자 단추이고 바탕은 본문과 같다. */
+.fold {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: var(--space-0);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: var(--space-0);
+  padding: var(--space-0);
+  border: var(--space-0);
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  text-align: start;
+  cursor: pointer;
+}
+
+.head:hover {
+  color: var(--color-text-primary);
+}
+
+.head:focus-visible {
+  border-radius: var(--radius-sm);
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: var(--border-focus-offset);
+}
+
+.head > :first-child {
+  flex: none;
+}
+
+.title {
+  flex: none;
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+}
+
+.head:hover .title {
+  color: var(--color-text-primary);
+}
+
+.summary {
+  min-width: var(--space-0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: var(--space-0);
+}

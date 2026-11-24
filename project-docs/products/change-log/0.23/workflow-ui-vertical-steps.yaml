@@ -1,0 +1,33 @@
+id: workflow-ui-vertical-steps
+version: 0.23.162
+platform_note: none
+title: "workflow 화면과 run 화면을 세로 step 줄로 다시 짓고, 설정·session·산출물을 step마다 붙이고, 세부를 접는다"
+modules:
+  - packages/protocol
+  - packages/core/workflows
+  - packages/shell/renderer
+change: |
+  - **세로 step 줄(`workflow/rail.tsx`)**: workflow 화면과 run 화면이 step을 왼쪽에서 오른쪽으로 잇던 알약 줄(`relay.tsx`, 삭제) 대신 위에서 아래로 선 단계 줄을 쓴다. 왼쪽 칸에 표시(새 run 칸은 번호, run 화면은 상태 아이콘)와 다음 단계로 내려가는 선이 있다.
+  - **서로 대신하는 step은 한 단계(`model.ts`의 `stagesOf`)**: 이웃한 step들이 같은 `next`를 가지고 서로에게 넘기지 않으면 한 단계의 선택지로 묶는다(relay는 한 번에 한 step만 돌아서 그런 step들은 둘 중 하나만 지나간다). 새 run 칸의 시작 단계에서는 radio로 하나를 고르고 그 step에서 run이 시작된다. run 화면에서는 지나간 쪽만 step으로 서고 다른 쪽은 "Not used in this run" 한 줄로 남는다.
+  - **새 run 칸(`start-box.tsx`)**: 입력 글 아래에 step이 서고 step마다 접힌 [Settings]가 있다. 그 안에 그 step이 쓰는 입력, 그 step의 session을 탭으로 열지 뒤에서 돌릴지, [Start here](앞 단계를 건너뛰고 여기서 시작)가 있다. 접혀 있을 때는 지금 값이 단추 왼쪽에 한 줄로 보인다. 따로 있던 "Sessions" chip 줄과 "First step" select는 없앴다. step에 붙지 않은 입력과 flow의 session 열기는 step 아래 "Run settings"에 접혀 있다. 값을 꼭 채워야 하는 입력(보이는 required인데 기본값이 없다)이 있는 설정 칸과, 시작 검증에서 틀린 칸이 있는 설정 칸은 열린다.
+  - **선언의 `inputs.<key>.steps`(`protocol/workflows/inputs.ts`)**: 입력 field에 선택 칸 `steps: string[]`(이 입력을 쓰는 step 이름)을 더했다. 새 run 칸이 그 step이 있는 첫 단계에 칸을 둔다. 없거나 모르는 이름이면 Run settings다. 값의 검증과 전달은 그대로다.
+  - **run 화면(`run-view.tsx`)**: step마다 맡은 쪽·상태가 머리 줄에 있고, 그 step의 session tree(얼굴, 이름, 상태, 마지막 말, 실패 이유, [Open session]), 마지막 report, 그 report가 적은 산출물 파일, Activity가 그 step에 붙는다. 지금 일이 있는 step(지금 어디에 있는지 한 장이 선 step, 막힌 step)만 펼쳐져 있고 지난 step은 report 두 줄로 접혀 있다. 한 장(`now-card.tsx`)은 지금 step이 있으면 그 step 안에, 없으면(끝남, 멈춤, 아직 아무도 받지 않음) step 줄 위에 선다. 시작 입력 전체와 inputs 값("Request and inputs"), checkpoint 목록은 접혀 있다(선언한 step이 없는 flow의 checkpoint는 펴져 있다). 어느 step에도 붙지 않은 session은 "Other sessions"로 아래에 선다.
+  - **`ReadWorkflowInstance`의 `sessions[].step`(`core/workflows/{store,reads}.ts`)**: session 줄에 `workflow_origin.step`(가장 나중에 받은 step, spawn된 자식은 태어난 때 부모의 step)을 싣는다. 화면은 이것과 그 session에 넘긴 `handed` 줄의 step으로 session을 step에 붙인다.
+  - **session과 참가자의 이름·아이콘(`model.ts`의 `sessionFace`·`agentFace`)**: session 줄이 agent id(`coding_antigravity`, `lophn_prj_…`) 대신 제품 이름과 아이콘(Antigravity, Claude Code), agent 목록의 이름과 얼굴을 보인다. 다른 project에서 도는 session은 project id 대신 project 이름을 적는다. 다른 workspace의 내장 coding agent 참가자도 선언의 handle(`claude · harness-lab`) 대신 제품 아이콘과 이름(`Claude Code · harness-lab`)으로 보인다.
+  - **workflow 화면의 순서(`workflow-page.tsx`, `run-list.tsx`)**: 도는 run(Needs you, Blocked, Running)이 새 run 칸 위에 오고 지난 run(Earlier)은 아래에 온다.
+why: |
+  사람이 실사용 workflow(`feature-cleanroom`)의 화면을 보고 말한 것이다: step은 왼쪽에서 오른쪽보다 위에서 아래가 맞다, 시작하기 전 설정이 step마다 있어야 한다, Claude 조사와 Antigravity 조사가 양자택일인 것이 화면에 드러나지 않는다, 실시간으로 보는 것(session 상태, output)이 step마다 붙어야 한다, `coding_antigravity` 대신 Antigravity와 아이콘이어야 한다, 세부 설정은 처음부터 다 보이지 말고 골라서 열어야 한다.
+decisions:
+  - text: "양자택일은 선언에 새 문법을 두지 않고 이웃한 step의 같은 `next`에서 읽는다. 이미 쓰는 workflow.yaml이 그대로 맞는 모양으로 보이고, relay가 한 번에 한 step만 돌아서 같은 다음 step으로 가는 이웃은 실제로 둘 중 하나만 지나간다. 버린 길: step에 `group`/`either` 칸 더하기(선언과 agent 지침이 늘고 이미 있는 workflow는 손으로 고쳐야 한다)."
+    by: agent
+  - text: "입력을 step에 붙이는 것은 선언의 선택 칸 `inputs.<key>.steps`로 한다. 입력이 어느 step의 것인지는 선언만 안다. 칸이 없는 입력은 Run settings에 접혀 있어 옛 선언도 그대로 돈다. 이름이 선언의 step인지 검증하지 않는다(모르는 이름은 Run settings로 간다)."
+    by: agent
+  - text: "session을 step에 붙이는 데 `workflow_origin.step`을 읽기 결과에 실었다. 버린 길: 화면이 `handed` 줄만으로 추정(spawn된 자식과 `session: same`으로 여러 step을 받은 session을 가르지 못한다)."
+    by: agent
+  - text: "도는 run을 새 run 칸 위에 둔다. step이 세로로 서서 새 run 칸이 길어졌고, 탭을 열었을 때 사람을 기다리는 run이 가장 먼저 보여야 한다."
+    by: agent
+follow_up: |
+  이미 있는 workflow.yaml의 입력을 step 자리에 보이려면 그 입력에 `steps: [<step>, ...]`를 적는다(예: `feature-cleanroom`의 `reverse_engineering`에 `steps: [research, research-antigravity]`). 적지 않으면 Run settings에 접혀 보인다.
+checklist:
+  - workflow 탭에서 step이 위에서 아래로 서고, 같은 다음 step으로 가는 이웃 step이 한 단계의 radio로 묶이는지 본다
+  - run 화면에서 step을 눌러 펴면 그 step의 session, 마지막 report, 산출물 파일이 보이는지 본다

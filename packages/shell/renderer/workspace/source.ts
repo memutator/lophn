@@ -142,6 +142,8 @@ export interface WorkflowSessionNodeView {
     | { readonly kind: "project"; readonly id: string }
     | { readonly kind: "app"; readonly id: string }
     | null;
+  /** 이 session이 가장 나중에 받은 step. spawn된 자식은 태어난 때 부모의 step이다. */
+  readonly step?: string | null;
   readonly state: "running" | "waiting" | "idle" | "unknown";
   readonly waiting_for: "approval" | "question" | null;
   readonly last_assistant_preview: string | null;

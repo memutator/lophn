@@ -75,6 +75,8 @@ export const workflowInputFieldSchema = z.object({
   min: z.number().optional(),
   max: z.number().optional(),
   kind: workflowInputPathKindSchema.optional(),
+  // 이 입력을 쓰는 step 이름. 시작 화면이 그 step 자리에 칸을 둔다(없거나 모르는 이름이면 run 전체의 설정이다).
+  steps: z.array(z.string().min(1)).optional(),
 });
 export type WorkflowInputField = z.infer<typeof workflowInputFieldSchema>;
 

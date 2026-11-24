@@ -21,7 +21,8 @@ const noop = () => {};
 
 // FAKE_WORKFLOW_INSTANCES의 순서: running, humanTurn, notHanded, restarted, ended, stopped,
 // 그 뒤에 nightly-flow의 도는 것, program_exited로 닫힌 것, 켜질 때 닫힌 것,
-// 그 뒤에 다른 컴퓨터로 넘긴 step이 거기서 사람을 기다리는 것, 거기서 돌지 못한 것, 가져간 turn이 report 없이 끝난 것.
+// 그 뒤에 다른 컴퓨터로 넘긴 step이 거기서 사람을 기다리는 것, 거기서 돌지 못한 것, 가져간 turn이 report 없이 끝난 것,
+// 선언적 inputs의 것, durable flow의 것, 끝에 서로 대신하는 step이 있는 feature-build의 것.
 const [
   RUNNING,
   HUMAN_TURN,
@@ -35,6 +36,9 @@ const [
   REMOTE_HELD,
   REMOTE_FAILED,
   REMOTE_TURN_ENDED,
+  ,
+  FLOW_BLOCKED,
+  CHOICE_RUN,
 ] = FAKE_WORKFLOW_INSTANCES.map((detail) => detail.instance.id);
 
 const PROJECT = FAKE_WORKFLOWS[0].project;
@@ -145,6 +149,44 @@ export const RemoteFailed = () => (
 export const RemoteTurnEnded = () => (
   <WorkflowWindow name="eval-loop" instance={REMOTE_TURN_ENDED} />
 );
+
+// 서로 대신하는 step(조사를 Claude Code가 하거나 Antigravity가 한다)이 있는 workflow.
+export const Choice = () => <WorkflowWindow name="feature-build" />;
+
+export function ChoiceSettings() {
+  // 둘째 선택지를 고르고 그 단계의 설정을 편다.
+  useDrive(async () => {
+    await click('[data-choice="research-antigravity"] input');
+    await click('[data-stage^="research"] [data-settings-toggle]');
+  });
+  return <WorkflowWindow name="feature-build" />;
+}
+
+export function StartLater() {
+  // 셋째 단계의 설정을 펴고 거기서 시작하게 한다.
+  useDrive(async () => {
+    await click('[data-stage="build"] [data-settings-toggle]');
+    await click("[data-start-here]");
+  });
+  return <WorkflowWindow name="feature-build" />;
+}
+
+export function RunSettings() {
+  // step에 붙지 않은 입력은 Run settings에 접혀 있다. 그것을 편다.
+  useDrive(async () => {
+    await click("[data-run-settings] [data-settings-toggle]");
+  });
+  return <WorkflowWindow name="experiment-suite" />;
+}
+
+export const FlowBlocked = () => (
+  <WorkflowWindow name="nightly-flow" instance={FLOW_BLOCKED} />
+);
+
+export const ChoiceRun = () => (
+  <WorkflowWindow name="feature-build" instance={CHOICE_RUN} />
+);
+
 export const Invalid = () => <WorkflowWindow name="broken-draft" />;
 
 export const Flow = () => (

@@ -69,7 +69,7 @@ does not read it or call it wrong.
     participant and agent defaults). Human steps (`by` a `human` participant)
     default to `"tab"`.
 - `inputs`: optional map from input key (1-63 chars) to a start-time form field:
-  `{ type, label?, description?, required?, default?, placeholder?, when?, options?, min?, max?, kind? }`.
+  `{ type, label?, description?, required?, default?, placeholder?, when?, options?, min?, max?, kind?, steps? }`.
   - `type`: `string`, `text`, `number` (`min?`, `max?`), `boolean`, `select`
     (`options`: non-empty list of strings or `{ value, label? }`), `multiselect`
     (`options`), `agent` (callable agents on the workspace), or `path`
@@ -79,6 +79,9 @@ does not read it or call it wrong.
     or an array of conditions (all must hold, AND). Hidden fields are not
     required and are omitted from the validated values. Unknown targets,
     self-references, and cycles fail validation (`invalid_inputs`).
+  - `steps`: optional list of step names that use this input. The start screen
+    shows the field under that step's settings instead of the general run
+    settings. It only places the field; the value is passed the same way.
 - `outputs`: optional map from output key to
   `{ type?: string | number | boolean | json | path | refs, description?, required? }`.
 

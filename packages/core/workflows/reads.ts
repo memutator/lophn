@@ -242,6 +242,7 @@ function buildSessionNodes(
       parent: row.parent as Id<"ses"> | null,
       agent: row.agent,
       workspace: row.workspace,
+      ...(row.step === null ? {} : { step: row.step }),
       state: live.state,
       waiting_for: live.waiting_for,
       last_assistant_preview: lastPreview,

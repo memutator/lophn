@@ -4,7 +4,7 @@ import { iconPixels } from "@lophn/ui/shared";
 
 import { commonIcons, editorIcons } from "../icons/mod.ts";
 import { Avatar } from "../parts/avatar/avatar.tsx";
-import { type FaceOf, type Who, whoName } from "./model.ts";
+import { agentFace, type FaceOf, type Who, whoName } from "./model.ts";
 import styles from "./who.module.css";
 
 const ICON = {
@@ -21,7 +21,7 @@ export function WhoMark({
   faceOf: FaceOf | undefined;
 }) {
   if (who.kind === "agent") {
-    const face = faceOf?.(who.handle);
+    const face = agentFace(who.handle, faceOf);
     return (
       <Avatar
         size="sm"

@@ -1,9 +1,14 @@
 // workflow 탭이 읽은 값을 화면에 그릴 꼴로 바꾸는 순수 함수와 protocol 값 → message key 표. desktop만 쓰는 것이 여기 있다.
 import { formatRelativeTime, type MessageKey, t } from "@lophn/i18n";
 
+import {
+  codingBuiltinOf,
+  isLophn,
+} from "../../../protocol/lophn-agent/workspaces.ts";
 import { FLOW_STEP_BY } from "../../../protocol/workflows/values.ts";
 import type { SessionDot } from "../parts/agent-session/activity.ts";
 import type { AvatarLook } from "../parts/avatar/avatar.tsx";
+import { harnessVendorOf } from "../parts/vendor-icon/vendors.ts";
 import type {
   WorkflowCheckpointView,
   WorkflowDerivedStatus,
@@ -111,12 +116,27 @@ export const runTitle = (input: string): string =>
     .map((line) => line.trim())
     .find((line) => line !== "") ?? "";
 
-/** agent handle의 얼굴. 탭이 agent 목록에서 찾아 넘긴다(없으면 handle 글만 보인다). */
+/** agent의 얼굴. 탭이 agent 목록에서 handle과 agent id 둘 다로 찾아 넘긴다(없으면 handle 글만 보인다). */
 export interface WorkflowFace {
   readonly name: string;
   readonly avatar: AvatarLook;
 }
-export type FaceOf = (handle: string) => WorkflowFace | undefined;
+export type FaceOf = (handleOrId: string) => WorkflowFace | undefined;
+
+/** 내장 coding agent(handle이 harness id, id가 `coding_<harness>`)의 제품 이름과 아이콘. 아니면 undefined. */
+function codingFace(handleOrId: string): WorkflowFace | undefined {
+  const coding =
+    codingBuiltinOf(handleOrId) ?? codingBuiltinOf(`coding_${handleOrId}`);
+  if (coding === null) return undefined;
+  const vendor = harnessVendorOf(coding.harness);
+  return {
+    name: coding.label,
+    avatar:
+      vendor === undefined
+        ? { kind: "initial", text: coding.label.slice(0, 1).toUpperCase() }
+        : { kind: "vendor", vendor },
+  };
+}
 
 /** step을 맡은 쪽. 참가자 key를 선언의 참가자로 풀어 사람, program, agent로 가른다. */
 export type Who =
@@ -142,6 +162,12 @@ export function whoOf(participants: Participants | null, key: string): Who {
     : { kind: "agent", handle: found.agent, participant: found };
 }
 
+/** agent 참가자의 얼굴. 이 창의 agent 목록에 없으면(다른 workspace) 내장 coding agent의 제품 얼굴을 쓴다. */
+export const agentFace = (
+  handle: string,
+  faceOf: FaceOf | undefined,
+): WorkflowFace | undefined => faceOf?.(handle) ?? codingFace(handle);
+
 /** 맡은 쪽의 이름. agent는 사람이 지은 이름이 있으면 그것이고, 다른 workspace의 agent는 선언에 적힌 자리를 붙인다. */
 export function whoName(who: Who, faceOf: FaceOf | undefined): string {
   switch (who.kind) {
@@ -152,19 +178,49 @@ export function whoName(who: Who, faceOf: FaceOf | undefined): string {
     case "unknown":
       return who.key;
     case "agent": {
-      const face = faceOf?.(who.handle);
-      // 다른 workspace나 다른 컴퓨터의 agent는 이 창이 아는 얼굴이 아니라 선언에 적힌 글로 부른다.
-      return face === undefined ||
+      const placed =
         who.participant.workspace !== undefined ||
-        who.participant.on !== undefined
-        ? participantText(who.participant)
-        : face.name;
+        who.participant.on !== undefined;
+      if (!placed) {
+        return agentFace(who.handle, faceOf)?.name ?? who.handle;
+      }
+      // 다른 workspace나 다른 컴퓨터의 agent는 이 창이 아는 얼굴이 아니다. 제품 이름(내장 coding agent)이나 선언에 적힌 이름에 자리를 붙인다.
+      return participantText({
+        ...who.participant,
+        agent: codingFace(who.handle)?.name ?? who.handle,
+      });
     }
   }
 }
 
-/** step 줄(relay)의 한 칸. 정의 화면은 `shown`이 없고 run 화면은 그 step의 상태를 싣는다. */
-export interface RelayStep {
+/** session을 돌리는 agent의 얼굴. `coding_antigravity` 같은 id 대신 제품 이름과 아이콘을 보인다. */
+export function sessionFace(
+  node: Pick<WorkflowSessionNodeView, "agent" | "harness">,
+  faceOf: FaceOf | undefined,
+): WorkflowFace {
+  const known =
+    codingFace(node.agent) ??
+    faceOf?.(node.agent) ??
+    (isLophn(node.agent) ? faceOf?.("lophn") : undefined);
+  if (known !== undefined) return known;
+  const name = isLophn(node.agent)
+    ? t("workflow.label.participant-lophn")
+    : node.agent;
+  const vendor =
+    node.harness === null || node.harness === undefined
+      ? undefined
+      : harnessVendorOf(node.harness);
+  return {
+    name,
+    avatar:
+      vendor === undefined
+        ? { kind: "initial", text: name.slice(0, 1).toUpperCase() }
+        : { kind: "vendor", vendor },
+  };
+}
+
+/** 화면에 그리는 step 한 칸. 정의 화면은 `shown`이 없고 run 화면은 그 step의 상태를 싣는다. */
+export interface StepCell {
   readonly name: string;
   readonly who: Who;
   /** 사람 step에서 같이 이야기하는 agent. */
@@ -180,7 +236,7 @@ export interface RelayStep {
   readonly heldThere?: boolean;
 }
 
-const relayStep = (
+const stepCell = (
   participants: Participants | null,
   step: {
     readonly name: string;
@@ -188,23 +244,35 @@ const relayStep = (
     readonly with: string | null;
   },
   shown?: StepShown,
-): RelayStep => ({
+): StepCell => ({
   name: step.name,
   who: whoOf(participants, step.by),
   with: step.with === null ? null : whoOf(participants, step.with),
   ...(shown === undefined ? {} : { shown }),
 });
 
-/** 선언의 step 순서. 틀린 선언은 step이 없다. */
-export const relayOfEntry = (entry: WorkflowEntryView): RelayStep[] =>
-  (entry.steps ?? []).map((step) => relayStep(entry.participants, step));
+/** 맡은 쪽 글. 사람 step은 "You, with lophn"다. */
+export const assigneeText = (
+  step: StepCell,
+  faceOf: FaceOf | undefined,
+): string =>
+  step.with === null
+    ? whoName(step.who, faceOf)
+    : t("workflow.label.assignee-with", {
+        by: whoName(step.who, faceOf),
+        with: whoName(step.with, faceOf),
+      });
 
-export const relayOfRun = (detail: WorkflowInstanceDetailView): RelayStep[] =>
+/** 선언의 step. 틀린 선언은 step이 없다. */
+export const cellsOfEntry = (entry: WorkflowEntryView): StepCell[] =>
+  (entry.steps ?? []).map((step) => stepCell(entry.participants, step));
+
+export const cellsOfRun = (detail: WorkflowInstanceDetailView): StepCell[] =>
   stepRows(detail).map((row) => {
     const remote =
       row.shown === "current" ? remoteOfStep(detail, row.step.name) : null;
     return {
-      ...relayStep(detail.instance.participants, row.step, row.shown),
+      ...stepCell(detail.instance.participants, row.step, row.shown),
       ...(row.notice === null ? {} : { blocked: true }),
       ...(row.notice?.kind === "step_stalled" ? { stalled: true } : {}),
       ...(remote === null ||
@@ -215,6 +283,34 @@ export const relayOfRun = (detail: WorkflowInstanceDetailView): RelayStep[] =>
       ...(remote?.delivery === "held" ? { heldThere: true } : {}),
     };
   });
+
+/**
+ * step을 선언 순서대로 단계로 묶는다(값은 step의 index). 이웃한 step들이 같은 `next`를 가지고 서로에게 넘기지 않으면
+ * 한 단계의 선택지다: relay는 한 번에 한 step만 돌아서 그런 step들은 둘 중 하나만 지나간다(예: 조사를 Claude Code가 하거나 Antigravity가 한다).
+ */
+export function stagesOf(
+  steps: readonly {
+    readonly name: string;
+    readonly next: readonly string[];
+  }[],
+): number[][] {
+  const stages: number[][] = [];
+  steps.forEach((step, index) => {
+    const stage = stages.at(-1);
+    const first = stage === undefined ? undefined : steps[stage[0]];
+    const alternative =
+      stage !== undefined &&
+      first !== undefined &&
+      step.next.length > 0 &&
+      step.next.length === first.next.length &&
+      step.next.every((name) => first.next.includes(name)) &&
+      !stage.some((member) => step.next.includes(steps[member].name)) &&
+      !first.next.includes(step.name);
+    if (alternative) stage.push(index);
+    else stages.push([index]);
+  });
+  return stages;
+}
 
 export interface RunGroups {
   /** 사람 차례이거나 판단을 기다리는 run. */
@@ -681,6 +777,70 @@ export function summarizeSessions(
     else done += 1;
   }
   return { total: rows.length, done, running, waiting, failed };
+}
+
+/**
+ * session을 step마다 가른다. session은 `workflow_origin.step`(가장 나중에 받은 step, 자식은 태어난 때 부모의 step)과
+ * 그 session에 넘긴 줄(handed)의 step에 붙는다. 어느 것도 없으면 부모를 따르고, 선언에 없는 step이면 `rest`다.
+ */
+export function sessionsByStep(detail: WorkflowInstanceDetailView): {
+  readonly byStep: ReadonlyMap<string, readonly WorkflowSessionNodeView[]>;
+  readonly rest: readonly WorkflowSessionNodeView[];
+} {
+  const sessions = detail.sessions ?? [];
+  const declared = new Set(detail.instance.steps.map((step) => step.name));
+  const byId = new Map(sessions.map((node) => [node.session, node]));
+  const own = new Map<string, Set<string>>();
+  for (const node of sessions) {
+    const steps = new Set<string>();
+    if (typeof node.step === "string" && declared.has(node.step)) {
+      steps.add(node.step);
+    }
+    own.set(node.session, steps);
+  }
+  for (const line of detail.lines) {
+    if (line.kind !== "handed" || line.receiver === null) continue;
+    if (declared.has(line.step)) own.get(line.receiver)?.add(line.step);
+  }
+  const stepsOf = (node: WorkflowSessionNodeView): ReadonlySet<string> => {
+    const seen = new Set<string>();
+    let at: WorkflowSessionNodeView | undefined = node;
+    while (at !== undefined && !seen.has(at.session)) {
+      seen.add(at.session);
+      const steps = own.get(at.session);
+      if (steps !== undefined && steps.size > 0) return steps;
+      at = at.parent === null ? undefined : byId.get(at.parent);
+    }
+    return new Set();
+  };
+  const byStep = new Map<string, WorkflowSessionNodeView[]>();
+  const rest: WorkflowSessionNodeView[] = [];
+  for (const node of sessions) {
+    const steps = stepsOf(node);
+    if (steps.size === 0) rest.push(node);
+    for (const step of steps) {
+      const list = byStep.get(step);
+      if (list === undefined) byStep.set(step, [node]);
+      else list.push(node);
+    }
+  }
+  return { byStep, rest };
+}
+
+/** 그 step의 report들이 적은 산출물 경로. 중복 없이 낸 순서대로다. */
+export function refsOfStep(
+  lines: readonly WorkflowLineView[],
+  step: string,
+): string[] {
+  const seen = new Set<string>();
+  for (const line of lines) {
+    if (line.kind !== "report" || line.step !== step) continue;
+    for (const path of line.refs ?? []) {
+      const trimmed = path.trim();
+      if (trimmed !== "") seen.add(trimmed);
+    }
+  }
+  return [...seen];
 }
 
 /** 예: "4/6 done · 1 running · 1 failed" */

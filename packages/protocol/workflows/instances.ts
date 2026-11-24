@@ -317,6 +317,8 @@ export const workflowSessionNodeSchema = z.object({
   parent: idSchema("ses").nullable(),
   agent: z.string(),
   workspace: workspaceOutputSchema.nullable(),
+  // `workflow_origin.step`: 이 session이 가장 나중에 받은 step, spawn된 자식은 태어난 때 부모의 step이다. Run 화면이 step마다 session을 붙인다.
+  step: z.string().nullable().optional(),
   state: z.enum(["running", "waiting", "idle", "unknown"]),
   waiting_for: z.enum(["approval", "question"]).nullable(),
   // 마지막 assistant 텍스트의 앞 160자(redaction 적용, LLM 요약 아님). 없으면 null.

@@ -97,6 +97,8 @@ export interface InputsFormProps {
   errors?: Readonly<Record<string, string>>;
   callableAgents?: readonly CallableAgentOptionView[];
   disabled?: boolean;
+  /** 이 key의 칸만 그린다(step마다 자기 입력을 나눠 보일 때). 없으면 모두 그린다. 보일지는 여전히 전체 값으로 정한다. */
+  keys?: readonly string[];
   onChange: (key: string, value: unknown) => void;
 }
 
@@ -106,14 +108,15 @@ export function InputsForm({
   errors = {},
   callableAgents = [],
   disabled = false,
+  keys,
   onChange,
 }: InputsFormProps) {
   const [numberDrafts, setNumberDrafts] = useState<
     Readonly<Record<string, string>>
   >({});
   const visible = visibleInputKeys(declarations, values);
-  const entries = Object.entries(declarations).filter(([key]) =>
-    visible.has(key),
+  const entries = Object.entries(declarations).filter(
+    ([key]) => visible.has(key) && (keys === undefined || keys.includes(key)),
   );
   if (entries.length === 0) return null;
 

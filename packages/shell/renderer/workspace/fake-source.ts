@@ -5,6 +5,10 @@ import {
   createLayoutSource,
   memoryWorkspaceLayoutBridge,
 } from "../shell/layout-source.ts";
+import {
+  FAKE_CHOICE_RUN,
+  FAKE_CHOICE_WORKFLOW,
+} from "./fake-workflow-choice.ts";
 import { fakeFileSearchSource } from "./search/fake-source.ts";
 import type {
   CallableAgentOptionView,
@@ -274,6 +278,7 @@ export const FAKE_WORKFLOWS: readonly WorkflowEntryView[] = [
     steps: null,
     artifacts: { static: false, instance: false },
   },
+  FAKE_CHOICE_WORKFLOW,
 ];
 
 const IDS = {
@@ -1410,7 +1415,7 @@ const flowBlocked: WorkflowInstanceDetailView = {
   ],
 };
 
-/** eval-loop의 instance 여섯 뒤에 nightly-flow의 instance 셋, 그 뒤에 다른 컴퓨터로 step을 넘긴 셋, 선언적 inputs instance, 끝에 Phase 4 durable flow instance가 붙는다. */
+/** eval-loop의 instance 여섯 뒤에 nightly-flow의 instance 셋, 그 뒤에 다른 컴퓨터로 step을 넘긴 셋, 선언적 inputs instance, Phase 4 durable flow instance, 끝에 서로 대신하는 step이 있는 feature-build의 instance가 붙는다. */
 export const FAKE_WORKFLOW_INSTANCES: readonly WorkflowInstanceDetailView[] = [
   running,
   humanTurn,
@@ -1426,6 +1431,7 @@ export const FAKE_WORKFLOW_INSTANCES: readonly WorkflowInstanceDetailView[] = [
   remoteTurnEnded,
   suiteInputs,
   flowBlocked,
+  FAKE_CHOICE_RUN,
 ];
 
 const FOLDERS: readonly ProjectFolderView[] = [

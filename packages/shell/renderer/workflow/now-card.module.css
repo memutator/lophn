@@ -1,0 +1,97 @@
+/* 지금 어디에 있는지 한 장. 테두리만 두고 바탕은 본문과 같다. */
+.now {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: var(--border-width) solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.nowLine {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+.nowIcon {
+  display: flex;
+  flex: none;
+  align-items: center;
+  height: var(--type-body-line);
+  color: var(--status-neutral-text);
+}
+
+.now[data-tone="good"] .nowIcon {
+  color: var(--status-good-text);
+}
+
+.now[data-tone="warning"] .nowIcon {
+  color: var(--status-warning-text);
+}
+
+.now[data-tone="serious"] .nowIcon {
+  color: var(--status-serious-text);
+}
+
+.nowText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: var(--space-0);
+}
+
+.nowMain {
+  margin: var(--space-0);
+  color: var(--color-text-primary);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+}
+
+.nowHint {
+  margin: var(--space-0);
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.nowMore {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-4);
+  border-top: var(--border-width) solid var(--color-border-subtle);
+}
+
+.reportFull {
+  margin: var(--space-0);
+  color: var(--color-text-primary);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.label {
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.reportWho {
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+/* 행동 단추 묶음. 줄 오른쪽 끝에 붙는다. */
+.actions {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-left: auto;
+}

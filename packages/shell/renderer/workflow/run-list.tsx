@@ -1,4 +1,4 @@
-// workflow 하나의 run 목록. 사람 차례, 도는 것, 끝났거나 멈춘 것 순으로 묶어 보인다. 줄을 누르면 그 run 화면으로 간다.
+// workflow 하나의 run 목록. 도는 run(사람 차례, 막힌 것, 도는 것)과 지난 run(끝났거나 멈춘 것)을 따로 그린다. 줄을 누르면 그 run 화면으로 간다.
 import { useState } from "react";
 import { Button, Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
@@ -96,34 +96,43 @@ function Group({
 
 export function RunList({
   instances,
+  part,
   onSelect,
 }: {
   instances: readonly WorkflowInstanceSummaryView[];
+  /** 도는 run 묶음들을 그릴지, 지난 run 묶음을 그릴지. */
+  part: "active" | "earlier";
   onSelect: (id: string) => void;
 }) {
   const [all, setAll] = useState(false);
   const groups = groupRuns(instances);
+  if (part === "active") {
+    return (
+      <div className={styles.list}>
+        <Group
+          id="needs-you"
+          title={t("workflow.heading.runs-needs-you")}
+          items={groups.needsYou}
+          onSelect={onSelect}
+        />
+        <Group
+          id="blocked"
+          title={t("workflow.heading.runs-blocked")}
+          items={groups.blocked}
+          onSelect={onSelect}
+        />
+        <Group
+          id="running"
+          title={t("workflow.heading.runs-running")}
+          items={groups.running}
+          onSelect={onSelect}
+        />
+      </div>
+    );
+  }
   const earlier = all ? groups.earlier : groups.earlier.slice(0, EARLIER_SHOWN);
   return (
     <div className={styles.list}>
-      <Group
-        id="needs-you"
-        title={t("workflow.heading.runs-needs-you")}
-        items={groups.needsYou}
-        onSelect={onSelect}
-      />
-      <Group
-        id="blocked"
-        title={t("workflow.heading.runs-blocked")}
-        items={groups.blocked}
-        onSelect={onSelect}
-      />
-      <Group
-        id="running"
-        title={t("workflow.heading.runs-running")}
-        items={groups.running}
-        onSelect={onSelect}
-      />
       <Group
         id="earlier"
         title={t("workflow.heading.runs-earlier")}

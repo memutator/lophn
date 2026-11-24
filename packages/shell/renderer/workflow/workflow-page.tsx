@@ -1,6 +1,6 @@
-// workflow 탭 한 개의 본문. 화면은 둘이다: workflow 화면(이름, step 줄, 새 run 칸, run 목록)과 run 하나의 화면.
+// workflow 탭 한 개의 본문. 화면은 둘이다: workflow 화면(이름, 도는 run, 새 run 칸과 그 안의 세로 step, 지난 run)과 run 하나의 화면.
 // 탭이 고른 run이 있으면 run 화면이고 [All runs]로 돌아온다. `host`를 모른다. 탭 kind가 props를 채우고, gallery는 Workspace 없이 세운다.
-import type { ReactElement } from "react";
+import { type ReactElement, useEffect, useState } from "react";
 import { Button, Icon, IconButton } from "@lophn/ui/primitives";
 import {
   EmptyState,
@@ -27,11 +27,10 @@ import type {
 } from "../workspace/source.ts";
 import {
   type FaceOf,
-  relayOfEntry,
+  groupRuns,
   runningCount,
   workflowProblemText,
 } from "./model.ts";
-import { Relay } from "./relay.tsx";
 import { RunList } from "./run-list.tsx";
 import { RunView } from "./run-view.tsx";
 import { StartBox } from "./start-box.tsx";
@@ -62,9 +61,27 @@ export interface WorkflowPageProps {
   dotOf?: (session: string) => SessionDot | null;
 }
 
+/** project id → 이름. 다른 project에서 도는 session의 자리를 id 대신 이름으로 적는 데 쓴다. */
+function useProjectNames(source: WorkspaceSource) {
+  const [names, setNames] = useState<ReadonlyMap<string, string>>(new Map());
+  useEffect(() => {
+    let live = true;
+    void source.projects().then((result) => {
+      if (live && result.ok) {
+        setNames(new Map(result.value.map((item) => [item.id, item.title])));
+      }
+    });
+    return () => {
+      live = false;
+    };
+  }, [source]);
+  return names;
+}
+
 export function WorkflowPage(props: WorkflowPageProps): ReactElement {
   const { instance, onInstance, faceOf } = props;
   const state = useWorkflow(props);
+  const projectNames = useProjectNames(props.source);
   const { definitions, instances, detail, notice } = state;
   const showPageLoading = useDelayedLoading(definitions.state === "loading");
   const showRunsLoading = useDelayedLoading(
@@ -142,6 +159,7 @@ export function WorkflowPage(props: WorkflowPageProps): ReactElement {
               hasArtifact={entry.artifacts.instance}
               faceOf={faceOf}
               dotOf={props.dotOf}
+              workspaceNameOf={(project) => projectNames.get(project)}
               onBack={() => onInstance(null)}
               onStop={state.stop}
               onRetry={state.retry}
@@ -167,7 +185,11 @@ export function WorkflowPage(props: WorkflowPageProps): ReactElement {
       </>
     );
   }
-  const steps = relayOfEntry(entry);
+  const groups = instances === null ? null : groupRuns(instances);
+  const active =
+    groups === null
+      ? []
+      : [...groups.needsYou, ...groups.blocked, ...groups.running];
   return (
     <>
       {toast}
@@ -204,27 +226,32 @@ export function WorkflowPage(props: WorkflowPageProps): ReactElement {
             <span>{workflowProblemText(entry.problem)}</span>
           </p>
         )}
-        {steps.length === 0 ? null : <Relay steps={steps} faceOf={faceOf} />}
         {entry.invalid ? null : (
           <>
+            {/* 도는 run은 새 run 칸보다 먼저 온다: 탭을 열면 사람을 기다리는 run이 가장 위에 있다. */}
+            {active.length === 0 ? null : (
+              <RunList instances={active} part="active" onSelect={onInstance} />
+            )}
             <StartBox
               key={entry.key}
               entry={entry}
               callableAgents={definitions.callableAgents}
+              faceOf={faceOf}
               onStart={state.start}
             />
             <section className={styles.section}>
-              <h2 className={styles.sectionTitle}>
-                {t("workflow.heading.instances")}
-              </h2>
               {instances === null && showRunsLoading ? (
                 <Skeleton shape="line" lines={3} />
               ) : null}
               {instances?.length === 0 ? (
                 <p className={styles.empty}>{t("workflow.empty.instances")}</p>
               ) : null}
-              {instances !== null && instances.length > 0 ? (
-                <RunList instances={instances} onSelect={onInstance} />
+              {groups !== null && groups.earlier.length > 0 ? (
+                <RunList
+                  instances={groups.earlier}
+                  part="earlier"
+                  onSelect={onInstance}
+                />
               ) : null}
             </section>
           </>

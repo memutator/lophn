@@ -75,14 +75,8 @@
   outline: none;
 }
 
-.label {
-  color: var(--color-text-muted);
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line);
-}
-
 .inputText {
-  margin: var(--space-1) var(--space-0) var(--space-0);
+  margin: var(--space-0);
   color: var(--color-text-primary);
   font-size: var(--type-body-size);
   line-height: var(--type-body-line);
@@ -127,81 +121,6 @@
   overflow-wrap: anywhere;
 }
 
-/* 지금 어디에 있는지 한 장. 테두리만 두고 바탕은 본문과 같다. */
-.now {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-5);
-  border: var(--border-width) solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
-}
-
-.nowLine {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-4);
-}
-
-.nowIcon {
-  display: flex;
-  flex: none;
-  align-items: center;
-  height: var(--type-body-line);
-  color: var(--status-neutral-text);
-}
-
-.now[data-tone="good"] .nowIcon {
-  color: var(--status-good-text);
-}
-
-.now[data-tone="warning"] .nowIcon {
-  color: var(--status-warning-text);
-}
-
-.now[data-tone="serious"] .nowIcon {
-  color: var(--status-serious-text);
-}
-
-.nowText {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-width: var(--space-0);
-}
-
-.nowMain {
-  margin: var(--space-0);
-  color: var(--color-text-primary);
-  font-size: var(--type-body-size);
-  line-height: var(--type-body-line);
-}
-
-.nowHint {
-  margin: var(--space-0);
-  color: var(--color-text-secondary);
-  font-size: var(--type-small-size);
-  line-height: var(--type-small-line);
-}
-
-.nowMore {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding-top: var(--space-4);
-  border-top: var(--border-width) solid var(--color-border-subtle);
-}
-
-.reportFull {
-  margin: var(--space-0);
-  color: var(--color-text-primary);
-  font-size: var(--type-body-size);
-  line-height: var(--type-body-line);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
 .notes {
   display: flex;
   flex-direction: column;
@@ -214,31 +133,17 @@
   list-style: none;
 }
 
-.steps {
+
+/* step 하나. 머리 줄은 rail의 표시와 같은 높이라 얼굴과 이름이 표시 옆에 선다. */
+.member {
   display: flex;
   flex-direction: column;
-  margin: var(--space-0);
-  padding: var(--space-0);
-  border-top: var(--border-width) solid var(--color-border-subtle);
-  list-style: none;
+  gap: var(--space-3);
+  min-width: var(--space-0);
 }
 
 .step {
   display: flex;
-  align-items: flex-start;
-  gap: var(--space-4);
-  padding: var(--space-5) var(--space-0);
-  border-bottom: var(--border-width) solid var(--color-border-subtle);
-}
-
-.stepMark {
-  display: flex;
-  flex: none;
-}
-
-.stepMain {
-  display: flex;
-  flex: 1;
   flex-direction: column;
   gap: var(--space-3);
   min-width: var(--space-0);
@@ -246,10 +151,35 @@
 
 .stepHead {
   display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: var(--space-7);
+  padding: var(--space-0);
+  border: var(--space-0);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+}
+
+button.stepHead {
+  cursor: pointer;
+}
+
+button.stepHead:focus-visible {
+  border-radius: var(--radius-sm);
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: var(--border-focus-offset);
+}
+
+.stepText {
+  display: flex;
+  flex: 1;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: var(--space-1) var(--space-4);
-  min-height: var(--space-7);
+  gap: var(--space-0) var(--space-3);
+  min-width: var(--space-0);
 }
 
 .stepName {
@@ -257,19 +187,36 @@
   font-size: var(--type-body-size);
   line-height: var(--type-body-line);
   font-weight: var(--font-weight-semibold);
+  overflow-wrap: anywhere;
 }
 
 .stepWho {
   color: var(--color-text-secondary);
   font-size: var(--type-small-size);
   line-height: var(--type-small-line);
+  overflow-wrap: anywhere;
+}
+
+/* 아직 닿지 않은 step은 글을 흐리게 둔다. */
+.step[data-shown="waiting"]:not([data-blocked]) .stepName {
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+}
+
+.step[data-shown="waiting"]:not([data-blocked]) .stepWho {
+  color: var(--color-text-muted);
 }
 
 .stepStatus {
+  flex: none;
   color: var(--color-text-muted);
   font-size: var(--type-small-size);
   line-height: var(--type-small-line);
   font-weight: var(--font-weight-medium);
+}
+
+.stepWhen {
+  font-weight: var(--font-weight-regular);
 }
 
 .step[data-shown="current"] .stepStatus {
@@ -280,35 +227,49 @@
   color: var(--status-warning-text);
 }
 
-.step[data-shown="stopped"] .stepStatus {
+.step[data-shown="stopped"] .stepStatus,
+.step[data-blocked] .stepStatus {
   color: var(--status-serious-text);
 }
 
-/* step의 단추는 줄 오른쪽 끝의 고정 칸이다. */
-.stepAction {
+.stepChevron {
   display: flex;
   flex: none;
-  margin-left: auto;
+  color: var(--color-text-muted);
 }
 
-/* 마지막 report 글은 여섯 줄까지 보이고 나머지는 Activity에서 읽는다. */
-.report {
+button.stepHead:hover .stepChevron {
+  color: var(--color-text-primary);
+}
+
+.stepBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-width: var(--space-0);
+}
+
+/* 접힌 step은 마지막 report를 두 줄만 보인다. 펴면 전체가 보인다. */
+.reportPreview {
   display: -webkit-box;
   margin: var(--space-0);
   overflow: hidden;
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  line-clamp: 2;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow-wrap: anywhere;
+}
+
+.report {
+  margin: var(--space-0);
   color: var(--color-text-primary);
   font-size: var(--type-small-size);
   line-height: var(--type-small-line);
-  line-clamp: 6;
-  -webkit-line-clamp: 6;
-  -webkit-box-orient: vertical;
   white-space: pre-wrap;
-}
-
-.reportWho {
-  color: var(--color-text-muted);
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line);
+  overflow-wrap: anywhere;
 }
 
 .notice {
@@ -326,22 +287,55 @@
   margin-top: var(--space-1);
 }
 
-.lineToggle {
+/* 서로 대신하는 step 사이의 "or"와 이 run이 지나가지 않은 쪽을 적는 한 줄. */
+.or,
+.unused {
+  margin: var(--space-0);
   color: var(--color-text-muted);
   font-size: var(--type-caption-size);
   line-height: var(--type-caption-line);
-  cursor: pointer;
 }
 
-.lineToggle:hover {
-  color: var(--color-text-primary);
+/* step 안의 묶음(Sessions, Last report, Output files)과 run 아래쪽 묶음. 작은 이름 줄 아래에 내용이 온다. */
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: var(--space-0);
+}
+
+.blockHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-4);
+}
+
+/* session 목록을 받지 못한 run에서 step을 받은 대화로 가는 한 줄. 단추는 오른쪽 끝이다. */
+.sessionLink {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.blockTitle {
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  font-weight: var(--font-weight-medium);
+}
+
+.blockSummary {
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
 }
 
 .lines {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  margin: var(--space-3) var(--space-0) var(--space-0);
+  margin: var(--space-0);
   padding: var(--space-0);
   list-style: none;
 }
@@ -372,158 +366,6 @@
 .lineWhen {
   color: var(--color-text-muted);
   white-space: nowrap;
-}
-
-/* Sessions tree와 Output files(refs) 묶음. */
-.section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.sectionHead {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-2) var(--space-4);
-}
-
-.sectionTitle {
-  margin: var(--space-0);
-  color: var(--color-text-primary);
-  font-size: var(--type-small-size);
-  line-height: var(--type-small-line);
-  font-weight: var(--font-weight-semibold);
-}
-
-.sectionSummary {
-  color: var(--color-text-muted);
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line);
-}
-
-.sessions {
-  display: flex;
-  flex-direction: column;
-  margin: var(--space-0);
-  padding: var(--space-0);
-  border-top: var(--border-width) solid var(--color-border-subtle);
-  list-style: none;
-}
-
-.sessionRow {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-4);
-  padding: var(--space-3) var(--space-0);
-  border-bottom: var(--border-width) solid var(--color-border-subtle);
-}
-
-.sessionRow[data-depth="1"] {
-  padding-inline-start: var(--space-6);
-}
-
-.sessionRow[data-depth="2"] {
-  padding-inline-start: calc(var(--space-6) * 2);
-}
-
-.sessionRow[data-depth="3"] {
-  padding-inline-start: calc(var(--space-6) * 3);
-}
-
-.sessionRow[data-depth="4"] {
-  padding-inline-start: calc(var(--space-6) * 4);
-}
-
-.sessionMain {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-width: var(--space-0);
-}
-
-.sessionHead {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-3);
-}
-
-.sessionDot {
-  flex: none;
-  width: var(--space-3);
-  height: var(--space-3);
-  border-radius: var(--radius-full);
-  background: var(--status-neutral-marker);
-}
-
-.sessionDot[data-state="running"] {
-  background: var(--status-good-marker);
-}
-
-.sessionDot[data-state="waiting"] {
-  background: var(--status-warning-marker);
-}
-
-.sessionDot[data-state="failed"] {
-  background: var(--status-critical-marker);
-}
-
-.sessionAgent {
-  color: var(--color-text-primary);
-  font-size: var(--type-small-size);
-  line-height: var(--type-small-line);
-  font-weight: var(--font-weight-semibold);
-}
-
-.sessionState {
-  color: var(--color-text-muted);
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line);
-  font-weight: var(--font-weight-medium);
-}
-
-.sessionRow[data-session-state="running"] .sessionState {
-  color: var(--status-good-text);
-}
-
-.sessionRow[data-session-state="waiting"] .sessionState {
-  color: var(--status-warning-text);
-}
-
-.sessionRow[data-session-state="failed"] .sessionState {
-  color: var(--status-critical-text);
-}
-
-.sessionWorkspace {
-  color: var(--color-text-muted);
-  font-size: var(--type-caption-size);
-  line-height: var(--type-caption-line);
-}
-
-.sessionPreview {
-  margin: var(--space-0);
-  color: var(--color-text-secondary);
-  font-size: var(--type-small-size);
-  line-height: var(--type-small-line);
-  overflow-wrap: anywhere;
-}
-
-.sessionError {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
-  margin: var(--space-0);
-  color: var(--status-critical-text);
-  font-size: var(--type-small-size);
-  line-height: var(--type-small-line);
-  overflow-wrap: anywhere;
-}
-
-.sessionError > :first-child {
-  flex: none;
-  margin-top: var(--space-1);
 }
 
 .refs {

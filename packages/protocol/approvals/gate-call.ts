@@ -7,6 +7,14 @@ import { toolEffectSchema } from "../lophn-agent/tool-values.ts";
 // Gate는 core(`packages/core/approvals`)가 구현하는 IO 없는 순수 함수다:
 //   judge(call: GateCall, assignment: Assignment | null, shell: ShellRuleLayers, mode: TurnMode): Judgment
 // mode는 `lophn-agent/turn-values.ts`의 `TurnMode`다.
+const projectCommandSummarySchema = z.strictObject({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  command: z.string().min(1),
+  cwd: z.string().nullable(),
+  env_keys: z.array(z.string().min(1)),
+});
+
 const askedCallOptions = [
   z.strictObject({
     kind: z.literal("app_tool"),
@@ -30,6 +38,24 @@ const askedCallOptions = [
     kind: z.literal("setting"),
     key: z.string().min(1),
     lines: z.array(z.string().min(1)).min(1),
+  }),
+  // agent가 ask_before_run이 켜진 project command를 실행하려 한다. env는 key 이름만 싣는다. always가 없다.
+  z.strictObject({
+    kind: z.literal("project_command"),
+    project: idSchema("prj"),
+    command_id: z.string().min(1),
+    name: z.string().min(1),
+    command: z.string().min(1),
+    cwd: z.string().nullable(),
+    env_keys: z.array(z.string().min(1)),
+  }),
+  // agent가 project command 정의를 추가·수정·삭제하려 한다. 바뀌기 전과 뒤의 이름·원문·cwd·env key를 싣는다. always가 없다.
+  z.strictObject({
+    kind: z.literal("project_command_definition"),
+    project: idSchema("prj"),
+    action: z.enum(["add", "update", "remove"]),
+    before: projectCommandSummarySchema.nullable(),
+    after: projectCommandSummarySchema.nullable(),
   }),
 ] as const;
 

@@ -13,13 +13,18 @@ import type {
   Workspace,
 } from "../../protocol/lophn-agent/workspaces.ts";
 import type { Bus } from "../events/ports.ts";
-import { judge } from "./gate/mod.ts";
+import { judge, type ProjectCommandPolicy } from "./gate/mod.ts";
 import type { AlwaysEffect, Approvals, AskReplies } from "./ports.ts";
 import { createTurnRequests } from "./turn-requests.ts";
 
 type ApprovalsDeps = {
   assignmentOf(agent: AgentId): Promise<Result<Pick<Assignment, "entries">>>;
   shellRules(workspace: Workspace | null): ShellRuleLayers;
+  projectCommandPolicyOf?(
+    project: string,
+    commandId: string | null,
+    agent: AgentId,
+  ): Promise<Result<ProjectCommandPolicy>>;
   bus: Pick<Bus, "publish">;
   clock: Clock;
   ids: IdSource;
@@ -54,6 +59,20 @@ export function createApprovals(deps: ApprovalsDeps): ApprovalsService {
         if (!loaded.ok) return loaded;
         assignment = loaded.value;
       }
+      let projectCommand: ProjectCommandPolicy | undefined;
+      if (
+        (call.kind === "project_command" ||
+          call.kind === "project_command_definition") &&
+        deps.projectCommandPolicyOf !== undefined
+      ) {
+        const loaded = await deps.projectCommandPolicyOf(
+          call.project,
+          call.kind === "project_command" ? call.command_id : null,
+          who.agent,
+        );
+        if (!loaded.ok) return loaded;
+        projectCommand = loaded.value;
+      }
       return ok(
         judge(
           call,
@@ -61,6 +80,7 @@ export function createApprovals(deps: ApprovalsDeps): ApprovalsService {
           deps.shellRules(who.workspace),
           who.mode,
           who.toParent,
+          projectCommand,
         ),
       );
     },

@@ -25,6 +25,25 @@ export function titleOf(subject: ApprovalSubject, agent: string): string {
       return t("conversation.title.approval-plan", { agent });
     case "setting":
       return t("conversation.title.approval-setting");
+    case "project_command":
+      return t("conversation.title.approval-project-command", {
+        agent,
+        name: subject.name,
+      });
+    case "project_command_definition": {
+      const name = subject.after?.name ?? subject.before?.name ?? "";
+      return subject.action === "add"
+        ? t("conversation.title.approval-project-command-add", { agent, name })
+        : subject.action === "update"
+          ? t("conversation.title.approval-project-command-update", {
+              agent,
+              name,
+            })
+          : t("conversation.title.approval-project-command-remove", {
+              agent,
+              name,
+            });
+    }
     case "app_tool":
     case "mcp_tool":
       return t("conversation.title.approval-run", {
@@ -75,18 +94,28 @@ export function targetOf(subject: ApprovalSubject): string {
       return subject.changes.map(changeText).join(", ");
     case "setting":
       return subject.lines.join(", ");
+    case "project_command":
+      return `${subject.name}: ${subject.command}`;
+    case "project_command_definition": {
+      const target = subject.after ?? subject.before;
+      return target === null
+        ? subject.action
+        : `${subject.action} ${target.name}`;
+    }
     case "plan":
       return "";
   }
 }
 
-/** tool의 효과 글. shell, file·설정 바꾸기는 효과를 따로 말하지 않는다(대상이 바뀌는 것 자체다). */
+/** tool의 효과 글. shell, file·설정·project command는 효과를 따로 말하지 않는다. */
 export function effectOf(subject: ApprovalSubject): string | null {
   if (
     subject.kind === "shell" ||
     subject.kind === "file_change" ||
     subject.kind === "plan" ||
-    subject.kind === "setting"
+    subject.kind === "setting" ||
+    subject.kind === "project_command" ||
+    subject.kind === "project_command_definition"
   ) {
     return null;
   }

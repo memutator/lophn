@@ -38,6 +38,7 @@ export const CHANGE_NAMES = [
   "mail_holds",
   "follow_ups",
   "artifacts",
+  "project_commands",
 ] as const;
 
 export type ChangeName = (typeof CHANGE_NAMES)[number];

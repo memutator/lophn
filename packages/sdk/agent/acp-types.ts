@@ -25,11 +25,35 @@ export type ContentBlock =
 
 type ToolEffect = "read" | "write" | "external";
 
+type ProjectCommandSummary = {
+  id: string;
+  name: string;
+  command: string;
+  cwd: string | null;
+  env_keys: string[];
+};
+
 type GateCall =
   | { kind: "app_tool"; app: string; tool: string; effect: ToolEffect }
   | { kind: "mcp_tool"; server: string; tool: string; effect: ToolEffect }
   | { kind: "shell"; command: string }
-  | { kind: "setting"; key: string; lines: string[] };
+  | { kind: "setting"; key: string; lines: string[] }
+  | {
+      kind: "project_command";
+      project: string;
+      command_id: string;
+      name: string;
+      command: string;
+      cwd: string | null;
+      env_keys: string[];
+    }
+  | {
+      kind: "project_command_definition";
+      project: string;
+      action: "add" | "update" | "remove";
+      before: ProjectCommandSummary | null;
+      after: ProjectCommandSummary | null;
+    };
 
 type AcpApprovalSubject =
   | GateCall

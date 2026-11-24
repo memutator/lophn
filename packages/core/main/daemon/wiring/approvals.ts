@@ -114,11 +114,14 @@ export function toolGateHandler(deps: {
       agent: found.value.agent,
       workspace: found.value.workspace,
       mode: mode.value,
-      // skip이 먼저다: 사람이 skip을 켠 session은 팀 자식이어도 묻지 않는다. setting은 skip도 묻는 호출이라
-      // 팀 자식이면 skip과 상관없이 자식으로 판정한다(Gate가 막는다).
+      // skip이 먼저다: 사람이 skip을 켠 session은 팀 자식이어도 묻지 않는다. setting·project_command·project_command_definition은
+      // skip도 묻는 호출이라 팀 자식이면 skip과 상관없이 자식으로 판정한다(setting·definition은 Gate가 막고, command는 부모에게 간다).
       toParent:
         found.value.spawnedBy !== null &&
-        (!found.value.skip || input.call.kind === "setting"),
+        (!found.value.skip ||
+          input.call.kind === "setting" ||
+          input.call.kind === "project_command" ||
+          input.call.kind === "project_command_definition"),
       tool: input.tool,
       call: input.call,
     });
@@ -160,11 +163,13 @@ function approvalText(subject: TurnRequest["subject"]): string {
   const what =
     subject.kind === "shell"
       ? `run this shell command:\n${subject.command}`
-      : subject.kind === "mcp_tool"
-        ? `use the tool ${subject.server}/${subject.tool}`
-        : subject.kind === "app_tool"
-          ? `use the tool ${subject.tool}`
-          : "continue";
+      : subject.kind === "project_command"
+        ? `run project command "${subject.name}":\n${subject.command}${subject.cwd ? `\ncwd: ${subject.cwd}` : ""}${subject.env_keys.length > 0 ? `\nenv keys: ${subject.env_keys.join(", ")}` : ""}`
+        : subject.kind === "mcp_tool"
+          ? `use the tool ${subject.server}/${subject.tool}`
+          : subject.kind === "app_tool"
+            ? `use the tool ${subject.tool}`
+            : "continue";
   return `A team member needs approval to ${what}\n\nReply with \`lophn call reply <call> --allow\` or \`lophn call reply <call> --reject --body <reason>\`. ${ASK_HELP}`;
 }
 

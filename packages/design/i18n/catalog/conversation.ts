@@ -163,6 +163,10 @@ export const conversation = {
   "conversation.label.approval-cancelled": "Cancelled",
   "conversation.label.approval-cancelled-detail": "The work ended first",
   "conversation.label.approval-command": "Command",
+  "conversation.label.approval-cwd": "Working folder",
+  "conversation.label.approval-env-keys": "Environment keys",
+  "conversation.label.approval-before": "Before",
+  "conversation.label.approval-after": "After",
   "conversation.label.approval-denied": "Denied",
   "conversation.label.approval-effect": "Effect",
   "conversation.label.approval-effect-external": "Reaches outside lophn",
@@ -580,6 +584,13 @@ export const conversation = {
   "conversation.title.approval-plan": "{agent} has a plan ready",
   "conversation.title.approval-run": "{agent} wants to run {tool}",
   "conversation.title.approval-setting": "Change a lophn setting",
+  "conversation.title.approval-project-command": "{agent} wants to run {name}",
+  "conversation.title.approval-project-command-add":
+    "{agent} wants to add project command {name}",
+  "conversation.title.approval-project-command-update":
+    "{agent} wants to update project command {name}",
+  "conversation.title.approval-project-command-remove":
+    "{agent} wants to remove project command {name}",
   "conversation.title.consent-handled": "Release approval request handled",
   "conversation.title.consent-waiting":
     "Waiting for your approval to release {app}",

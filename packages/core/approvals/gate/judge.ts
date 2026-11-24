@@ -16,6 +16,19 @@ function askIn(mode: TurnMode, toParent: boolean): Judgment {
   return mode === "attended" || toParent ? { kind: "ask" } : { kind: "run" };
 }
 
+// project command 판정에 필요한 정책 값(ledger에서 읽은 값). 없으면 fail-closed(거절·승인 필요).
+export type ProjectCommandPolicy = {
+  readonly allowed: boolean;
+  readonly askBeforeRun: boolean;
+  readonly approveWrites: boolean;
+};
+
+const DEFAULT_PROJECT_COMMAND_POLICY: ProjectCommandPolicy = {
+  allowed: false,
+  askBeforeRun: true,
+  approveWrites: true,
+};
+
 // IO 없는 순수 함수다. 같은 입력은 같은 결과다.
 export function judge(
   call: GateCall,
@@ -23,6 +36,7 @@ export function judge(
   shell: ShellRuleLayers,
   mode: TurnMode,
   toParent: boolean,
+  projectCommand: ProjectCommandPolicy = DEFAULT_PROJECT_COMMAND_POLICY,
 ): Judgment {
   if (call.kind === "shell") {
     const normalized = normalize(call.command);
@@ -40,6 +54,26 @@ export function judge(
   // unattended turn과 팀 자식에는 물을 사람이 없어 막는다: 부모가 대신 허락하지 못한다. setting의 toParent는 skip을 켠
   // 팀 자식도 참이다(tool_gate/check가 그렇게 넘긴다).
   if (call.kind === "setting") {
+    return mode === "unattended" || toParent
+      ? { kind: "deny", reason: "no_person", pattern: null }
+      : { kind: "ask" };
+  }
+  // project command 실행: 쓸 수 없는 agent는 deny. ask_before_run이 켜져 있으면 attended·skip에서 사람에게 묻고,
+  // 팀 자식은 부모에게 묻고, unattended(팀 자식 제외)는 deny no_person이다.
+  if (call.kind === "project_command") {
+    if (!projectCommand.allowed) {
+      return { kind: "deny", reason: "not_assigned", pattern: null };
+    }
+    if (!projectCommand.askBeforeRun) return { kind: "run" };
+    if (toParent) return { kind: "ask" };
+    return mode === "unattended"
+      ? { kind: "deny", reason: "no_person", pattern: null }
+      : { kind: "ask" };
+  }
+  // project command 정의 쓰기: approve_agent_writes가 꺼져 있으면 바로 쓰고, 켜져 있으면 사람에게만 묻는다
+  // (attended·skip에서 ask, unattended·팀 자식은 deny no_person).
+  if (call.kind === "project_command_definition") {
+    if (!projectCommand.approveWrites) return { kind: "run" };
     return mode === "unattended" || toParent
       ? { kind: "deny", reason: "no_person", pattern: null }
       : { kind: "ask" };

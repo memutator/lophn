@@ -107,8 +107,12 @@ export type Command =
   | "agents.forward"
   | "app.panel";
 
-/** 표의 command id. 내장은 Command, extension·앱은 `ext.<id>.<name>`·`app.<id>.<name>`이다. */
-export type BindingCommand = Command | `ext.${string}` | `app.${string}`;
+/** 표의 command id. 내장은 Command, extension·앱은 `ext.<id>.<name>`·`app.<id>.<name>`, project command는 `project-command.<id>.<action>`이다. */
+export type BindingCommand =
+  | Command
+  | `ext.${string}`
+  | `app.${string}`
+  | `project-command.${string}`;
 
 /** Settings가 묶는 단위. 표의 줄마다 하나다. */
 export type KeySection =
@@ -956,15 +960,29 @@ export const APP_PANEL = "app.panel";
 
 // app·surface는 `:`와 공백이 없는 글자다. 길이는 앱 id(30자)와 tab의 surface(80자)를 덮고 overrides key 상한(160)에 든다.
 const APP_PANEL_ID = /^app\.panel:([^:\s]{1,64}):([^:\s]{1,80})$/;
-// extension·앱이 내는 동적 command id. `ext.<extension id>.<name>`, `app.<app id>.<name>`이다.
-// 가운데 id에는 `.`이 없고 name에는 있어도 된다. overrides key 상한(160) 안이다.
-const DYNAMIC_ID = /^(?:ext|app)\.[^:\s.]{1,64}\.[^:\s]{1,80}$/;
+// extension·앱·project command가 내는 동적 command id. `ext.<extension id>.<name>`, `app.<app id>.<name>`,
+// `project-command.<id>.<run|stop|restart>`이다. 가운데 id에는 `.`이 없다. overrides key 상한(160) 안이다.
+const PROJECT_COMMAND_ID =
+  /^project-command\.[a-z0-9][a-z0-9_-]{0,63}\.(?:run|stop|restart)$/;
+const DYNAMIC_ID =
+  /^(?:(?:ext|app)\.[^:\s.]{1,64}\.[^:\s]{1,80}|project-command\.[a-z0-9][a-z0-9_-]{0,63}\.(?:run|stop|restart))$/;
 
 export function appPanelBindingId(app: string, surface: string): string {
   return `${APP_PANEL}:${app}:${surface}`;
 }
 
-/** 지금 표에 없는 id 가운데 extension·앱이 내는 모양인가. 사람이 단 키를 "없는 command" 줄로 남길 때 쓴다. */
+export function projectCommandBindingId(
+  id: string,
+  action: "run" | "stop" | "restart",
+): `project-command.${string}` {
+  return `project-command.${id}.${action}`;
+}
+
+export function isProjectCommandKeyId(id: string): boolean {
+  return PROJECT_COMMAND_ID.test(id);
+}
+
+/** 지금 표에 없는 id 가운데 extension·앱·project command가 내는 모양인가. 사람이 단 키를 "없는 command" 줄로 남길 때 쓴다. */
 export function isDynamicBindingId(id: string): boolean {
   return DYNAMIC_ID.test(id);
 }

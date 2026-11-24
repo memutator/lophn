@@ -76,9 +76,12 @@ export const terminalRuntimeSchema = z.strictObject({
   columns: z.number().int().min(1),
   rows: z.number().int().min(1),
   exit_code: z.number().int().nullable(),
+  exit_signal: z.string().nullable().optional(),
   failure_reason: terminalFailureSchema.nullable(),
   output_seq: z.number().int().min(0),
   dropped_output: z.boolean(),
+  // project command 전용 PTY다. 일반 터미널 탭 복원 목록에서 빼고 coding agent 추적을 건너뛴다.
+  dedicated: z.literal(true).optional(),
   // PTY shell의 pid. 뜬 동안만 있다. 앱이 session lifecycle로 받아 process tree를 따라간다.
   shell_pid: z.number().int().optional(),
   agent: terminalAgentSchema.optional(),

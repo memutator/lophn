@@ -48,6 +48,7 @@ const ID_PREFIXES = {
   rcl: "RemoteCall",
   bpf: "BrowserProfile",
   mal: "Mail",
+  pcr: "ProjectCommandRun",
 } as const;
 
 export type IdPrefix = keyof typeof ID_PREFIXES;

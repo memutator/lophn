@@ -172,7 +172,14 @@ function appText(app: string, names: InboxNames): string {
 function toolTarget(
   subject: Exclude<
     TurnRequest["subject"],
-    { kind: "shell" | "harness" | "setting" }
+    {
+      kind:
+        | "shell"
+        | "harness"
+        | "setting"
+        | "project_command"
+        | "project_command_definition";
+    }
   >,
   names: InboxNames,
 ): string {
@@ -230,6 +237,87 @@ function permissionView(request: TurnRequest, names: InboxNames) {
         })),
         choices,
       };
+    case "project_command":
+      return {
+        title: t("waiting.title.project-command", { name: subject.name }),
+        description: t("waiting.notice.project-command"),
+        factsPinned: true,
+        facts: [
+          {
+            label: t("waiting.label.fact-command"),
+            value: subject.command,
+            style: "code" as const,
+          },
+          ...(subject.cwd === null
+            ? []
+            : [
+                {
+                  label: t("waiting.label.fact-cwd"),
+                  value: subject.cwd,
+                  style: "text" as const,
+                },
+              ]),
+          ...(subject.env_keys.length === 0
+            ? []
+            : [
+                {
+                  label: t("waiting.label.fact-env-keys"),
+                  value: subject.env_keys.join(", "),
+                  style: "text" as const,
+                },
+              ]),
+        ],
+        choices,
+      };
+    case "project_command_definition": {
+      const name = subject.after?.name ?? subject.before?.name ?? "";
+      const summaryLine = (item: {
+        name: string;
+        command: string;
+        cwd: string | null;
+        env_keys: readonly string[];
+      }) =>
+        [
+          `${item.name}: ${item.command}`,
+          item.cwd === null ? null : `cwd: ${item.cwd}`,
+          item.env_keys.length === 0
+            ? null
+            : `env: ${item.env_keys.join(", ")}`,
+        ]
+          .filter((part): part is string => part !== null)
+          .join("\n");
+      return {
+        title:
+          subject.action === "add"
+            ? t("waiting.title.project-command-add", { name })
+            : subject.action === "update"
+              ? t("waiting.title.project-command-update", { name })
+              : t("waiting.title.project-command-remove", { name }),
+        description: t("waiting.notice.project-command-definition"),
+        factsPinned: true,
+        facts: [
+          ...(subject.before === null
+            ? []
+            : [
+                {
+                  label: t("waiting.label.fact-before"),
+                  value: summaryLine(subject.before),
+                  style: "code" as const,
+                },
+              ]),
+          ...(subject.after === null
+            ? []
+            : [
+                {
+                  label: t("waiting.label.fact-after"),
+                  value: summaryLine(subject.after),
+                  style: "code" as const,
+                },
+              ]),
+        ],
+        choices,
+      };
+    }
     case "app_tool": {
       const target = toolTarget(subject, names);
       return {

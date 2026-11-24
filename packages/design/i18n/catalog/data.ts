@@ -214,6 +214,10 @@ export const data = {
   "waiting.notice.shell": "Runs the command shown below.",
   "waiting.notice.setting":
     "Changes a lophn setting as shown below. Nothing changes unless you allow it.",
+  "waiting.notice.project-command":
+    "Runs the project command shown below. Nothing runs unless you allow it.",
+  "waiting.notice.project-command-definition":
+    "Changes a project command definition as shown below. Nothing changes unless you allow it.",
   "waiting.notice.question-in-session":
     "This question needs your answer in the session.",
   "waiting.notice.question-loading": "Loading the question.",
@@ -244,4 +248,12 @@ export const data = {
   "waiting.title.question": "Question",
   "waiting.title.shell": "Run a command",
   "waiting.title.setting": "Change a lophn setting",
+  "waiting.title.project-command": "Run project command {name}",
+  "waiting.title.project-command-add": "Add project command {name}",
+  "waiting.title.project-command-update": "Update project command {name}",
+  "waiting.title.project-command-remove": "Remove project command {name}",
+  "waiting.label.fact-cwd": "Working folder",
+  "waiting.label.fact-env-keys": "Environment keys",
+  "waiting.label.fact-before": "Before",
+  "waiting.label.fact-after": "After",
 } as const;

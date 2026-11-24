@@ -16,6 +16,7 @@ import { terminalScreenDiffSchema } from "../coding-agent/terminal-view.ts";
 import { traceIdSchema } from "../apps/calls/caller.ts";
 import { APP_CALL_DEPTH_LIMIT } from "../apps/channel-values.ts";
 import { appIdSchema } from "../projects/values.ts";
+import { projectCommandRunSchema } from "../projects/project-commands.ts";
 import { CHANGE_NAMES } from "./changes.ts";
 
 // 남지 않는 event는 session 밖에서 화면만 알면 되는 일이다. 메모리로만 흐르고 Ledger에 쓰지 않는다.
@@ -322,6 +323,26 @@ const hookInstallFinished = defineTransientEvent("HookInstallFinished", {
   payload: hookResultSchema,
 });
 
+// project의 명령 정의나 agent 설정이 바뀌었다. subject는 project id다.
+const projectCommandsChanged = defineTransientEvent("ProjectCommandsChanged", {
+  subject: idSchema("prj"),
+  payload: z.strictObject({
+    project: idSchema("prj"),
+  }),
+});
+
+// project command 실행 상태(시작, URL 감지, 종료 등)가 바뀌었다. subject는 project id다.
+const projectCommandRunChanged = defineTransientEvent(
+  "ProjectCommandRunChanged",
+  {
+    subject: idSchema("prj"),
+    payload: z.strictObject({
+      project: idSchema("prj"),
+      run: projectCommandRunSchema,
+    }),
+  },
+);
+
 export const transientEventSchema = z.discriminatedUnion("type", [
   transientEventEnvelopeSchema(acpUpdated).extend({
     session: idSchema("ses"),
@@ -351,4 +372,6 @@ export const transientEventSchema = z.discriminatedUnion("type", [
   transientEventEnvelopeSchema(terminalRuntimeChanged),
   transientEventEnvelopeSchema(terminalAgentSignaled),
   transientEventEnvelopeSchema(hookInstallFinished),
+  transientEventEnvelopeSchema(projectCommandsChanged),
+  transientEventEnvelopeSchema(projectCommandRunChanged),
 ]);

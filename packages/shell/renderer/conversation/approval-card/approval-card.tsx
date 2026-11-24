@@ -164,6 +164,58 @@ export function ApprovalCard({
                 ))}
               </dd>
             </>
+          ) : subject.kind === "project_command" ? (
+            <>
+              <dt>{t("conversation.label.approval-command")}</dt>
+              <dd>
+                <pre className={styles.pre}>{subject.command}</pre>
+              </dd>
+              {subject.cwd === null ? null : (
+                <>
+                  <dt>{t("conversation.label.approval-cwd")}</dt>
+                  <dd>{subject.cwd}</dd>
+                </>
+              )}
+              {subject.env_keys.length === 0 ? null : (
+                <>
+                  <dt>{t("conversation.label.approval-env-keys")}</dt>
+                  <dd>{subject.env_keys.join(", ")}</dd>
+                </>
+              )}
+            </>
+          ) : subject.kind === "project_command_definition" ? (
+            <>
+              {subject.before === null ? null : (
+                <>
+                  <dt>{t("conversation.label.approval-before")}</dt>
+                  <dd>
+                    <div>{subject.before.name}</div>
+                    <pre className={styles.pre}>{subject.before.command}</pre>
+                    {subject.before.cwd === null ? null : (
+                      <div>{subject.before.cwd}</div>
+                    )}
+                    {subject.before.env_keys.length === 0 ? null : (
+                      <div>{subject.before.env_keys.join(", ")}</div>
+                    )}
+                  </dd>
+                </>
+              )}
+              {subject.after === null ? null : (
+                <>
+                  <dt>{t("conversation.label.approval-after")}</dt>
+                  <dd>
+                    <div>{subject.after.name}</div>
+                    <pre className={styles.pre}>{subject.after.command}</pre>
+                    {subject.after.cwd === null ? null : (
+                      <div>{subject.after.cwd}</div>
+                    )}
+                    {subject.after.env_keys.length === 0 ? null : (
+                      <div>{subject.after.env_keys.join(", ")}</div>
+                    )}
+                  </dd>
+                </>
+              )}
+            </>
           ) : (
             <>
               <dt>{t("conversation.label.approval-target")}</dt>

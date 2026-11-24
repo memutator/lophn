@@ -1,5 +1,5 @@
 id: workflow-ui-vertical-steps
-version: 0.23.162
+version: 0.23.164
 platform_note: none
 title: "workflow 화면과 run 화면을 세로 step 줄로 다시 짓고, 설정·session·산출물을 step마다 붙이고, 세부를 접는다"
 modules:

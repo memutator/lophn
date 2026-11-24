@@ -1,0 +1,150 @@
+/* 네 진입점(Terminal hover, 사이드바 + hover, 사이드바 표시 popover, 탭 줄 + 메뉴 Terminal 하위)이 같이 쓰는 명령 목록. */
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0);
+  min-width: var(--layout-container-panel);
+}
+
+.groupHead {
+  padding: var(--space-1) var(--space-4) var(--space-1);
+  color: var(--color-text-secondary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.divider {
+  height: var(--border-width);
+  margin: var(--space-2) var(--space-0);
+  background: var(--color-border-base);
+}
+
+.row {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  min-height: var(--control-sm-height);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+}
+
+.row:hover {
+  background: var(--color-surface-muted);
+}
+
+.rowMain {
+  display: flex;
+  flex: 1;
+  gap: var(--space-2);
+  align-items: center;
+  min-width: var(--space-0);
+  padding: var(--space-0);
+  color: var(--color-text-primary);
+  font: inherit;
+  text-align: left;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.rowIcon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--icon-size-base);
+  height: var(--icon-size-base);
+  color: var(--color-text-secondary);
+}
+
+.rowName {
+  flex: 1;
+  overflow: hidden;
+  font-size: var(--type-small-size);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dot {
+  flex: none;
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: var(--radius-full);
+}
+
+.dotRunning {
+  background: var(--status-good-marker);
+}
+
+.dotFailed {
+  background: var(--status-critical-marker);
+}
+
+.statusText {
+  flex: none;
+  color: var(--status-critical-text);
+  font-size: var(--type-caption-size);
+  font-family: var(--font-mono);
+}
+
+.urlChip {
+  flex: none;
+  max-width: calc(var(--space-11) * 3);
+  padding: var(--space-0) var(--space-1);
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  font-size: var(--type-caption-size);
+  font-family: var(--font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: var(--color-surface-subtle);
+  border: var(--border-width) solid var(--color-border-base);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.urlChip:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-muted);
+}
+
+.actions {
+  display: inline-flex;
+  flex: none;
+  gap: var(--space-0);
+  align-items: center;
+}
+
+.actionButton {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-6);
+  height: var(--space-6);
+  padding: var(--space-0);
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.actionButton:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-subtle);
+}
+
+.menuRowContent {
+  display: flex;
+  flex: 1;
+  gap: var(--space-2);
+  align-items: center;
+  min-width: var(--space-0);
+}
+
+.empty {
+  padding: var(--space-2) var(--space-4);
+  color: var(--color-text-muted);
+  font-size: var(--type-small-size);
+}

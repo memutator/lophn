@@ -123,18 +123,10 @@ export interface WorkspaceQuick {
   readonly hidden?: readonly string[];
 }
 
-/** project만의 터미널 명령. Terminal hover 목록에서 새 터미널로 돈다. 전역 값과 합치지 않고 빠른 실행 `quick`과 별개로 남는다. */
-export interface QuickCommand {
-  readonly id: string;
-  readonly label: string;
-  readonly command: string;
-}
-
 export interface WorkspaceLayout {
   readonly active: string;
   readonly desks: Readonly<Record<string, Desk>>;
   readonly quick?: WorkspaceQuick;
-  readonly commands?: readonly QuickCommand[];
 }
 
 export function emptyDesk(key: string, label: string, workflow?: string): Desk {

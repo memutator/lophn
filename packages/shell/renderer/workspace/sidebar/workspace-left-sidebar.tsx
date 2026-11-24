@@ -12,19 +12,36 @@ import {
 } from "react";
 
 import { HARNESS_ADAPTERS } from "../../../../protocol/coding-agent/harness-adapter.ts";
-import { archiveSession } from "../../../../protocol/lophn-agent/sessions.ts";
-import { commandCall } from "../../command-call.ts";
-import { runToastAction } from "../../desktop/connection/toasts/toast-actions.ts";
-import { LOPHN_AGENT_NAME } from "../../../../protocol/lophn-agent/agent-values.ts";
-import { isLophn } from "../../../../protocol/lophn-agent/workspaces.ts";
-import { lophnIdAt } from "../agents/agent-key.ts";
-import type { HandoffNote } from "../../../../protocol/lophn-agent/handoff.ts";
 import type { HarnessId } from "../../../../protocol/coding-agent/harness-id.ts";
+import { LOPHN_AGENT_NAME } from "../../../../protocol/lophn-agent/agent-values.ts";
+import type { HandoffNote } from "../../../../protocol/lophn-agent/handoff.ts";
+import { archiveSession } from "../../../../protocol/lophn-agent/sessions.ts";
+import { isLophn } from "../../../../protocol/lophn-agent/workspaces.ts";
+import type {
+  ProjectCommand,
+  ProjectCommandRun,
+} from "../../../../protocol/projects/project-commands.ts";
+import { STAY, useViewToast } from "../../app-frame/annotate/use-view-toast.ts";
 import type { AppsSource } from "../../apps/source.ts";
+import { takeInText } from "../../apps/take-in-note.ts";
+import { useBrowserOverlay } from "../../browser/browser-api.tsx";
+import { commandCall } from "../../command-call.ts";
 import type { AgentTabSourceFactory } from "../../conversation/agent-tab-source.ts";
 import { useFollowedRead } from "../../desktop/connection/core-read.ts";
+import { runToastAction } from "../../desktop/connection/toasts/toast-actions.ts";
 import type { JobsSource } from "../../desktop/jobs/source.ts";
+import {
+  useMachines,
+  useScopeMachineItem,
+} from "../../desktop/machines/context.tsx";
+import type { NewSessionStart } from "../../desktop/router.ts";
+import { useQuickPrefs } from "../../desktop/settings/quick-launch/store.tsx";
 import { CreateAppDialog } from "../../desktop/workspaces/create-app-dialog.tsx";
+import {
+  continueHandoff,
+  HandoffProvider,
+  useHandoffNotes,
+} from "../../desktop/workspaces/projects/handoff-source.ts";
 import { LinkProjectDialog } from "../../desktop/workspaces/projects/link-dialog.tsx";
 import type { ListedProject } from "../../desktop/workspaces/projects/machine-workspaces.ts";
 import type { ProjectsSource } from "../../desktop/workspaces/projects/source.ts";
@@ -32,41 +49,24 @@ import {
   RegisterDialog,
   type RegisterTarget,
 } from "../../desktop/workspaces/register-dialog.tsx";
-import {
-  continueHandoff,
-  HandoffProvider,
-  useHandoffNotes,
-} from "../../desktop/workspaces/projects/handoff-source.ts";
-import { STAY, useViewToast } from "../../app-frame/annotate/use-view-toast.ts";
-import { useBrowserOverlay } from "../../browser/browser-api.tsx";
-import { useQuickPrefs } from "../../desktop/settings/quick-launch/store.tsx";
-import {
-  useMachines,
-  useScopeMachineItem,
-} from "../../desktop/machines/context.tsx";
 import { type AgentChoice } from "../../parts/agent-session/agent-session.tsx";
 import { codingDot } from "../../parts/agent-session/coding.ts";
-import leftStyles from "../../shell/left-sidebar.module.css";
 import { newId } from "../../prefixed-id.ts";
-import type { NewSessionStart } from "../../desktop/router.ts";
+import { agentChoices, codingCommand } from "../../shell/agent-sections.tsx";
 import {
   allTabs,
-  type QuickCommand,
-  type TabDragItem,
   closeTab,
   findTab,
   restoreFloat,
-  setActiveDesk,
-  updateDesk,
-  workspaceKey,
-  type WorkspaceRef,
   selectTab,
+  setActiveDesk,
+  type TabDragItem,
+  updateDesk,
+  type WorkspaceRef,
+  workspaceKey,
 } from "../../shell/desk-model.ts";
-import { agentOf, sessionOf } from "../agent/tab-fields.ts";
-import type { WindowWorkspace } from "../workspace-window.tsx";
+import leftStyles from "../../shell/left-sidebar.module.css";
 import { LeftSidebar } from "../../shell/left-sidebar.tsx";
-import type { QuickLaunch } from "../../shell/quick-launch.tsx";
-import { agentChoices, codingCommand } from "../../shell/agent-sections.tsx";
 import {
   type SidebarSession,
   type SidebarTab,
@@ -77,28 +77,40 @@ import {
   type LayoutDesks,
   sidebarWorkspaces,
 } from "../../shell/left-sidebar-workspaces.ts";
+import type { QuickLaunch } from "../../shell/quick-launch.tsx";
+import { useRemembered } from "../../shell/sidebar-memory.tsx";
+import { useTabDrag } from "../../shell/tab-drag.tsx";
 import {
   type SessionTitles,
   useMachineLists,
   useTabsElsewhere,
 } from "../../shell/use-left-sidebar.ts";
-import { useRemembered } from "../../shell/sidebar-memory.tsx";
-import { useTabDrag } from "../../shell/tab-drag.tsx";
 import { closeTerminalTab, type TerminalDeps } from "../../terminal/deps.ts";
-import type { TabItem } from "../model.ts";
+import { agentOf, sessionOf } from "../agent/tab-fields.ts";
+import { lophnIdAt } from "../agents/agent-key.ts";
 import {
-  terminalTabTitle,
-  terminalRefOf,
   pinAgentSessionName,
   terminalNamed,
+  terminalRefOf,
+  terminalTabTitle,
 } from "../kinds/terminal.tsx";
+import type { TabItem } from "../model.ts";
+import {
+  type ProjectCommandActions,
+  ProjectCommandsList,
+} from "../project-commands/commands-menu.tsx";
+import { createProjectCommandsSource } from "../project-commands/source.ts";
+import {
+  type ProjectCommandGroup,
+  useSidebarCommandsIndex,
+} from "../project-commands/use-project-commands.ts";
 import type { WorkspaceSource } from "../source.ts";
-import { useHiddenRecent } from "./hidden-recent.ts";
-import type { SidebarAgent } from "./sidebar-agent.ts";
-import type { PanelTerminal } from "./panel-types.ts";
-import { movedTab, putTab, sessionTab } from "./move-tab.ts";
-import { takeInText } from "../../apps/take-in-note.ts";
+import type { WindowWorkspace } from "../workspace-window.tsx";
 import { CloneNote, type CloneState, cloneResult } from "./clone-note.tsx";
+import { useHiddenRecent } from "./hidden-recent.ts";
+import { movedTab, putTab, sessionTab } from "./move-tab.ts";
+import type { PanelTerminal } from "./panel-types.ts";
+import type { SidebarAgent } from "./sidebar-agent.ts";
 
 const NO_WORKFLOWS: readonly string[] = [];
 
@@ -168,8 +180,17 @@ export interface WorkspaceLeftSidebarProps {
   selected?: string;
   /** 터미널 탭을 열 수 있다. 없으면 coding agent 항목이 없다. */
   canTerminal: boolean;
-  /** 이 project만의 터미널 명령. Terminal hover 목록의 Commands 묶음이다. */
-  commands?: readonly QuickCommand[];
+  /** 지금 보이는 project의 명령 묶음(로컬 + 같은 pri_ 원격 컴퓨터). */
+  activeProjectCommandGroups?: readonly ProjectCommandGroup[];
+  /** 지금 보이는 project의 명령 동작. */
+  projectCommandActions?: ProjectCommandActions;
+  /** 다른 project의 명령 터미널/프리뷰 열기(그 workspace로 가거나 바로 연다). */
+  onCommandTerminal?: (
+    group: ProjectCommandGroup,
+    cmd: ProjectCommand,
+    run: ProjectCommandRun,
+  ) => void;
+  onCommandPreview?: (group: ProjectCommandGroup, url: string) => void;
   /** 이 workspace 줄의 +. */
   onNewSession: () => void;
   /** 다른 workspace 줄의 +와 그 hover 목록. 그 workspace로 가서 새 session(또는 coding agent 터미널)을 연다. 없으면 그 +는 그 workspace로 가기만 한다. */
@@ -249,6 +270,68 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
   const { entries, dataOf } = lists;
   // 다른 컴퓨터가 남긴 handoff note는 이 컴퓨터의 core가 낸다(창이 다른 기계를 보고 있어도).
   const here = dataOf(null);
+  const sidebarCommands = useSidebarCommandsIndex(lists);
+  const commandsActionsFor = (ref: WorkspaceRef): ProjectCommandActions => {
+    if (
+      props.projectCommandActions !== undefined &&
+      workspaceKey(ref) === workspaceKey(current)
+    ) {
+      return props.projectCommandActions;
+    }
+    const callSource = (group: ProjectCommandGroup) =>
+      createProjectCommandsSource(dataOf(group.machine).core);
+    return {
+      onRun: (group, cmd) =>
+        void callSource(group).run(group.projectId, cmd.id),
+      onStop: (group, cmd) =>
+        void callSource(group).stop(group.projectId, { command: cmd.id }),
+      onStopAll: (group) =>
+        void callSource(group).stop(group.projectId, { all: true }),
+      onRestart: (group, cmd) =>
+        void callSource(group).restart(group.projectId, cmd.id),
+      onViewTerminal: (group, cmd, run) => {
+        if (props.onCommandTerminal !== undefined) {
+          props.onCommandTerminal(group, cmd, run);
+        } else {
+          props.onWorkspace(ref);
+        }
+      },
+      onOpenPreview: (group, url) => {
+        if (props.onCommandPreview !== undefined) {
+          props.onCommandPreview(group, url);
+        } else {
+          props.onWorkspace(ref);
+        }
+      },
+      ...(props.onWorkspaceSettings !== undefined &&
+      ref.kind === "project" &&
+      ref.machine === undefined
+        ? { onManage: () => props.onWorkspaceSettings?.(ref) }
+        : {}),
+    };
+  };
+  const commandGroupsFor = (
+    ref: WorkspaceRef,
+  ): readonly ProjectCommandGroup[] => {
+    if (ref.kind !== "project" || ref.machine !== undefined) return [];
+    if (
+      props.activeProjectCommandGroups !== undefined &&
+      workspaceKey(ref) === workspaceKey(current)
+    ) {
+      return props.activeProjectCommandGroups;
+    }
+    const entry = sidebarCommands.get(ref.id);
+    if (entry === undefined) return [];
+    return [
+      {
+        machine: null,
+        projectId: ref.id,
+        commands: entry.commands,
+        runs: entry.runs,
+        canRun: true,
+      },
+    ];
+  };
   const handoffNotes = useHandoffNotes(here.events);
   const failToast = useViewToast(useBrowserOverlay() ?? undefined);
   const hideHandoff = handoffNotes.hide;
@@ -1062,6 +1145,62 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
           return clone === undefined ? null : (
             <CloneNote clone={clone} onDismiss={() => setClone(key, null)} />
           );
+        }}
+        commandsPopover={(ref) => {
+          if (ref.kind !== "project" || ref.machine !== undefined) return null;
+          const groups = commandGroupsFor(ref);
+          const actions = commandsActionsFor(ref);
+          if (
+            groups.every((g) => g.commands.length === 0) &&
+            actions.onManage === undefined
+          ) {
+            return null;
+          }
+          return (
+            <ProjectCommandsList
+              heading={t("left-sidebar.heading.commands")}
+              groups={groups}
+              actions={actions}
+              showEmpty
+            />
+          );
+        }}
+        commandsIndicator={(ref) => {
+          if (ref.kind !== "project" || ref.machine !== undefined) return null;
+          const entry = sidebarCommands.get(ref.id);
+          const groups = commandGroupsFor(ref);
+          const running =
+            groups.length > 0
+              ? groups.reduce((sum, g) => {
+                  let n = 0;
+                  for (const c of g.commands) {
+                    const s = g.runs.get(c.id)?.status;
+                    if (s === "starting" || s === "running") n++;
+                  }
+                  return sum + n;
+                }, 0)
+              : (entry?.runningCount ?? 0);
+          const failed =
+            groups.length > 0
+              ? groups.some((g) =>
+                  g.commands.some((c) => {
+                    const s = g.runs.get(c.id)?.status;
+                    return s === "failed" || s === "timed_out";
+                  }),
+                )
+              : (entry?.hasFailed ?? false);
+          if (running === 0 && !failed) return null;
+          return {
+            running,
+            failed,
+            content: (
+              <ProjectCommandsList
+                heading={t("left-sidebar.heading.commands")}
+                groups={groups}
+                actions={commandsActionsFor(ref)}
+              />
+            ),
+          };
         }}
         {...(projects === undefined
           ? {}

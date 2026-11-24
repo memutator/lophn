@@ -51,8 +51,7 @@ export const projectSettingsKind: TabKindDef = {
           onArchived={host.props.onHome}
           quick={slice.quick}
           onQuick={slice.setQuick}
-          commands={slice.commands}
-          onCommands={slice.setCommands}
+          agents={slice.agents}
           iconField={
             <ProjectIconField
               project={project}

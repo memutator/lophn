@@ -5,12 +5,11 @@ import { Popover, PopoverRow, Tooltip } from "@lophn/ui/overlay";
 import { Icon, IconButton } from "@lophn/ui/primitives";
 import type { LucideIcon } from "lucide-react";
 import { Fragment, type ReactElement, type ReactNode } from "react";
-
-import { useAppIcon } from "../app-frame/app-icon.tsx";
-import { IconImage } from "../parts/icon-upload/icon-image.tsx";
-import { useKeyLabel } from "../commands/react.tsx";
 import { appPanelBindingId } from "../../../protocol/shell/keybindings.ts";
+import { useAppIcon } from "../app-frame/app-icon.tsx";
+import { useKeyLabel } from "../commands/react.tsx";
 import { browserIcons, shellIcons, workspaceIcons } from "../icons/mod.ts";
+import { IconImage } from "../parts/icon-upload/icon-image.tsx";
 import { type HoverSection, Keyed, sectionHeading } from "./agent-sections.tsx";
 import styles from "./quick-launch.module.css";
 
@@ -41,8 +40,8 @@ export interface QuickLaunch {
   onTerminal?: () => void;
   /** Terminal hover: 즐겨찾기한 coding agent. 누르면 그 명령어로 새 터미널이다. */
   terminalItems?: readonly QuickHoverItem[];
-  /** Terminal hover: project의 명령. coding agent 묶음 다음의 "Commands" 묶음이다. */
-  terminalCommands?: readonly QuickHoverItem[];
+  /** Terminal hover: project commands 공용 목록. */
+  terminalCommandsContent?: ReactNode;
   onBrowser?: () => void;
   /** Browser hover: bookmark. 누르면 그 주소로 새 browser 탭이다. */
   browserItems?: readonly QuickHoverItem[];
@@ -86,16 +85,19 @@ export function HoverList({
   id,
   trigger,
   sections,
+  extraContent,
   tip,
 }: {
   id: string;
   trigger: ReactElement;
   sections: readonly HoverSection[];
+  /** 묶음 뒤에 이어 붙이는 공용 목록(예: Project commands). */
+  extraContent?: ReactNode;
   /** 목록이 없을 때 trigger의 tooltip. */
   tip?: ReactNode;
 }) {
   const shown = sections.filter((section) => section.items.length > 0);
-  if (shown.length === 0) {
+  if (shown.length === 0 && extraContent == null) {
     return tip == null ? trigger : <Tooltip content={tip}>{trigger}</Tooltip>;
   }
   return (
@@ -114,6 +116,14 @@ export function HoverList({
           ))}
         </Fragment>
       ))}
+      {extraContent == null ? null : (
+        <>
+          {shown.length === 0 ? null : (
+            <div className={styles.quickHoverDivider} />
+          )}
+          {extraContent}
+        </>
+      )}
     </Popover>
   );
 }
@@ -126,6 +136,7 @@ function QuickButton({
   keys,
   items,
   moreSections = [],
+  extraContent,
   onClick,
 }: {
   id: string;
@@ -134,6 +145,7 @@ function QuickButton({
   keys?: string | null;
   items?: readonly QuickHoverItem[];
   moreSections?: readonly HoverSection[];
+  extraContent?: ReactNode;
   onClick?: () => void;
 }) {
   return (
@@ -152,6 +164,7 @@ function QuickButton({
         { id, heading: label, keys, items: items ?? [] },
         ...moreSections,
       ]}
+      extraContent={extraContent}
       tip={keys == null ? null : <Keyed label={label} keys={keys} />}
     />
   );
@@ -170,13 +183,7 @@ export function QuickLaunchRow({ quick }: { quick?: QuickLaunch }) {
           icon={workspaceIcons.terminal}
           label={t("left-sidebar.button.quick-terminal")}
           items={quick.terminalItems}
-          moreSections={[
-            {
-              id: "terminal-commands",
-              heading: t("left-sidebar.heading.commands"),
-              items: quick.terminalCommands ?? [],
-            },
-          ]}
+          extraContent={quick.terminalCommandsContent}
           onClick={quick.onTerminal}
         />
       ),

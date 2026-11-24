@@ -3,28 +3,28 @@
 
 import { t } from "@lophn/i18n";
 import type { ReactNode } from "react";
+import { HARNESS_ADAPTERS } from "../../../../protocol/coding-agent/harness-adapter.ts";
+import type { HarnessId } from "../../../../protocol/coding-agent/harness-id.ts";
+import { HOME_TERMINAL_PROJECT } from "../../../../protocol/coding-agent/terminals.ts";
 import { workspaceIcons } from "../../icons/mod.ts";
+import type { SessionDot } from "../../parts/agent-session/activity.ts";
 import { AgentFaceIcon } from "../../parts/agent-session/agent-session.tsx";
 import { codingDot, codingFace } from "../../parts/agent-session/coding.ts";
-import type { SessionDot } from "../../parts/agent-session/activity.ts";
 import { closeTerminalTab, type TerminalDeps } from "../../terminal/deps.ts";
 import {
   folderTitle,
   type RememberedName,
   terminalName,
 } from "../../terminal/model.ts";
-import { HARNESS_ADAPTERS } from "../../../../protocol/coding-agent/harness-adapter.ts";
-import { HOME_TERMINAL_PROJECT } from "../../../../protocol/coding-agent/terminals.ts";
-import type { HarnessId } from "../../../../protocol/coding-agent/harness-id.ts";
 import type { TerminalResume, TerminalStore } from "../../terminal/store.ts";
 import { GuiSwitch, guiTitleOf } from "../../terminal/terminal-gui.tsx";
 import { TerminalTab } from "../../terminal/terminal-tab.tsx";
 import type { TabItem } from "../model.ts";
+import { openAt, showAfter } from "../open-policy.ts";
+import type { SessionTabOpen } from "./agent.tsx";
 import { openFile } from "./document-editor.tsx";
 import type { TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
-import { openAt, showAfter } from "../open-policy.ts";
-import type { SessionTabOpen } from "./agent.tsx";
 
 const TAB_KEY = /^[A-Za-z0-9._:-]+$/;
 
@@ -98,6 +98,10 @@ export function openTerminal(
     open?: SessionTabOpen;
     /** 이미 core에 있는 터미널의 참조. */
     terminal?: string;
+    /** project command 전용 PTY 탭. layout에 저장하지 않고(일반 탭 복원 제외) 탭 닫기로 프로세스를 죽이지 않는다. */
+    dedicated?: true;
+    /** 탭 초기 제목(명령 전용 터미널의 명령 이름 등). */
+    title?: string;
     /** 터미널이 있는 기계. 없으면 workspace의 기계다. */
     machine?: string;
     /** 저장한 session을 다시 열 때 미리 채워 두는 이름(사람이 고정한 이름이나 기억한 session 제목). */
@@ -115,7 +119,8 @@ export function openTerminal(
     options.open?.key ??
     `terminal-${Date.now().toString(36)}-${++terminalCount}`;
   const auto = host.projectTitle ?? t("project-workspace.label.kind-terminal");
-  const title = options.seed?.name ?? options.seed?.title ?? auto;
+  const title =
+    options.title ?? options.seed?.name ?? options.seed?.title ?? auto;
   // resume은 CLI가 cwd별로 session을 찾으므로 Explorer root가 아니라 주어진 폴더(없으면 첫 폴더)에서 연다.
   const cwd =
     options.cwd ??
@@ -142,6 +147,8 @@ export function openTerminal(
     fields: {
       auto,
       ...(options.terminal === undefined ? {} : { terminal: options.terminal }),
+      ...(options.dedicated === true ? { dedicated: true } : {}),
+      ...(options.title === undefined ? {} : { name: options.title }),
       ...(options.seed === undefined
         ? {}
         : {
@@ -475,6 +482,8 @@ export const terminalKind: TabKindDef = {
     };
   },
   toStored(tab) {
+    // project command 전용 터미널은 일반 터미널 탭 복원 목록에 넣지 않는다.
+    if (tab.fields?.dedicated === true) return null;
     if (
       tab.folder === undefined ||
       tab.folder.length < 1 ||
@@ -589,8 +598,13 @@ export const terminalKind: TabKindDef = {
     );
   },
   // 살아 있는 터미널은 사람이 확인해야 닫는다. 취소하면 탭과 shell을 유지한다.
+  // project command 전용 터미널 탭은 뷰어만 닫고 실행 중인 명령은 계속 돈다(중지는 메뉴·CLI·palette에서).
   beforeClose(tab, host, options) {
     const terminal = terminalOf(tab, host);
+    if (tab.fields?.dedicated === true) {
+      terminal?.store.delete(tab.key);
+      return Promise.resolve(true);
+    }
     return terminal
       ? closeTerminalTab(terminal, tab.key, options?.confirmed === true)
       : null;

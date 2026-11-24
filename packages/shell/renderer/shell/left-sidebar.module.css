@@ -560,3 +560,41 @@
 .memberLine:focus-within .memberState {
   visibility: hidden;
 }
+
+/* project 줄의 실행 중/실패 command 표시 점과 수. 누르면 공용 명령 목록 popover가 뜬다. */
+.commandIndicator {
+  display: inline-flex;
+  flex: none;
+  gap: var(--space-1);
+  align-items: center;
+  height: var(--space-5);
+  padding: var(--space-0) var(--space-1);
+  color: var(--color-text-secondary);
+  font-size: var(--type-caption-size);
+  font-family: var(--font-mono);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+}
+
+.commandIndicator:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-subtle);
+}
+
+.commandIndicatorDot {
+  flex: none;
+  width: var(--space-2);
+  height: var(--space-2);
+  background: var(--status-good-marker);
+  border-radius: var(--radius-full);
+}
+
+.commandIndicator[data-failed] .commandIndicatorDot {
+  background: var(--status-critical-marker);
+}
+
+.commandIndicator[data-failed] {
+  color: var(--status-critical-text);
+}

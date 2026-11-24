@@ -1,26 +1,37 @@
 // 탭 줄의 새 탭 menu. Agent·Browser·App panel은 퀵 실행과 같은 목록을 옆에 연다. browser profile이 있으면 Browser 목록 맨 위가
 // 기본 profile과 profile들이고 고른 profile로 연다(빠른 실행과 단축키는 기본 profile로 연다).
-import type { ReactNode } from "react";
-import type { AgentChoice } from "../parts/agent-session/agent-session.tsx";
-import { agentSections, sectionMenuItems } from "../shell/agent-sections.tsx";
-import type { QuickHoverItem } from "../shell/quick-launch.tsx";
-import { FileIcon, IconButton } from "@lophn/ui/primitives";
+
+import { t } from "@lophn/i18n";
 import { Menu, MenuIcon, type MenuItem } from "@lophn/ui/overlay";
+import { FileIcon, IconButton } from "@lophn/ui/primitives";
+import type { ReactNode } from "react";
+import { ProfileMark } from "../browser/browser-chrome.tsx";
+import { useBrowserProfiles } from "../browser/profiles.tsx";
+import { useKeyLabel } from "../commands/react.tsx";
+import { useMachinesView } from "../desktop/machines/context.tsx";
 import {
   browserIcons,
   commonIcons,
   paletteIcons,
   workspaceIcons,
 } from "../icons/mod.ts";
-import { t } from "@lophn/i18n";
-import { useKeyLabel } from "../commands/react.tsx";
-import { useMachinesView } from "../desktop/machines/context.tsx";
-import { ProfileMark } from "../browser/browser-chrome.tsx";
-import { useBrowserProfiles } from "../browser/profiles.tsx";
+import type { AgentChoice } from "../parts/agent-session/agent-session.tsx";
+import { agentSections, sectionMenuItems } from "../shell/agent-sections.tsx";
+import type { QuickHoverItem } from "../shell/quick-launch.tsx";
+import {
+  type ProjectCommandActions,
+  projectCommandsMenuItems,
+} from "./project-commands/commands-menu.tsx";
+import type { ProjectCommandGroup } from "./project-commands/use-project-commands.ts";
 
 interface NewTabMenuProps {
   onDocument?: () => void;
   onTerminal?: () => void;
+  /** project의 명령 목록. 주어지면 Terminal 항목이 옆으로 펼쳐지는 하위 메뉴가 된다. */
+  terminalSubmenu?: {
+    readonly groups: readonly ProjectCommandGroup[];
+    readonly actions: ProjectCommandActions;
+  };
   /** 새 browser 탭. profile이 없으면 기본 profile이다. */
   onBrowser?: (profile?: string) => void;
   browserItems?: readonly QuickHoverItem[];
@@ -72,13 +83,36 @@ export function NewTabMenu(props: NewTabMenuProps) {
       ),
       ...keyed("new.document"),
     });
-  if (props.onTerminal)
-    root.push({
-      id: "terminal",
-      label: t("project-workspace.label.menu-terminal"),
-      leading: lead(workspaceIcons.terminal),
-      ...keyed("new.terminal"),
-    });
+  if (props.onTerminal) {
+    if (props.terminalSubmenu !== undefined) {
+      const cmdItems = projectCommandsMenuItems(
+        props.terminalSubmenu.groups,
+        props.terminalSubmenu.actions,
+        (id, fn) => actions.set(id, fn),
+      );
+      root.push({
+        id: "terminal-menu",
+        label: t("project-workspace.label.menu-terminal"),
+        leading: lead(workspaceIcons.terminal),
+        items: [
+          {
+            id: "terminal",
+            label: t("left-sidebar.button.quick-terminal"),
+            leading: lead(workspaceIcons.terminal),
+            ...keyed("new.terminal"),
+          },
+          ...cmdItems,
+        ],
+      });
+    } else {
+      root.push({
+        id: "terminal",
+        label: t("project-workspace.label.menu-terminal"),
+        leading: lead(workspaceIcons.terminal),
+        ...keyed("new.terminal"),
+      });
+    }
+  }
   if (props.onBrowser)
     root.push({
       id: "browser-menu",

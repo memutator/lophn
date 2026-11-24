@@ -1,10 +1,11 @@
 // 빠른 실행을 고치는 목록. 단추 순서와 켜고 끄기(QuickOrderList), 고정할 앱 panel(AppPanelList), 오른쪽 sidebar에 나올 앱 화면(SidebarPanelList)이다.
 // Settings › Quick launch(전역 값)와 Project settings(이 project만의 값)가 같이 쓴다.
-import { useRef, useState } from "react";
+
 import { t } from "@lophn/i18n";
 import { Skeleton, useDelayedLoading } from "@lophn/ui/feedback";
-import { Field, Input, SegmentedControl, Switch } from "@lophn/ui/input";
+import { SegmentedControl, Switch } from "@lophn/ui/input";
 import { Button, Icon, IconButton } from "@lophn/ui/primitives";
+import { useRef } from "react";
 
 import { AppTabIcon } from "../../app-frame/app-icon.tsx";
 import { type AppScreens, appScreenLabel } from "../../app-frame/app-views.tsx";
@@ -20,8 +21,7 @@ import {
   shellIcons,
   workspaceIcons,
 } from "../../icons/mod.ts";
-import type { QuickCommand, WorkspaceQuick } from "../../shell/desk-model.ts";
-import { newId } from "../../prefixed-id.ts";
+import type { WorkspaceQuick } from "../../shell/desk-model.ts";
 import { panelChoices, useScreensRead } from "../app-panel-tab.tsx";
 import {
   isPinned,
@@ -47,150 +47,6 @@ const BUILTIN_ICON = {
   app: workspaceIcons.appPanel,
   search: shellIcons.search,
 } as const;
-
-// main schema의 상한과 같다.
-const COMMANDS_MAX = 20;
-
-/** 줄 하나. 글자를 치는 동안은 로컬이고, 포커스가 나갈 때 비지 않았으면 저장한다(저장은 layout 파일을 쓴다). */
-function CommandRow({
-  command,
-  onChange,
-  onRemove,
-}: {
-  command: QuickCommand;
-  onChange: (next: QuickCommand) => void;
-  onRemove: () => void;
-}) {
-  const [label, setLabel] = useState(command.label);
-  const [line, setLine] = useState(command.command);
-  const save = () => {
-    const next = { ...command, label: label.trim(), command: line.trim() };
-    if (next.label === "" || next.command === "") {
-      setLabel(command.label);
-      setLine(command.command);
-    } else if (
-      next.label !== command.label ||
-      next.command !== command.command
-    ) {
-      onChange(next);
-    }
-  };
-  return (
-    <li className={styles.row} data-command-row={command.id}>
-      <span className={styles.cell}>
-        <Field label={t("project-settings.label.command-name")}>
-          <Input
-            size="sm"
-            value={label}
-            maxLength={60}
-            onChange={(event) => setLabel(event.target.value)}
-            onBlur={save}
-          />
-        </Field>
-      </span>
-      <span className={styles.cell}>
-        <Field label={t("project-settings.label.command-line")}>
-          <Input
-            size="sm"
-            value={line}
-            maxLength={1000}
-            spellCheck={false}
-            onChange={(event) => setLine(event.target.value)}
-            onBlur={save}
-          />
-        </Field>
-      </span>
-      <IconButton
-        icon={actionIcons.remove}
-        label={t("project-settings.button.remove-command")}
-        size="sm"
-        onClick={onRemove}
-      />
-    </li>
-  );
-}
-
-/** 이 project만의 터미널 명령 목록과 더하는 줄. 전역 값을 따르는지와 상관없이 고칠 수 있다. */
-export function QuickCommandList({
-  commands,
-  onCommands,
-}: {
-  commands: readonly QuickCommand[];
-  onCommands: (next: readonly QuickCommand[]) => void;
-}) {
-  const [label, setLabel] = useState("");
-  const [line, setLine] = useState("");
-  const ready = label.trim() !== "" && line.trim() !== "";
-  const add = () => {
-    if (!ready || commands.length >= COMMANDS_MAX) return;
-    onCommands([
-      ...commands,
-      {
-        id: newId("cmd", Date.now()),
-        label: label.trim(),
-        command: line.trim(),
-      },
-    ]);
-    setLabel("");
-    setLine("");
-  };
-  const onEnter = (event: { key: string }) => {
-    if (event.key === "Enter") add();
-  };
-  return (
-    <ul className={styles.rows} data-command-rows="">
-      {commands.map((command) => (
-        <CommandRow
-          key={command.id}
-          command={command}
-          onChange={(next) =>
-            onCommands(
-              commands.map((item) => (item.id === next.id ? next : item)),
-            )
-          }
-          onRemove={() =>
-            onCommands(commands.filter((item) => item.id !== command.id))
-          }
-        />
-      ))}
-      <li className={styles.row} data-command-add="">
-        <span className={styles.cell}>
-          <Field label={t("project-settings.label.command-name")}>
-            <Input
-              size="sm"
-              placeholder={t("project-settings.label.command-name")}
-              value={label}
-              maxLength={60}
-              onChange={(event) => setLabel(event.target.value)}
-              onKeyDown={onEnter}
-            />
-          </Field>
-        </span>
-        <span className={styles.cell}>
-          <Field label={t("project-settings.label.command-line")}>
-            <Input
-              size="sm"
-              placeholder={t("project-settings.label.command-line")}
-              value={line}
-              maxLength={1000}
-              spellCheck={false}
-              onChange={(event) => setLine(event.target.value)}
-              onKeyDown={onEnter}
-            />
-          </Field>
-        </span>
-        <Button
-          size="sm"
-          icon={actionIcons.add}
-          disabled={!ready || commands.length >= COMMANDS_MAX}
-          onClick={add}
-        >
-          {t("project-settings.button.add-command")}
-        </Button>
-      </li>
-    </ul>
-  );
-}
 
 /** 설치된 앱의 panel 화면 목록. 다시 읽는 동안에도 목록이 비지 않게 마지막으로 읽은 값을 쓴다. */
 export function useAppPanelApps(): {

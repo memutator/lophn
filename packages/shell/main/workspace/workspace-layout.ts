@@ -8,17 +8,17 @@
 // tab 둘 이상이 쌓인 bundle이고 tabs에서 leaf 순서로 붙어 있고 칸에 숨은 tab이 그 바로 뒤에 붙어 있음)은 renderer
 // shell/desk-model.ts와 짝이다.
 import { z } from "zod";
-
+import { tabKindOf } from "./kinds/registry.ts";
+import { tabKey } from "./kinds/values.ts";
 import {
   DEFAULT_DESK,
   deskKey,
   layoutTabSchema,
   windowBounds,
 } from "./schema.ts";
-import { tabKindOf } from "./kinds/registry.ts";
-import { tabKey } from "./kinds/values.ts";
 
-export const WORKSPACE_SCHEMA_VERSION = 13;
+export const WORKSPACE_SCHEMA_VERSION = 14;
+export const LEGACY_COMMAND_LAYOUT_VERSION = 13;
 
 // 파일 이름이 되는 key라 폴더 밖으로 나갈 수 있는 글자(`.`, `/`, `\`)는 아예 받지 않는다.
 export function isWorkspaceKey(value: unknown): value is string {
@@ -178,40 +178,76 @@ const quickSchema = z.strictObject({
   hidden: z.array(z.string().min(1).max(200)).max(64).optional(),
 });
 
-// project만의 터미널 명령. Terminal hover 목록에 나오고 누르면 새 터미널이 그 명령 줄을 돌린다. 전역 값은 없다.
-const commandSchema = z.strictObject({
+// 판 13 layout의 옛 project 명령. shell main이 읽을 때 core(`project_commands/import`)로 옮기고 판 14에서 지운다.
+const legacyCommandSchema = z.strictObject({
   id: z.string().min(1).max(64),
   label: z.string().min(1).max(60),
   command: z.string().min(1).max(1000),
 });
+export type LegacyQuickCommand = z.infer<typeof legacyCommandSchema>;
 
-export const workspaceLayoutSchema = z
-  .strictObject({
+const layoutBaseFields = {
+  active_desk: deskKey,
+  desks: z.record(deskKey, workspaceDeskSchema),
+  quick: quickSchema.optional(),
+};
+
+function withLayoutInvariants<
+  T extends z.ZodType<{
+    active_desk: string;
+    desks: Record<string, WorkspaceDesk>;
+  }>,
+>(schema: T) {
+  return schema
+    .refine(
+      (layout) => {
+        const count = Object.keys(layout.desks).length;
+        return count >= 1 && count <= 200;
+      },
+      { message: "desks must have 1 to 200 entries" },
+    )
+    .refine((layout) => Object.hasOwn(layout.desks, DEFAULT_DESK), {
+      message: "desks has no main desk",
+    })
+    .refine((layout) => Object.hasOwn(layout.desks, layout.active_desk), {
+      message: "active_desk is not in desks",
+    });
+}
+
+export const workspaceLayoutSchema = withLayoutInvariants(
+  z.strictObject({
     schema_version: z.literal(WORKSPACE_SCHEMA_VERSION),
-    active_desk: deskKey,
-    desks: z.record(deskKey, workspaceDeskSchema),
-    quick: quickSchema.optional(),
-    commands: z.array(commandSchema).max(20).optional(),
-  })
-  .refine(
-    (layout) => {
-      const count = Object.keys(layout.desks).length;
-      return count >= 1 && count <= 200;
-    },
-    { message: "desks must have 1 to 200 entries" },
-  )
-  .refine((layout) => Object.hasOwn(layout.desks, DEFAULT_DESK), {
-    message: "desks has no main desk",
-  })
-  .refine((layout) => Object.hasOwn(layout.desks, layout.active_desk), {
-    message: "active_desk is not in desks",
-  });
+    ...layoutBaseFields,
+  }),
+);
+
+const legacyV13LayoutSchema = withLayoutInvariants(
+  z.strictObject({
+    schema_version: z.literal(LEGACY_COMMAND_LAYOUT_VERSION),
+    ...layoutBaseFields,
+    commands: z.array(legacyCommandSchema).max(20).optional(),
+  }),
+);
 
 export type WorkspaceLayoutValue = z.infer<typeof workspaceLayoutSchema>;
 
 export type WorkspaceLayoutResult =
   | { ok: true; layout: WorkspaceLayoutValue }
   | { ok: false; reason: "unsupported_schema" | "corrupt" };
+
+/** 판 13 layout을 검증하고 판 14 layout과 옮길 옛 명령 목록으로 나눈다. 모양이 틀리면 null이다. */
+export function parseLegacyV13Layout(value: unknown): {
+  layout: WorkspaceLayoutValue;
+  commands: LegacyQuickCommand[];
+} | null {
+  const parsed = legacyV13LayoutSchema.safeParse(skipUnregisteredTabs(value));
+  if (!parsed.success) return null;
+  const { commands, schema_version: _v13, ...rest } = parsed.data;
+  return {
+    layout: { ...rest, schema_version: WORKSPACE_SCHEMA_VERSION },
+    commands: commands ?? [],
+  };
+}
 
 /**
  * 파일에서 읽은 값을 검증한다. 다른 판은 이 판으로 읽지 않고 파일은 그대로 둔다. registry에 없는 kind의 tab은

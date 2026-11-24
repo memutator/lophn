@@ -12,10 +12,26 @@ import {
 } from "./atomic-file.ts";
 import {
   isWorkspaceKey,
+  LEGACY_COMMAND_LAYOUT_VERSION,
+  type LegacyQuickCommand,
+  parseLegacyV13Layout,
   parseWorkspaceLayoutFile,
-  type WorkspaceLayoutResult,
   validateWorkspaceLayout,
+  type WorkspaceLayoutResult,
 } from "./workspace-layout.ts";
+
+export type WorkspaceLayoutStoreDeps = Partial<StoreDeps> & {
+  /**
+   * 판 13 layout의 `commands`를 core(`project_commands/import`)로 옮긴다.
+   * 성공(true)하면 판 14로 저장해 `commands`를 지우고, 실패(false)하면 판 13 파일을 유지해 다음에 다시 시도한다.
+   */
+  migrateCommands?: (
+    project: string,
+    commands: readonly LegacyQuickCommand[],
+  ) => Promise<boolean>;
+};
+
+const LOCAL_PROJECT_KEY = /^prj_[A-Za-z0-9]+$/;
 
 export type WorkspaceStoreResult<T> =
   | StoreResult<T>
@@ -42,11 +58,13 @@ export interface WorkspaceLayoutStore {
 
 export function createWorkspaceLayoutStore(
   dataRoot: string,
-  deps: Partial<StoreDeps> = {},
+  deps: WorkspaceLayoutStoreDeps = {},
 ): WorkspaceLayoutStore {
   const impl: StoreDeps = { ...defaultStoreDeps, ...deps };
   const fileOf = (workspace: string) =>
     join(dataRoot, "shell", "workspaces", `${workspace}.json`);
+  // 옮기기가 실패한 project의 옛 commands를 들고 있어 이후 write가 v13 commands를 지우지 않게 한다.
+  const pendingCommands = new Map<string, readonly LegacyQuickCommand[]>();
 
   return {
     async read(workspace) {
@@ -67,12 +85,51 @@ export function createWorkspaceLayoutStore(
       }
       if (raw === null) return { ok: true, value: null };
       const text = new TextDecoder().decode(raw);
-      let value: WorkspaceLayoutResult;
+      let parsedJson: unknown;
       try {
-        value = parseWorkspaceLayoutFile(JSON.parse(text));
+        parsedJson = JSON.parse(text);
       } catch {
-        value = { ok: false, reason: "corrupt" };
+        await writeFileAtomic(`${fileOf(workspace)}.bak`, text, impl);
+        return { ok: true, value: { ok: false, reason: "corrupt" } };
       }
+
+      if (
+        typeof parsedJson === "object" &&
+        parsedJson !== null &&
+        (parsedJson as { schema_version?: unknown }).schema_version ===
+          LEGACY_COMMAND_LAYOUT_VERSION
+      ) {
+        const legacy = parseLegacyV13Layout(parsedJson);
+        if (legacy === null) {
+          await writeFileAtomic(`${fileOf(workspace)}.bak`, text, impl);
+          return { ok: true, value: { ok: false, reason: "corrupt" } };
+        }
+        const needsImport =
+          legacy.commands.length > 0 && LOCAL_PROJECT_KEY.test(workspace);
+        if (needsImport) {
+          let migrated = false;
+          if (deps.migrateCommands !== undefined) {
+            try {
+              migrated = await deps.migrateCommands(workspace, legacy.commands);
+            } catch {
+              migrated = false;
+            }
+          }
+          if (!migrated) {
+            pendingCommands.set(workspace, legacy.commands);
+            return { ok: true, value: { ok: true, layout: legacy.layout } };
+          }
+        }
+        pendingCommands.delete(workspace);
+        await writeFileAtomic(
+          fileOf(workspace),
+          JSON.stringify(legacy.layout),
+          impl,
+        );
+        return { ok: true, value: { ok: true, layout: legacy.layout } };
+      }
+
+      const value: WorkspaceLayoutResult = parseWorkspaceLayoutFile(parsedJson);
       // 손상된 파일은 renderer가 기본 layout으로 덮는다. 덮기 전 값을 한 벌 남겨 손으로 되살릴 길을 둔다.
       if (!value.ok && value.reason === "corrupt") {
         await writeFileAtomic(`${fileOf(workspace)}.bak`, text, impl);
@@ -81,6 +138,7 @@ export function createWorkspaceLayoutStore(
     },
     async remove(workspace) {
       if (!isWorkspaceKey(workspace)) return INVALID_WORKSPACE;
+      pendingCommands.delete(workspace);
       try {
         await impl.unlink(fileOf(workspace));
       } catch (error) {
@@ -98,6 +156,31 @@ export function createWorkspaceLayoutStore(
           ok: false,
           error: { code: "invalid_input", message: "invalid layout" },
         };
+      }
+      const pending = pendingCommands.get(workspace);
+      if (pending !== undefined && pending.length > 0) {
+        let migrated = false;
+        if (deps.migrateCommands !== undefined) {
+          try {
+            migrated = await deps.migrateCommands(workspace, pending);
+          } catch {
+            migrated = false;
+          }
+        }
+        if (migrated) {
+          pendingCommands.delete(workspace);
+        } else {
+          // 아직 옮기지 못했으므로 판 13 + commands를 보존해 다음 기동에 다시 옮긴다.
+          return writeFileAtomic(
+            fileOf(workspace),
+            JSON.stringify({
+              ...valid.layout,
+              schema_version: LEGACY_COMMAND_LAYOUT_VERSION,
+              commands: pending,
+            }),
+            impl,
+          );
+        }
       }
       return writeFileAtomic(
         fileOf(workspace),

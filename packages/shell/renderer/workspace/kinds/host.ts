@@ -13,7 +13,6 @@ import type { AvatarLook } from "../../parts/avatar/avatar.tsx";
 import type {
   Desk,
   OpenRelation,
-  QuickCommand,
   WorkspaceQuick,
   WorkspaceRef,
 } from "../../shell/desk-model.ts";
@@ -21,6 +20,7 @@ import type { MachineProjects } from "../agent/machine-copies.ts";
 import type { AgentsSource } from "../agents/source.ts";
 import type { AgentsTabs, Face } from "../agents/tab-state.ts";
 import type { FloatRect, TabItem } from "../model.ts";
+import type { SidebarAgent } from "../sidebar/sidebar-agent.ts";
 import type { WorkspaceWindowProps } from "../workspace-window.tsx";
 import type { ReadPosition } from "./kind.ts";
 
@@ -88,9 +88,8 @@ export interface ProjectSettingsSlice {
   readonly quick: WorkspaceQuick | undefined;
   /** undefined면 이 project의 값을 지우고 전역 값으로 돌아간다. */
   setQuick(next: WorkspaceQuick | undefined): void;
-  /** 이 project만의 터미널 명령. 전역 값을 따르는지와 상관없다. */
-  readonly commands: readonly QuickCommand[];
-  setCommands(next: readonly QuickCommand[]): void;
+  /** 이 project의 agent 목록(Commands 설정의 agent 선택 목록에 쓴다). */
+  readonly agents: readonly SidebarAgent[];
 }
 
 export interface TabHost {

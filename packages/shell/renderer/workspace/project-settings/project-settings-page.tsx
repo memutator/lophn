@@ -1,28 +1,29 @@
 // project settings 탭 본문. General(이름·목적·다른 컴퓨터·폴더, Workspaces panel 상세 dialog와 같은 form, 그 아래 보관), Quick launch(왼쪽 sidebar 아래 단추의 순서),
 // App panels(단추로 고정할 앱 panel) 세 구역이다. 빠른 실행은 전역 값(Settings › Quick launch)을 따르거나 이 project만의 값을 둔다.
-import { type ReactNode, useState } from "react";
+
 import { t } from "@lophn/i18n";
 import { ErrorState, Skeleton, useDelayedLoading } from "@lophn/ui/feedback";
 import { Switch } from "@lophn/ui/input";
 import { Button } from "@lophn/ui/primitives";
+import { type ReactNode, useState } from "react";
 
 import { projectApi } from "../../../../protocol/projects/project-api.ts";
 import { useCoreRead } from "../../desktop/connection/core-read.ts";
-import { commonIcons } from "../../icons/mod.ts";
 import { useQuickPrefs } from "../../desktop/settings/quick-launch/store.tsx";
-import type { QuickCommand, WorkspaceQuick } from "../../shell/desk-model.ts";
 import { projectItemOf } from "../../desktop/workspaces/projects/core-source.ts";
-import {
-  AppPanelList,
-  QuickCommandList,
-  QuickOrderList,
-  useAppPanelApps,
-} from "./quick-launch-editor.tsx";
-
 import { IdentityRow } from "../../desktop/workspaces/projects/identity-row.tsx";
 import { ProjectForm } from "../../desktop/workspaces/projects/project-form.tsx";
 import type { ProjectsSource } from "../../desktop/workspaces/projects/source.ts";
+import { commonIcons } from "../../icons/mod.ts";
+import type { WorkspaceQuick } from "../../shell/desk-model.ts";
+import { ProjectCommandsSettings } from "../project-commands/commands-settings.tsx";
+import type { SidebarAgent } from "../sidebar/sidebar-agent.ts";
 import styles from "./project-settings-page.module.css";
+import {
+  AppPanelList,
+  QuickOrderList,
+  useAppPanelApps,
+} from "./quick-launch-editor.tsx";
 
 export interface ProjectSettingsPageProps {
   readonly projectId: string;
@@ -30,9 +31,8 @@ export interface ProjectSettingsPageProps {
   readonly quick: WorkspaceQuick | undefined;
   /** undefined면 이 project의 값을 지우고 전역 값으로 돌아간다. */
   readonly onQuick: (next: WorkspaceQuick | undefined) => void;
-  /** 이 project만의 터미널 명령. Terminal hover 목록에 나온다. */
-  readonly commands: readonly QuickCommand[];
-  readonly onCommands: (next: readonly QuickCommand[]) => void;
+  /** 이 project의 agent 목록(Commands 설정의 agent 선택에 쓴다). */
+  readonly agents?: readonly SidebarAgent[];
   /** 없으면 General은 안내 글만 둔다. */
   readonly projects: ProjectsSource | undefined;
   /** 이름·폴더를 저장했다. */
@@ -182,9 +182,9 @@ export function ProjectSettingsPage(props: ProjectSettingsPageProps) {
         <p className={styles.note}>
           {t("project-settings.notice.commands-lead")}
         </p>
-        <QuickCommandList
-          commands={props.commands}
-          onCommands={props.onCommands}
+        <ProjectCommandsSettings
+          projectId={props.projectId}
+          agents={props.agents}
         />
       </section>
       {change === undefined ? null : (

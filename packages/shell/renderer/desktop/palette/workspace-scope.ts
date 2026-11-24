@@ -1,18 +1,23 @@
 // 프로젝트 작업대의 팔레트 행. 열린 탭·파일·bookmark·행동 순서이고
 // 고르면 작업대 안의 대상(탭 고르기, 파일 탭 열기, bookmark를 새 browser 탭에서 열기, 행동)으로만 간다.
 import { t } from "@lophn/i18n";
-
+import type {
+  ProjectCommand,
+  ProjectCommandRun,
+} from "../../../../protocol/projects/project-commands.ts";
 import {
+  bindingLabel,
   type Command,
   commandLabel,
   type KeyOverrides,
+  projectCommandBindingId,
 } from "../../../../protocol/shell/keybindings.ts";
-import { tabKindLabel, tabKindOf } from "../../workspace/kinds/registry.ts";
 import {
   type Desk,
   type FloatTab,
   type TabItem,
 } from "../../shell/desk-model.ts";
+import { tabKindLabel, tabKindOf } from "../../workspace/kinds/registry.ts";
 import type { FileRow } from "../../workspace/source.ts";
 import type { WindowPlatform } from "../top-bar/platform.ts";
 import { windowShortcutLabel } from "./labels.ts";
@@ -40,7 +45,12 @@ type WorkspaceTarget =
       readonly document: { readonly id: string; readonly title: string };
     }
   | { readonly kind: "bookmark"; readonly url: string }
-  | { readonly kind: "action"; readonly action: WorkspaceAction };
+  | { readonly kind: "action"; readonly action: WorkspaceAction }
+  | {
+      readonly kind: "project-command";
+      readonly id: string;
+      readonly action: "run" | "stop" | "restart";
+    };
 
 interface WorkspaceScopeInput {
   /** 보이는 desk. */
@@ -52,6 +62,11 @@ interface WorkspaceScopeInput {
     readonly title: string;
     readonly url: string;
     readonly favicon?: string;
+  }[];
+  /** 이 project의 명령과 실행 상태. */
+  readonly projectCommands?: readonly {
+    readonly command: ProjectCommand;
+    readonly run: ProjectCommandRun | undefined;
   }[];
   /** 터미널 통로가 있을 때만 터미널 열기 행이 있다. */
   readonly terminal: boolean;
@@ -87,13 +102,59 @@ export function topFloat(desk: Desk): FloatTab | undefined {
 }
 
 function actions(input: WorkspaceScopeInput): PaletteEntry<WorkspaceTarget>[] {
+  const platform = input.platform === "mac" ? "mac" : "other";
   const keyOf = (command: Command) =>
-    commandLabel(
-      command,
-      input.platform === "mac" ? "mac" : "other",
-      undefined,
-      input.keys,
-    ) ?? undefined;
+    commandLabel(command, platform, undefined, input.keys) ?? undefined;
+  const dynamicKeyOf = (id: string) =>
+    bindingLabel(id, platform, input.keys) ?? undefined;
+  const projectCommandEntries: PaletteEntry<WorkspaceTarget>[] = [];
+  for (const { command, run } of input.projectCommands ?? []) {
+    const running = run?.status === "starting" || run?.status === "running";
+    const runHint = dynamicKeyOf(projectCommandBindingId(command.id, "run"));
+    projectCommandEntries.push({
+      group: "actions",
+      key: `pcmd:run:${command.id}`,
+      label: t("project-commands.label.palette-run", { name: command.name }),
+      detail: command.command,
+      icon: "terminal",
+      ...(runHint ? { hint: runHint } : {}),
+      target: { kind: "project-command", id: command.id, action: "run" },
+    });
+    if (running) {
+      const stopHint = dynamicKeyOf(
+        projectCommandBindingId(command.id, "stop"),
+      );
+      const restartHint = dynamicKeyOf(
+        projectCommandBindingId(command.id, "restart"),
+      );
+      projectCommandEntries.push(
+        {
+          group: "actions",
+          key: `pcmd:stop:${command.id}`,
+          label: t("project-commands.label.palette-stop", {
+            name: command.name,
+          }),
+          icon: "terminal",
+          ...(stopHint ? { hint: stopHint } : {}),
+          target: { kind: "project-command", id: command.id, action: "stop" },
+        },
+        {
+          group: "actions",
+          key: `pcmd:restart:${command.id}`,
+          label: t("project-commands.label.palette-restart", {
+            name: command.name,
+          }),
+          icon: "terminal",
+          ...(restartHint ? { hint: restartHint } : {}),
+          target: {
+            kind: "project-command",
+            id: command.id,
+            action: "restart",
+          },
+        },
+      );
+    }
+  }
   const action = (
     name: WorkspaceAction,
     label: string,
@@ -108,6 +169,7 @@ function actions(input: WorkspaceScopeInput): PaletteEntry<WorkspaceTarget>[] {
     target: { kind: "action", action: name },
   });
   return [
+    ...projectCommandEntries,
     action(
       "home",
       t("common.button.palette-home"),

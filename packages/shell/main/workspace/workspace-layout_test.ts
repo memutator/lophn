@@ -39,7 +39,7 @@ test("옛 layouts/ 파일이 있어도 읽지 않고 workspace 파일이 없으�
   });
 });
 
-test("판 13 파일에서 공통 칸(machine, owner, handed_tab)이 없는 탭은 없이, 있는 탭은 그 칸과 함께 쓴 대로 읽힌다", async () => {
+test("판 14 파일에서 공통 칸(machine, owner, handed_tab)이 없는 탭은 없이, 있는 탭은 그 칸과 함께 쓴 대로 읽힌다", async () => {
   await withRoot(async (root) => {
     const store = createWorkspaceLayoutStore(root);
     const layout = {
@@ -85,7 +85,7 @@ test("판 13 파일에서 공통 칸(machine, owner, handed_tab)이 없는 탭�
     });
     assert.deepEqual(await store.read("home"), {
       ok: true,
-      value: { ok: true, layout: { schema_version: 13, ...layout } },
+      value: { ok: true, layout: { schema_version: 14, ...layout } },
     });
     // 꼴이 틀린 공통 칸은 저장하지 않는다.
     for (const field of ["machine", "owner", "handed_tab"]) {
@@ -130,7 +130,7 @@ test("터미널 탭은 harness가 없어도 읽히고 있으면 그대로 읽힌
     });
     assert.deepEqual(await store.read("home"), {
       ok: true,
-      value: { ok: true, layout: { schema_version: 13, ...layout } },
+      value: { ok: true, layout: { schema_version: 14, ...layout } },
     });
   });
 });
@@ -259,7 +259,7 @@ test("칸의 stack은 쓴 대로 읽히고, 보이던 tab의 kind가 빠져도 �
     });
     assert.deepEqual(await store.read("home"), {
       ok: true,
-      value: { ok: true, layout: { schema_version: 13, ...stacked } },
+      value: { ok: true, layout: { schema_version: 14, ...stacked } },
     });
 
     // 숨은 tab이 group 밖에 떨어져 있으면 저장하지 않는다.
@@ -275,7 +275,7 @@ test("칸의 stack은 쓴 대로 읽히고, 보이던 tab의 kind가 빠져도 �
     await writeFile(
       join(root, "shell", "workspaces", "home.json"),
       JSON.stringify({
-        schema_version: 13,
+        schema_version: 14,
         ...desk(
           [tab("/t.md"), gone, tab("/x.md"), tab("/a.md"), tab("/b.md")],
           { tab: "/c.md", stack: ["/a.md", "/b.md", "/c.md"] },
@@ -424,15 +424,16 @@ test("browser 탭의 keep_alive는 쓴 대로 읽히고 없는 옛 탭도 읽힌
     });
     assert.deepEqual(await store.read("home"), {
       ok: true,
-      value: { ok: true, layout: { schema_version: 13, ...layout } },
+      value: { ok: true, layout: { schema_version: 14, ...layout } },
     });
   });
 });
 
-test("터미널 명령(commands)은 쓴 대로 읽히고, 빈 값이나 모르는 필드는 거절한다", async () => {
+test("판 13 layout의 commands는 core 가져오기가 성공하면 판 14로 옮겨 지우고, 실패하면 판 13을 유지해 다음에 다시 시도한다", async () => {
   await withRoot(async (root) => {
-    const store = createWorkspaceLayoutStore(root);
-    const layout = {
+    const dir = join(root, "shell", "workspaces");
+    await mkdir(dir, { recursive: true });
+    const base = {
       active_desk: "_default",
       desks: {
         _default: {
@@ -446,22 +447,50 @@ test("터미널 명령(commands)은 쓴 대로 읽히고, 빈 값이나 모르�
       },
     };
     const commands = [{ id: "cmd_1", label: "Dev", command: "npm run dev" }];
-    assert.deepEqual(await store.write(PROJECT, { ...layout, commands }), {
+    const filePath = join(dir, `${PROJECT}.json`);
+    await writeFile(
+      filePath,
+      JSON.stringify({ schema_version: 13, ...base, commands }),
+    );
+
+    // 1. migrateCommands가 실패하면 판 13 파일과 commands를 그대로 유지한다.
+    let shouldSucceed = false;
+    const imported: { project: string; count: number }[] = [];
+    const store = createWorkspaceLayoutStore(root, {
+      async migrateCommands(project, list) {
+        if (!shouldSucceed) return false;
+        imported.push({ project, count: list.length });
+        return true;
+      },
+    });
+    const first = await store.read(PROJECT);
+    assert.ok(first.ok && first.value?.ok);
+    assert.equal(first.value.layout.schema_version, 14);
+    const onDiskFailed = JSON.parse(await readFile(filePath, "utf8"));
+    assert.equal(onDiskFailed.schema_version, 13);
+    assert.deepEqual(onDiskFailed.commands, commands);
+
+    // 실패 상태에서 write가 와도 판 13 commands가 사라지지 않는다.
+    assert.deepEqual(await store.write(PROJECT, base), {
       ok: true,
       value: null,
     });
-    const back = await store.read(PROJECT);
-    assert.ok(back.ok && back.value?.ok);
-    assert.deepEqual(back.value.layout.commands, commands);
+    const afterWriteFailed = JSON.parse(await readFile(filePath, "utf8"));
+    assert.equal(afterWriteFailed.schema_version, 13);
+    assert.deepEqual(afterWriteFailed.commands, commands);
 
-    for (const bad of [
-      [{ id: "cmd_1", label: "", command: "x" }],
-      [{ id: "cmd_1", label: "Dev", command: "" }],
-      [{ id: "cmd_1", label: "Dev", command: "x", extra: 1 }],
-    ]) {
-      const result = await store.write(PROJECT, { ...layout, commands: bad });
-      assert.ok(!result.ok && result.error.code === "invalid_input");
-    }
+    // 2. 다음 시도에서 성공하면 core로 옮기고 판 14로 저장해 commands를 지운다.
+    shouldSucceed = true;
+    const second = await store.read(PROJECT);
+    assert.ok(second.ok && second.value?.ok);
+    assert.deepEqual(imported, [{ project: PROJECT, count: 1 }]);
+    const onDiskMigrated = JSON.parse(await readFile(filePath, "utf8"));
+    assert.equal(onDiskMigrated.schema_version, 14);
+    assert.equal("commands" in onDiskMigrated, false);
+
+    // 3. 판 14 write는 commands 필드를 거절한다.
+    const rejected = await store.write(PROJECT, { ...base, commands });
+    assert.ok(!rejected.ok && rejected.error.code === "invalid_input");
   });
 });
 
@@ -494,7 +523,7 @@ test("leaf 하나의 bundle group은 label·group_id·collapsed와 함께 쓴 �
     });
     assert.deepEqual(await store.read("home"), {
       ok: true,
-      value: { ok: true, layout: { schema_version: 13, ...layout(bundle) } },
+      value: { ok: true, layout: { schema_version: 14, ...layout(bundle) } },
     });
     const single = await store.write(
       "home",
@@ -506,7 +535,7 @@ test("leaf 하나의 bundle group은 label·group_id·collapsed와 함께 쓴 �
     await writeFile(
       join(root, "shell", "workspaces", "home.json"),
       JSON.stringify({
-        schema_version: 13,
+        schema_version: 14,
         active_desk: "_default",
         desks: {
           _default: {

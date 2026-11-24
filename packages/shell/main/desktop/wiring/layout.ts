@@ -17,7 +17,29 @@ export function register(ctx: ShellContext, detached: Detached): Registered {
   const windowOf = (event: unknown) =>
     BrowserWindow.fromWebContents((event as { sender: WebContents }).sender);
 
-  const workspaceStore = createWorkspaceLayoutStore(dataRoot);
+  const LEGACY_ID = /^[a-z0-9][a-z0-9_-]{0,63}$/;
+  const workspaceStore = createWorkspaceLayoutStore(dataRoot, {
+    async migrateCommands(project, commands) {
+      const reply = await ctx.coreInternal(
+        "memory",
+        "project_commands",
+        "import",
+        {
+          project,
+          commands: commands.map((item) => {
+            const normalized = item.id.toLowerCase();
+            return {
+              ...(LEGACY_ID.test(normalized) ? { id: normalized } : {}),
+              name: item.label.trim() || item.id,
+              command: item.command,
+              kind: "action",
+            };
+          }),
+        },
+      );
+      return reply.ok;
+    },
+  });
   const globalFloats = createGlobalFloatsStore(dataRoot);
 
   // 앱이 영구히 지워지면 그 앱 workspace의 layout 파일과 전역 float을 지운다. 다른 workspace의 탭과 고정은

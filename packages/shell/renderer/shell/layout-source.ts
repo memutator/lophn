@@ -20,7 +20,6 @@ import {
   type Group,
   type GroupNode,
   MAIN_DESK,
-  type QuickCommand,
   settle,
   type TabItem,
   type WorkspaceLayout,
@@ -414,24 +413,12 @@ function quickFromStored(value: unknown): WorkspaceQuick | undefined {
   };
 }
 
-function commandsFromStored(value: unknown): QuickCommand[] | undefined {
-  if (!Array.isArray(value)) return undefined;
-  return value.flatMap((item: Stored | null) =>
-    typeof item?.id === "string" &&
-    typeof item.label === "string" &&
-    typeof item.command === "string"
-      ? [{ id: item.id, label: item.label, command: item.command }]
-      : [],
-  );
-}
-
 /** 저장된 layout을 읽는다. main이 이미 검증했다. 모양이 틀리거나 Main이 없으면 null이다. */
 export function layoutFromStored(value: unknown): WorkspaceLayout | null {
   const stored = value as {
     active_desk?: unknown;
     desks?: unknown;
     quick?: unknown;
-    commands?: unknown;
   } | null;
   if (typeof stored?.desks !== "object" || stored.desks === null) return null;
   const desks: Record<string, Desk> = {};
@@ -441,7 +428,6 @@ export function layoutFromStored(value: unknown): WorkspaceLayout | null {
   }
   if (!Object.hasOwn(desks, MAIN_DESK)) return null;
   const quick = quickFromStored(stored.quick);
-  const commands = commandsFromStored(stored.commands);
   return {
     active:
       typeof stored.active_desk === "string" &&
@@ -450,7 +436,6 @@ export function layoutFromStored(value: unknown): WorkspaceLayout | null {
         : MAIN_DESK,
     desks,
     ...(quick === undefined ? {} : { quick }),
-    ...(commands === undefined ? {} : { commands }),
   };
 }
 
@@ -502,11 +487,9 @@ export function layoutToStored(layout: WorkspaceLayout): {
   active_desk: string;
   desks: Record<string, Stored>;
   quick?: WorkspaceQuick;
-  commands?: readonly QuickCommand[];
 } {
   return {
     ...(layout.quick === undefined ? {} : { quick: layout.quick }),
-    ...(layout.commands === undefined ? {} : { commands: layout.commands }),
     active_desk: layout.active,
     desks: Object.fromEntries(
       Object.entries(layout.desks).map(([key, desk]) => [

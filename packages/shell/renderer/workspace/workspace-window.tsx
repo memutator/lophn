@@ -17,10 +17,15 @@ import { HARNESS_ADAPTERS } from "../../../protocol/coding-agent/harness-adapter
 import type { HarnessId } from "../../../protocol/coding-agent/harness-id.ts";
 import { HOME_TERMINAL_PROJECT } from "../../../protocol/coding-agent/terminals.ts";
 import { LOPHN_AGENT_NAME } from "../../../protocol/lophn-agent/agent-values.ts";
+import type {
+  ProjectCommand,
+  ProjectCommandRun,
+} from "../../../protocol/projects/project-commands.ts";
 import {
   APP_PANEL,
   type Command,
   KEYBINDINGS,
+  projectCommandBindingId,
 } from "../../../protocol/shell/keybindings.ts";
 import {
   type DetachedEvent,
@@ -80,7 +85,6 @@ import { launchKey } from "../desktop/settings/quick-launch/source.ts";
 import { useQuickPrefs } from "../desktop/settings/quick-launch/store.tsx";
 import type { ProjectsSource } from "../desktop/workspaces/projects/source.ts";
 import type { EditorDeps } from "../editor/document-view.tsx";
-import { workspaceIcons } from "../icons/mod.ts";
 import {
   type AgentChoice,
   AgentFaceIcon,
@@ -258,6 +262,17 @@ import { openWorkflow } from "./kinds/workflow.tsx";
 import { clampFloatRect, hostTabOf } from "./model.ts";
 import { NoticeCard } from "./notice-card.tsx";
 import { openTabWithGroup } from "./open-policy.ts";
+import {
+  type ProjectCommandActions,
+  ProjectCommandsList,
+} from "./project-commands/commands-menu.tsx";
+import { createProjectCommandsSource } from "./project-commands/source.ts";
+import {
+  isCommandActive,
+  type ProjectCommandGroup,
+  useProjectCommandsState,
+  useRemoteProjectCommandGroups,
+} from "./project-commands/use-project-commands.ts";
 import { pinId, shownQuickOrder } from "./project-settings/quick-launch.ts";
 import { openProjectLophn } from "./reactions/project-lophn.ts";
 import { useToastHandler } from "./reactions/toast-handler.ts";
@@ -1556,17 +1571,249 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
               const { quick: _old, ...rest } = latestLayout.current;
               commit(quick === undefined ? rest : { ...rest, quick });
             },
-            commands: layout.commands ?? [],
-            setCommands: (commands) => {
-              const { commands: _old, ...rest } = latestLayout.current;
-              commit(commands.length === 0 ? rest : { ...rest, commands });
-            },
+            agents: sidebarAgents.agents,
           },
   };
 
   // 이 창이 보이는 동안 toast 행동을 받는다. 처리기는 열 때의 최신 작업대를 본다.
   const hostRef = useRef(host);
   hostRef.current = host;
+
+  // Project commands: 정의·실행 상태, 같은 pri_ 원격 컴퓨터 묶음, action 실패 toast, 동적 단축키.
+  const windowCommands = useWindowCommands();
+  const [failedCommandToast, setFailedCommandToast] = useState<{
+    readonly runId: string;
+    readonly title: string;
+    readonly group: ProjectCommandGroup;
+    readonly cmd: ProjectCommand;
+    readonly run: ProjectCommandRun;
+  } | null>(null);
+  const seenFailedRuns = useRef<Set<string>>(new Set());
+  const localProjectCommands = useProjectCommandsState(
+    projectId !== null ? data : null,
+    projectId,
+    {
+      onRunEvent(run, cmd) {
+        if (
+          projectId === null ||
+          cmd?.kind !== "action" ||
+          (run.status !== "failed" && run.status !== "timed_out")
+        ) {
+          return;
+        }
+        if (seenFailedRuns.current.has(run.run_id)) return;
+        seenFailedRuns.current.add(run.run_id);
+        const title =
+          run.status === "timed_out"
+            ? t("project-commands.toast.timed-out", { name: cmd.name })
+            : t("project-commands.toast.failed", {
+                name: cmd.name,
+                code: run.exit_code ?? 1,
+              });
+        setFailedCommandToast({
+          runId: run.run_id,
+          title,
+          group: {
+            machine: machine,
+            projectId,
+            commands: [cmd],
+            runs: new Map([[cmd.id, run]]),
+            canRun: true,
+          },
+          cmd,
+          run,
+        });
+      },
+    },
+  );
+  const remoteCommandGroups = useRemoteProjectCommandGroups(
+    data.here && projectId !== null ? (loaded.project?.identity ?? null) : null,
+    machineLists,
+  );
+  const projectCommandGroups = useMemo((): readonly ProjectCommandGroup[] => {
+    if (projectId === null) return [];
+    const localGroup: ProjectCommandGroup = {
+      machine,
+      projectId,
+      commands: localProjectCommands.commands,
+      runs: localProjectCommands.runs,
+      canRun: localProjectCommands.canRun,
+    };
+    return [localGroup, ...remoteCommandGroups];
+  }, [
+    projectId,
+    machine,
+    localProjectCommands.commands,
+    localProjectCommands.runs,
+    localProjectCommands.canRun,
+    remoteCommandGroups,
+  ]);
+  const openCommandTerminal = useCallback(
+    (
+      group: ProjectCommandGroup,
+      cmd: ProjectCommand,
+      run: ProjectCommandRun,
+    ) => {
+      if (run.terminal_id === null) return;
+      const key = `project-cmd-${group.machine ?? "local"}-${group.projectId}-${cmd.id}`;
+      const existing = allTabs(latestLayout.current).find(
+        (tab) => tab.key === key,
+      );
+      const targetMachine = group.machine ?? undefined;
+      if (existing !== undefined) {
+        const currentRef = existing.fields?.terminal;
+        if (currentRef !== run.terminal_id) {
+          machineData(group.machine).terminal?.store.adopt(key, {
+            terminalRef: run.terminal_id,
+            generation: 0,
+            folderRef: null,
+          });
+          patchTab(key, (cur) => ({
+            title: cmd.name,
+            fields: {
+              ...cur.fields,
+              terminal: run.terminal_id,
+              dedicated: true,
+              name: cmd.name,
+            },
+          }));
+        }
+        update((item) => selectTab(item, key));
+        focusTabBody(key);
+        return;
+      }
+      openTerminalTab(hostRef.current, {
+        terminal: run.terminal_id,
+        dedicated: true,
+        title: cmd.name,
+        docked: true,
+        open: { key },
+        ...(targetMachine === undefined ? {} : { machine: targetMachine }),
+      });
+    },
+    [machineData, patchTab, update],
+  );
+  const openCommandPreview = useCallback(
+    (_group: ProjectCommandGroup, url: string) => {
+      const existing = latestDesk().tabs.find(
+        (tab) => tab.kind === "browser" && tab.fields?.url === url,
+      );
+      if (existing !== undefined) {
+        update((item) => selectTab(item, existing.key));
+        focusTabBody(existing.key);
+        return;
+      }
+      openBrowserTab(hostRef.current, url);
+    },
+    [update],
+  );
+  const openManageCommands = useCallback(() => {
+    openProjectSettings(hostRef.current);
+    requestAnimationFrame(() => {
+      document
+        .querySelector('[data-section="commands"]')
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, []);
+  const projectCommandActions = useMemo((): ProjectCommandActions => {
+    const sourceOf = (group: ProjectCommandGroup) =>
+      createProjectCommandsSource(machineData(group.machine).core);
+    return {
+      onRun: (group, cmd) => void sourceOf(group).run(group.projectId, cmd.id),
+      onStop: (group, cmd) =>
+        void sourceOf(group).stop(group.projectId, { command: cmd.id }),
+      onStopAll: (group) =>
+        void sourceOf(group).stop(group.projectId, { all: true }),
+      onRestart: (group, cmd) =>
+        void sourceOf(group).restart(group.projectId, cmd.id),
+      onViewTerminal: openCommandTerminal,
+      onOpenPreview: openCommandPreview,
+      ...(data.here && projectId !== null
+        ? { onManage: openManageCommands }
+        : {}),
+    };
+  }, [
+    machineData,
+    openCommandTerminal,
+    openCommandPreview,
+    openManageCommands,
+    data.here,
+    projectId,
+  ]);
+  // 동적 command(`project-command.<id>.(run|stop|restart)`): 기본 단축키는 없고 Settings › Keyboard에서 바인딩한다.
+  const projectCommandsRef = useRef(localProjectCommands);
+  projectCommandsRef.current = localProjectCommands;
+  const commandIdsSignature = localProjectCommands.commands
+    .map((c) => `${c.id}:${c.name}`)
+    .join("\n");
+  useEffect(() => {
+    if (windowCommands === null || projectId === null) return;
+    const sourceLabel = loaded.project?.title ?? "Project commands";
+    const disposables: { dispose(): void }[] = [];
+    const cmdSource = createProjectCommandsSource(data.core);
+    for (const cmd of projectCommandsRef.current.commands) {
+      const runId = projectCommandBindingId(cmd.id, "run");
+      const stopId = projectCommandBindingId(cmd.id, "stop");
+      const restartId = projectCommandBindingId(cmd.id, "restart");
+      disposables.push(
+        windowCommands.contribute({
+          id: runId,
+          title: t("project-commands.label.palette-run", { name: cmd.name }),
+          other: [],
+          mac: [],
+          source: sourceLabel,
+        }),
+        windowCommands.contribute({
+          id: stopId,
+          title: t("project-commands.label.palette-stop", { name: cmd.name }),
+          other: [],
+          mac: [],
+          source: sourceLabel,
+        }),
+        windowCommands.contribute({
+          id: restartId,
+          title: t("project-commands.label.palette-restart", {
+            name: cmd.name,
+          }),
+          other: [],
+          mac: [],
+          source: sourceLabel,
+        }),
+        windowCommands.registry.register(runId, () => {
+          void cmdSource.run(projectId, cmd.id);
+        }),
+        windowCommands.registry.register(
+          stopId,
+          () => {
+            void cmdSource.stop(projectId, { command: cmd.id });
+          },
+          {
+            when: () =>
+              isCommandActive(projectCommandsRef.current.runs.get(cmd.id)),
+          },
+        ),
+        windowCommands.registry.register(
+          restartId,
+          () => {
+            void cmdSource.restart(projectId, cmd.id);
+          },
+          {
+            when: () =>
+              isCommandActive(projectCommandsRef.current.runs.get(cmd.id)),
+          },
+        ),
+      );
+    }
+    return () => {
+      for (const d of disposables) d.dispose();
+    };
+  }, [
+    windowCommands,
+    projectId,
+    commandIdsSignature,
+    data.core,
+    loaded.project?.title,
+  ]);
   const sessionsRef = useRef(sessionStates);
   sessionsRef.current = sessionStates;
   const agentsRef = useRef(sidebarAgents.agents);
@@ -2210,7 +2457,6 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
 
   // 창 팔레트의 작업대 행. 고르면 이 작업대 안의 대상으로만 간다.
   const palette = usePaletteEnv();
-  const windowCommands = useWindowCommands();
   const selectKey = (key: string) => {
     update((item) => selectTab(item, key));
     focusTabBody(key);
@@ -2294,6 +2540,13 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
       desk,
       files: loaded.files,
       bookmarks: bookmarkList.state === "ok" ? bookmarkList.bookmarks : [],
+      projectCommands:
+        projectId === null
+          ? []
+          : localProjectCommands.commands.map((command) => ({
+              command,
+              run: localProjectCommands.runs.get(command.id),
+            })),
       terminal: terminal !== undefined,
       platform: palette.platform,
       keys: windowCommands?.overrides() ?? {},
@@ -2308,21 +2561,33 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
         if (target.kind === "tab") selectKey(target.key);
         else if (target.kind === "document") openDocumentRow(target.document);
         else if (target.kind === "bookmark") openBrowserTab(host, target.url);
-        else if (target.action === "home") onHome();
-        else if (target.action === "settings") onSettings();
-        else if (target.action === "project-settings") {
-          openProjectSettings(host);
-        } else if (target.action === "terminal") openTerminalTab(host);
-        else if (target.action === "float") {
-          const tab = focusTab(latestDesk());
-          if (tab !== undefined) floatByKey(tab.key);
-        } else if (target.action === "dock") {
-          const top = topFloat(latestDesk());
-          if (top !== undefined) update((item) => dockFloat(item, top.tab.key));
-        } else if (target.action === "minimize") {
-          const top = topFloat(latestDesk());
-          if (top !== undefined) {
-            update((item) => minimizeFloat(item, top.tab.key));
+        else if (target.kind === "project-command" && projectId !== null) {
+          const cmdSource = createProjectCommandsSource(data.core);
+          if (target.action === "run") {
+            void cmdSource.run(projectId, target.id);
+          } else if (target.action === "stop") {
+            void cmdSource.stop(projectId, { command: target.id });
+          } else if (target.action === "restart") {
+            void cmdSource.restart(projectId, target.id);
+          }
+        } else if (target.kind === "action") {
+          if (target.action === "home") onHome();
+          else if (target.action === "settings") onSettings();
+          else if (target.action === "project-settings") {
+            openProjectSettings(host);
+          } else if (target.action === "terminal") openTerminalTab(host);
+          else if (target.action === "float") {
+            const tab = focusTab(latestDesk());
+            if (tab !== undefined) floatByKey(tab.key);
+          } else if (target.action === "dock") {
+            const top = topFloat(latestDesk());
+            if (top !== undefined)
+              update((item) => dockFloat(item, top.tab.key));
+          } else if (target.action === "minimize") {
+            const top = topFloat(latestDesk());
+            if (top !== undefined) {
+              update((item) => minimizeFloat(item, top.tab.key));
+            }
           }
         }
       },
@@ -3448,13 +3713,18 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
               }
             },
           })),
-          terminalCommands: (layout.commands ?? []).map((item) => ({
-            id: item.id,
-            label: item.label,
-            leading: <Icon icon={workspaceIcons.terminal} pixels={16} />,
-            onSelect: () =>
-              openTerminalTab(host, { command: item.command, docked: true }),
-          })),
+          ...(projectId === null
+            ? {}
+            : {
+                terminalCommandsContent: (
+                  <ProjectCommandsList
+                    heading={t("left-sidebar.heading.commands")}
+                    groups={projectCommandGroups}
+                    actions={projectCommandActions}
+                    showEmpty
+                  />
+                ),
+              }),
         }),
     ...(browserApi === null
       ? {}
@@ -3609,7 +3879,17 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
                           })}
                       {...(terminal === undefined
                         ? {}
-                        : { onTerminal: () => openTerminalTab(host) })}
+                        : {
+                            onTerminal: () => openTerminalTab(host),
+                            ...(projectId === null
+                              ? {}
+                              : {
+                                  terminalSubmenu: {
+                                    groups: projectCommandGroups,
+                                    actions: projectCommandActions,
+                                  },
+                                }),
+                          })}
                       {...(browserApi === null
                         ? {}
                         : {
@@ -3677,9 +3957,10 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
                     : { terminal: windowTerminal })}
                   selected={selectedSessionKey}
                   canTerminal={terminal !== undefined}
-                  {...(layout.commands === undefined
-                    ? {}
-                    : { commands: layout.commands })}
+                  activeProjectCommandGroups={projectCommandGroups}
+                  projectCommandActions={projectCommandActions}
+                  onCommandTerminal={openCommandTerminal}
+                  onCommandPreview={openCommandPreview}
                   onNewSession={() => void openLophn()}
                   {...(props.onNewSessionAt === undefined
                     ? {}
@@ -3925,15 +4206,45 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
               onClose={() => setTabMenu(null)}
             />
           )}
-          {handFailed === 0 ? null : (
+          {handFailed === 0 && failedCommandToast === null ? null : (
             <ToastStack>
-              <Toast
-                key={handFailed}
-                title={t("shell.toast.tab-hand-failed")}
-                tone="error"
-                duration="brief"
-                onClose={() => setHandFailed(0)}
-              />
+              {handFailed === 0 ? null : (
+                <Toast
+                  key={handFailed}
+                  title={t("shell.toast.tab-hand-failed")}
+                  tone="error"
+                  duration="brief"
+                  onClose={() => setHandFailed(0)}
+                />
+              )}
+              {failedCommandToast === null ? null : (
+                <Toast
+                  key={failedCommandToast.runId}
+                  title={failedCommandToast.title}
+                  tone="error"
+                  actions={
+                    failedCommandToast.run.terminal_id === null
+                      ? []
+                      : [
+                          {
+                            id: "view-terminal",
+                            label: t("project-commands.button.view-terminal"),
+                          },
+                        ]
+                  }
+                  onAction={(actionId) => {
+                    if (actionId === "view-terminal") {
+                      openCommandTerminal(
+                        failedCommandToast.group,
+                        failedCommandToast.cmd,
+                        failedCommandToast.run,
+                      );
+                      setFailedCommandToast(null);
+                    }
+                  }}
+                  onClose={() => setFailedCommandToast(null)}
+                />
+              )}
             </ToastStack>
           )}
         </div>

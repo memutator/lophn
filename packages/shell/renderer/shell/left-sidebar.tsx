@@ -16,8 +16,8 @@ import {
 import { Button, Icon, IconButton } from "@lophn/ui/primitives";
 import type { LucideIcon } from "lucide-react";
 import {
-  type PointerEvent,
   Fragment,
+  type PointerEvent,
   type ReactElement,
   type ReactNode,
   useContext,
@@ -25,14 +25,16 @@ import {
   useRef,
   useState,
 } from "react";
-
+import { appPanelBindingId } from "../../../protocol/shell/keybindings.ts";
 import { AppTabIcon } from "../app-frame/app-icon.tsx";
 import { useKeyLabel } from "../commands/react.tsx";
-import { appPanelBindingId } from "../../../protocol/shell/keybindings.ts";
-import { tabKindOf } from "../workspace/kinds/registry.ts";
 import { WaitingLayer } from "../desktop/connection/waiting/waiting-layer.tsx";
 import { JobsLayer } from "../desktop/jobs/jobs-layer.tsx";
 import type { JobsSource } from "../desktop/jobs/source.ts";
+import {
+  type Handoffs,
+  useHandoffs,
+} from "../desktop/workspaces/projects/handoff-source.ts";
 import {
   actionIcons,
   browserIcons,
@@ -44,17 +46,21 @@ import {
   workspaceIcons,
 } from "../icons/mod.ts";
 import {
-  AgentFaceIcon,
   type AgentChoice,
+  AgentFaceIcon,
 } from "../parts/agent-session/agent-session.tsx";
+import { TabStateDot } from "../parts/tab-state-dot/tab-state-dot.tsx";
+import { HandSessionsContext } from "../workspace/hand.ts";
+import { tabKindOf } from "../workspace/kinds/registry.ts";
+import { HandoffRow } from "../workspace/sidebar/handoff-row.tsx";
 import {
   agentSections,
   type HoverSection,
   Keyed,
   sectionHeading,
 } from "./agent-sections.tsx";
-import { TabStateDot } from "../parts/tab-state-dot/tab-state-dot.tsx";
-import { workspaceKey, type WorkspaceRef } from "./desk-model.ts";
+import { type WorkspaceRef, workspaceKey } from "./desk-model.ts";
+import styles from "./left-sidebar.module.css";
 import {
   type SidebarSession,
   type SidebarTab,
@@ -63,18 +69,11 @@ import {
   withChildren,
 } from "./left-sidebar-model.ts";
 import {
-  type Handoffs,
-  useHandoffs,
-} from "../desktop/workspaces/projects/handoff-source.ts";
-import { HandoffRow } from "../workspace/sidebar/handoff-row.tsx";
-import styles from "./left-sidebar.module.css";
-import {
   HoverList,
   type QuickLaunch,
   QuickLaunchRow,
 } from "./quick-launch.tsx";
 import { useRemembered } from "./sidebar-memory.tsx";
-import { HandSessionsContext } from "../workspace/hand.ts";
 
 export interface LeftSidebarProps {
   workspaces: readonly SidebarWorkspace[];
@@ -135,6 +134,14 @@ export interface LeftSidebarProps {
   onWorkspaceMenu?: (workspace: SidebarWorkspace, id: string) => void;
   /** workspace 줄 아래 한 줄(menu에서 시작한 clone의 진행과 결과). */
   renderNote?: (workspace: SidebarWorkspace) => ReactNode;
+  /** project 줄의 + hover 목록 아래에 붙이는 Commands 공용 목록. */
+  commandsPopover?: (workspace: WorkspaceRef) => ReactNode;
+  /** project 줄에 도는 명령 수·실패 표시. 누르면 같은 공용 목록이 뜬다. */
+  commandsIndicator?: (workspace: WorkspaceRef) => {
+    readonly running: number;
+    readonly failed: boolean;
+    readonly content: ReactNode;
+  } | null;
   /**
    * 줄을 누른 채 끌기 시작. 탭 줄과 같은 pointer 끌기(tab-drag.tsx)라 화면(탭 줄, 칸)이나 다른 workspace 줄(`data-drop-workspace`)에
    * 놓는다. 없으면 줄을 끌 수 없다.
@@ -413,6 +420,8 @@ export function LeftSidebar({
   workspaceMenu,
   onWorkspaceMenu,
   renderNote,
+  commandsPopover,
+  commandsIndicator,
   onRowDrag,
 }: LeftSidebarProps) {
   const nameOf = (machine: string | undefined) =>
@@ -775,6 +784,32 @@ export function LeftSidebar({
                 : workspace.name}
             </span>
           </button>
+          {(() => {
+            if (workspace.offline || commandsIndicator === undefined)
+              return null;
+            const indicator = commandsIndicator(workspace.ref);
+            if (indicator === null) return null;
+            return (
+              <Popover
+                trigger={
+                  <button
+                    type="button"
+                    className={styles.commandIndicator}
+                    data-command-indicator={key}
+                    data-failed={indicator.failed ? "" : undefined}
+                    aria-label={t("left-sidebar.heading.commands")}
+                  >
+                    <span className={styles.commandIndicatorDot} />
+                    {indicator.running > 0 ? (
+                      <span>{indicator.running}</span>
+                    ) : null}
+                  </button>
+                }
+              >
+                {indicator.content}
+              </Popover>
+            );
+          })()}
           {/* Project settings는 이 컴퓨터만, App details는 다른 기계의 앱도 연다(오프라인 제외). */}
           {((workspace.ref.kind === "project" &&
             workspace.ref.machine === undefined) ||
@@ -805,6 +840,7 @@ export function LeftSidebar({
                   newSessionKeys,
                   (choice) => onNewSessionWith(choice, workspace.ref),
                 )}
+                extraContent={commandsPopover?.(workspace.ref)}
                 tip={
                   here && newSessionKeys !== null ? (
                     <Keyed

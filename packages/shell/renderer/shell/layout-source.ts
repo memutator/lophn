@@ -1,7 +1,7 @@
 // renderer가 workspace layout을 읽고 쓰는 통로. main의 `shell:workspace-layout-*` IPC(preload의 lophnLayout)를 감싸고
 // 저장된 snake_case 값과 WorkspaceLayout을 오간다. tab 값은 kinds registry의 fromStored/toStored가 정한다.
 // tab 읽기·쓰기 보조는 옛 workspace/layout-map.ts와 같은 규칙이다(그 파일은 옛 layout을 지울 때 같이 없어진다).
-// 저장하지 않는 kind(Agent 탭)의 탭은 파일에 없고, 이 창이 workspace마다 마지막으로 읽거나 쓴 layout을 메모리에 들고 있다가
+// 저장하지 않는 kind(Agent·터미널 탭)의 탭은 파일에 없고, 이 창이 workspace마다 마지막으로 읽거나 쓴 layout을 메모리에 들고 있다가
 // 파일이 그 layout 그대로일 때 돌려준다(아래 createLayoutSource). 창을 닫거나 다시 켜면 사라진다.
 // 탭 공통 칸은 kind마다가 아니라 탭 값에 바로 붙는다: 탭이 보는 기계 `TabItem.machine` → `machine`(없으면 그 workspace의 기계),
 // 주인 session `TabItem.owner` → `owner`(없으면 사람), 넘긴 browser 탭의 core 탭 id `TabItem.handedTab` → `handed_tab`.

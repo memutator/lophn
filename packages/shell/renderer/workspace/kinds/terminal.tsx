@@ -1,5 +1,5 @@
-// terminal 탭 kind. 시작 폴더와 터미널 참조를 남긴다. 터미널은 core가 갖고 앱을 꺼도 돌므로, 다시 켠 앱의 탭은 그 터미널이 아직
-// 살아 있으면 붙고 없으면 새 shell을 연다.
+// terminal 탭 kind. 저장하지 않는다(fromStored·toStored가 없다): 탭은 이 창 메모리(layout-source의 창 메모리)에만
+// 살고 앱을 다시 켜면 layout에서 복원하지 않는다.
 
 import { t } from "@lophn/i18n";
 import type { ReactNode } from "react";
@@ -25,8 +25,6 @@ import type { SessionTabOpen } from "./agent.tsx";
 import { openFile } from "./document-editor.tsx";
 import type { TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
-
-const TAB_KEY = /^[A-Za-z0-9._:-]+$/;
 
 let terminalCount = 0;
 
@@ -429,6 +427,7 @@ export const terminalKind: TabKindDef = {
   icon: workspaceIcons.terminal,
   paletteIcon: "terminal",
   noReopen: true,
+  noGlobal: (tab) => tab.fields?.dedicated === true,
   iconOf: agentTabIcon,
   dotOf: agentTabDot,
   titleOf(tab, host) {
@@ -452,69 +451,6 @@ export const terminalKind: TabKindDef = {
     if (terminal !== undefined && project !== null) {
       pinAgentSessionName(terminal, project, tab.key, person);
     }
-  },
-  fromStored(stored, { key }) {
-    const person = typeof stored.name === "string" ? stored.name : null;
-    const folder = stored.project_folder;
-    if (typeof folder !== "string" || folder.length < 1) return null;
-    const auto = typeof stored.title === "string" ? stored.title : "";
-    return {
-      key,
-      kind: "terminal",
-      title: person ?? auto,
-      folder,
-      fields: {
-        auto,
-        ...(person === null ? {} : { name: person }),
-        ...(typeof stored.harness === "string"
-          ? { harness: stored.harness }
-          : {}),
-        ...(typeof stored.agent_title === "string"
-          ? { agentTitle: stored.agent_title }
-          : {}),
-        ...(typeof stored.agent_session === "string"
-          ? { agentSession: stored.agent_session }
-          : {}),
-        ...(typeof stored.terminal_ref === "string"
-          ? { terminal: stored.terminal_ref }
-          : {}),
-      },
-    };
-  },
-  toStored(tab) {
-    // project command 전용 터미널은 일반 터미널 탭 복원 목록에 넣지 않는다.
-    if (tab.fields?.dedicated === true) return null;
-    if (
-      tab.folder === undefined ||
-      tab.folder.length < 1 ||
-      tab.folder.length > 4096 ||
-      !TAB_KEY.test(tab.key)
-    )
-      return null;
-    const auto = autoOf(tab);
-    const person = personOf(tab);
-    const harness = harnessOf(tab);
-    // 기억한 session 이름은 탭의 지금 이름에서 다시 만들지 않고 그대로 남긴다. 지금 이름으로 만들면 이름이 잠깐 자동
-    // 이름인 순간의 저장이 기억을 지운다.
-    const remembered = rememberedOf(tab);
-    const terminal = terminalRefOf(tab);
-    return {
-      kind: "terminal",
-      key: tab.key,
-      project_folder: tab.folder,
-      ...(terminal === null ? {} : { terminal_ref: terminal }),
-      ...(auto.length < 1 ? {} : { title: auto.slice(0, 200) }),
-      ...(person === null ? {} : { name: person.slice(0, 200) }),
-      ...(harness === null ? {} : { harness }),
-      ...(remembered === null
-        ? {}
-        : {
-            agent_title: remembered.title.slice(0, 200),
-            ...(remembered.session === null
-              ? {}
-              : { agent_session: remembered.session.slice(0, 200) }),
-          }),
-    };
   },
   // PTY는 core가 쥐고 있어 참조만 넘긴다. 받는 창이 snapshot을 0부터 받아 다시 그린다.
   // 보내는 창의 store 항목은 보내기가 실패해 탭이 남을 수 있어 지우지 않는다.

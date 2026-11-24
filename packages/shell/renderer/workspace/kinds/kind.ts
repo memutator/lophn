@@ -74,7 +74,7 @@ export interface TabKindDef {
    * layout 파일 탭을 화면 탭으로 읽는다. 대상 필드가 맞지 않으면 null이고 그 탭만 빠진다.
    * key는 검증을 마친 값이고 position은 읽어 둔 읽던 위치다.
    * `fromStored`와 `toStored`가 둘 다 없는 kind는 저장하지 않는다: 탭이 이 창 메모리에만 살고 layout 파일(desk 탭 줄,
-   * float, detached, 전역 float)에는 어디에도 남지 않는다(Agent 탭). 둘은 같이 있거나 같이 없다.
+   * float, detached, 전역 float)에는 어디에도 남지 않는다(Agent·터미널 탭). 둘은 같이 있거나 같이 없다.
    */
   fromStored?(
     stored: Readonly<Record<string, unknown>>,

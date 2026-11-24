@@ -99,7 +99,7 @@ test("판 14 파일에서 공통 칸(machine, owner, handed_tab)이 없는 탭�
   });
 });
 
-test("터미널 탭은 harness가 없어도 읽히고 있으면 그대로 읽힌다", async () => {
+test("터미널 탭은 저장하지 않고, 옛 파일에 남아 있어도 읽을 때 건너뛰고 배치를 고친다", async () => {
   await withRoot(async (root) => {
     const store = createWorkspaceLayoutStore(root);
     const terminal = (key: string, extra: object = {}) => ({
@@ -108,29 +108,72 @@ test("터미널 탭은 harness가 없어도 읽히고 있으면 그대로 읽힌
       project_folder: "/work",
       ...extra,
     });
-    const layout = {
+    const withTerminal = {
       active_desk: "_default",
       desks: {
         _default: {
           label: "Main",
-          tabs: [
-            terminal("t-plain"),
-            terminal("t-agent", { harness: "claude" }),
-          ],
+          tabs: [terminal("t-plain"), tab("/a.md"), tab("/b.md")],
           selected_tab: "t-plain",
-          groups: [],
-          floats: [],
-          detached: [],
+          groups: [
+            {
+              layout: {
+                dir: "row",
+                ratio: 0.5,
+                a: { tab: "t-plain" },
+                b: { tab: "/a.md", stack: ["/a.md", "/b.md"] },
+              },
+              focus: "t-plain",
+            },
+          ],
+          floats: [
+            {
+              tab: terminal("t-float"),
+              rect: { x: 10, y: 20, width: 400, height: 300 },
+              minimized: false,
+            },
+          ],
+          detached: [
+            {
+              tab: terminal("t-det"),
+              bounds: { x: 10, y: 20, width: 400, height: 300 },
+            },
+          ],
         },
       },
     };
-    assert.deepEqual(await store.write("home", layout), {
-      ok: true,
-      value: null,
-    });
+    assert.equal((await store.write("home", withTerminal)).ok, false);
+
+    // 옛 판 파일에 터미널 탭이 남아 있어도 깨지지 않고 터미널만 걷어내어 읽는다.
+    await mkdir(join(root, "shell", "workspaces"), { recursive: true });
+    await writeFile(
+      join(root, "shell", "workspaces", "home.json"),
+      JSON.stringify({ schema_version: 14, ...withTerminal }),
+    );
     assert.deepEqual(await store.read("home"), {
       ok: true,
-      value: { ok: true, layout: { schema_version: 14, ...layout } },
+      value: {
+        ok: true,
+        layout: {
+          schema_version: 14,
+          active_desk: "_default",
+          desks: {
+            _default: {
+              label: "Main",
+              tabs: [tab("/a.md"), tab("/b.md")],
+              selected_tab: "/a.md",
+              groups: [
+                {
+                  layout: { tab: "/a.md", stack: ["/a.md", "/b.md"] },
+                  focus: "/a.md",
+                },
+              ],
+              floats: [],
+              detached: [],
+            },
+          },
+        },
+      },
     });
   });
 });

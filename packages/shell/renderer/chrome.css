@@ -31,20 +31,6 @@ samp,
   user-select: text;
 }
 
-/* modal(overlay view의 dialog·palette, 화면 안의 project 고르기)은 창의 위쪽 줄 아래만 덮는다. 위쪽 줄(top bar)은
-   여기서 같은 scrim을 덮고, 그동안 창 끌기를 꺼 scrim 자리를 끌어도 창이 움직이지 않는다. */
-:root:is([data-overlay-modal], [data-page-modal]) body::after {
-  content: "";
-  position: fixed;
-  top: var(--space-0);
-  right: var(--space-0);
-  left: var(--space-0);
-  height: var(--window-top-bar);
-  background: var(--floating-backdrop);
-  pointer-events: none;
-  z-index: var(--z-backdrop);
-}
-
 /* secret 보호 창(별도 child 창)이 열린 동안 이 창은 입력을 받지 못한다. 창 전체를 덮어 그것을 보인다. */
 :root[data-secret-modal] body::after {
   content: "";
@@ -56,7 +42,9 @@ samp,
   z-index: var(--z-tooltip);
 }
 
-:root:is([data-overlay-modal], [data-page-modal], [data-secret-modal], [data-tab-dragging]) * {
+/* overlay modal(dialog·palette)은 overlay view가 상단 바까지 한 번에 덮는다. 여기서는 상단 바 끌기만 꺼
+   Windows·Linux의 비클라이언트 영역 판정이 모달 위에서 창을 끌지 않게 한다. */
+:root:is([data-overlay-modal], [data-secret-modal], [data-tab-dragging]) * {
   -webkit-app-region: no-drag;
   app-region: no-drag;
 }

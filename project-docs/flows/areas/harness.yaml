@@ -3096,9 +3096,9 @@ flows:
       - packages/core/terminals/cwd.ts
       - packages/core/terminals/host/main.ts
     steps:
-      - "탭이 처음 그려질 때 layout에 남은 터미널 참조가 없으면 renderer가 `terminals/open`에 project와 folder_ref나 cwd, 한 번 칠 resume·command를 보낸다(terminals-open)"
+      - "탭이 처음 그려질 때 탭에 붙을 터미널 참조가 없으면 renderer가 `terminals/open`에 project와 folder_ref나 cwd, 한 번 칠 resume·command를 보낸다(terminals-open)"
       - "core가 등록 폴더 안인지 보고 host에 PTY를 띄운다. 거절은 `details.reason`(no_folder, not_directory, unreadable, spawn_failed, host_lost)으로 오고 탭은 그 이유의 문구를 보인다"
-      - "열리면 탭이 답의 터미널 참조를 store와 탭 layout(`terminal_ref`)에 남긴다. 앱을 다시 켜면 그 터미널이 `terminals/list`에 살아 있을 때 새로 열지 않고 붙는다"
+      - "열리면 탭이 답의 터미널 참조를 store와 창 메모리 탭 값에 남긴다. 터미널 탭은 layout 파일에 저장하지 않아 앱을 다시 켜면 복원하지 않고, 같은 실행에서 workspace를 오가는 동안만 유지한다"
     outcomes:
       - id: opened
         observe: [process:pty-shell, response, screen:project-terminal]

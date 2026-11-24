@@ -36,9 +36,9 @@ test("쓴 전역 float 목록이 그대로 읽히고, 틀린 파일이나 다른
       {
         workspace: { kind: "project", id: PRJ, machine: MACHINE },
         tab: {
-          kind: "terminal",
-          key: "terminal-0",
-          project_folder: "/work",
+          kind: "document_editor",
+          key: "/work/a.md",
+          path: "/work/a.md",
           machine: MACHINE,
         },
         rect: RECT,
@@ -47,9 +47,9 @@ test("쓴 전역 float 목록이 그대로 읽히고, 틀린 파일이나 다른
       {
         workspace: { kind: "project", id: PRJ },
         tab: {
-          kind: "terminal",
-          key: "terminal-1",
-          project_folder: "/work",
+          kind: "document_editor",
+          key: "/work/b.md",
+          path: "/work/b.md",
         },
         rect: RECT,
         minimized: true,
@@ -59,11 +59,20 @@ test("쓴 전역 float 목록이 그대로 읽히고, 틀린 파일이나 다른
     assert.deepEqual(await store.write(floats), { ok: true, value: null });
     assert.deepEqual(await store.read(), floats);
 
-    // 모양이 틀린 값은 쓰지 않고 파일을 그대로 둔다.
+    // 모양이 틀린 값과 저장하지 않는 kind(터미널)는 쓰지 않고 파일을 그대로 둔다.
     const bad = await store.write([
       { workspace: HOME, tab: { kind: "nope", key: "x" }, rect: RECT },
     ]);
     assert.equal(bad.ok, false);
+    const withTerminal = await store.write([
+      {
+        workspace: { kind: "project", id: PRJ },
+        tab: { kind: "terminal", key: "terminal-1", project_folder: "/work" },
+        rect: RECT,
+        minimized: false,
+      },
+    ]);
+    assert.equal(withTerminal.ok, false);
     assert.deepEqual(await store.read(), floats);
 
     const file = join(root, "shell", "global-floats.json");
@@ -72,11 +81,20 @@ test("쓴 전역 float 목록이 그대로 읽히고, 틀린 파일이나 다른
     await writeFile(file, JSON.stringify({ schema_version: 1, floats }));
     assert.deepEqual(await store.read(), []);
 
-    // 모르는 kind 하나가 나머지 float을 막지 않는다.
+    // 모르는 kind와 옛 파일의 터미널 float은 건너뛰고 나머지 float은 읽는다.
     const unknown = { ...floats[0], tab: { kind: "nope", key: "x" } };
+    const legacyTerminal = {
+      workspace: { kind: "project", id: PRJ },
+      tab: { kind: "terminal", key: "terminal-1", project_folder: "/work" },
+      rect: RECT,
+      minimized: false,
+    };
     await writeFile(
       file,
-      JSON.stringify({ schema_version: 4, floats: [unknown, floats[1]] }),
+      JSON.stringify({
+        schema_version: 4,
+        floats: [unknown, legacyTerminal, floats[1]],
+      }),
     );
     assert.deepEqual(await store.read(), [floats[1]]);
     // 판 3은 core의 data step이 올리기 전에는 읽지 않는다.

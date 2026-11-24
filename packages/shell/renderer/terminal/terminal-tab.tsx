@@ -38,14 +38,14 @@ import { resolvePath } from "./path-links.ts";
 interface TerminalTabProps {
   tabKey: string;
   project: string;
-  /** layout에 남은 시작 폴더. 복원한 탭이 새 shell을 열 때 쓴다. */
+  /** 탭에 남은 시작 폴더. 새 shell을 열 때 쓴다. */
   folderRef: string | null;
-  /** layout에 남은 터미널 참조. 다시 켠 앱의 탭이 그 터미널이 아직 살아 있으면 붙는다. */
+  /** 탭에 남은 터미널 참조. core에 이미 살아 있는 터미널에 붙을 때 쓴다. */
   attach: string | null;
   /** focus 칸의 고른 탭이다. 이때만 입력을 보낸다. resize는 보이는 한 칸 크기를 따른다. */
   active: boolean;
   deps: TerminalDeps;
-  /** 시작한 폴더와 터미널 참조를 탭 제목과 layout에 남긴다. */
+  /** 시작한 폴더와 터미널 참조를 탭 제목과 탭 값에 남긴다. */
   onStarted?: (info: {
     title: string | null;
     folderRef: string;

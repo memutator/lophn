@@ -2,7 +2,7 @@
 // data step `shell.layout-machines`가 11로, 판 11은 `shell.layout-owners`가 12로, 판 12는 `shell.layout-groups`가 13으로 판만
 // 올린다: 판 11은 탭 공통 칸 `machine`을, 판 12는 공통 칸 `owner`·`handed_tab`을, 판 13은 group의 선택 칸 `group_id`·`label`·
 // `collapsed`와 leaf 하나짜리 bundle group을 더했을 뿐이라 옛 값은 그대로다). 다른 판은 읽지 않는다.
-// Agent 탭은 저장하지 않는다(renderer의 창 메모리에만 산다). 여기 kind가 없고 옛 파일의 Agent 탭은 core의 data step `shell.agent-tabs-unsaved`가 걷어냈다.
+// Agent·터미널 탭은 저장하지 않는다(renderer의 창 메모리에만 산다). 여기 kind가 없고 옛 파일에 남아 있어도 읽을 때 건너뛴다.
 // 파일이 없으면 기본 layout으로 시작한다.
 // 상한과 불변 조건(tab key는 desk 안에서 한 번, selected·group의 leaf는 tabs 안, group은 leaf 2~4개이거나 leaf 1개에
 // tab 둘 이상이 쌓인 bundle이고 tabs에서 leaf 순서로 붙어 있고 칸에 숨은 tab이 그 바로 뒤에 붙어 있음)은 renderer
@@ -313,13 +313,25 @@ function skipInDesk(value: unknown): unknown {
     Array.isArray(desk.groups) ? desk.groups : [],
     keys,
   );
+  const finalTabs =
+    keptTabs.length === tabs.length ? tabs : glued(keptTabs, groups);
+  const hidden = new Set(
+    groups.flatMap((group) =>
+      hiddenIn((group as { layout?: unknown } | null)?.layout),
+    ),
+  );
+  const visibleSelected =
+    selected === null || (keys.has(selected) && !hidden.has(selected))
+      ? selected
+      : ((
+          finalTabs.find(
+            (tab) => !hidden.has((tab as { key?: unknown } | null)?.key),
+          ) as { key?: unknown } | undefined
+        )?.key ?? null);
   return {
     ...desk,
-    tabs: keptTabs.length === tabs.length ? tabs : glued(keptTabs, groups),
-    selected_tab:
-      selected === null || keys.has(selected)
-        ? selected
-        : ((keptTabs[0] as { key?: unknown } | undefined)?.key ?? null),
+    tabs: finalTabs,
+    selected_tab: visibleSelected,
     groups,
     floats: floats.filter((item: { tab?: unknown } | null) =>
       registered(item?.tab),

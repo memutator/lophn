@@ -184,7 +184,7 @@ export type OverlayQuery = OverlayIdentity & {
   type: "query";
   text: string;
 };
-/** scrim을 까는 표면(modal dialog·palette)이 떠 있는지. shell renderer가 상단 바를 같이 덮는다. */
+/** scrim을 까는 표면(modal dialog·palette)이 떠 있는지. shell renderer가 상단 바 끌기를 끈다(scrim은 overlay view가 상단 바까지 한 번에 덮는다). */
 export type OverlayModal = { type: "modal"; open: boolean };
 export type OverlayEvent =
   | OverlaySnapshot

@@ -14,12 +14,10 @@ import { jobsKind } from "./jobs.ts";
 import { registerTabKind } from "./kind.ts";
 import { projectSettingsKind } from "./project-settings.ts";
 import { searchKind } from "./search.ts";
-import { terminalKind } from "./terminal.ts";
 import { workflowKind } from "./workflow.ts";
 
 const BUILT_IN_TAB_KINDS = [
   documentEditorKind,
-  terminalKind,
   appPanelKind,
   appScreenKind,
   searchKind,

@@ -134,7 +134,7 @@ export function createOverlay(options: OverlayOptions) {
     dragFrame.cancel();
     pendingId = undefined;
   }
-  // scrim 표면이 떠 있는지 바뀔 때만 shell renderer에 알린다. 상단 바가 scrim을 같이 받는다.
+  // modal 표면이 떠 있는지 바뀔 때만 shell renderer에 알린다. 상단 바 끌기를 끈다(scrim 자체는 overlay view가 창 전체를 덮는다).
   let modalOpen = false;
   function announceModal() {
     const open = [...surfaces.values()].some((surface) => modal(surface.kind));
@@ -174,7 +174,14 @@ export function createOverlay(options: OverlayOptions) {
     const body = options.body();
     const all = [...surfaces.values()];
     let bounds = { ...body, width: 1, height: 1 };
-    if (all.some((surface) => fullBody(surface.kind))) bounds = body;
+    if (all.some((surface) => modal(surface.kind))) {
+      bounds = {
+        x: 0,
+        y: 0,
+        width: body.x + body.width,
+        height: body.y + body.height,
+      };
+    } else if (all.some((surface) => fullBody(surface.kind))) bounds = body;
     else if (all.length) {
       const x = Math.min(...all.map((s) => s.anchorRect.x));
       const y = Math.min(...all.map((s) => s.anchorRect.y));

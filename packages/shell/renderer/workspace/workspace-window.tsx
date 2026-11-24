@@ -670,8 +670,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
       if (!live) return;
       // 읽지 못했거나 다른 판인 파일은 source가 덮지 않는다. 이 workspace를 다시 열어 읽힐 때까지 바꾼 배치는 저장되지 않는다.
       if (keepsSavedFile(read)) setLayoutNotice("blocked");
-      // 터미널 탭은 그대로 되살린다. 터미널은 core가 갖고 앱을 꺼도 돌아, 탭이 그려질 때 layout의 터미널 참조가 `terminals/list`에
-      // 살아 있으면 붙고 없으면 새 shell을 연다(TerminalTab).
+      // Agent·터미널 탭은 layout 파일에 저장하지 않아 이 창 메모리에만 산다(앱을 다시 켜면 복원하지 않는다).
       const restored =
         read.ok && read.layout !== null ? read.layout : freshLayout();
       latestLayout.current = restored;
@@ -679,7 +678,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
       setLayout(restored);
       // 보이는 desk의 detached 창만 연다. 다른 desk의 것은 그 desk로 갈 때 syncDetached가 연다.
       // 거절은 무시한다. conflict는 이미 떠 있는 것이고 나머지는 탭이 layout의 detached로 남는다.
-      // transfer가 없어도 terminal 탭은 layout의 터미널 참조로 core의 터미널에 다시 붙는다.
+      // 같은 실행 안에서 workspace를 오간 detached terminal은 main의 resume 값으로 PTY에 다시 붙는다.
       for (const item of activeDesk(restored).detached) {
         void props.detached
           ?.open({

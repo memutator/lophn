@@ -1,6 +1,6 @@
 {
   "name": "@lophn/agent",
-  "version": "1.18.0",
+  "version": "1.19.0",
   "type": "module",
   "lophn": {
     "supported_from": "1.1.0"

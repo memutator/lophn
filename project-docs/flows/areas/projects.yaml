@@ -2702,3 +2702,311 @@ flows:
     risk: [data-loss]
     docs: [architecture/artifact.md]
     declared_only: [invalid_input, unavailable]
+
+  # ---- project commands (core) ----
+
+  - id: project-commands-list
+    title: "project의 명령 정의, 현재 실행 상태, agent 설정을 읽는다"
+    actor: person
+    entries: [route:project_commands/list]
+    boundary: [projects, core-api]
+    code:
+      - packages/core/projects/commands/handlers.ts
+      - packages/core/projects/commands/store.ts
+      - packages/protocol/projects/project-commands.ts
+    steps:
+      - "ledger에서 project의 명령 정의와 agent 설정을 읽고 메모리 runtime의 실행 상태를 붙인다"
+      - "env 값은 로컬 사람 자격이 include_env: true로 부른 경우에만 싣고, agent와 원격 기기에는 키 이름(env_keys)만 남긴다"
+      - "원격 기기이면 remote_grants의 터미널 입력 허락 여부를 can_run으로 싣는다"
+    outcomes:
+      - id: ok
+        observe: [response]
+      - id: invalid-input
+        code: invalid_input
+        when: "입력이 schema에 맞지 않다"
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: "project가 없다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "호출 자격이 허용되지 않는다"
+        observe: [response]
+    crosses_process: false
+    risk: [secret, permission]
+    docs: [architecture/project-command.md]
+
+  - id: project-commands-detect
+    title: "project 등록 폴더에서 읽기 전용으로 명령 후보를 감지한다"
+    actor: person
+    entries: [route:project_commands/detect]
+    boundary: [projects, core-api]
+    code:
+      - packages/core/projects/commands/detect.ts
+      - packages/core/projects/commands/handlers.ts
+    steps:
+      - "project의 등록 폴더를 읽고 package.json, Makefile, justfile, 타 도구 설정에서 후보를 뽑아 already_registered와 unsupported_notes를 함께 돌려준다. 어떤 파일도 쓰지 않는다"
+    outcomes:
+      - id: ok
+        observe: [response]
+      - id: invalid-input
+        code: invalid_input
+        when: "입력이 schema에 맞지 않다"
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: "project가 없다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "허용되지 않은 호출자다"
+        observe: [response]
+    crosses_process: false
+    docs: [architecture/project-command.md]
+
+  - id: project-commands-mutate
+    title: "project 명령 정의를 더하거나 고치거나 지우거나 순서를 바꾸거나 가져온다"
+    actor: person
+    entries:
+      - route:project_commands/add
+      - route:project_commands/update
+      - route:project_commands/remove
+      - route:project_commands/reorder
+      - route:project_commands/import
+    uses: [route:project_commands/store, route:tool_gate/check]
+    boundary: [projects, approvals, core-api]
+    code:
+      - packages/core/projects/commands/handlers.ts
+      - packages/core/projects/commands/store.ts
+    steps:
+      - "agent가 agents·ask_before_run 칸을 넣거나 reorder·import를 부르면 forbidden으로 거절한다"
+      - "agent의 add·update·remove는 project의 approve_agent_writes가 켜져 있으면 tool_gate/check에 project_command_definition으로 사람 승인을 거치고, 대기 중 정의가 바뀌면 conflict로 쓰지 않는다"
+      - "project_commands/store로 ledger를 갱신하고 ProjectCommandsChanged를 발행한다"
+    outcomes:
+      - id: ok
+        observe: [ledger:project_commands, event:ProjectCommandsChanged, response]
+      - id: invalid-input
+        code: invalid_input
+        when: "입력이 schema·상한(50개)에 어긋난다"
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: "project 또는 대상 명령 id가 없다"
+        observe: [response]
+      - id: conflict
+        code: conflict
+        when: "중복 id이거나 승인 대기 사이 정의가 바뀌었다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "agent가 잠긴 정책 칸을 바꾸려 했거나, 승인 거절·needs_approval이다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "writer 또는 승인 gate를 사용할 수 없다"
+        observe: [response]
+    crosses_process: false
+    risk: [permission, secret]
+    docs: [architecture/project-command.md, architecture/approval.md]
+
+  - id: project-commands-set-settings
+    title: "사람이 project commands의 agent 정책(허용 agent, 실행 전 묻기, 정의 쓰기 승인)을 바꾼다"
+    actor: person
+    entries: [route:project_commands/set_settings]
+    uses: [route:project_commands/store]
+    boundary: [projects, core-api]
+    code:
+      - packages/core/projects/commands/handlers.ts
+      - packages/core/projects/commands/store.ts
+    steps:
+      - "사람 자격만 허용하고 agent 호출은 forbidden으로 거절한다"
+      - "project_commands/store로 project_command_settings를 저장하고 ProjectCommandsChanged를 발행한다"
+    outcomes:
+      - id: ok
+        observe: [ledger:project_command_settings, event:ProjectCommandsChanged, response]
+      - id: invalid-input
+        code: invalid_input
+        when: "입력이 schema에 맞지 않다"
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: "project가 없다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "agent 자격 등 사람이 아닌 호출이다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "writer를 사용할 수 없다"
+        observe: [response]
+    crosses_process: false
+    risk: [permission]
+    docs: [architecture/project-command.md]
+
+  - id: project-commands-run
+    title: "project 명령을 전용 PTY에서 실행한다"
+    actor: person
+    entries: [route:project_commands/run]
+    uses: [route:tool_gate/check]
+    boundary: [projects, core, approvals, core-api]
+    code:
+      - packages/core/projects/commands/handlers.ts
+      - packages/core/projects/commands/runtime.ts
+    steps:
+      - "원격 기기 호출은 remote_grants의 터미널 입력 허락을 확인해 없으면 forbidden으로 거절한다"
+      - "agent 호출은 허용 agent 목록을 검사하고, ask_before_run이 켜진 명령은 tool_gate/check에 project_command로 승인을 거친다"
+      - "실행 직전 folderOfCwd로 기준 등록 폴더 아래 realpath를 검사하고(symlink 탈출 시 invalid_input), 이미 돌고 있으면 conflict를 낸다"
+      - "전용 PTY를 열어 상태 변화를 ProjectCommandRunChanged로 발행하고, wait: true인 action은 종료까지 기다려 redaction된 출력 꼬리를 함께 돌려준다"
+    outcomes:
+      - id: started
+        observe: [event:ProjectCommandRunChanged, response]
+      - id: invalid-input
+        code: invalid_input
+        when: "입력 오류이거나 cwd가 등록 폴더 밖·symlink 탈출이다"
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: "project 또는 명령 id·이름이 없다"
+        observe: [response]
+      - id: conflict
+        code: conflict
+        when: "명령이 이미 starting 또는 running 중이다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "원격 기기에 터미널 입력 허락이 없거나, 허용되지 않은 agent이거나, 실행 승인이 거절됐다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "PTY host가 없거나 기동에 실패했다"
+        observe: [response]
+    crosses_process: true
+    risk: [permission, sandbox, secret]
+    docs: [architecture/project-command.md, architecture/terminal-agent.md, architecture/approval.md]
+
+  - id: project-commands-stop
+    title: "도는 project 명령 하나 또는 전체를 프로세스 트리째 멈춘다"
+    actor: person
+    entries: [route:project_commands/stop]
+    boundary: [projects, core, core-api]
+    code:
+      - packages/core/projects/commands/handlers.ts
+      - packages/core/projects/commands/runtime.ts
+    steps:
+      - "원격 기기 호출은 터미널 입력 허락을 확인하고, agent 호출은 허용된 명령만 멈춘다"
+      - "명령별 직렬 큐에서 전용 PTY 프로세스 그룹에 SIGTERM → 3초 → SIGKILL(Windows taskkill /T /F)을 보내 stopped 상태로 전이한다"
+    outcomes:
+      - id: stopped
+        observe: [event:ProjectCommandRunChanged, response]
+      - id: invalid-input
+        code: invalid_input
+        when: "command와 all이 모두 없거나 입력이 틀리다"
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: "project 또는 대상 명령이 없다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "원격 기기 허락 없음 또는 허용되지 않은 agent다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "PTY 중지를 확인하지 못했다"
+        observe: [response]
+    crosses_process: true
+    risk: [permission]
+    docs: [architecture/project-command.md]
+
+  - id: project-commands-restart
+    title: "project 명령을 직렬 큐에서 멈춘 뒤 같은 전용 PTY 참조로 다시 시작한다"
+    actor: person
+    entries: [route:project_commands/restart]
+    uses: [route:tool_gate/check]
+    boundary: [projects, core, approvals, core-api]
+    code:
+      - packages/core/projects/commands/handlers.ts
+      - packages/core/projects/commands/runtime.ts
+    steps:
+      - "원격 기기 허락과 agent 권한·실행 전 승인(ask_before_run)을 확인한다"
+      - "명령별 직렬 큐에서 실행 중이면 멈춘 뒤 같은 terminal_ref(generation + 1)로 다시 시작한다"
+    outcomes:
+      - id: restarted
+        observe: [event:ProjectCommandRunChanged, response]
+      - id: invalid-input
+        code: invalid_input
+        when: "입력 오류이거나 cwd realpath가 등록 폴더 밖이다"
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: "project 또는 대상 명령이 없다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "원격 기기 허락 없음, 허용되지 않은 agent, 또는 승인 거절이다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "PTY 중지 또는 재기동에 실패했다"
+        observe: [response]
+    crosses_process: true
+    risk: [permission, sandbox]
+    docs: [architecture/project-command.md]
+
+  - id: project-commands-logs
+    title: "명령의 실행 중 링버퍼 또는 종료 후 보존 꼬리 로그를 마스킹해 읽는다"
+    actor: person
+    entries: [route:project_commands/logs]
+    boundary: [projects, core-api]
+    code:
+      - packages/core/projects/commands/handlers.ts
+      - packages/core/projects/commands/runtime.ts
+      - packages/core/projects/commands/log-buffer.ts
+    steps:
+      - "원격 기기 호출은 터미널 입력 허락을 확인한다"
+      - "해당 명령의 로그 버퍼(종료 후 최대 200줄/32 KiB)에서 요청 줄 수를 잘라 정의의 env 값과 제품 redactor로 가려 돌려준다"
+    outcomes:
+      - id: ok
+        observe: [response]
+      - id: invalid-input
+        code: invalid_input
+        when: "입력이 schema에 맞지 않다"
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: "project 또는 대상 명령이 없다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "원격 기기에 터미널 입력 허락이 없거나 허용되지 않은 agent다"
+        observe: [response]
+    crosses_process: false
+    risk: [secret, permission]
+    docs: [architecture/project-command.md]
+
+  - id: project-commands-store
+    title: "내부 machine 명령으로 project_commands와 project_command_settings 표를 갱신한다"
+    actor: system
+    entries: [route:project_commands/store]
+    boundary: [projects, core-api]
+    code:
+      - packages/core/projects/commands/store.ts
+      - packages/core/projects/commands/schema.ts
+    steps:
+      - "machine:project-commands 자격으로 project 존재 여부를 확인하고 project_commands와 project_command_settings 표를 하나의 tx로 갱신한다"
+    outcomes:
+      - id: ok
+        observe: [ledger:project_commands, ledger:project_command_settings, response]
+      - id: not-found
+        code: not_found
+        when: "project가 없다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "machine:project-commands 자격이 아니다"
+        observe: [response]
+    crosses_process: false
+    docs: [architecture/project-command.md]
+    declared_only: [invalid_input, conflict]

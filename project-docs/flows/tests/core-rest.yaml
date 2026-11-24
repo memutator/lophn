@@ -1257,4 +1257,20 @@ files:
       - harness-gui-bang-shell:ran
     note: "opencode GUI adapter. 저장 안 된 session(404) resume은 새 session으로 열고, `!ls`는 shell API로만 간다. permission 응답, auto-accept, subagent, background, todo plan, undo·redo, 명령 출력, TUI server 비밀번호는 harness-gui-* outcome"
 
+  - path: packages/core/projects/commands/commands_test.ts
+    covers:
+      - project-commands-list:ok
+      - project-commands-detect:ok
+      - project-commands-mutate:ok
+      - project-commands-mutate:forbidden
+      - project-commands-set-settings:forbidden
+      - project-commands-run:started
+      - project-commands-run:invalid-input
+      - project-commands-run:conflict
+      - project-commands-run:forbidden
+      - project-commands-stop:stopped
+      - project-commands-logs:ok
+      - project-commands-logs:forbidden
+    note: "project commands의 gate 판정(project_command, project_command_definition), agent 정책 잠금·정의 쓰기 승인 카드(env 값 제외), env 값 마스킹·원격 터미널 입력 허락 경계, symlink cwd 탈출 차단, 상태 기계·URL 감지·로그 꼬리 상한·shutdown 정리, detect 후보 감지"
+
 

@@ -89,6 +89,12 @@ tracker ─ 바뀔 때 runtime.agent를 실어 TerminalRuntimeChanged ─▶ 화
 - **Finished 줄과 점은 그 기계의 runtime이 준다.** 다른 기계의 터미널은 그 기계의 `TerminalRuntimeChanged`(agent 상태와 `tab_name`)와 못 본 끝(`unseen`)으로 같은 Finished 줄과 탭 점을 만든다. OS 알림(`TerminalAgentSignaled`)은 아직 그 기계의 탭을 열지 않고 창만 앞으로 가져온다(그 터미널의 project를 이 컴퓨터가 모른다).
 - **lease.** 사본의 lease key는 principal과 터미널이라 이 컴퓨터의 창들이 하나를 같이 쓴다. 그래서 탭을 놓아도 끄지 않고 30초 뒤 저절로 끝나게 둔다.
 
+**project command 전용 PTY.** project command(`project-command.md`)는 대화형 셸에 명령을 타이핑하지 않고 PTY host에 `dedicated: true`로 전용 PTY를 연다.
+- 로그인 셸에 명령을 직접 넘겨(`bash`·`zsh`·`fish` `-lc`, `sh`·`dash` `-c`, Windows `pwsh`/`powershell` `-NoLogo -Command` 또는 `cmd.exe /d /s /c`) 띄우고, 대화형 shell 시작 층·coding agent env hook·foreground polling을 건너뛴다.
+- 같은 명령을 다시 실행하면 같은 `terminal_ref`에 `generation + 1`로 재사용해 탭이 늘어나지 않는다. 종료 후에도 화면 사본을 남겨 `terminals/*`·`terminal_view`로 마지막 출력을 볼 수 있다.
+- 중지는 프로세스 그룹 단위(`SIGTERM` → 3초 → `SIGKILL`, Windows `taskkill /T /F`)로 자식 프로세스까지 정리한다.
+- `dedicated: true` 터미널은 `coding_sessions/list`에서 빠지고, shell layout에 저장하지 않아 앱 재시작 시 일반 터미널 탭 복원 목록에 들지 않는다.
+
 ## 지키는 것
 
 1. **무엇이 도는지는 foreground process나 hook이, 상태는 hook만 정한다.** 화면 글자를 읽지 않는다. foreground는 결정적인 사실이라 hook을 놓기 전에도 icon이 보이고 설치를 물을 때를 안다.

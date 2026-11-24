@@ -502,6 +502,15 @@ links:
   - {entry: "cli:handoff.write", flow: handoff-write}
   - {entry: "cli:call.reply", flow: call-reply}
   - {entry: "cli:call.cancel", flow: call-cancel}
+  - {entry: "cli:command.list", flow: project-commands-list}
+  - {entry: "cli:command.run", flow: project-commands-run}
+  - {entry: "cli:command.stop", flow: project-commands-stop}
+  - {entry: "cli:command.restart", flow: project-commands-restart}
+  - {entry: "cli:command.logs", flow: project-commands-logs}
+  - {entry: "cli:command.detect", flow: project-commands-detect}
+  - {entry: "cli:command.add", flow: project-commands-mutate}
+  - {entry: "cli:command.update", flow: project-commands-mutate}
+  - {entry: "cli:command.remove", flow: project-commands-mutate}
   - {entry: "cli:job.create", flow: job-create}
   - {entry: "cli:job.update", flow: job-update}
   - {entry: "cli:job.delete", flow: job-delete}

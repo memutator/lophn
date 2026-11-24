@@ -28,6 +28,7 @@ agent는 사람이 없을 때도 shell을 돌리고 앱 tool을 부르고 서로
    shell extension tool은 호출 route(extension_tools/call)가 extension_tool로 판정한다(lophn runtime과 harness CLI가 같은 한 곳)
    gate 없는 tool(file, web, ask, call 등)은 이 길을 거치지 않는다
    설정 route(settings/update)가 agent의 approval 설정 바꾸기를 setting {key, lines}로 같은 판정에 묻는다
+   project command route(project_commands/run|restart|add|update|remove)가 ask_before_run 실행을 project_command로, 정의 쓰기를 project_command_definition으로 같은 판정에 묻는다
         │ memory route tool_gate/check (그 turn의 agent 자격만)
         ▼
  core가 turn 행의 mode, session의 agent·workspace, 할당, shell 규칙 층을 읽어 판정한다
@@ -93,6 +94,13 @@ turn은 시작할 때 mode(attended, unattended, skip)를 정해 turn 행(`turns
 - 카드(대화의 승인 카드, 대기 목록, 폰)는 제목 "Change a lophn setting" 아래 `lines`를 줄이지 않고 그대로 보인다(예: `Add sync folder "personal": /home/me/Sync/lophn`, `Remove sync folder "work" (/mnt/nas/lophn)`). 선택지는 `once`와 `reject`뿐이다(`always_patterns`가 빈다).
 - 허락은 기다리던 그 route 호출이 물은 그 값을 한 번 쓰는 것뿐이다. 기다리는 사이 그 설정이 바뀌어 지금 바뀜의 줄이 사람이 본 줄과 다르면 쓰지 않는다. 거절, 묻지 못함(lophn agent turn의 tool call 밖, 예: harness agent), deny는 `rejected`의 `needs_approval`(사람이 쓴 이유를 싣는다)이고 CLI는 `forbidden`으로 돌려준다.
 
+### project command 실행과 정의 쓰기 승인
+
+- project command의 agent 실행(`project_command`)과 정의 쓰기(`project_command_definition`)는 같은 `tool_gate/check` 판정 길을 탄다(`project-command.md`).
+- `project_command`: 해당 명령(또는 project 기본값)의 `agents` 목록에 없는 agent는 어느 mode에서나 `deny`다. 허용된 agent이고 `ask_before_run`이 켜져 있으면 attended와 skip에서 `ask`(선택지는 `once | reject`, `always` 없음), 팀 자식은 부모에게, unattended는 `deny no_person`이다. 카드에는 명령 이름, 원문, cwd, env 키 이름만 싣고 env 값은 싣지 않는다.
+- `project_command_definition`: project의 `approve_agent_writes`가 켜져 있으면(기본 켬) agent의 추가·수정·삭제는 attended와 skip에서 `ask`(`once | reject`), unattended와 팀 자식은 `deny no_person`이다. 카드는 바뀌기 전과 뒤의 이름·원문·cwd·env 키 이름만 보이고, 기다리는 사이 정의가 바뀌었으면 쓰지 않는다(`conflict`). `approve_agent_writes`가 꺼져 있으면 바로 통과한다.
+- agent가 agent 정책 칸(`set_settings`, 명령별 `agents`·`ask_before_run`)을 바꾸려 하면 승인 여부와 상관없이 route가 `forbidden`으로 거절한다.
+
 ### 팀 자식의 물음
 
 spawn된 session(`spawned_by` 있음)의 `ask` tool(질문)과 shell 규칙 `ask`(승인)는 사람이 아니라 부모에게 가는 result call이다(`architecture/agent-call.md`의 지키는 것, 팀의 ask call). 자식 turn은 turn 안 request(질문은 질문 대기)로 기다리고 부모의 답이 그것을 푼다. 부모가 판단할 수 없으면 자기 `ask`를 쓴다. 부모도 자식이면 그 위로 가고 root에서 사람에게 닿는다. 올리는 장치는 따로 없다. 다른 컴퓨터에서 도는 팀원(`agent-call.md` 29a)의 물음도 그 컴퓨터의 사람이 아니라 연 컴퓨터의 부모에게 mail로 간다.
@@ -157,7 +165,7 @@ turn mode
 ## 경계와 계약
 
 route와 command
-- `tool_gate/check`(memory, 그 turn의 agent 자격만): 실행 전 판정. `run`, `deny`(이유 `not_assigned`·`removed`·`shell_rule`·`no_person`), 사람이 푼 뒤의 결과를 돌려준다. 묻는 호출(승인 카드와 ACP 승인 subject)은 `app_tool`, `mcp_tool`, `shell`, `setting {key, lines}`이다.
+- `tool_gate/check`(memory, 그 turn의 agent 자격만): 실행 전 판정. `run`, `deny`(이유 `not_assigned`·`removed`·`shell_rule`·`no_person`), 사람이 푼 뒤의 결과를 돌려준다. 묻는 호출(승인 카드와 ACP 승인 subject)은 `app_tool`, `mcp_tool`, `shell`, `setting {key, lines}`, `project_command`, `project_command_definition`이다.
 - `turn_requests/decide`(memory, 사람 자격만): `once | always | reject`(+ 이유 한 줄). 없거나 다른 session·팀 자식의 request는 `not_found`, 이미 닫혔으면 `conflict`, `always`를 저장하지 못하면 `internal`이고 request는 다시 열린다.
 - `extension_tools/call`: shell extension tool의 판정과 shell host로 넘기기.
 - `assignment.get`(사람·machine), `assignment.set`(사람): `{agent, entries: [{app, removed_tools[]}]}` 꼴과 revision compare.

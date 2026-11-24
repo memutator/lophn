@@ -1,0 +1,40 @@
+id: project-commands
+version: 0.23.156
+platform_note: none
+title: "project commands를 core ledger·전용 PTY·승인·CLI·원격·네 진입점으로 구현한다"
+modules:
+  - packages/protocol
+  - packages/core/projects
+  - packages/core/terminals
+  - packages/core/approvals
+  - packages/core/main
+  - packages/cli
+  - packages/sdk
+  - packages/design
+  - packages/shell/main
+  - packages/shell/renderer
+change: |
+  - protocol: `ProjectCommand`, `ProjectCommandRun`, `ProjectCommandSettings`, `DetectResult`, `project_commands/*` route 13종, `ProjectCommandsChanged`·`ProjectCommandRunChanged` event, GateCall `project_command`·`project_command_definition`, 동적 단축키 id `project-command.<id>.(run|stop|restart)`, `RESERVED_APP_SLUGS`에 `command` 추가.
+  - core: ledger schema step `projects.commands`(`project_commands`, `project_command_settings`), 명령 전용 PTY(`dedicated: true`, POSIX 프로세스 그룹 `SIGTERM → 3s → SIGKILL`, Windows `taskkill /T /F`), 상태 기계·직렬 큐·`folderOfCwd` realpath 검사·URL 감지·로그 꼬리 보존(200줄/32 KiB)·env 마스킹·shutdown 정리, 읽기 전용 `detect`(package.json/Makefile/justfile/타 도구 설정), gate 판정과 agent 정책 잠금, 원격 기기 route(`REMOTE_ALLOWED_ROUTES`) 및 `remote_grants` 터미널 입력 허락 검사.
+  - cli: `lophn command list|run|stop|restart|logs|detect|add|update|remove` 추가(agent 정책 쓰기 CLI는 두지 않음, agent의 `--on` 원격 호출 금지).
+  - shell: Project settings › Commands(project agent 정책, Detect 후보 선택 가져오기, 전체 명령 편집기), 네 진입점(Ctrl+K palette 동적 명령, Terminal 빠른 실행 hover, 사이드바 project `+` hover, 탭 줄 `+` 메뉴 Terminal 하위 메뉴) 공용 목록과 같은 `pri_` 원격 컴퓨터 묶음, 사이드바 project 줄 상태 표시, action 실패 toast("터미널 보기"), `project-command.<id>.*` 동적 단축키 기여, layout schema v14 및 v13 `commands` 자동 이전(실패 시 v13 보존 후 재시도).
+  - sdk: `@lophn/agent`를 1.19.0으로 올려 새 `GateCall`/`AskedCall` 2종(`project_command`, `project_command_definition`)을 반영하고 `migrate-sdk/agent-1.19.0.md` 메모를 추가.
+why: |
+  기존 Project Command는 창 layout 파일에 갇힌 20개 문자열 북마크라 실행 상태, 중지·재시작, 로그, URL 프리뷰, 자동 감지, CLI·agent·원격 연동이 모두 없었다. 정의와 실행을 core로 올리고 사람과 agent가 같은 명령을 안전하게 공유하도록 구조를 바꿨다.
+decisions:
+  - text: "명령 정의는 프로젝트 폴더가 아니라 lophn ledger에만 두고, 빈 목록은 읽기 전용 감지로 골라 가져온다. 버린 길: 저장소에 설정 파일 쓰기, layout 파일에 보관."
+    by: person
+  - text: "진입점은 Ctrl+K palette, Terminal 빠른 실행 hover, 사이드바 project `+` hover, 탭 줄 `+` 메뉴 Terminal 하위 메뉴 네 곳과 사이드바 상태 표시로 한정한다. 버린 길: 헤더 실행 단추, 하단 Commands 패널, 탭 우클릭 메뉴."
+    by: person
+  - text: "대화형 셸 타이핑 대신 명령 전용 PTY(`dedicated: true`)로 띄우고 일반 터미널 탭 복원·coding session 목록에서 제외한다. 버린 길: 기존 대화형 터미널 탭에 명령 줄 입력."
+    by: agent
+  - text: "agent 기본값은 모든 agent·바로 실행·정의 쓰기 승인 켬이고 명령별 덮어쓰기를 두며, agent 정책 설정 칸은 사람만 쓴다."
+    by: person
+  - text: "원격 실행은 같은 `pri_` 정체성·온라인·터미널 입력 허락이 있는 컴퓨터에서 사람만 수행하며 정의는 컴퓨터마다 따로 둔다. 버린 길: 컴퓨터 간 정의 동기화, agent 원격 실행."
+    by: person
+  - text: "CLI group 이름은 `command`로 정해 `RESERVED_APP_SLUGS`에 등록한다."
+    by: agent
+checklist:
+  - "기존 v13 layout에 있던 project 명령이 Project settings › Commands로 옮겨지고 layout 파일에서 `commands`가 사라졌는지 본다"
+  - "`package.json`이 있는 project에서 Detect from project로 후보를 보고 골라 가져온다"
+  - "service를 네 진입점에서 실행·중지·재시작하고 사이드바 표시와 감지한 URL 프리뷰 열기를 본다"

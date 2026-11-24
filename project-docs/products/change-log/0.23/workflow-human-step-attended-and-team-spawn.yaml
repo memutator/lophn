@@ -1,5 +1,5 @@
 id: workflow-human-step-attended-and-team-spawn
-version: 0.23.161
+version: 0.23.162
 platform_note: none
 title: Open workflow human steps in attended mode and guide step sub-agents to lophn team spawn
 modules:

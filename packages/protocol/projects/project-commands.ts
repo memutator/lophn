@@ -2,8 +2,26 @@ import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
 import { defineCommand, defineMemory, defineRead } from "../base/route.ts";
 import { atSchema } from "../base/values.ts";
-import { terminalRefSchema } from "../coding-agent/terminals.ts";
-import { agentIdSchema } from "../lophn-agent/workspaces.ts";
+
+// `projects/` 최상위가 `coding-agent/`·`lophn-agent/`에 거꾸로 기대지 않도록 참조 꼴만 여기서 닫는다.
+const terminalRefSchema = z
+  .string()
+  .min(1)
+  .max(80)
+  .regex(/^[A-Za-z0-9_-]+$/);
+const agentIdSchema = z.union([
+  z.literal("lophn_home"),
+  z
+    .string()
+    .refine(
+      (value) =>
+        value.startsWith("lophn_") &&
+        (idSchema("prj").safeParse(value.slice(6)).success ||
+          idSchema("app").safeParse(value.slice(6)).success),
+    ),
+  z.string().regex(/^coding_[a-z0-9][a-z0-9_-]*$/),
+  idSchema("agt"),
+]);
 
 // project에서 반복 실행하는 명령(action)과 장기 실행 서비스(service)의 계약이다.
 // 정의와 project별 agent 설정은 core의 ledger가 소유하고, 실행(ProjectCommandRun)은 core 메모리에 둔다.
@@ -122,7 +140,9 @@ export const projectCommandSchema = z.strictObject({
   folder_ref: z.string().min(1).max(80).optional(),
   cwd: projectCommandCwdSchema.optional(),
   // env 키 목록(정렬됨). 값은 로컬 사람이 설정 편집을 위해 명시적으로 요청할 때만 `env`에 싣는다.
-  env_keys: z.array(z.string().regex(PROJECT_COMMAND_ENV_KEY_PATTERN)).optional(),
+  env_keys: z
+    .array(z.string().regex(PROJECT_COMMAND_ENV_KEY_PATTERN))
+    .optional(),
   env: projectCommandEnvSchema.optional(),
   preview_url: projectCommandPreviewUrlSchema.optional(),
   auto_open_preview: z.boolean().optional(),
@@ -465,7 +485,10 @@ export const projectCommandsStore = defineCommand({
   changes: [{ name: "project_commands", id: (input) => input.project }],
   input: z.strictObject({
     project: idSchema("prj"),
-    commands: z.array(projectCommandSchema).max(PROJECT_COMMANDS_MAX).optional(),
+    commands: z
+      .array(projectCommandSchema)
+      .max(PROJECT_COMMANDS_MAX)
+      .optional(),
     settings: projectCommandSettingsSchema.optional(),
   }),
   compare: z.strictObject({}),

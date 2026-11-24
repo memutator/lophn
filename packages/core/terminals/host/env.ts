@@ -121,3 +121,55 @@ export function resolveLoginShell(lookup: ShellLookup): ShellProgram | null {
   if (!shell || shell.includes("\0") || !lookup.exists(shell)) return null;
   return { file: shell, args: ["-l"], label: shell };
 }
+
+/**
+ * project command 전용 PTY에서 실행할 셸과 인자를 정한다.
+ * POSIX: sh/dash는 `-c`, bash/zsh/fish 등은 `-lc`로 실행한다.
+ * Windows: PowerShell(pwsh/powershell)은 `-NoLogo -Command`, 없으면 `cmd.exe /d /s /c`다.
+ */
+export function resolveCommandShell(
+  lookup: ShellLookup,
+  rawCommand: string,
+): ShellProgram | null {
+  const command = rawCommand.replace(/\r\n?/g, "\n");
+  if (lookup.platform === "win32") {
+    for (const file of pwshCandidates(lookup.env)) {
+      if (lookup.exists(file)) {
+        return {
+          file,
+          args: ["-NoLogo", "-Command", command],
+          label: "PowerShell 7",
+        };
+      }
+    }
+    for (const file of POWERSHELL51) {
+      if (lookup.exists(file)) {
+        return {
+          file,
+          args: ["-NoLogo", "-Command", command],
+          label: "PowerShell 5.1",
+        };
+      }
+    }
+    const comspec = lookup.env.COMSPEC || "C:\\Windows\\System32\\cmd.exe";
+    if (lookup.exists(comspec)) {
+      return {
+        file: comspec,
+        args: ["/d", "/s", "/c", command],
+        label: "cmd.exe",
+      };
+    }
+    return null;
+  }
+  const envShell = lookup.env.SHELL;
+  const file =
+    envShell && !envShell.includes("\0") && lookup.exists(envShell)
+      ? envShell
+      : lookup.exists("/bin/sh")
+        ? "/bin/sh"
+        : null;
+  if (file === null) return null;
+  const base = file.split("/").at(-1) ?? "";
+  const flag = base === "sh" || base === "dash" ? "-c" : "-lc";
+  return { file, args: [flag, command], label: file };
+}

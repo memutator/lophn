@@ -17,6 +17,13 @@ export type TerminalOpen = {
   cwd?: string;
   command?: string;
   resume?: { harness: string; external_session: string };
+  /** 지정하면 대화형 셸이 아니라 명령 전용 PTY로 바로 실행한다(project commands). */
+  exec?: string;
+  /** 명령 전용 PTY에 덮어쓸 환경변수. */
+  env?: Readonly<Record<string, string>>;
+  /** 지정하면 같은 터미널 참조를 generation을 올려 재사용한다. */
+  terminal_ref?: string;
+  dedicated?: true;
 };
 
 // 터미널 하나를 열 때 그 PTY에 더할 env(hook socket, browser bridge)를 준다. 터미널 참조는 PTY host가 열면서 정하므로 env는 열기 전에

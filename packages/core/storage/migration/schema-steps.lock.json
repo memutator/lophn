@@ -430,5 +430,9 @@
   {
     "id": "workspace.lifecycle.tables",
     "sha256": "f299d2d8bfff545f0a0b4a85c7f0692f72618c0a250a2ada01d7effd0b947b7a"
+  },
+  {
+    "id": "projects.commands",
+    "sha256": "dd5914526ebbfbf134d6f060ded7824c5dee98067a35798ca870c428e8e4f926"
   }
 ]

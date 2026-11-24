@@ -8,6 +8,7 @@ import {
   ok,
   type Result,
 } from "../../base/mod.ts";
+import { GUI_HANDOFF, isGuiHarness } from "../../protocol/acp/gui-session.ts";
 import {
   type AcpInput,
   type AcpState,
@@ -24,7 +25,6 @@ import {
   publishStateChanged,
   type StateChange,
 } from "../../protocol/events/changes.ts";
-import { GUI_HANDOFF, isGuiHarness } from "../../protocol/acp/gui-session.ts";
 import type { TerminalSessionReport } from "../../protocol/lophn-agent/session-lifecycle.ts";
 import { guiSessionId } from "../../protocol/lophn-agent/session-tag.ts";
 import { attachBatched, type TabGui } from "./gui.ts";
@@ -97,6 +97,7 @@ export function createCodingSessions(deps: CodingSessionsDeps) {
       gui.tabSessions().map((tab) => [tab.terminal_ref, tab]),
     );
     return deps.terminals.list().flatMap((runtime) => {
+      if (runtime.dedicated) return [];
       const { agent } = runtime;
       const tab = tabs.get(runtime.terminal_ref);
       const guided =

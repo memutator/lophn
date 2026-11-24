@@ -225,6 +225,13 @@ import { artifactsFile, artifactsList } from "../projects/artifact-api.ts";
 import { projectIdentityApi } from "../projects/identity-api.ts";
 import { projectApi } from "../projects/project-api.ts";
 import {
+  projectCommandsList,
+  projectCommandsLogs,
+  projectCommandsRestart,
+  projectCommandsRun,
+  projectCommandsStop,
+} from "../projects/project-commands.ts";
+import {
   projectFilesCreate,
   projectFilesList,
   projectFilesRead,
@@ -234,12 +241,12 @@ import {
 } from "../projects/project-files.ts";
 import { projectSearch } from "../projects/project-search.ts";
 import { runList, runRead } from "../runs/runs.ts";
+import { browserVaultExchange } from "../secrets/browser-vault.ts";
 import {
   secretDelete,
   secretPut,
   secretStatus,
 } from "../secrets/secret-file.ts";
-import { browserVaultExchange } from "../secrets/browser-vault.ts";
 import {
   workflowInstanceList,
   workflowInstanceRead,
@@ -393,6 +400,12 @@ export const REMOTE_ALLOWED_ROUTES = [
   artifactsFile,
   projectFilesList,
   projectFilesRead,
+  // project commands: 목록·상태 읽기와 실행·중지·재시작·로그. 실행·중지·재시작·로그는 받는 컴퓨터가 터미널 입력 허락을 본다
+  projectCommandsList,
+  projectCommandsRun,
+  projectCommandsStop,
+  projectCommandsRestart,
+  projectCommandsLogs,
   // 다른 컴퓨터가 넘긴 앱 command의 입구. 허락받은 컴퓨터만 core가 받는다(`by` 없는 폰은 forbidden)
   appRemoteCall,
   // 다른 컴퓨터의 agent가 보낸 mail의 입구. 명단의 컴퓨터만 받는다(handler가 본다. 폰은 forbidden)
@@ -640,6 +653,9 @@ export const REMOTE_ALLOWED_EVENTS = [
   "TabShowRequested",
   // 폰에서 도는 앱: sync log에 줄이 생기면 폰이 pull한다
   "AppSyncChanged",
+  // project commands 정의·실행 상태 바뀜: 다른 컴퓨터 창이 메뉴와 사이드바 표시를 따라간다
+  "ProjectCommandsChanged",
+  "ProjectCommandRunChanged",
 ] as const satisfies readonly BusEvent["type"][];
 
 // 명단의 컴퓨터가 위 목록에 더해 받는 event다. 다른 컴퓨터의 앱 event를 구독하는 job과 앱이 건다. core가 내용으로 한 번 더 가린다: 앱이 선언해 낸

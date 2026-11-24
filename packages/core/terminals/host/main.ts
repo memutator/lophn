@@ -2,6 +2,7 @@
 // core가 물려 준 private pipe로만 말한다. 출력은 disk에 쓰지 않는다.
 
 import { readFileSync } from "node:fs";
+import { constants as osConstants } from "node:os";
 import type { IdSource } from "../../../base/id.ts";
 import type {
   TerminalOutput,
@@ -12,7 +13,7 @@ import {
   terminalSessionId,
 } from "../../../protocol/lophn-agent/session-tag.ts";
 import { type ProcessGroup } from "./child-group.ts";
-import { resolveLoginShell, terminalEnv } from "./env.ts";
+import { resolveCommandShell, resolveLoginShell, terminalEnv } from "./env.ts";
 import { foregroundGroupOf } from "./foreground.ts";
 import {
   nodePtyAdapter,
@@ -64,7 +65,20 @@ type Session = {
   env?: Record<string, string>;
   /** 마지막으로 알린 foreground process argv를 이어 붙인 것. 바뀌었는지만 본다. */
   foreground: string | null;
+  /** project command 전용 PTY 여부. */
+  dedicated: boolean;
+  /** 전용 PTY에서 실행한 명령. */
+  exec?: string;
 };
+
+const SIGNAL_NAMES = new Map<number, string>(
+  Object.entries(osConstants.signals).map(([name, code]) => [code, name]),
+);
+
+function signalNameOf(signal: number | undefined): string | null {
+  if (signal === undefined || signal === 0) return null;
+  return SIGNAL_NAMES.get(signal) ?? `SIG${signal}`;
+}
 
 type Host = {
   /** 요청 하나의 예외는 그 요청의 host_lost 답이 된다. close·restart는 child 종료를 기다린다. */
@@ -91,12 +105,27 @@ function createHost(deps: HostDeps): Host {
     if (!checked.ok) {
       return reject(checked.reason, "registered folder cannot be used");
     }
-    const program = resolveLoginShell({
-      platform: deps.platform,
-      env: deps.env,
-      exists: deps.exists,
-    });
+    const isDedicated =
+      request.exec !== undefined || request.dedicated === true;
+    const program =
+      request.exec !== undefined
+        ? resolveCommandShell(
+            {
+              platform: deps.platform,
+              env: deps.env,
+              exists: deps.exists,
+            },
+            request.exec,
+          )
+        : resolveLoginShell({
+            platform: deps.platform,
+            env: deps.env,
+            exists: deps.exists,
+          });
     if (!program) return reject("spawn_failed", "login shell was not found");
+
+    // 이전 실행 화면이 남아 있으면 새 실행 시작 시 정리한다.
+    previous?.screen.dispose();
 
     // host를 다시 띄워도 옛 view·대기 중 입력의 ref를 새 PTY에 재사용하지 않는다.
     const terminalRef = previous?.runtime.terminal_ref ?? deps.ids.newId("trm");
@@ -113,9 +142,11 @@ function createHost(deps: HostDeps): Host {
       columns: request.columns,
       rows: request.rows,
       exit_code: null,
+      exit_signal: null,
       failure_reason: null,
       output_seq: 0,
       dropped_output: false,
+      ...(isDedicated ? { dedicated: true as const } : {}),
     };
     const session: Session = {
       runtime,
@@ -124,6 +155,8 @@ function createHost(deps: HostDeps): Host {
       group: null,
       env: shellEnv,
       foreground: null,
+      dedicated: isDedicated,
+      ...(request.exec === undefined ? {} : { exec: request.exec }),
     };
     sessions.set(terminalRef, session);
     try {
@@ -133,12 +166,9 @@ function createHost(deps: HostDeps): Host {
         ...shellEnv,
         [SESSION_ENV_NAME]: terminalSessionId(terminalRef),
       };
-      const integrated = integrateShell(
-        program.file,
-        program.args,
-        env,
-        deps.exists,
-      );
+      const integrated = isDedicated
+        ? { args: program.args, env: {} as Record<string, string> }
+        : integrateShell(program.file, program.args, env, deps.exists);
       const handle = deps.pty.spawn({
         file: program.file,
         args: integrated.args,
@@ -166,6 +196,7 @@ function createHost(deps: HostDeps): Host {
         if (runtime.state === "unknown" || runtime.exit_code !== null) return;
         runtime.state = "exited";
         runtime.exit_code = exit.exitCode;
+        runtime.exit_signal = signalNameOf(exit.signal);
         runtime.dropped_output = session.screen.dropped;
         session.handle = null;
         deps.onRuntime?.({ ...runtime });
@@ -229,7 +260,13 @@ function createHost(deps: HostDeps): Host {
     | HostReply
     | HostSnapshotReply
     | Promise<HostReply | HostSnapshotReply | HostScreenReply> {
-    if (request.type === "open") return start(undefined, request);
+    if (request.type === "open") {
+      const previous =
+        request.terminal_ref === undefined
+          ? undefined
+          : sessions.get(request.terminal_ref);
+      return start(previous, request);
+    }
     if (request.type === "screen") {
       const session = sessions.get(request.terminal_ref);
       if (!session) return reject("host_lost", "terminal is gone");
@@ -337,7 +374,9 @@ function createHost(deps: HostDeps): Host {
       if (deps.platform === "win32" && deps.winForeground !== undefined) {
         const running = [...sessions.values()].filter(
           (session) =>
-            session.runtime.state === "running" && session.handle !== null,
+            !session.dedicated &&
+            session.runtime.state === "running" &&
+            session.handle !== null,
         );
         if (running.length === 0) return [];
         const pids = running.map((session) => session.handle!.pid);
@@ -363,7 +402,7 @@ function createHost(deps: HostDeps): Host {
       const changes: ForegroundChange[] = [];
       for (const session of sessions.values()) {
         const { runtime, handle } = session;
-        if (runtime.state !== "running") {
+        if (session.dedicated || runtime.state !== "running") {
           continue;
         }
         if (!handle) continue;
@@ -383,7 +422,10 @@ function createHost(deps: HostDeps): Host {
     async shutdown() {
       deps.winForeground?.stop();
       await Promise.all(
-        [...sessions.values()].map((session) => stop(session, deps.sleep)),
+        [...sessions.values()].map(async (session) => {
+          await stop(session, deps.sleep, true);
+          session.screen.dispose();
+        }),
       );
     },
   };
@@ -391,19 +433,20 @@ function createHost(deps: HostDeps): Host {
 
 const STOP_POLL_MS = 25;
 const STOP_POLLS = 40;
+// project command 전용 PTY는 POSIX 프로세스 그룹에 SIGTERM 후 3초 유예 뒤 SIGKILL이다(spec 3.3.2).
+const DEDICATED_STOP_POLLS = 120;
 
 const defaultSleep = (ms: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 /**
- * 사람이 확인한 닫기. 터미널을 닫을 때처럼 SIGHUP을 보내고 group의 종료를 이벤트
- * 루프를 돌리며 확인한다. 끝나지 않으면 SIGKILL 뒤 다시 확인하고, 그래도 확인하지
- * 못하면 결과 불명이다. 대화형 shell은 SIGTERM을 무시하므로
- * 신호 직후 동기 확인만으로는 늘 확인 실패가 된다.
+ * 사람이 확인한 닫기. 대화형 터미널은 SIGHUP → 1초 → SIGKILL이고,
+ * project command 전용 PTY는 프로세스 그룹 SIGTERM → 3초 → SIGKILL(Windows는 taskkill /T /F)이다.
  */
 async function stop(
   session: Session,
   sleep: (ms: number) => Promise<void> = defaultSleep,
+  disposeDedicatedScreen = false,
 ): Promise<HostReply> {
   if (
     session.runtime.state !== "running" &&
@@ -412,23 +455,39 @@ async function stop(
     return { ok: true, runtime: { ...session.runtime } };
   }
   const group = session.group;
-  const settle = async (signal: NodeJS.Signals): Promise<boolean> => {
+  const polls = session.dedicated ? DEDICATED_STOP_POLLS : STOP_POLLS;
+  const settle = async (
+    signal: NodeJS.Signals,
+    maxPolls: number,
+  ): Promise<boolean> => {
     if (!group) return false;
     const sent = group.kill(signal);
     if (sent.confirmed) return true;
-    for (let poll = 0; poll < STOP_POLLS; poll++) {
+    for (let poll = 0; poll < maxPolls; poll++) {
       await sleep(STOP_POLL_MS);
       if (!group.alive()) return true;
     }
     return false;
   };
-  try {
-    hangup(session.handle);
-  } catch {
-    // group 확인이 종료의 근거다.
+  let confirmed: boolean;
+  if (session.dedicated) {
+    confirmed =
+      (await settle("SIGTERM", polls)) || (await settle("SIGKILL", STOP_POLLS));
+  } else {
+    try {
+      hangup(session.handle);
+    } catch {
+      // group 확인이 종료의 근거다.
+    }
+    confirmed =
+      (await settle("SIGHUP", STOP_POLLS)) ||
+      (await settle("SIGKILL", STOP_POLLS));
   }
-  const confirmed = (await settle("SIGHUP")) || (await settle("SIGKILL"));
-  return settleRuntime(session, confirmed);
+  return settleRuntime(
+    session,
+    confirmed,
+    !session.dedicated || disposeDedicatedScreen,
+  );
 }
 
 // node-pty는 Windows에서 신호 이름을 거절한다.
@@ -436,7 +495,11 @@ function hangup(handle: PtyHandle | null): void {
   handle?.kill(process.platform === "win32" ? undefined : "SIGHUP");
 }
 
-function settleRuntime(session: Session, confirmed: boolean): HostReply {
+function settleRuntime(
+  session: Session,
+  confirmed: boolean,
+  disposeScreen = true,
+): HostReply {
   if (!confirmed) {
     session.runtime.state = "unknown";
     session.runtime.failure_reason = "kill_unconfirmed";
@@ -447,7 +510,7 @@ function settleRuntime(session: Session, confirmed: boolean): HostReply {
     session.runtime.failure_reason = null;
   }
   session.handle = null;
-  session.screen.dispose();
+  if (disposeScreen) session.screen.dispose();
   return { ok: true, runtime: { ...session.runtime } };
 }
 

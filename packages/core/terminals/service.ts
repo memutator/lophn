@@ -236,7 +236,10 @@ export function createTerminals(deps: {
         cli === null
           ? undefined
           : prependPath(hostEnv, dirname(cli), deps.platform);
-      const hooked = [...envHooks].map((hook) => hook(input));
+      const isDedicated = input.exec !== undefined || input.dedicated === true;
+      const hooked = isDedicated
+        ? []
+        : [...envHooks].map((hook) => hook(input));
       const env: Record<string, string> = {
         // 사람 token의 `lophn tab open --url`이 이 project에 탭을 놓게 한다. Home은 env가 없을 때의 기본이라 넣지 않는다.
         ...(input.project === HOME_TERMINAL_PROJECT
@@ -245,6 +248,7 @@ export function createTerminals(deps: {
         // 개발 실행은 PATH에 `lophn`이 없다. 설치본은 이미 있어 더하지 않는다.
         ...(path === undefined ? {} : { [path.name]: path.value }),
         ...Object.assign({}, ...hooked.map((one) => one.env)),
+        ...(input.env ?? {}),
       };
       const done = settled(
         await supervisor.request({
@@ -256,11 +260,17 @@ export function createTerminals(deps: {
           columns: 80,
           rows: 24,
           env,
+          ...(input.exec === undefined ? {} : { exec: input.exec }),
+          ...(input.terminal_ref === undefined
+            ? {}
+            : { terminal_ref: input.terminal_ref }),
+          ...(isDedicated ? { dedicated: true as const } : {}),
         }),
       );
       const runtime = done.ok ? decorate(done.value) : null;
       for (const one of hooked) one.opened(runtime);
       if (runtime === null) return done;
+      if (isDedicated) return ok(runtime);
       const line =
         input.resume === undefined
           ? null

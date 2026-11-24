@@ -78,6 +78,10 @@ import {
   createCoreRegistration as createProjectCloneRegistration,
   projectCloneWiring,
 } from "./wiring/project-clone.ts";
+import {
+  createCoreRegistration as createProjectCommandsRegistration,
+  projectCommandsWiring,
+} from "./wiring/project-commands.ts";
 import { projectsWiring } from "./wiring/projects.ts";
 import {
   createCoreRegistration as createRemoteRegistration,
@@ -134,6 +138,7 @@ export const TEAMS = [
   { createCoreRegistration: createAttentionRegistration },
   { createCoreRegistration: createRemoteRegistration },
   { createCoreRegistration: createProjectCloneRegistration },
+  { createCoreRegistration: createProjectCommandsRegistration },
 ];
 
 // writer·reader Worker가 다시 import할 등록 파일.
@@ -165,6 +170,7 @@ export const TEAM_MODULES = [
   new URL("./wiring/attention.ts", import.meta.url).href,
   new URL("./wiring/remote.ts", import.meta.url).href,
   new URL("./wiring/project-clone.ts", import.meta.url).href,
+  new URL("./wiring/project-commands.ts", import.meta.url).href,
 ];
 
 // module마다의 wiring. 순서가 뜻을 가진다.
@@ -262,4 +268,6 @@ export const WIRINGS: readonly WiringFactory[] = [
   handoffWiring,
   // 기기 표의 ledger step이 낸 step 목록의 맨 끝이다(schema-steps.lock.json). data step(host key의 machine 표지)은 앞 step과 상관없다.
   remoteWiring,
+  // project commands 표의 ledger step이 낸 step 목록의 맨 끝이다(schema-steps.lock.json). terminals·approvals·remote 뒤다.
+  projectCommandsWiring,
 ];

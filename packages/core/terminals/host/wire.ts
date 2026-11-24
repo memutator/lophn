@@ -21,6 +21,12 @@ export type HostRequest =
       rows: number;
       /** shell env에 더할 값. 다시 시작해도 같은 값을 쓴다. */
       env?: Record<string, string>;
+      /** 지정하면 대화형 셸이 아니라 명령 전용 PTY(`shell -lc <exec>` 등)로 바로 실행한다. */
+      exec?: string;
+      /** 지정하면 해당 터미널 참조를 재사용해 generation을 올려 다시 띄운다. */
+      terminal_ref?: string;
+      /** project command 전용 PTY 표시. */
+      dedicated?: true;
     }
   | {
       type: "input";

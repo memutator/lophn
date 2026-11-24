@@ -1,4 +1,5 @@
 import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
+import type { TurnRequest } from "../../../../protocol/approvals/mod.ts";
 import {
   DEFAULT_SHELL_RULES_SETTING,
   SHELL_RULES_SETTING_KEY,
@@ -6,43 +7,46 @@ import {
   toolGateInputSchema,
   turnRequestDecide,
 } from "../../../../protocol/approvals/mod.ts";
-import {
-  blocksText,
-  textBlocks,
-} from "../../../../protocol/lophn-agent/content-block.ts";
 import { workspaceSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
-import { turnRead } from "../../../../protocol/lophn-agent/turn-reads.ts";
-import type { TurnMode } from "../../../../protocol/lophn-agent/turn-values.ts";
+import type { AskResult } from "../../../../protocol/lophn-agent/ask-tool.ts";
 import {
   type AskQuestion,
   askAnswer,
   askRead,
   askWait,
 } from "../../../../protocol/lophn-agent/ask-tool.ts";
+import type { CallAskKind } from "../../../../protocol/lophn-agent/calls.ts";
 import {
-  createToolGate,
-  type ToolGateDeps,
-} from "../../../lophn-agent/tool-judgment/mod.ts";
+  blocksText,
+  textBlocks,
+} from "../../../../protocol/lophn-agent/content-block.ts";
+import { turnRead } from "../../../../protocol/lophn-agent/turn-reads.ts";
+import type { TurnMode } from "../../../../protocol/lophn-agent/turn-values.ts";
 import type {
   AgentId,
   Workspace,
 } from "../../../../protocol/lophn-agent/workspaces.ts";
-import { createQuestionWaits } from "../../../lophn-agent/tools/questions/mod.ts";
-import { callsAskOpen, callsAskWithdraw } from "../../../router/mod.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import { createApprovals } from "../../../approvals/mod.ts";
-import { agentAssignment } from "../../../apps/usage/users.ts";
 import {
   shellRuleLayers,
   shellRulesSetting,
   withAlwaysRules,
 } from "../../../approvals/shell-rules/mod.ts";
+import { agentAssignment } from "../../../apps/usage/users.ts";
 import type { Bus } from "../../../events/ports.ts";
-import type { CallAskKind } from "../../../../protocol/lophn-agent/calls.ts";
-import type { AskResult } from "../../../../protocol/lophn-agent/ask-tool.ts";
-import type { TurnRequest } from "../../../../protocol/approvals/mod.ts";
-import { openConnection } from "../../../storage/ledger/mod.ts";
+import {
+  createToolGate,
+  type ToolGateDeps,
+} from "../../../lophn-agent/tool-judgment/mod.ts";
+import { createQuestionWaits } from "../../../lophn-agent/tools/questions/mod.ts";
+import {
+  loadProjectCommands,
+  resolveProjectCommandPolicy,
+} from "../../../projects/commands/store.ts";
+import { callsAskOpen, callsAskWithdraw } from "../../../router/mod.ts";
 import type { MemoryHandler } from "../../../server/mod.ts";
+import { openConnection } from "../../../storage/ledger/mod.ts";
 import type { WiringFactory } from "./context.ts";
 
 // tool Gate가 session의 agent를 읽는 core 내부 machine 자격이다. 기동 때 ledger에 기록한다.
@@ -206,10 +210,35 @@ export const approvalsWiring: WiringFactory = () => {
       const shellRulesNow = () =>
         ctx.peek.settings?.get(shellRulesSetting) ??
         DEFAULT_SHELL_RULES_SETTING;
+      const projectCommandPolicyOf = (
+        project: string,
+        commandId: string | null,
+        agent: AgentId,
+      ) => {
+        const connection = openConnection(ctx.ledgerPath);
+        if (!connection.ok) return Promise.resolve(connection);
+        try {
+          const loaded = loadProjectCommands(connection.value.sql, project);
+          if (!loaded.ok) return Promise.resolve(loaded);
+          return Promise.resolve(
+            ok(
+              resolveProjectCommandPolicy(
+                loaded.value.commands,
+                loaded.value.settings,
+                commandId,
+                agent,
+              ),
+            ),
+          );
+        } finally {
+          connection.value.close();
+        }
+      };
       const service = createApprovals({
         assignmentOf,
         // 판정마다 읽어 사람이 Settings에서 고친 값이 다음 호출부터 쓰인다.
         shellRules: (workspace) => shellRuleLayers(shellRulesNow(), workspace),
+        projectCommandPolicyOf,
         bus,
         clock: ctx.clock,
         ids: createIdSource({ clock: ctx.clock, random: ctx.random }),

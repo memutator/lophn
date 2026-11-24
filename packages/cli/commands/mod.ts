@@ -8,6 +8,7 @@ import { ARTIFACT_COMMANDS } from "./artifact.ts";
 import { ASK_COMMANDS } from "./ask.ts";
 import { BROWSER_COMMANDS } from "./browser.ts";
 import { CALL_COMMANDS } from "./call.ts";
+import { PROJECT_COMMAND_CLI_COMMANDS } from "./command.ts";
 import { FOLLOW_UP_COMMANDS } from "./follow-up.ts";
 import { HANDOFF_COMMANDS } from "./handoff.ts";
 import { IMPACT_COMMANDS } from "./impact.ts";
@@ -40,6 +41,7 @@ export { defineCommand } from "./types.ts";
 
 export const COMMANDS: readonly Command[] = [
   ...CALL_COMMANDS,
+  ...PROJECT_COMMAND_CLI_COMMANDS,
   ...AGENT_COMMANDS,
   ...ARTIFACT_COMMANDS,
   ...FOLLOW_UP_COMMANDS,

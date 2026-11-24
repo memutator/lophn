@@ -1,5 +1,5 @@
 id: workflow-ux-and-background-fixes
-version: 0.23.156
+version: 0.23.157
 platform_note: durable-workflows-and-flow-2
 title: "workflow 비분할 그룹 UI 통일, cross-workspace 세션·알림 이동, workflow desk 배치, sidebar 팀 트리 정리, background harness 권한·아이콘을 고친다"
 modules:

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { createIdSource, ok } from "../../../base/mod.ts";
 import type { ToolGateInput } from "../../../protocol/approvals/mod.ts";
@@ -16,15 +17,21 @@ import {
   type ProjectCommandRun,
   type ProjectCommandSettings,
 } from "../../../protocol/projects/project-commands.ts";
-import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
+import type { AuthenticatedContext, Tx } from "../../../protocol/server/mod.ts";
 import { judge } from "../../approvals/gate/judge.ts";
+import { createSql } from "../../storage/ledger/sqlite.ts";
 import type { Terminals } from "../../terminals/ports.ts";
+import { projectsSchemaSteps } from "../registry/schema.ts";
 import {
   CommandLogBuffer,
   createProjectCommandHandlers,
   createProjectCommandRuntime,
   detectProjectCommands,
   extractLocalUrls,
+  loadProjectCommands,
+  PROJECT_COMMANDS_CONTEXT,
+  PROJECT_COMMANDS_SCHEMA_STEPS,
+  projectCommandsStoreCommand,
   RETAINED_LOG_MAX_BYTES,
   RETAINED_LOG_MAX_LINES,
 } from "./mod.ts";
@@ -644,4 +651,80 @@ test("detectProjectCommands discovers package.json, Makefile, justfile, and tool
   assert.ok(result.candidates.some((c) => c.command === "just deploy"));
   assert.ok(result.unsupported_notes.some((n) => n.includes("autoPort")));
   assert.ok(result.unsupported_notes.some((n) => n.includes("setup")));
+});
+
+// createSql은 INTEGER를 bigint로 돌려준다. position/timeout_ms/boolean 플래그가
+// bigint로 와도 명령과 설정이 누락되거나 false로 꺾이지 않아야 한다.
+test("store round-trips commands and settings through ledger createSql (bigint INTEGER columns)", () => {
+  const db = new DatabaseSync(":memory:");
+  try {
+    for (const step of [
+      ...projectsSchemaSteps,
+      ...PROJECT_COMMANDS_SCHEMA_STEPS,
+    ]) {
+      db.exec(step.sql);
+    }
+    const sql = createSql(db, () => true);
+    sql.run(
+      `INSERT INTO projects (id, name, title, purpose, revision, status)
+       VALUES (?, 'demo', 'Demo', '', '1', 'active')`,
+      [PRJ],
+    );
+
+    const saved = projectCommandsStoreCommand.handle(
+      { sql } as unknown as Tx,
+      PROJECT_COMMANDS_CONTEXT,
+      {
+        project: PRJ,
+        commands: [
+          {
+            id: "deploy",
+            name: "Deploy",
+            command: "/usr/local/bin/deploy",
+            kind: "action",
+            icon: "globe",
+            description: "deploy build",
+            preview_url: "http://localhost:3000",
+            auto_open_preview: true,
+            timeout_ms: 600_000,
+            order: 0,
+            agents: [AGT],
+            ask_before_run: true,
+          },
+        ],
+        settings: {
+          agents: [AGT],
+          ask_before_run: true,
+          approve_agent_writes: true,
+        },
+      },
+      {},
+    );
+    assert.ok(saved.ok);
+
+    const loaded = loadProjectCommands(sql, PRJ);
+    assert.ok(loaded.ok);
+    assert.equal(loaded.value.commands.length, 1);
+    assert.deepEqual(loaded.value.commands[0], {
+      id: "deploy",
+      name: "Deploy",
+      command: "/usr/local/bin/deploy",
+      kind: "action",
+      icon: "globe",
+      description: "deploy build",
+      preview_url: "http://localhost:3000",
+      auto_open_preview: true,
+      timeout_ms: 600_000,
+      order: 0,
+      agents: [AGT],
+      ask_before_run: true,
+    });
+    assert.deepEqual(loaded.value.settings, {
+      agents: [AGT],
+      ask_before_run: true,
+      approve_agent_writes: true,
+    });
+  } finally {
+    db.close();
+  }
 });

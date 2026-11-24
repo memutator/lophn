@@ -66,7 +66,7 @@ export interface ProjectCommandsSource {
     project: string,
     command: string,
     options?: { wait?: boolean },
-  ): Promise<Result<{ run: ProjectCommandRun; output_tail?: string }>>;
+  ): Promise<Result<{ run: ProjectCommandRun; tail?: string }>>;
   stop(
     project: string,
     options: { command?: string; all?: boolean },
@@ -75,7 +75,7 @@ export interface ProjectCommandsSource {
     project: string,
     command: string,
     options?: { wait?: boolean },
-  ): Promise<Result<{ run: ProjectCommandRun; output_tail?: string }>>;
+  ): Promise<Result<{ run: ProjectCommandRun; tail?: string }>>;
   logs(
     project: string,
     command: string,

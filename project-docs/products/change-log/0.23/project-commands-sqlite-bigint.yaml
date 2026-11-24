@@ -1,0 +1,18 @@
+id: project-commands-sqlite-bigint
+version: 0.23.159
+title: ledger createSql의 bigint INTEGER 열 때문에 project commands가 빈 목록으로 읽히던 버그 수정
+modules:
+  - packages/core/projects
+  - packages/shell/renderer
+change: |
+  - `packages/core/projects/commands/store.ts`: `loadProjectCommands`에서 SQLite `INTEGER` 열(`position`, `timeout_ms`, `auto_open_preview`, `ask_before_run`, `approve_agent_writes`)을 `Number()`로 변환해 읽는다.
+  - `packages/core/projects/commands/commands_test.ts`: 실제 `createSql`을 거쳐 `projectCommandsStoreCommand` → `loadProjectCommands` 왕복을 검증하는 회귀 테스트를 더한다.
+  - `packages/shell/renderer/workspace/project-commands/source.ts`: `run`/`restart` 반환 타입의 선택 필드 이름을 protocol 계약(`tail`)에 맞춘다.
+why: |
+  ledger `createSql`은 `readBigInts: true`로 동작해 SQLite `INTEGER` 열을 `bigint`(`0n`, `1n`, `600000n`)로 돌려준다. `loadProjectCommands`가 `row.position`과 `row.timeout_ms`를 그대로 `projectCommandSchema.safeParse`에 넘기고 `=== 1`로 비교해, 저장된 모든 명령이 스키마 검증에서 조용히 탈락해 UI와 CLI에 하나도 보이지 않고, 두 번째 명령 추가 시 기존 명령이 덮어쓰여 유실되며, 설정의 boolean 플래그도 항상 `false`로 읽혔다.
+decisions:
+  - text: "`loadProjectCommands`에서 모든 `INTEGER` 열을 `Number()`로 정규화하고, 실제 `createSql` 왕복 테스트를 추가한다. 기존 DB에 저장된 행은 손상되지 않았으므로 migration은 필요 없다."
+    by: agent
+checklist:
+  - "해야: 앱 다시 build 및 재기동"
+  - "기존에 등록한 `lophn-vps-update` 명령이 `lophn command list`, Project settings › Commands, Terminal hover, 사이드바 `+` hover, 탭 `+` 메뉴, 팔레트에 정상 표시되는지 확인한다"

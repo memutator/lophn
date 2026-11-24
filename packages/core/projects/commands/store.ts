@@ -35,9 +35,10 @@ export const PROJECT_COMMANDS_CONTEXT: AuthenticatedContext = {
   credential_ref: PROJECT_COMMANDS_PRINCIPAL,
 };
 
+// createSql은 INTEGER를 bigint로 준다. 1n === 1은 늘 거짓이고 zod number도 bigint를 거절해 Number()로 읽는다.
 type CommandRow = {
   id: string;
-  position: number;
+  position: number | bigint;
   name: string;
   command: string;
   kind: string;
@@ -47,16 +48,16 @@ type CommandRow = {
   cwd: string | null;
   env_json: string | null;
   preview_url: string | null;
-  auto_open_preview: number;
-  timeout_ms: number | null;
+  auto_open_preview: number | bigint;
+  timeout_ms: number | bigint | null;
   agents_json: string | null;
-  ask_before_run: number | null;
+  ask_before_run: number | bigint | null;
 };
 
 type SettingsRow = {
   agents_json: string;
-  ask_before_run: number;
-  approve_agent_writes: number;
+  ask_before_run: number | bigint;
+  approve_agent_writes: number | bigint;
 };
 
 function parseJson(raw: string | null): unknown {
@@ -137,12 +138,16 @@ export function loadProjectCommands(
         ? { env, env_keys: Object.keys(env).sort() }
         : {}),
       ...(row.preview_url !== null ? { preview_url: row.preview_url } : {}),
-      ...(row.auto_open_preview === 1 ? { auto_open_preview: true } : {}),
-      ...(row.timeout_ms !== null ? { timeout_ms: row.timeout_ms } : {}),
-      order: row.position,
+      ...(Number(row.auto_open_preview) === 1
+        ? { auto_open_preview: true }
+        : {}),
+      ...(row.timeout_ms !== null
+        ? { timeout_ms: Number(row.timeout_ms) }
+        : {}),
+      order: Number(row.position),
       ...(parsedAgents !== undefined ? { agents: parsedAgents.data } : {}),
       ...(row.ask_before_run !== null
-        ? { ask_before_run: row.ask_before_run === 1 }
+        ? { ask_before_run: Number(row.ask_before_run) === 1 }
         : {}),
     };
     const checked = projectCommandSchema.safeParse(candidate);
@@ -160,8 +165,8 @@ export function loadProjectCommands(
   if (settingsRow !== undefined) {
     const parsed = projectCommandSettingsSchema.safeParse({
       agents: parseJson(settingsRow.agents_json),
-      ask_before_run: settingsRow.ask_before_run === 1,
-      approve_agent_writes: settingsRow.approve_agent_writes === 1,
+      ask_before_run: Number(settingsRow.ask_before_run) === 1,
+      approve_agent_writes: Number(settingsRow.approve_agent_writes) === 1,
     });
     if (parsed.success) settings = parsed.data;
   }

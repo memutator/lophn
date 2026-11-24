@@ -3,3 +3,9 @@ declare module "*.svg" {
   const text: string;
   export default text;
 }
+
+declare module "*.png" {
+  import type { ImageSourcePropType } from "react-native";
+  const image: ImageSourcePropType;
+  export default image;
+}

@@ -6,7 +6,7 @@ import Svg, { Circle, G, Path, SvgXml } from "react-native-svg";
 import type { CharacterAvatar } from "../../../protocol/lophn-agent/agent-values.ts";
 import type { Vendor } from "../../../shell/renderer/parts/vendor-icon/vendors.ts";
 import type { Who } from "../data/mod.ts";
-import { VENDOR_SVG } from "./vendor-svg.ts";
+import { VENDOR_ICON } from "./vendor-svg.ts";
 
 export type Look = Who["avatar"];
 
@@ -80,9 +80,19 @@ export function Character({
 /** A product's own icon. One-color icons use currentColor and follow the text color. */
 export function VendorIcon({ vendor, size }: { vendor: Vendor; size: number }) {
   const theme = useTheme();
+  const icon = VENDOR_ICON[vendor];
+  if (icon.kind === "image") {
+    return (
+      <Image
+        source={icon.source}
+        style={{ width: size, height: size }}
+        resizeMode="contain"
+      />
+    );
+  }
   return (
     <SvgXml
-      xml={VENDOR_SVG[vendor]}
+      xml={icon.xml}
       width={size}
       height={size}
       color={theme.color.text.primary}

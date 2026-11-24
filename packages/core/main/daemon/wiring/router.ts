@@ -47,6 +47,10 @@ import {
   type ArtifactWorkspace,
   artifactsFolder,
 } from "../../../../protocol/projects/mod.ts";
+import {
+  type WorkflowOrigin,
+  workflowOriginSchema,
+} from "../../../../protocol/workflows/values.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import type { ApprovalsService } from "../../../approvals/approvals.ts";
 import type { AnnotationDelivery } from "../../../apps/annotations/ports.ts";
@@ -386,6 +390,30 @@ export const routerWiring: WiringFactory = () => {
         if (!rows.ok || !rows.value.opener || !rows.value.session) return;
         // GUI 탭 팀원은 Agent 탭이 아니라 그 coding agent의 터미널 탭이 자리다. 그 탭은 입력이 들어올 때 GUI 연결이 연다.
         if (rows.value.session.harness_gui) return;
+        let origin: WorkflowOrigin | null = null;
+        if (rows.value.session.workflow_origin !== null) {
+          try {
+            const parsed = workflowOriginSchema.safeParse(
+              JSON.parse(rows.value.session.workflow_origin),
+            );
+            if (parsed.success) origin = parsed.data;
+          } catch {
+            // 손상된 값은 무시하고 기본 자리에 연다.
+          }
+        }
+        if (origin !== null) {
+          // workflow_origin이 있는 세션(및 그 team spawn 자식)은 원 workflow의 workspace·desk·step 묶음에 둔다.
+          ctx.hostQueue.openTab({
+            owner: data.opener,
+            workspace: { kind: "project", id: origin.project },
+            target: { session: data.session },
+            relation: null,
+            source: null,
+            desk: { workflow: origin.workflow },
+            group: `${origin.instance}:${origin.step}`,
+          });
+          return;
+        }
         const from = workspaceOf(rows.value.opener);
         const there = workspaceOf(rows.value.session);
         const same = from?.kind === there?.kind && from?.id === there?.id;

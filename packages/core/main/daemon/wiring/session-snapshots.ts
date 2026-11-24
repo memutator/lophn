@@ -27,7 +27,21 @@ import {
 } from "../../../storage/ledger/mod.ts";
 import type { WiringFactory } from "./context.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
+import {
+  type WorkflowOrigin,
+  workflowOriginSchema,
+} from "../../../../protocol/workflows/values.ts";
 import { memberDeliveryOf } from "../../../router/store.ts";
+
+function workflowOriginOf(raw: string | null): WorkflowOrigin | null {
+  if (raw === null) return null;
+  try {
+    const parsed = workflowOriginSchema.safeParse(JSON.parse(raw));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
 
 // 멈춘 turn의 쓰는 중인 글을 저장하고, core가 끝내는 turn의 active를 마감하는 core 안 자격이다.
 // 기동 때 ledger에 기록한다.
@@ -133,6 +147,7 @@ export const sessionSnapshotsWiring: WiringFactory = () => {
             agent: row.agent,
             workspace: workspaceOf(row),
             spawned_by: row.spawned_by as SessionSnapshot["spawned_by"],
+            workflow_origin: workflowOriginOf(row.workflow_origin),
             runs_on: null,
             state: sessionStateOf(sql, row.id, {
               approval: turn_requests.length > 0,

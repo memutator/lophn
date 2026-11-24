@@ -137,12 +137,15 @@ export async function readFace(
   if (!apps.ok) return apps;
   const name = effective.name.value;
   const avatar = effective.avatar.value;
+  const runtime = read.value.definition?.runtime;
   const face: AgentFace = {
     agent: env.agent,
     name,
-    // 내장 coding agent는 그 제품 아이콘이다. 올린 이미지는 renderer가 읽을 수 있는 주소가 없어 이름 첫 글자로 그린다.
+    // 내장 coding agent와 기본 character avatar의 harness runtime agent는 그 제품 아이콘이다. 올린 이미지는 renderer가 읽을 수 있는 주소가 없어 이름 첫 글자로 그린다.
     avatar:
-      codingFaceOf(env.agent) ??
+      (avatar.kind === "character"
+        ? codingFaceOf(env.agent, runtime)
+        : codingFaceOf(env.agent)) ??
       (avatar.kind === "character"
         ? avatar
         : { kind: "initial", text: name.slice(0, 1) }),

@@ -149,6 +149,7 @@ function toRow(row: AgentRow): AgentListRow {
     workspace: row.workspace,
     name: row.name,
     avatar: row.avatar,
+    ...(row.runtime === undefined ? {} : { runtime: row.runtime }),
     ...(row.description === undefined ? {} : { description: row.description }),
     model:
       row.model === null

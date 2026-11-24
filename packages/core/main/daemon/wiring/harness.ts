@@ -11,6 +11,7 @@ import {
 import type { Id } from "../../../../protocol/base/ids.ts";
 import { HARNESS_ADAPTER_OF_RUNTIME } from "../../../../protocol/coding-agent/harness-adapter.ts";
 import { harnessHomeName } from "../../../../protocol/coding-agent/harness-home.ts";
+import type { AcpApprovalSubject } from "../../../../protocol/approvals/gate-call.ts";
 import {
   type AgentId,
   type AgentRuntime,
@@ -598,6 +599,36 @@ export const harnessWiring: WiringFactory = () => {
               ? {}
               : { harness_config: info.value.harnessConfig }),
           });
+        },
+        async approve(session, subject) {
+          const reject = (reason = "no one is watching this background run") =>
+            ({ reject: reason }) as const;
+          if (subject.kind === "setting") return reject();
+          const found = harnessSession(session);
+          if (!found.ok) return reject();
+          const row = found.value.row;
+          const agent = row.agent as AgentId;
+          const info = ledgerSnapshot(ctx.ledgerPath, (lookup) =>
+            workspaceDepsOf(lookup.sql).agents.agent(agent),
+          );
+          if (!info.ok || info.value === null) return reject();
+          // session이나 agent 정의에 skip이 켜져 있으면 ask 규칙을 묻지 않고 허용한다(deny 규칙은 늘 유지).
+          const skip = row.skip || info.value.skip;
+          if (subject.kind === "plan") return skip ? "allow" : reject();
+          if (subject.kind === "file_change") return "allow";
+          const judged = await ctx.approvals.judge(subject, {
+            agent,
+            session,
+            workspace: workspaceOf(row),
+            mode: skip ? "skip" : "attended",
+            toParent: false,
+          });
+          if (!judged.ok) return reject();
+          if (judged.value.kind === "run") return "allow";
+          if (judged.value.kind === "deny") {
+            return reject(`denied by rule (${judged.value.reason})`);
+          }
+          return reject();
         },
         async forget(who, input) {
           if (who.actor !== "user") {

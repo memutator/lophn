@@ -144,6 +144,9 @@ export interface WorkflowSessionNodeView {
   readonly waiting_for: "approval" | "question" | null;
   readonly last_assistant_preview: string | null;
   readonly last_error: string | null;
+  readonly harness_gui?: boolean;
+  readonly harness?: string | null;
+  readonly cli_session?: string | null;
 }
 
 export type WorkflowCheckpointKind =

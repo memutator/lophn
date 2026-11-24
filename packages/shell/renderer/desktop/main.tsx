@@ -339,21 +339,23 @@ export function Desktop({
       });
     })();
   };
-  // 다른 project나 공간에 있을 때 터미널 알림을 누르면 그 터미널의 project로 가서 연다. 같은 project면 store가 탭을 고른다.
+  // 다른 project나 공간에 있을 때 터미널 알림을 누르면 그 터미널의 project로 가서 연다. 같은 project이거나
+  // cross-workspace workflow desk처럼 이 창에 이미 그 터미널 탭이 열려 있으면 창을 옮기지 않고 store가 탭을 고른다.
   const terminalBridge = terminal?.bridge;
   useEffect(
     () =>
       terminalBridge?.onReveal(({ project, terminal: ref }) =>
         setRoute((current) =>
-          (project === HOME_TERMINAL_PROJECT
+          terminal?.store.has(ref) ||
+          ((project === HOME_TERMINAL_PROJECT
             ? current.space === "home"
             : current.space === "project" && current.project === project) &&
-          current.machine === undefined
+            current.machine === undefined)
             ? current
             : openTerminalIn(project, ref),
         ),
       ),
-    [terminalBridge],
+    [terminal, terminalBridge],
   );
   // 저장한 모드와 사람이 바꾼 단축키를 이 창에 적용한다. core가 준비되면 읽고, 설정이 바뀌면 다시 읽는다
   // (Settings 화면, `lophn settings set`, agent 어느 쪽이 바꿔도 같다). 색·글꼴 CSS는 main이 같은 설정을 따라 넣는다.

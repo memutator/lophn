@@ -13,6 +13,7 @@ import type {
   AgentId,
   workspaceOutputSchema,
 } from "../../../../../protocol/lophn-agent/workspaces.ts";
+import type { WorkflowOrigin } from "../../../../../protocol/workflows/values.ts";
 import type { EventClient } from "./client.ts";
 import { readSessionSnapshots } from "./snapshots.ts";
 import { createValueStore, syncOnReady } from "./store.ts";
@@ -31,6 +32,8 @@ export interface SessionEntry {
   readonly workspace: Workspace | null;
   /** 팀(spawn tree)의 부모 session. 팀 밖이거나 모르면 null. */
   readonly spawnedBy: string | null;
+  /** workflow가 열었거나 팀 자식이 상속한 출처. 없으면 null. */
+  readonly workflowOrigin?: WorkflowOrigin | null;
   /** 사람이 보지 않는 사이 turn이 끝났다(Agent 탭의 finished 점). core가 정한다(`unseen`). */
   readonly unseen: boolean;
 }
@@ -82,6 +85,7 @@ interface Record_ {
   agent: AgentId | null;
   workspace: Workspace | null;
   spawnedBy: string | null;
+  workflowOrigin: WorkflowOrigin | null;
 }
 
 interface SessionsStore {
@@ -114,6 +118,7 @@ export function createSessionsStore(
         agent: record.agent,
         workspace: record.workspace,
         spawnedBy: record.spawnedBy,
+        workflowOrigin: record.workflowOrigin,
         unseen: unseen?.get().marks.has(session) ?? false,
       });
     }
@@ -147,20 +152,28 @@ export function createSessionsStore(
     if (snapshots === null) return;
     const found = new Set(snapshots.map((snapshot) => snapshot.session));
     for (const id of ids) if (!found.has(id)) members.delete(id);
-    for (const snapshot of snapshots) putMember(snapshot);
+    for (const snapshot of snapshots) {
+      if (snapshot.runs_on !== null) {
+        putMember(snapshot);
+        continue;
+      }
+      const existing = records.get(snapshot.session);
+      if (existing !== undefined) {
+        existing.workflowOrigin = snapshot.workflow_origin ?? null;
+      }
+    }
     publish();
   }
 
-  // 이 컴퓨터의 session이 바뀐 것은 다른 event가 알린다. 모르는 id(새 자리일 수 있다)와 아는 자리만 다시 읽는다.
+  // 이 컴퓨터의 session이 바뀐 것은 다른 event가 알린다. 모르는 id(새 자리일 수 있다), workflow_origin이 아직 없는 session, 아는 자리만 다시 읽는다.
   function membersChanged(event: Extract<BusEvent, { type: "StateChanged" }>) {
     const ids = new Set<string>();
     for (const change of event.payload.changes) {
-      if (
-        change.name === "sessions" &&
-        change.id !== null &&
-        !records.has(change.id)
-      ) {
-        ids.add(change.id);
+      if (change.name === "sessions" && change.id !== null) {
+        const existing = records.get(change.id);
+        if (existing === undefined || existing.workflowOrigin === null) {
+          ids.add(change.id);
+        }
       } else if (change.name === "agent_calls") {
         for (const id of members.keys()) ids.add(id);
       }
@@ -179,6 +192,7 @@ export function createSessionsStore(
         agent: null,
         workspace: null,
         spawnedBy: null,
+        workflowOrigin: null,
       };
       records.set(session, record);
     }
@@ -189,6 +203,10 @@ export function createSessionsStore(
     switch (event.type) {
       case "SessionStarted": {
         const { agent, workspace, spawned_by } = event.payload;
+        const parentOrigin =
+          spawned_by !== null
+            ? (records.get(spawned_by)?.workflowOrigin ?? null)
+            : null;
         records.set(event.session, {
           base: "idle",
           turnActive: false,
@@ -197,6 +215,7 @@ export function createSessionsStore(
           agent,
           workspace,
           spawnedBy: spawned_by,
+          workflowOrigin: parentOrigin,
         });
         break;
       }
@@ -262,6 +281,7 @@ export function createSessionsStore(
         agent: snapshot.agent,
         workspace: snapshot.workspace,
         spawnedBy: snapshot.spawned_by,
+        workflowOrigin: snapshot.workflow_origin ?? null,
       });
     }
     records = next;

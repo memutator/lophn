@@ -16,6 +16,7 @@ import type {
   GuiHarness,
   HarnessLaunchConfig,
 } from "../../protocol/acp/mod.ts";
+import type { AcpApprovalSubject } from "../../protocol/approvals/gate-call.ts";
 import type {
   HarnessRecordPart,
   HarnessRuntime,
@@ -103,6 +104,14 @@ export type HarnessMembers = {
   ): Promise<
     Result<{ harness_config?: HarnessLaunchConfig; deny: readonly string[] }>
   >;
+  /**
+   * background 실행 중 harness가 권한 승인을 물었을 때 session/agent의 skip과 shell·할당 규칙으로 허용 여부를 판정한다.
+   * 없으면 fail-closed로 거절한다.
+   */
+  approve?(
+    session: string,
+    subject: AcpApprovalSubject,
+  ): Promise<"allow" | { reject: string }>;
   /** 사람이 그 coding session을 목록에서 지웠다. 그 CLI session의 열린 팀원 session을 사람 자격으로 보관한다. 보관한 수다. */
   forget(
     who: AuthenticatedContext,

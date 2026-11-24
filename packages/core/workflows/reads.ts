@@ -246,6 +246,9 @@ function buildSessionNodes(
       waiting_for: live.waiting_for,
       last_assistant_preview: lastPreview,
       last_error: lastError,
+      ...(row.harness_gui ? { harness_gui: true } : {}),
+      ...(row.harness !== null ? { harness: row.harness } : {}),
+      ...(row.cli_session !== null ? { cli_session: row.cli_session } : {}),
     };
   });
 }

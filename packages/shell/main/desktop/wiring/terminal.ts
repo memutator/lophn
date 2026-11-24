@@ -87,14 +87,17 @@ export function register(
     runtime.state === "starting" || runtime.state === "running";
   const note = (runtime: Runtime) => {
     if (live(runtime)) runtimes.set(runtime.terminal_ref, runtime);
-    else runtimes.delete(runtime.terminal_ref);
+    else {
+      runtimes.delete(runtime.terminal_ref);
+      ctx.terminalWorkspaces.delete(runtime.terminal_ref);
+    }
   };
 
   const notice = createNoticeWiring(
     ctx,
     focus,
     appSessions,
-    (ref) => runtimes.get(ref)?.project,
+    (ref) => ctx.terminalWorkspaces.get(ref) ?? runtimes.get(ref)?.project,
     () => [...runtimes.keys()],
   );
 

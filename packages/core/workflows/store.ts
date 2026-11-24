@@ -53,6 +53,8 @@ export type InstanceSessionRow = {
   workspace: Workspace | null;
   lifecycle: "open" | "archived";
   harness_gui: boolean;
+  harness: string | null;
+  cli_session: string | null;
   runs_on: string | null;
 };
 
@@ -391,7 +393,7 @@ export function loadInstanceSessions(
 ): InstanceSessionRow[] {
   if (!hasTable(sql, "sessions")) return [];
   const rows = sql.all(
-    `SELECT id, agent, workspace_kind, workspace_id, lifecycle, harness_gui, runs_on, spawned_by
+    `SELECT id, agent, workspace_kind, workspace_id, lifecycle, harness_gui, harness, harness_session, runs_on, spawned_by
      FROM sessions
      WHERE workflow_origin IS NOT NULL AND workflow_origin ->> '$.instance' = ?
      ORDER BY created_seq LIMIT ?`,
@@ -419,6 +421,14 @@ export function loadInstanceSessions(
           : null,
       lifecycle: String(row["lifecycle"]) === "archived" ? "archived" : "open",
       harness_gui: Number(row["harness_gui"] ?? 0) === 1,
+      harness:
+        row["harness"] === null || row["harness"] === undefined
+          ? null
+          : String(row["harness"]),
+      cli_session:
+        row["harness_session"] === null || row["harness_session"] === undefined
+          ? null
+          : String(row["harness_session"]),
       runs_on:
         row["runs_on"] === null || row["runs_on"] === undefined
           ? null

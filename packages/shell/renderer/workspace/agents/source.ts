@@ -61,6 +61,7 @@ export interface AgentListRow {
   /** 보이는 이름이다. 겹쳐도 되고 바꿀 수 있다. */
   readonly name: string;
   readonly avatar: AgentAvatar;
+  readonly runtime?: AgentRuntime;
   readonly description?: string;
   readonly model: {
     readonly provider: string;

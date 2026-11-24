@@ -318,6 +318,10 @@ export const workflowSessionNodeSchema = z.object({
   last_assistant_preview: z.string().nullable(),
   // 마지막 turn이 실패했으면 redaction된 이유. 아니면 null.
   last_error: z.string().nullable(),
+  // GUI 터미널 팀원 session이면 Run 화면 [Open session]이 열린 터미널 탭과 대조할 때 쓴다.
+  harness_gui: z.boolean().optional(),
+  harness: z.string().nullable().optional(),
+  cli_session: z.string().nullable().optional(),
 });
 export type WorkflowSessionNode = z.infer<typeof workflowSessionNodeSchema>;
 

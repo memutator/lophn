@@ -9,6 +9,7 @@ import {
   agentIdSchema,
   workspaceOutputSchema,
 } from "../lophn-agent/workspaces.ts";
+import { workflowOriginSchema } from "../workflows/values.ts";
 
 // waiting은 대기 turn request나 질문이 있는 때다. unknown은 지금 내는 곳이 없다.
 const sessionStateSchema = z.enum(SENDABLE_SESSION_STATES);
@@ -31,6 +32,8 @@ const sessionSnapshotSchema = z.object({
   workspace: workspaceOutputSchema.nullable(),
   // 팀(spawn tree)의 부모. 화면이 sidebar에 팀 tree를 그린다.
   spawned_by: idSchema("ses").nullable(),
+  // workflow가 열었거나 그 팀 자식이 상속한 출처. 탭이 없어도 sidebar·열기가 workflow desk에 맞춘다.
+  workflow_origin: workflowOriginSchema.nullable().optional(),
   // 다른 컴퓨터에서 도는 팀원의 자리(`team spawn --on`)면 그 컴퓨터(명단의 이름), 그 컴퓨터의 agent handle, 자리의 상태다: 아직 닿지
   // 않음(pending), 그 컴퓨터의 대기 목록(held), 그 컴퓨터가 받아 돎(running), 끝남(ended). 이 컴퓨터의 session은 null이다. 상태가 바뀌면
   // spawn call의 `StateChanged{agent_calls}`, 자리가 열리면 `StateChanged{sessions}`, 끝나면 `SessionEnded`가 온다. 그 자리의 state는 unknown이다.

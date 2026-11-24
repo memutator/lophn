@@ -126,6 +126,8 @@ export type ShellContext = {
    * 가져와 고르게 한다. notice wiring이 등록 때 채운다.
    */
   sessionWindows: { reveal(session: string): void };
+  /** cross-workspace workflow desk 등으로 열린 터미널의 실제 탭 workspace(project id 또는 `home`). 알림 reveal이 우선 본다. */
+  terminalWorkspaces: Map<string, string>;
   log: (message: string) => void;
   core: CoreConnection;
   /** main 안 core 통로. renderer allowlist를 거치지 않는다. */
@@ -273,6 +275,7 @@ export function createShellContext(): ShellContext {
     // machines.register가 다른 영역보다 먼저 채운다(main.ts). 그 앞에는 아무도 읽지 않는다.
     machines: undefined as unknown as Machines,
     sessionWindows: { reveal: () => void openDesktopWindow(ctx) },
+    terminalWorkspaces: new Map(),
     log,
     core,
     coreInternal,

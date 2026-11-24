@@ -373,22 +373,47 @@ export function createBackgroundMembers(deps: BackgroundMembersDeps) {
       return;
     }
     if (change.type === "approval_opened") {
-      // background 실행은 응답할 사람이 없으므로 권한을 넓히지 않고 거절한다.
-      handle.input({
-        type: "decide",
-        session: runner.session,
-        request: change.approval.id,
-        choice: {
-          kind: "reject",
-          reason: "no one is watching this background run",
-        },
-      });
-      if (runner.turn !== null && !runner.turn.closedExternally) {
-        enqueueRecord(runner, runner.turn, {
-          kind: "text",
-          text: `denied: ${approvalLabel(change.approval.subject)}`,
+      const approval = change.approval;
+      const members = deps.members();
+      const rejectNow = (reason: string) => {
+        if (runner.closing || runner.handle !== handle) return;
+        handle.input({
+          type: "decide",
+          session: runner.session,
+          request: approval.id,
+          choice: { kind: "reject", reason },
         });
+        if (runner.turn !== null && !runner.turn.closedExternally) {
+          enqueueRecord(runner, runner.turn, {
+            kind: "text",
+            text: `denied: ${approvalLabel(approval.subject)}`,
+          });
+        }
+      };
+      if (members?.approve === undefined) {
+        // approve 판정기가 없으면 권한을 넓히지 않고 거절한다.
+        rejectNow("no one is watching this background run");
+        return;
       }
+      void members.approve(runner.session, approval.subject).then(
+        (verdict) => {
+          if (runner.closing || runner.handle !== handle) return;
+          if (verdict === "allow") {
+            handle.input({
+              type: "decide",
+              session: runner.session,
+              request: approval.id,
+              choice:
+                approval.subject.kind === "plan"
+                  ? { kind: "mode", mode: approval.subject.modes[0]!.id }
+                  : { kind: "once" },
+            });
+            return;
+          }
+          rejectNow(verdict.reject);
+        },
+        () => rejectNow("no one is watching this background run"),
+      );
       return;
     }
     if (change.type === "question_asked") {

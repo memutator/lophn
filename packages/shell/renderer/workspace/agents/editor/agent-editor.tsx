@@ -271,13 +271,17 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
       : (ready.definition.name ?? ready.detail.effective.name.value);
   const shownAvatar: AvatarLook | null = (() => {
     if (ready === null) return null;
+    const avatar =
+      ready.definition.avatar ?? ready.detail.effective.avatar.value;
+    const runtime =
+      ready.definition.runtime ?? ready.detail.definition?.runtime;
     const coding =
       ready.detail.assignment === null
         ? undefined
-        : codingFaceOf(ready.detail.assignment);
+        : avatar.kind === "character"
+          ? codingFaceOf(ready.detail.assignment, runtime)
+          : codingFaceOf(ready.detail.assignment);
     if (coding !== undefined) return coding;
-    const avatar =
-      ready.definition.avatar ?? ready.detail.effective.avatar.value;
     return avatar.kind === "character"
       ? avatar
       : {

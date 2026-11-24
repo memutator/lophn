@@ -51,6 +51,7 @@ function setup(options?: {
   deny?: readonly string[];
   launch?: HarnessLaunchConfig;
   held?: boolean;
+  approve?: HarnessMembers["approve"];
 }) {
   const root = mkdtempSync(join(tmpdir(), "lophn-bg-member-"));
   const clock = manualClock(Date.parse(AT));
@@ -139,6 +140,7 @@ function setup(options?: {
           ? {}
           : { harness_config: options.launch }),
       }),
+    ...(options?.approve === undefined ? {} : { approve: options.approve }),
     forget: async () => ok(0),
     failQueued: async () => ok(undefined),
     end: (turn) => void endedCredentials.push(turn),
@@ -466,6 +468,68 @@ test("background run auto-rejects approvals and auto-cancels questions with reco
       .map((part) => part.text);
     assert.ok(texts.some((text) => text.includes("denied: rm -rf /tmp/x")));
     assert.ok(texts.some((text) => text.includes("denied: agent asked")));
+  } finally {
+    await kit.bg.stop();
+    kit.cleanup();
+  }
+});
+
+test("background run delegates approval_opened to members.approve: allows permitted calls and rejects denied ones", async () => {
+  const kit = setup({
+    harness: "antigravity",
+    approve: async (_session, subject) => {
+      if (subject.kind === "shell" && subject.command.startsWith("git ")) {
+        return "allow";
+      }
+      return { reject: "denied by rule (shell_rule)" };
+    },
+  });
+  try {
+    kit.bg.start();
+    await kit.enqueue("create worktree");
+    await kit.emit({
+      type: "turn_started",
+      turn: "acp_1",
+      at: AT,
+    });
+
+    await kit.emit({
+      type: "approval_opened",
+      approval: {
+        id: id("apr", 1),
+        subject: { kind: "shell", command: "git worktree add ../wt main" },
+        choices: ["once", "reject"],
+        always_patterns: [],
+      },
+    });
+    await kit.emit({
+      type: "approval_opened",
+      approval: {
+        id: id("apr", 2),
+        subject: { kind: "shell", command: "sudo rm -rf /" },
+        choices: ["once", "reject"],
+        always_patterns: [],
+      },
+    });
+    await settle();
+
+    const decisions = kit.receivedInputs.filter(
+      (one): one is Extract<AcpInput, { type: "decide" }> =>
+        one.type === "decide",
+    );
+    assert.equal(decisions.length, 2);
+    assert.deepEqual(decisions[0]?.choice, { kind: "once" });
+    assert.deepEqual(decisions[1]?.choice, {
+      kind: "reject",
+      reason: "denied by rule (shell_rule)",
+    });
+
+    const texts = kit.recorded
+      .map((entry) => entry.part)
+      .filter((part) => part.kind === "text")
+      .map((part) => part.text);
+    assert.ok(!texts.some((text) => text.includes("git worktree add")));
+    assert.ok(texts.some((text) => text.includes("denied: sudo rm -rf /")));
   } finally {
     await kit.bg.stop();
     kit.cleanup();

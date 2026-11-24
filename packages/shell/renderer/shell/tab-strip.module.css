@@ -81,9 +81,14 @@
   max-width: calc(var(--space-12) * 3 + var(--space-11) + var(--space-4));
 }
 
-.tab[data-split] {
+.tab[data-split],
+.tab[data-bundle] {
   min-width: var(--space-11);
   max-width: none;
+}
+
+.tab[data-bundle][data-collapsed] {
+  max-width: calc(var(--space-12) * 3 + var(--space-4));
 }
 
 .tab[data-active] {
@@ -172,7 +177,8 @@
   max-width: calc(var(--space-12) + var(--space-4));
 }
 
-.tab[data-split] .title {
+.tab[data-split] .title,
+.tab[data-bundle] .title {
   max-width: calc(var(--space-12) * 2 + var(--space-9));
 }
 
@@ -196,8 +202,8 @@
 .tab[data-active][data-split] .half[data-focused] .close,
 .tab[data-active][data-bundle] .half[data-focused] .close,
 .tab:not([data-split], [data-bundle]):hover .close,
-.tab[data-active][data-split] .half:hover .close,
-.tab[data-active][data-bundle] .half:hover .close,
+.tab[data-active][data-split] .half:not([data-hidden]):hover .close,
+.tab[data-active][data-bundle] .half:not([data-hidden]):hover .close,
 .close[data-unsaved],
 .close[data-dot] {
   visibility: visible;
@@ -210,22 +216,28 @@
 
 /* 고르지 않은 group에는 ×가 없다. 숨은 닫기 자리가 이름 사이에 빈 칸을 만들어서다. 닫기는 가운데 클릭과 tab 메뉴, group을 고른
    뒤의 ×다. ●나 상태 점은 남기되 누르면 닫지 않고 그 tab을 고른다. */
-.tab[data-split]:not([data-active]) {
+.tab[data-split]:not([data-active]),
+.tab[data-bundle]:not([data-active]) {
   padding-inline-end: var(--space-4);
 }
 
 /* 고른 group도 끝이 칸에 숨은 tab이면 닫기 자리가 없어 이름이 tab 끝에 붙는다. 같은 만큼 띄운다. */
 .tab[data-active][data-split]:has(
     > .pane:nth-last-child(2) > .half[data-hidden]:last-child > .close:not([data-unsaved], [data-dot])
+  ),
+.tab[data-active][data-bundle]:has(
+    > .pane:nth-last-child(2) > .half[data-hidden]:last-child > .close:not([data-unsaved], [data-dot])
   ) {
   padding-inline-end: var(--space-4);
 }
 
-.tab[data-split]:not([data-active]) .close {
+.tab[data-split]:not([data-active]) .close,
+.tab[data-bundle]:not([data-active]) .close {
   pointer-events: none;
 }
 
-.tab[data-split]:not([data-active]) .close:not([data-unsaved], [data-dot]) {
+.tab[data-split]:not([data-active]) .close:not([data-unsaved], [data-dot]),
+.tab[data-bundle]:not([data-active]) .close:not([data-unsaved], [data-dot]) {
   display: none;
 }
 
@@ -273,23 +285,28 @@
 }
 
 /* 고르지 않은 group은 옅은 바탕으로 한 칸임을 보인다. */
-.tab[data-split]:not([data-active])::before {
+.tab[data-split]:not([data-active])::before,
+.tab[data-bundle]:not([data-active])::before {
   background: var(--color-surface-muted);
 }
 
 /* 줄이 모자라면 고르지 않은 group은 아이콘과 방향 표시만 보이는 좁은 칸이 된다. 이름은 tooltip에 있다. */
-.list[data-fold] .tab[data-split]:not([data-active]) {
+.list[data-fold] .tab[data-split]:not([data-active]),
+.list[data-fold] .tab[data-bundle]:not([data-active], [data-collapsed]) {
   flex: none;
   min-width: var(--space-0);
   gap: var(--space-2);
 }
 
-.list[data-fold] .tab[data-split]:not([data-active]) .half {
+.list[data-fold] .tab[data-split]:not([data-active]) .half,
+.list[data-fold] .tab[data-bundle]:not([data-active], [data-collapsed]) .half {
   flex: none;
 }
 
 .list[data-fold] .tab[data-split]:not([data-active]) .title,
-.list[data-fold] .tab[data-split]:not([data-active]) .machine {
+.list[data-fold] .tab[data-split]:not([data-active]) .machine,
+.list[data-fold] .tab[data-bundle]:not([data-active], [data-collapsed]) .title,
+.list[data-fold] .tab[data-bundle]:not([data-active], [data-collapsed]) .machine {
   display: none;
 }
 
@@ -415,15 +432,15 @@
 .tab:not([data-split], [data-bundle]):hover .stateDot,
 .tab[data-active][data-split] .half:not([data-hidden]):hover .mark,
 .tab[data-active][data-split] .half:not([data-hidden]):hover .stateDot,
-.tab[data-active][data-bundle] .half:hover .mark,
-.tab[data-active][data-bundle] .half:hover .stateDot {
+.tab[data-active][data-bundle] .half:not([data-hidden]):hover .mark,
+.tab[data-active][data-bundle] .half:not([data-hidden]):hover .stateDot {
   display: none;
 }
 
 .close:focus-visible .cross,
 .tab:not([data-split], [data-bundle]):hover .close .cross,
 .tab[data-active][data-split] .half:not([data-hidden]):hover .close .cross,
-.tab[data-active][data-bundle] .half:hover .close .cross {
+.tab[data-active][data-bundle] .half:not([data-hidden]):hover .close .cross {
   display: inline-block;
 }
 
@@ -439,51 +456,14 @@
   outline-offset: calc(-1 * var(--border-focus-width));
 }
 
-/* 비분할 탭 묶음(bundle). 머리 chip(접기 단추 + 요약 점 + 이름·개수)과 펼쳐진 구성원 tab을 하나의 묶음으로 보인다. */
+/* 비분할 탭 묶음(bundle). 기존 split/pane 그룹 모양을 공유하고 접기/펼치기 단추만 최소한으로 둔다. */
 .tab[data-bundle] {
-  min-width: var(--space-0);
-  max-width: none;
   gap: var(--space-2);
-  padding-inline: var(--space-2);
+  padding-inline-start: var(--space-2);
 }
 
-.tab[data-bundle]:not([data-active])::before {
-  background: var(--color-surface-subtle);
-  border: var(--border-width) solid var(--color-border-base);
-}
-
-.tab[data-bundle]:not([data-active]):hover::before {
-  background: var(--color-surface-muted);
-}
-
-.tab[data-bundle]:not([data-active]) .close {
-  pointer-events: none;
-}
-
-.tab[data-bundle]:not([data-active]) .close:not([data-unsaved], [data-dot]) {
-  display: none;
-}
-
-.bundleHead {
-  display: inline-flex;
-  flex: none;
-  gap: var(--space-2);
-  align-items: center;
-  height: var(--control-sm-height);
-  padding-inline: var(--space-1) var(--space-3);
-  color: var(--color-text-secondary);
-  font-size: var(--type-caption-size);
-  font-weight: var(--font-weight-medium);
-  border-radius: var(--radius-sm);
-}
-
-.tab[data-bundle][data-active] .bundleHead:not([data-collapsed]) {
-  background: var(--color-surface-muted);
-  color: var(--color-text-primary);
-}
-
-.tab[data-bundle][data-active] .bundleHead[data-collapsed] {
-  color: var(--color-text-primary);
+.tab[data-bundle][data-collapsed] {
+  padding-inline-end: var(--space-4);
 }
 
 .bundleToggle {
@@ -503,73 +483,26 @@
 
 .bundleToggle:hover {
   color: var(--color-text-primary);
-  background: var(--color-surface-subtle);
+  background: var(--color-surface-muted);
 }
 
 .bundleDot {
   flex: none;
 }
 
-.bundleLabel {
-  max-width: calc(var(--space-12) * 2);
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
 .bundleCount {
   flex: none;
   color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
   font-variant-numeric: tabular-nums;
 }
 
-.bundleItems {
-  display: inline-flex;
+/* 줄이 모자라면 고른 bundle의 비활성 구성원도 split 그룹처럼 아이콘만 보인다. */
+.list[data-fold="all"] .tab[data-active][data-bundle] .half:not([data-focused]) {
   flex: none;
-  gap: var(--space-1);
-  align-items: center;
-  min-width: var(--space-0);
 }
 
-.bundleItems > .half {
-  flex: none;
-  gap: var(--space-2);
-  height: var(--control-sm-height);
-  padding-inline: var(--space-3) var(--space-1);
-  border-radius: var(--radius-sm);
-}
-
-.tab[data-bundle]:not([data-active]) .bundleItems > .half {
-  padding-inline-end: var(--space-3);
-}
-
-.bundleItems > .half .title {
-  max-width: calc(var(--space-12) * 2 + var(--space-6));
-}
-
-.tab[data-bundle][data-active] .bundleItems > .half:not([data-focused]) {
-  color: var(--color-text-muted);
-}
-
-.tab[data-bundle][data-active] .bundleItems > .half:not([data-focused]):hover {
-  color: var(--color-text-primary);
-  background: var(--color-surface-muted);
-}
-
-.tab[data-bundle][data-active] .bundleItems > .half[data-focused] {
-  color: var(--color-text-primary);
-  background: var(--color-surface-subtle);
-  border: var(--border-width) solid var(--color-border-base);
-}
-
-.tab[data-bundle]:not([data-active]) .bundleItems > .half[data-bundle-active] {
-  color: var(--color-text-primary);
-}
-
-/* 줄이 모자라면 고르지 않은 펼쳐진 bundle의 구성원도 아이콘만 보인다(머리 chip은 남는다). */
-.list[data-fold] .tab[data-bundle]:not([data-active]) .bundleItems > .half .title,
-.list[data-fold] .tab[data-bundle]:not([data-active]) .bundleItems > .half .machine,
-.list[data-fold="all"] .tab[data-bundle][data-active] .bundleItems > .half:not([data-focused]) .title,
-.list[data-fold="all"] .tab[data-bundle][data-active] .bundleItems > .half:not([data-focused]) .machine {
+.list[data-fold="all"] .tab[data-active][data-bundle] .half:not([data-focused]) .title,
+.list[data-fold="all"] .tab[data-active][data-bundle] .half:not([data-focused]) .machine {
   display: none;
 }

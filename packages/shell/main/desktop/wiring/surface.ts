@@ -42,6 +42,7 @@ import type {
   HostRequest,
   HostToolOutput,
 } from "../../../../protocol/lophn-agent/host-queue.ts";
+import { HOME_TERMINAL_PROJECT } from "../../../../protocol/coding-agent/terminals.ts";
 import type { AppFrameService } from "../../app-frame/registry.ts";
 import type { ArtifactViews } from "../../artifact/registry.ts";
 import { checkCaller, checkInput, type IpcEvent } from "../ipc-guard.ts";
@@ -482,6 +483,20 @@ export function register(
       });
     }
     const opened = await offer(request, { request }, target);
+    if (
+      opened &&
+      request.kind === "tab_open" &&
+      "terminal" in request.payload.target &&
+      (request.workspace.kind === "home" ||
+        request.workspace.kind === "project")
+    ) {
+      ctx.terminalWorkspaces.set(
+        request.payload.target.terminal.terminal_ref,
+        request.workspace.kind === "home"
+          ? HOME_TERMINAL_PROJECT
+          : request.workspace.id,
+      );
+    }
     if (opened && request.kind === "tab_close") forgetTab(tab);
     if (opened && browserOpen) {
       // 창이 page를 만들겠다고 답했다. page가 붙어 bind가 오면 core에 알린다.

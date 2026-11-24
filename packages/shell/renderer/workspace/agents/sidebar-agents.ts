@@ -62,7 +62,9 @@ export function useSidebarAgents(
     setAgents(() =>
       read.value.rows.map((row) => {
         const avatar: AvatarLook =
-          codingFaceOf(row.assignment) ??
+          (row.avatar.kind === "character"
+            ? codingFaceOf(row.assignment, row.runtime)
+            : codingFaceOf(row.assignment)) ??
           (row.avatar.kind === "character"
             ? row.avatar
             : {

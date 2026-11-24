@@ -92,11 +92,14 @@ export function WhoTab(props: WhoTabProps) {
   const set = (key: Parameters<typeof withField>[1], value: unknown) =>
     onChange(withField(definition, key, value));
   const avatar = definition.avatar ?? detail.effective.avatar.value;
-  // 내장 coding agent의 얼굴은 그 제품 아이콘이고 고르지 않는다.
+  const runtime = definition.runtime ?? detail.definition?.runtime;
+  // 내장 coding agent와 기본 character avatar의 harness runtime agent는 그 제품 아이콘으로 구분한다.
   const shownAvatar =
     (detail.assignment === null
       ? undefined
-      : codingFaceOf(detail.assignment)) ??
+      : avatar.kind === "character"
+        ? codingFaceOf(detail.assignment, runtime)
+        : codingFaceOf(detail.assignment)) ??
     (avatar.kind === "character"
       ? avatar
       : { kind: "image" as const, src: props.imageSrc(avatar.image) });

@@ -1503,11 +1503,21 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
         ? undefined
         : agentRow(entry, sidebarAgents.agents, workspace);
     if (row === undefined || agentViewSource === undefined) return false;
+    const workflowDesk =
+      open?.options?.desk === undefined &&
+      entry?.workflowOrigin != null &&
+      workspace.kind === "project" &&
+      workspace.id === entry.workflowOrigin.project
+        ? entry.workflowOrigin.workflow
+        : undefined;
     return openAgent(host, {
       agent: row.assignment,
       name: row.name,
       session,
       ...open,
+      ...(workflowDesk === undefined
+        ? {}
+        : { options: { ...open?.options, desk: workflowDesk } }),
     });
   };
 

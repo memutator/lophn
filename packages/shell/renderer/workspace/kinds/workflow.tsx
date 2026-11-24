@@ -14,6 +14,7 @@ import { openWorkflowArtifact } from "./artifact.tsx";
 import { openFile } from "./document-editor.tsx";
 import type { TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
+import { openTerminal, terminalRefOf } from "./terminal.tsx";
 
 /** 탭 값 하나. `host`를 모른다(workflow-shell의 자리 seed도 이 값을 쓴다). */
 export function workflowTab(name: string, instance?: string): TabItem {
@@ -106,7 +107,9 @@ function useFaces(host: TabHost, project: string): FaceOf | undefined {
         {
           name: row.name,
           avatar:
-            codingFaceOf(row.assignment) ??
+            (row.avatar.kind === "character"
+              ? codingFaceOf(row.assignment, row.runtime)
+              : codingFaceOf(row.assignment)) ??
             (row.avatar.kind === "character"
               ? row.avatar
               : {
@@ -174,7 +177,7 @@ function WorkflowTabBody({
           from: tab.key,
         })
       }
-      onOpenSession={(session) => {
+      onOpenSession={(session, node) => {
         if (agentView !== null && agentView.nameOf(session) !== undefined) {
           // 같은 project의 대화는 workflow 탭 옆 칸에 열어 run을 보면서 말하게 한다.
           agentView.openSession(session, {
@@ -182,12 +185,37 @@ function WorkflowTabBody({
           });
           return;
         }
-        // 다른 project의 session이라도 이미 이 창(workflow desk 등)에 열려 있으면 그 탭을 고른다.
-        const existing = host
-          .windowTabs()
-          .find((item) => item.fields?.session === session);
+        const terminalStore = host.props.terminal?.store;
+        const cli = node?.cli_session ?? null;
+        const liveRef =
+          cli !== null ? terminalStore?.terminalOfCliSession(cli) : undefined;
+        // 다른 project의 session이나 GUI 터미널 팀원이라도 이미 이 창(workflow desk 등)에 열려 있으면 그 탭을 고른다.
+        const existing = host.windowTabs().find((item) => {
+          if (item.fields?.session === session) return true;
+          if (item.kind !== "terminal") return false;
+          if (liveRef !== undefined) {
+            const ref = terminalStore?.refOf(item.key) ?? terminalRefOf(item);
+            if (ref === liveRef) return true;
+          }
+          if (cli !== null) {
+            if (terminalStore?.codingOf(item.key)?.cli_session === cli) {
+              return true;
+            }
+            if (terminalStore?.agentOf(item.key)?.session === cli) return true;
+            if (item.fields?.agentSession === cli) return true;
+          }
+          return false;
+        });
         if (existing !== undefined) {
           host.openTab(existing);
+          return;
+        }
+        // 살아 있는 GUI 터미널 팀원이지만 이 창에 탭이 닫혀 있으면 workflow desk에 바로 붙인다.
+        if (liveRef !== undefined) {
+          openTerminal(host, {
+            terminal: liveRef,
+            open: { options: { desk: workflow } },
+          });
           return;
         }
         // 아직 안 열린 다른 workspace의 session은 toast [Open]과 같은 길로 그 workspace에서 연다.

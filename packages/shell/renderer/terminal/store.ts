@@ -233,6 +233,17 @@ export class TerminalStore {
     return this.#keyOf(terminalRef) !== undefined;
   }
 
+  /** 주어진 CLI session id가 지금 살아 있는 coding session이나 터미널 agent에 묶여 있으면 그 terminal_ref를 돌려준다. */
+  terminalOfCliSession(cliSession: string): string | undefined {
+    for (const [ref, coding] of this.#coding) {
+      if (coding.cli_session === cliSession) return ref;
+    }
+    for (const [ref, agent] of this.#agents) {
+      if (agent.session === cliSession) return ref;
+    }
+    return undefined;
+  }
+
   #keyOf(terminalRef: string): string | undefined {
     for (const [key, entry] of this.#entries) {
       if (entry.terminalRef === terminalRef) return key;

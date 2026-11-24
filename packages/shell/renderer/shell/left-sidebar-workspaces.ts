@@ -118,7 +118,14 @@ export function layoutDesks(layout: WorkspaceLayout): LayoutDesks {
       at.set(tab.key, desk.key);
       const session = tab.kind === "agent" ? sessionOf(tab) : null;
       if (session !== null) at.set(session, desk.key);
-      if (tab.owner === undefined || tab.owner === session) continue;
+      // 다른 session의 대화 탭(team spawn 자식 등)은 sidebar에 자기 session/팀 자식 줄이 있으므로 부모의 보조 owned 탭으로 중복해 싣지 않는다.
+      if (
+        tab.owner === undefined ||
+        tab.owner === session ||
+        (tab.kind === "agent" && session !== null)
+      ) {
+        continue;
+      }
       owned.set(tab.owner, [
         ...(owned.get(tab.owner) ?? []),
         {
@@ -231,6 +238,9 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
   }
   const spawnedBy = new Map(
     input.entries.map((entry) => [entry.session, entry.spawnedBy]),
+  );
+  const workflowOriginBy = new Map(
+    input.entries.map((entry) => [entry.session, entry.workflowOrigin ?? null]),
   );
   const current = new Map<string, SidebarSession[]>();
   const recent = new Map<string, SidebarSession[]>();
@@ -479,14 +489,22 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
         : [];
     const items = [...waiting, ...(current.get(key) ?? []).sort(stable)];
     const desks = input.desks.get(key);
-    // 탭이 없는 줄(host 요청을 잃었거나 사람이 안 보고 닫은 것)은 Main desk의 줄과 같이 둔다. "탭 없음" 묶음은 없다.
+    // 탭이 없는 줄(host 요청을 잃었거나 사람이 안 보고 닫은 것)은 workflow_origin의 workflow desk가 있으면 거기에, 아니면 Main desk에 둔다.
     const main = desks?.list.find((desk) => desk.key === MAIN_DESK);
-    const deskOf = (item: SidebarSession) =>
-      desks?.at.get(
+    const deskOf = (item: SidebarSession) => {
+      const placed = desks?.at.get(
         item.kind === "workflow" ? `workflow:${item.ref}` : item.ref,
-      ) ??
-      main?.key ??
-      null;
+      );
+      if (placed !== undefined) return placed;
+      if (item.kind === "session" && ref.kind === "project") {
+        const origin = workflowOriginBy.get(item.ref);
+        if (origin != null && origin.project === ref.id) {
+          const wfDesk = desks?.at.get(`workflow:${origin.workflow}`);
+          if (wfDesk !== undefined) return wfDesk;
+        }
+      }
+      return main?.key ?? null;
+    };
     // layout을 아직 못 읽은 workspace는 desk 이름 없는 묶음 하나다(묶음이 하나면 이름 줄을 그리지 않는다).
     const groups: SidebarDeskGroup[] =
       desks === undefined || desks.list.length === 0

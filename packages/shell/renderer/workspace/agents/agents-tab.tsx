@@ -62,7 +62,9 @@ const PREVIEW_LINES = 3;
 
 function avatarLook(row: AgentListRow, imageSrc: ImageSrc): AvatarLook {
   return (
-    codingFaceOf(row.assignment) ??
+    (row.avatar.kind === "character"
+      ? codingFaceOf(row.assignment, row.runtime)
+      : codingFaceOf(row.assignment)) ??
     (row.avatar.kind === "character"
       ? row.avatar
       : { kind: "image", src: imageSrc(row.assignment, row.avatar.image) })

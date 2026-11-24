@@ -1,0 +1,31 @@
+id: workflow-ux-and-background-fixes
+version: 0.23.156
+platform_note: durable-workflows-and-flow-2
+title: "workflow 비분할 그룹 UI 통일, cross-workspace 세션·알림 이동, workflow desk 배치, sidebar 팀 트리 정리, background harness 권한·아이콘을 고친다"
+modules:
+  - packages/protocol
+  - packages/core/workflows
+  - packages/core/terminal-agents
+  - packages/core/main
+  - packages/shell/main
+  - packages/shell/renderer
+change: |
+  - **비분할 탭 묶음(bundle) UI 통일(`tab-strip.tsx`, `tab-strip.module.css`)**: 별도 `"N tabs"` 머리 chip과 구성원 pill 테두리를 없애고, 기존 split/pane 그룹 모양(세로 구분선 `.pane`, 동일 비활성 바탕·`data-fold` 축약)을 그대로 쓰면서 최소한의 접기/펼치기 chevron만 둔다.
+  - **Cross-workspace GUI 터미널 `[Open session]` 및 완료 알림 이동(`workflow.tsx`, `workflow-page.tsx`, `terminal/store.ts`, `desktop/main.tsx`, `shell/main/desktop/wiring/{context,surface,terminal}.ts`, `core/workflows/{store,reads}.ts`)**:
+    - `ReadWorkflowInstance`의 `sessions`에 `harness_gui`·`harness`·`cli_session`을 싣고, Run 화면 `[Open session]`이 이미 열린 GUI 터미널 탭을 `cli_session`·`terminal_ref`로 찾아 현재 창의 workflow desk로 바로 이동한다(탭이 닫혀 있고 PTY가 살아 있으면 workflow desk에 바로 붙인다).
+    - 로컬 터미널 알림 클릭(`terminalBridge.onReveal`)이 `terminal.store.has(ref)`를 먼저 확인해 cross-workspace workflow desk에 열린 탭이면 다른 workspace로 창을 옮기지 않고 바로 고른다. `shell/main`도 `tab_open`으로 배치된 터미널의 workspace를 기억해 다른 workspace에서 알림을 눌러도 탭이 있는 workspace로 간다.
+  - **workflow desk 배치 일관화(`core/main/daemon/wiring/{router,session-snapshots}.ts`, `sessions-store.ts`, `left-sidebar-workspaces.ts`, `workspace-window.tsx`)**:
+    - `router.ts`의 비-GUI 세션 탭 열기도 `workflow_origin`이 있으면 `Main` desk 대신 원 workflow의 workspace·desk·step 묶음으로 보낸다.
+    - `SessionSnapshot`에 `workflow_origin`을 실어 탭 없이 도는 workflow 세션도 sidebar에서 해당 workflow desk 묶음에 서고, 열 때도 해당 workflow desk로 열린다.
+  - **왼쪽 sidebar subagent 중복·접기 수정(`left-sidebar-workspaces.ts`, `left-sidebar.tsx`, `sidebar-memory.tsx`)**:
+    - 다른 session의 대화 탭(`tab.kind === "agent"`)은 부모의 보조 `owned` 탭 목록에서 제외해 `team spawn` 자식이 두 줄로 중복되지 않게 하고, 팀 자식(`children`)도 화살표 단추로 접고 펼 수 있게 한다(기본 펼침).
+  - **background harness 실행 권한 및 아이콘(`terminal-agents/{member,background}.ts`, `core/main/daemon/wiring/harness.ts`, `coding-face.ts`, `workspace/agents/*`, `agent-tab-core-source-sessions.ts`)**:
+    - background harness 실행의 `approval_opened`를 무조건 거절하지 않고 `ctx.approvals.judge`·session/agent `skip`·deny 규칙으로 판정한다(`setting`과 deny 규칙은 늘 거절, 허용된 명령·`skip` 적용 호출은 `once` 허용).
+    - `AgentListRow`에 `runtime`을 싣고 `codingFaceOf`가 기본 character avatar를 쓰는 custom harness agent에도 해당 harness 제품 아이콘을 돌려준다.
+why: |
+  실사용 workflow(`feature-cleanroom`)에서 발견된 6가지 UX·동작 결함(비분할 그룹 시각 불일치, cross-workspace 세션·알림 리다이렉션 실패, `implement` 단계의 Main desk 배치, sidebar subagent 중복·접기 오동작, background custom harness의 전면 권한 거절 및 lophn 아이콘 오인)을 한 번에 바로잡기 위해서다.
+decisions:
+  - text: "비분할 탭 묶음(bundle)은 별도 chip/pill UI를 두지 않고 기존 split/pane 그룹 모양에 최소한의 접기/펼치기 chevron만 얹어 통일한다."
+    by: person
+  - text: "custom harness agent(builder-neon 등)는 background 채팅 탭 실행을 유지하되, lophn의 approvals judge(shell 규칙·할당·agent/session `skip`·deny)를 background runner에 연결하고 harness 제품 아이콘으로 구분한다."
+    by: person

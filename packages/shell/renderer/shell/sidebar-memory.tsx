@@ -37,6 +37,8 @@ export interface SidebarValues {
   readonly machinesOpen: ReadonlySet<string>;
   /** 탭 줄을 펼친 session id. */
   readonly sessionTabsOpen: ReadonlySet<string>;
+  /** 팀 자식 줄을 접은 session id. */
+  readonly teamCollapsed: ReadonlySet<string>;
 }
 
 const EMPTY: SidebarValues = {
@@ -51,6 +53,7 @@ const EMPTY: SidebarValues = {
   recentPages: new Map(),
   machinesOpen: new Set(),
   sessionTabsOpen: new Set(),
+  teamCollapsed: new Set(),
 };
 
 export interface SidebarMemory {

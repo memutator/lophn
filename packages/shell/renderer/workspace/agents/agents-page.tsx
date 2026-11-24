@@ -153,7 +153,9 @@ export function AgentsPage(props: AgentsPageProps): ReactElement {
         : {
             name: row.name,
             avatar:
-              codingFaceOf(assignment) ??
+              (row.avatar.kind === "character"
+                ? codingFaceOf(assignment, row.runtime)
+                : codingFaceOf(assignment)) ??
               (row.avatar.kind === "character"
                 ? row.avatar
                 : {

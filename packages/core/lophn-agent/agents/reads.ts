@@ -76,6 +76,7 @@ function rowOf(context: AgentContext, loaded: Loaded): AgentRow {
     name: nameOf(loaded),
     workspace,
     avatar: avatarOf(loaded),
+    runtime: definition?.runtime ?? "lophn",
     ...(definition?.description === undefined
       ? {}
       : { description: definition.description }),

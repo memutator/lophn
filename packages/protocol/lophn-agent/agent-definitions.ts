@@ -97,6 +97,7 @@ export const agentRowSchema = z.object({
   // 범위가 없으면 전역이다.
   workspace: agentWorkspaceOutputSchema.nullable(),
   avatar: avatarOutputSchema,
+  runtime: agentRuntimeSchema.optional(),
   description: z.string().optional(),
   model: z
     .object({

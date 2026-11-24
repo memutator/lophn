@@ -441,10 +441,17 @@ export function LeftSidebar({
       if (!next.delete(key)) next.add(key);
       return next;
     });
-  // 탭 줄을 펼친 session. 창 메모리에 둔다.
+  // 탭 줄을 펼친 session과 팀 자식을 접은 session. 창 메모리에 둔다.
   const [tabsExpanded, setTabsExpanded] = useRemembered("sessionTabsOpen");
+  const [teamCollapsed, setTeamCollapsed] = useRemembered("teamCollapsed");
   const toggleSessionTabs = (session: string) =>
     setTabsExpanded((all) => {
+      const next = new Set(all);
+      if (!next.delete(session)) next.add(session);
+      return next;
+    });
+  const toggleTeamChildren = (session: string) =>
+    setTeamCollapsed((all) => {
       const next = new Set(all);
       if (!next.delete(session)) next.add(session);
       return next;
@@ -519,7 +526,17 @@ export function LeftSidebar({
       item.actions &&
       (onRenameSession !== undefined || onStopSession !== undefined);
     const tabs = item.tabs ?? [];
-    const tabsOpen = tabs.length > 0 && tabsExpanded.has(item.ref);
+    const children = item.children ?? [];
+    const hasTabs = tabs.length > 0;
+    const hasChildren = children.length > 0;
+    const hasSubItems = hasTabs || hasChildren;
+    const childrenOpen = hasChildren && !teamCollapsed.has(item.ref);
+    // 팀 자식이 있으면 기본 펼침(teamCollapsed로 함께 접고 편다). 보조 탭만 있으면 기존처럼 기본 접힘(tabsExpanded)이다.
+    const subOpen = hasChildren
+      ? childrenOpen
+      : hasTabs && tabsExpanded.has(item.ref);
+    const tabsOpen =
+      hasTabs && (hasChildren ? childrenOpen : tabsExpanded.has(item.ref));
     // Stop 단추가 있는 줄은 점을 그 단추 안에 둔다(평소 점, hover하면 x).
     const row = (
       <SessionRow
@@ -537,26 +554,28 @@ export function LeftSidebar({
           : {})}
       />
     );
-    const toggleTabs =
-      tabs.length === 0 ? null : (
-        <button
-          type="button"
-          className={styles.tabsToggle}
-          aria-expanded={tabsOpen}
-          aria-label={t(
-            tabsOpen
-              ? "left-sidebar.button.session-tabs-hide"
-              : "left-sidebar.button.session-tabs-show",
-          )}
-          data-session-tabs-toggle={item.ref}
-          onClick={() => toggleSessionTabs(item.ref)}
-        >
-          <Icon
-            icon={tabsOpen ? shellIcons.expand : sidebarIcons.collapsed}
-            pixels={12}
-          />
-        </button>
-      );
+    const toggleTabs = !hasSubItems ? null : (
+      <button
+        type="button"
+        className={styles.tabsToggle}
+        aria-expanded={subOpen}
+        aria-label={t(
+          subOpen
+            ? "left-sidebar.button.session-tabs-hide"
+            : "left-sidebar.button.session-tabs-show",
+        )}
+        data-session-tabs-toggle={item.ref}
+        onClick={() => {
+          if (hasChildren) toggleTeamChildren(item.ref);
+          else toggleSessionTabs(item.ref);
+        }}
+      >
+        <Icon
+          icon={subOpen ? shellIcons.expand : sidebarIcons.collapsed}
+          pixels={12}
+        />
+      </button>
+    );
     let line: ReactElement;
     if (item.kind === "member") {
       // 상태 글은 오른쪽 끝 고정 열이고, hover나 focus 때 그 자리에 x가 뜬다(handoff 줄의 age와 같은 모양).
@@ -666,9 +685,9 @@ export function LeftSidebar({
             ))}
           </div>
         ) : null}
-        {item.children === undefined ? null : (
+        {!childrenOpen ? null : (
           <div className={styles.teamChildren} data-team-children={item.ref}>
-            {item.children.map((child) => renderItem(workspace, here, child))}
+            {children.map((child) => renderItem(workspace, here, child))}
           </div>
         )}
       </Fragment>

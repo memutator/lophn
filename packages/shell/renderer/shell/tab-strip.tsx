@@ -257,11 +257,10 @@ export function TabStrip({
             renamingGroup !== null &&
             (renamingGroup === entry.key ||
               bundleItems.some((item) => item.key === renamingGroup));
-          const bundleLabel = entry.label || `${bundleItems?.length ?? 0} tabs`;
           const bundleTip = bundle
             ? [
                 entry.label,
-                bundleItems.map((item) => item.title).join(" · "),
+                bundleItems.map((item) => item.title).join(" | "),
                 bundleDot === null ? null : dotLabel(bundleDot),
               ]
                 .filter((part): part is string => Boolean(part))
@@ -337,87 +336,65 @@ export function TabStrip({
               <span className={styles.flareStart} aria-hidden />
               {bundle ? (
                 <>
-                  <Tooltip
-                    content={bundleTip}
-                    open={editingGroup ? false : undefined}
+                  <button
+                    type="button"
+                    className={styles.bundleToggle}
+                    aria-label={collapsed ? "Expand group" : "Collapse group"}
+                    aria-expanded={!collapsed}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onToggleGroupCollapsed?.(entry.key);
+                    }}
                   >
-                    <span
-                      className={styles.bundleHead}
-                      data-collapsed={collapsed || undefined}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        if (editingGroup) return;
-                        if (collapsed) {
-                          if (active) onToggleGroupCollapsed?.(entry.key);
-                          else onSelect(focused.key);
-                        } else {
-                          onSelect(focused.key);
+                    <Icon
+                      icon={
+                        collapsed ? commonIcons.expand : commonIcons.collapse
+                      }
+                      pixels={12}
+                    />
+                  </button>
+                  {editingGroup ? (
+                    <RenameInput
+                      title={entry.label ?? ""}
+                      ariaLabel="Group name"
+                      onDone={(name) => {
+                        if (name !== undefined) {
+                          onRenameGroup?.(entry.key, name ?? "");
                         }
+                        onRenamingGroup?.(null);
                       }}
-                      onDoubleClick={(event) => {
-                        if ((event.target as HTMLElement).closest("button")) {
-                          return;
-                        }
-                        event.stopPropagation();
-                        onRenamingGroup?.(entry.key);
-                      }}
-                    >
-                      <button
-                        type="button"
-                        className={styles.bundleToggle}
-                        aria-label={
-                          collapsed ? "Expand group" : "Collapse group"
-                        }
-                        aria-expanded={!collapsed}
-                        onClick={(event) => {
+                    />
+                  ) : collapsed ? (
+                    <Tooltip content={bundleTip}>
+                      <span
+                        className={styles.half}
+                        data-tab-key={focused.key}
+                        data-focused={active || undefined}
+                        onDoubleClick={(event) => {
                           event.stopPropagation();
-                          onToggleGroupCollapsed?.(entry.key);
+                          onRenamingGroup?.(entry.key);
                         }}
                       >
-                        <Icon
-                          icon={
-                            collapsed
-                              ? commonIcons.expand
-                              : commonIcons.collapse
-                          }
-                          pixels={12}
-                        />
-                      </button>
-                      {bundleDot === null ? null : (
-                        <TabStateDot
-                          dot={bundleDot}
-                          className={styles.bundleDot}
-                        />
-                      )}
-                      {editingGroup ? (
-                        <RenameInput
-                          title={entry.label ?? ""}
-                          ariaLabel="Group name"
-                          onDone={(name) => {
-                            if (name !== undefined) {
-                              onRenameGroup?.(entry.key, name ?? "");
-                            }
-                            onRenamingGroup?.(null);
-                          }}
-                        />
-                      ) : (
-                        <>
-                          <span className={styles.bundleLabel}>
-                            {bundleLabel}
-                          </span>
-                          {entry.label ? (
-                            <span className={styles.bundleCount}>
-                              {bundleItems.length}
-                            </span>
-                          ) : null}
-                        </>
-                      )}
-                    </span>
-                  </Tooltip>
-                  {collapsed ? null : (
-                    <span className={styles.bundleItems}>
+                        <span className={styles.icon}>{focused.icon}</span>
+                        <span className={styles.title}>
+                          {entry.label || focused.title}
+                        </span>
+                        <span className={styles.bundleCount}>
+                          {bundleItems.length}
+                        </span>
+                        {bundleDot === null ? null : (
+                          <TabStateDot
+                            dot={bundleDot}
+                            className={styles.bundleDot}
+                          />
+                        )}
+                      </span>
+                    </Tooltip>
+                  ) : (
+                    <span className={styles.pane}>
                       {bundleItems.map((item, at) => {
                         const activeTab = entry.tabs[0]!;
+                        const isHidden = item.key !== activeTab.key;
                         const editing = item.key === renaming;
                         const dropAt =
                           drag?.hit?.kind === "stack" &&
@@ -430,12 +407,13 @@ export function TabStrip({
                               state: dotLabel(item.dot),
                             })
                           : item.title;
+                        const tip = !active && fold !== null ? bundleTip : one;
                         return (
                           <Tooltip
                             key={item.key}
                             content={
                               <TabTip
-                                text={one}
+                                text={tip}
                                 owner={item.owner}
                                 profile={item.profile}
                               />
@@ -445,13 +423,8 @@ export function TabStrip({
                             <span
                               className={styles.half}
                               data-tab-key={item.key}
-                              data-focused={
-                                (active && item.key === activeTab.key) ||
-                                undefined
-                              }
-                              data-bundle-active={
-                                item.key === activeTab.key || undefined
-                              }
+                              data-focused={(active && !isHidden) || undefined}
+                              data-hidden={isHidden || undefined}
                               data-pane-key={activeTab.key}
                               data-pane-index={at}
                               data-drop-item={

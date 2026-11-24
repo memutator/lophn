@@ -60,4 +60,21 @@ test("renderer는 terminals/input·restart를 core에 바로 부르지 못한다
   assert.equal(isAllowed("memory", "terminals", "input"), false);
   assert.equal(isAllowed("memory", "terminals", "restart"), false);
   assert.equal(isAllowed("memory", "terminals", "open"), true);
+  for (const method of [
+    "add",
+    "update",
+    "remove",
+    "reorder",
+    "import",
+    "set_settings",
+    "run",
+    "stop",
+    "restart",
+  ]) {
+    assert.equal(
+      isAllowed("memory", "project_commands", method),
+      true,
+      `project_commands/${method} should be allowed for renderer`,
+    );
+  }
 });

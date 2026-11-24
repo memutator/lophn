@@ -19,6 +19,7 @@ import { SHELL_ROUTES } from "./routes.ts";
 // - 못 본 turn 끝 읽기와 지우기(`unseen/list`·`unseen/dismiss`. 탭의 finished 점과 알림 panel의 Finished 줄). presence 보고는
 //   shell main만 부른다.
 // - project의 기계를 넘는 id 읽기와 등록 전 폴더 읽기(`projects/identity`·`match`), 등록(`projects/add`). project 등록 dialog와 상세
+// - project commands 정의 편집·순서·가져오기·agent 설정·실행·멈춤·재시작(`project_commands/*`). Project settings › Commands와 네 진입점
 // - 터미널 탭의 열기·닫기·크기·출력 lease·탭 이름과 저장한 coding agent session의 이름(`terminals/*`). 사람의 입력(`terminals/input`)과
 //   다시 시작(`restart`)은 그 창의 focus를 본 shell main이 capability를 실어 부르므로 넣지 않는다.
 // - 터미널 탭의 GUI·TUI 바꾸기(`coding_sessions/switch`)
@@ -95,6 +96,15 @@ const RENDERER_MEMORY_ROUTES: readonly string[] = [
   "memory:unseen/dismiss",
   "memory:projects/identity",
   "memory:projects/match",
+  "memory:project_commands/add",
+  "memory:project_commands/update",
+  "memory:project_commands/remove",
+  "memory:project_commands/reorder",
+  "memory:project_commands/import",
+  "memory:project_commands/set_settings",
+  "memory:project_commands/run",
+  "memory:project_commands/stop",
+  "memory:project_commands/restart",
   "memory:terminals/open",
   "memory:terminals/close",
   "memory:terminals/resize",

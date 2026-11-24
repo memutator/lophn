@@ -1,0 +1,17 @@
+id: project-commands-shell-allowlist
+version: 0.23.164
+title: shell main의 renderer allowlist에 project_commands memory route 9종을 등록한다
+modules:
+  - packages/shell/main
+change: |
+  - `packages/shell/main/desktop/core/allowlist.ts`: `RENDERER_MEMORY_ROUTES`에 `project_commands/{add,update,remove,reorder,import,set_settings,run,stop,restart}`를 추가한다.
+  - `packages/shell/main/desktop/terminal-focus_test.ts`: renderer allowlist가 `project_commands/*` memory route 9종을 허용하는지 회귀 검증을 더한다.
+why: |
+  `packages/shell/main/desktop/core/allowlist.ts`는 `read`·`command` route는 자동으로 열지만 `memory` route는 `RENDERER_MEMORY_ROUTES`에 명시한 것만 통과시킨다. `project_commands/*` memory route 9종이 빠져 있어 UI에서 명령 실행·중지·재시작과 Project settings › Commands 편집 요청이 core에 도달하지 못하고 shell main에서 `forbidden`으로 막혔다.
+decisions:
+  - text: "`project_commands/*` memory route 9종을 `RENDERER_MEMORY_ROUTES`에 추가한다. `project_commands/store`는 core 내부 machine 전용 command이므로 core 권한 경계로 그대로 막힌다."
+    by: agent
+checklist:
+  - "해야: 앱 다시 build 및 재기동"
+  - "Terminal hover·사이드바 `+` hover·탭 `+` 메뉴·Ctrl+K 팔레트에서 명령을 클릭해 실제 실행·상태 점 표시·중지·터미널 보기가 동작하는지 확인한다"
+  - "Project settings › Commands에서 명령 추가·수정·삭제·설정이 저장되는지 확인한다"

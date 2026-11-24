@@ -24,6 +24,10 @@ export function instanceFromRow(
     typeof row.code_snapshot === "string" && row.code_snapshot.length > 0
       ? row.code_snapshot
       : undefined;
+  const openMode =
+    row.open_mode === "tab" || row.open_mode === "background"
+      ? row.open_mode
+      : undefined;
   const parsed = workflowInstanceSchema.safeParse({
     id: row.id,
     project: row.project,
@@ -39,6 +43,7 @@ export function instanceFromRow(
         : { step: row.current_step, human_turn: Number(row.human_turn) === 1 },
     started_by: JSON.parse(String(row.started_by)),
     ...(codeSnapshot !== undefined ? { code_snapshot: codeSnapshot } : {}),
+    ...(openMode !== undefined ? { open_mode: openMode } : {}),
     created_at: row.created_at,
     finished_at: row.finished_at,
     state_seq: String(row.state_seq),

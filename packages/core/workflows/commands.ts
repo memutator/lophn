@@ -211,6 +211,7 @@ function handOff(
       instance: scope.instance as Id<"wfi">,
       step: plan.step,
     },
+    ...(plan.open !== undefined ? { open: plan.open } : {}),
     unattended: true,
   });
   if (!routed.ok) return routed;
@@ -277,6 +278,7 @@ function editSteps(
         in: added.in ?? "",
         out: added.out ?? "",
         next: added.next ?? [],
+        ...(added.open !== undefined ? { open: added.open } : {}),
       });
       return ok({ steps: next, step: added.name });
     }
@@ -284,11 +286,15 @@ function editSteps(
       const at = index(edit.name);
       if (at < 0) return fail("not_found", "step not found");
       const next = [...steps];
-      // undefined는 덮지 않는다. with: null은 비운다.
+      // undefined는 덮지 않는다. with: null은 비운다. open: null은 지운다.
       const patch = Object.fromEntries(
-        Object.entries(edit.patch).filter(([, v]) => v !== undefined),
+        Object.entries(edit.patch).filter(
+          ([k, v]) => v !== undefined && !(k === "open" && v === null),
+        ),
       );
-      next[at] = { ...next[at]!, ...patch };
+      const updated = { ...next[at]!, ...patch };
+      if (edit.patch.open === null) delete updated.open;
+      next[at] = updated;
       return ok({ steps: next, step: edit.name });
     }
     case "remove_step": {
@@ -349,6 +355,9 @@ export function createWorkflowCommands(
           ...(input.inputs !== undefined ? { inputs: input.inputs } : {}),
           ...(input.code_snapshot !== undefined
             ? { code_snapshot: input.code_snapshot }
+            : {}),
+          ...(input.open_mode !== undefined
+            ? { open_mode: input.open_mode }
             : {}),
           participants: input.participants,
           steps: input.steps,

@@ -3,6 +3,7 @@ import { workspaceNameSchema } from "../lophn-agent/workspaces.ts";
 import { workflowInputsSchema, workflowOutputsSchema } from "./inputs.ts";
 import {
   participantKeySchema,
+  sessionOpenModeSchema,
   stepNameSchema,
   stepNextSchema,
 } from "./values.ts";
@@ -18,6 +19,7 @@ export const declarationParticipantSchema = z.union([
     agent: z.string().min(1),
     workspace: workspaceNameSchema.optional(),
     on: z.string().min(1).optional(),
+    open: sessionOpenModeSchema.optional(),
   }),
 ]);
 
@@ -28,6 +30,7 @@ export const declarationStepSchema = z.looseObject({
   in: z.string().optional(),
   out: z.string().optional(),
   next: z.array(stepNextSchema).optional(),
+  open: sessionOpenModeSchema.optional(),
 });
 
 // 통합 선언 schema다. `kind`는 제거하되 기존 YAML에 남아 있으면 보존·무시하고,

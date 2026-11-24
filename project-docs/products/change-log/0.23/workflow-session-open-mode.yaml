@@ -1,0 +1,27 @@
+id: workflow-session-open-mode
+version: 0.23.158
+platform_note: none
+title: "workflow와 harness agent의 session 열기 방식(tab | background)을 단일 개념으로 통합하고 agent·사용자 모두 선택·변경할 수 있게 한다"
+modules:
+  - packages/protocol
+  - packages/sdk
+  - packages/core/lophn-agent
+  - packages/core/router
+  - packages/core/terminal-agents
+  - packages/core/workflows
+  - packages/core/main
+  - packages/core/agent-workspaces
+  - packages/cli
+  - packages/design
+  - packages/shell/renderer
+change: |
+  - **통합 session 열기 방식(`open: "tab" | "background"`)**: `StartWorkflow` 덮어쓰기(`open`·`step_open`) → 선언 step/call(`steps.<name>.open`, `agent({ open })`, `human({ open })`) → `participants.<key>.open` → `human` step 기본(`tab`) → agent 정의 `open` → 내장 기본(내장 coding agent `tab`, 그 밖 `background`) 순으로 결정한다.
+  - **custom harness agent GUI 탭 지원(`workspaces/directory.ts`, `terminal-agents/{member,service}.ts`, `wiring/terminal-agents.ts`)**: `isCodingBuiltin` 하드코딩을 없애고 `open: "tab"`인 project harness agent(custom harness 포함)가 `harness_gui = 1` GUI 터미널 탭으로 열리게 하며, 해당 session의 실제 agent 정의(`harness_config`·`deny`)로 CLI를 띄우고 workflow 출처 탭은 turn 종료로 자동 닫지 않는다.
+  - **비-harness workflow 탭 자동 열기(`router/{model,router}.ts`, `wiring/router.ts`)**: `open: "tab"`인 workflow step(`human` step 포함)은 `WORKFLOW_SESSION_OPENED_TOPIC`으로 원 workflow desk·step 묶음에 Agent 탭을 자동으로 연다.
+  - **`@lophn/flow` 2.1.0, `write-workflow` skill, `migrate-sdk/flow-2.1.0.md`, CLI**: `agent()`·`human()`에 `open?: "tab" | "background"`를 추가하고 `workflow start --open`을 지원하며, workflow 작성 agent가 인터랙션 필요성에 따라 탭/백그라운드를 고를 기준을 지침에 넣는다.
+  - **사용자 UI(`Agents › Runs on`, `Workflow StartBox`) 및 ledger migration**: harness agent 편집기에서 기본 `Tab | Background`를 바꿀 수 있고, Workflow `StartBox`에서 YAML step별 Tab/Background 토글 및 flow run 단위 덮어쓰기를 제공한다(`workflows.instances-open-mode` migration으로 `workflow_instances.open_mode` 열 추가).
+why: |
+  기존에는 내장 coding agent만 GUI 탭으로 열리고 custom harness agent는 무조건 background로, lophn human step은 탭이 자동 열리지 않아 사용자가 중간에 보거나 인터랙션해야 하는 세션에 바로 참여하기 어려웠다. workflow 작성 agent가 단계 성격에 맞게 탭/백그라운드를 선택하고 사용자도 Agent 편집기와 Workflow 시작 화면에서 쉽게 바꿀 수 있도록 구조를 통일한다.
+decisions:
+  - text: "session 열기 방식을 `open: 'tab' | 'background'` 단일 개념으로 통일하고, run 덮어쓰기 → step/call → participant → human 기본(tab) → agent 정의 → 내장 기본 순으로 우선순위를 둔다."
+    by: person

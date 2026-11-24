@@ -7,6 +7,7 @@ import {
 } from "../../../../protocol/lophn-agent/call-policy.ts";
 import {
   agentCards,
+  isCodingBuiltin,
   messageBody,
   receivedMessageList,
   stopTurn,
@@ -720,6 +721,19 @@ export const workflowsWiring: WiringFactory = () => {
             })),
           );
         },
+        defaultOpen(address) {
+          const found = ledgerSnapshot(ctx.ledgerPath, (lookup) => {
+            const deps = workspaceDepsOf(lookup.sql);
+            const resolved = deps.names.resolveAddress(address);
+            if (!resolved.ok) return undefined;
+            const info = deps.agents.agent(resolved.value.agent);
+            return (
+              info?.open ??
+              (isCodingBuiltin(resolved.value.agent) ? "tab" : "background")
+            );
+          });
+          return Promise.resolve(found.ok ? found.value : undefined);
+        },
       };
 
       const lifecycle: WorkflowLifecycle = {
@@ -891,6 +905,7 @@ export const workflowsWiring: WiringFactory = () => {
             human_turn: input.human,
             cause: "start",
             session: input.session === undefined ? "new" : "same",
+            ...(input.open !== undefined ? { open: input.open } : {}),
             delivery: {
               to:
                 input.session === undefined

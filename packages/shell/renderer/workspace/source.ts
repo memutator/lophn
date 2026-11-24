@@ -95,6 +95,7 @@ export interface WorkflowEntryView {
             | { readonly app: string };
           /** 그 agent가 도는 다른 컴퓨터(명단의 이름이나 id). 없으면 이 컴퓨터다. */
           readonly on?: string;
+          readonly open?: "tab" | "background";
         }
       | { readonly kind: "human" }
     >
@@ -106,6 +107,7 @@ export interface WorkflowEntryView {
         readonly by: string;
         readonly with: string | null;
         readonly next: readonly string[];
+        readonly open?: "tab" | "background";
       }[]
     | null;
   readonly artifacts: {
@@ -457,6 +459,8 @@ export interface WorkspaceSource {
     text: string;
     step?: string;
     inputs?: Record<string, unknown>;
+    open?: "tab" | "background";
+    step_open?: Record<string, "tab" | "background">;
   }): Promise<ReadResult<{ instance: string }>>;
   stopWorkflow(instance: string): Promise<ReadResult<null>>;
   /** 막힌 step을 같은 session에서 이어서 다시 시도한다. step을 빼면 current step이다. */

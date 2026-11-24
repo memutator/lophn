@@ -810,12 +810,20 @@ test("a member with cross-project workflow_origin opens in its exec project, for
       },
     ]);
     assert.equal(kit.timers.length, 1);
+    // GUI handle이 붙기 전에도 sessionOf가 pending session을 돌려주어 custom harness agent의 launch/deny를 읽을 수 있다.
+    assert.equal(kit.gui.sessionOf(TERMINAL), SESSION);
     // UI 창이 workflow workspace를 보지 않아도 PTY가 바로 띄운 GUI handle이 붙으면 OPEN_WAIT_MS timer가 해제된다.
     await kit.open();
     assert.equal(kit.emptied.length, 0);
     assert.equal(kit.sent.length, 1);
     // 남아 있는 timer는 OPEN_WAIT_MS가 아니라 INJECT_WAIT_MS 하나뿐이다.
     assert.equal(kit.timers.length, 1);
+    // workflow 출처로 연 탭은 turn이 끝나도 자동으로 닫지 않고 workflow desk에 남긴다.
+    await kit.publish(turnStarted("acp_1"));
+    await kit.publish(kit.message(id("msg", 1), "acp_1", "user", "call"));
+    await kit.publish(kit.message("a1", "acp_1", "agent", "done"));
+    await kit.publish(kit.ended("acp_1"));
+    assert.deepEqual(kit.closed, []);
   } finally {
     kit.cleanup();
   }

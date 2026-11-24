@@ -6,6 +6,7 @@ import { workflowInputValuesSchema } from "./inputs.ts";
 import { workflowCheckpointSchema } from "./instances.ts";
 import {
   sessionChoiceSchema,
+  sessionOpenModeSchema,
   stepNameSchema,
   stepNextSchema,
   workflowDataSchema,
@@ -18,8 +19,9 @@ import {
 // 요청에는 instance가 없다. core가 그 process의 instance로 채운다.
 
 export const FLOW_SDK_NAME = "@lophn/flow";
-// packages/sdk/flow/package.json의 version과 같아야 한다.
-export const FLOW_SDK_VERSION = "2.0.0";
+// packages/sdk/flow/package.json의 version·supported_from과 같아야 한다.
+export const FLOW_SDK_VERSION = "2.1.0";
+export const FLOW_SDK_SUPPORTED_FROM = "2.0.0";
 // SDK 설치 사본 안 lophn 진입 file.
 export const FLOW_ENTRY_FILE = "entry.ts";
 
@@ -118,6 +120,7 @@ export const flowAgentRequestSchema = z.strictObject({
   schema: z.record(z.string(), z.json()).optional(),
   mode: flowAgentModeSchema.optional(),
   session: flowSessionChoiceSchema.optional(),
+  open: sessionOpenModeSchema.optional(),
   step: z.string().min(1).optional(),
   on: z.string().min(1).optional(),
   cancel_id: z.string().min(1).optional(),
@@ -133,6 +136,7 @@ export const flowHumanRequestSchema = z.strictObject({
   input: jsonValueSchema.optional(),
   step: z.string().min(1).optional(),
   session: flowSessionChoiceSchema.optional(),
+  open: sessionOpenModeSchema.optional(),
   cancel_id: z.string().min(1).optional(),
 });
 export type FlowHumanRequest = z.infer<typeof flowHumanRequestSchema>;

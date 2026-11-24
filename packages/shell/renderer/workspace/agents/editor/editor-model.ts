@@ -28,6 +28,7 @@ export type FieldName =
   | "name"
   | "description"
   | "runtime"
+  | "open"
   | "modality"
   | "tools"
   | "instructions"
@@ -54,6 +55,7 @@ const FIELD_OF: Readonly<Record<string, FieldName>> = {
   body: "instructions",
   model: "model",
   harness_config: "model",
+  open: "open",
   skills_off: "skills",
   mcp_off: "mcp",
   mcp_servers: "mcp",
@@ -74,6 +76,7 @@ const TAB_OF_FIELD: Readonly<Record<FieldName, Group>> = {
   card: "who",
   runtime: "runs",
   model: "runs",
+  open: "runs",
   modality: "runs",
   workspace: "sees",
   browser_profile: "sees",

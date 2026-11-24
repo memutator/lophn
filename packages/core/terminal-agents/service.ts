@@ -71,9 +71,12 @@ export type TerminalAgentsDeps = {
     harness: GuiHarness;
     cli_session: string | null;
   }): Promise<Result<string>>;
-  // 그 GUI harness의 내장 coding agent 정의가 가진 deny 규칙과 launch 설정. 팀원 탭의 CLI를 띄울 때 넣는다.
-  memberDeny?(harness: GuiHarness): readonly string[];
-  memberLaunch?(harness: GuiHarness): HarnessLaunchConfig | undefined;
+  // 그 GUI 탭 팀원의 agent 정의(session이 있으면 그 session의 agent, 없으면 내장 coding_<harness>)가 가진 deny 규칙과 launch 설정.
+  memberDeny?(harness: GuiHarness, session?: string | null): readonly string[];
+  memberLaunch?(
+    harness: GuiHarness,
+    session?: string | null,
+  ): HarnessLaunchConfig | undefined;
   /** 그 adapter가 agent 정의의 deny 규칙을 지킬 수 있는가(background 실행 시 검사). */
   enforcesDeny?(harness: GuiHarness): boolean;
   /** 열린 GUI 탭이나 background handle이 model 목록을 받았을 때 catalog cache를 공짜로 채운다. */
@@ -245,10 +248,11 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
     // project 터미널의 GUI 탭이 팀원이다(Home과 앱 workspace는 아니다).
     member: (ref, harness) => {
       if (project(ref)?.startsWith("prj_") !== true) return null;
-      const launch = deps.memberLaunch?.(harness);
+      const session = members.sessionOf(ref);
+      const launch = deps.memberLaunch?.(harness, session);
       return {
         credentialFile: deps.credentials?.pathOf(ref) ?? null,
-        deny: deps.memberDeny?.(harness) ?? [],
+        deny: deps.memberDeny?.(harness, session) ?? [],
         ...(launch === undefined ? {} : { launch }),
       };
     },

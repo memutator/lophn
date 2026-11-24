@@ -17,6 +17,7 @@ import {
   participantKeySchema,
   participantSchema,
   sessionChoiceSchema,
+  sessionOpenModeSchema,
   stepNameSchema,
   stepNextSchema,
   workflowCheckpointKindSchema,
@@ -70,6 +71,7 @@ export const instanceStepSchema = z.strictObject({
   in: z.string(),
   out: z.string(),
   next: z.array(stepNextSchema),
+  open: sessionOpenModeSchema.optional(),
 });
 export type InstanceStep = z.infer<typeof instanceStepSchema>;
 
@@ -93,6 +95,7 @@ export const workflowInstanceSchema = z
     current: currentSchema,
     started_by: startedBySchema,
     code_snapshot: z.string().min(1).nullable().optional(),
+    open_mode: sessionOpenModeSchema.nullable().optional(),
     created_at: atSchema,
     finished_at: atSchema.nullable(),
     state_seq: seqSchema,
@@ -141,6 +144,7 @@ const newStepSchema = z.strictObject({
   in: z.string().optional(),
   out: z.string().optional(),
   next: z.array(stepNextSchema).optional(),
+  open: sessionOpenModeSchema.optional(),
 });
 
 const stepPatchSchema = z.strictObject({
@@ -150,6 +154,7 @@ const stepPatchSchema = z.strictObject({
   in: z.string().optional(),
   out: z.string().optional(),
   next: z.array(stepNextSchema).optional(),
+  open: sessionOpenModeSchema.nullable().optional(),
 });
 
 // 이름이 겹치는 add는 conflict, 없는 name의 update·remove는 not_found다. 가리키는 이름이 있는지는 보지 않는다.
@@ -384,6 +389,7 @@ export const workflowEntrySchema = z
           by: participantKeySchema,
           with: z.string().nullable(),
           next: z.array(stepNextSchema),
+          open: sessionOpenModeSchema.optional(),
         }),
       )
       .nullable(),

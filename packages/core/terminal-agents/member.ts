@@ -191,9 +191,10 @@ type Member = {
   delivering: boolean;
   // 끝난 ledger turn을 닫는 중이다. 닫기 전에 다음 입력의 turn을 열지 않는다.
   finishing: number;
-  // core가 call을 받으려고 연 터미널이다. 할 일이 끝나면 닫는다(팀원이거나 사람이 손댄 탭은 둔다).
+  // core가 call을 받으려고 연 터미널이다. 할 일이 끝나면 닫는다(팀원·workflow·사람이 손댄 탭은 둔다).
   opened: boolean;
   team: boolean;
+  workflow: boolean;
   // 사람이 이 탭에서 turn을 열었거나 터미널에 글을 쳤다.
   touched: boolean;
 };
@@ -659,6 +660,7 @@ export function createGuiMembers(deps: {
       member.session === null ||
       !member.opened ||
       member.team ||
+      member.workflow ||
       member.touched ||
       member.ready !== null ||
       member.injected !== null ||
@@ -738,6 +740,8 @@ export function createGuiMembers(deps: {
           wait !== undefined && bySession(wait.session) === undefined
             ? wait.session
             : null;
+        const described =
+          wanted !== null ? deps.members()?.describe(wanted) : null;
         member = {
           terminal: handle.terminal,
           harness: handle.harness,
@@ -753,8 +757,8 @@ export function createGuiMembers(deps: {
           delivering: false,
           finishing: 0,
           opened: coreOpened.has(handle.terminal),
-          team:
-            wanted !== null && deps.members()?.describe(wanted)?.team === true,
+          team: described?.team === true,
+          workflow: described?.workflow_origin != null,
           touched: false,
         };
         byTerminal.set(handle.terminal, member);
@@ -813,6 +817,15 @@ export function createGuiMembers(deps: {
           void openFor(session);
         }
       });
+    },
+
+    /** 그 터미널에 묶였거나 GUI 시작을 기다리는 팀원 ledger session id. 없으면 null. */
+    sessionOf(terminalRef: string): string | null {
+      return (
+        byTerminal.get(terminalRef)?.session ??
+        pending.get(terminalRef)?.session ??
+        null
+      );
     },
 
     /** 묶인 팀원의 지금 모습. 묶인 탭이 없으면 null이다. 상태는 탭의 ACP 상태에서 읽는다(사람의 승인을 기다리면 waiting). */

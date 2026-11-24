@@ -133,6 +133,8 @@ export function planHandoff(input: {
 
   const same = session === "same" ? input.sameSession(key) : null;
   const body = stepBody({ step, received, inputs });
+  const participantOpen = "kind" in participant ? undefined : participant.open;
+  const open = step.open ?? participantOpen ?? (human ? "tab" : undefined);
   if ("remote" in resolved) {
     const { machine, computer, agent, workspace } = resolved.remote;
     // 글 크기는 redaction 뒤에 Router의 sendStep이 본다(not_handed 줄이 된다).
@@ -140,6 +142,7 @@ export function planHandoff(input: {
       ...base,
       participant: key,
       human_turn: human,
+      ...(open !== undefined ? { open } : {}),
       delivery: {
         remote: {
           machine,
@@ -158,6 +161,7 @@ export function planHandoff(input: {
     ...base,
     participant: key,
     human_turn: human,
+    ...(open !== undefined ? { open } : {}),
     delivery: {
       to:
         same === null

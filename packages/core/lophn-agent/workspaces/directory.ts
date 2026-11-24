@@ -2,6 +2,8 @@ import { err, ok } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import {
   isCodingBuiltin,
+  isHarnessRuntime,
+  type SessionOpenMode,
   type Workspace,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { Sql, Tx } from "../../../protocol/server/mod.ts";
@@ -186,6 +188,15 @@ export function createSessionDirectory(
           : sender === undefined
             ? null
             : workspaceOf(sender);
+      const agentInfo = deps.agents.agent(agent.agent);
+      const effectiveOpen: SessionOpenMode =
+        options?.open ??
+        agentInfo?.open ??
+        (isCodingBuiltin(agent.agent) ? "tab" : "background");
+      const guiTab =
+        effectiveOpen === "tab" &&
+        agent.workspace?.kind === "project" &&
+        isHarnessRuntime(agentInfo?.runtime);
       const started = startSession(tx, deps, {
         id: member?.id ?? tx.newId("ses"),
         agent: agent.agent,
@@ -200,15 +211,19 @@ export function createSessionDirectory(
         spawnedBy: member?.parent ?? spawnedBy,
         // 앱이 불러 열린 session은 그 앱이 끝낼 수 있다.
         openedByApp: opener.kind === "app" ? opener.app : null,
-        // project에서 부른 내장 coding agent는 그 project의 GUI 탭 팀원으로 연다(core가 탭을 연다). 그 밖의 자리와 사람이 만든 harness agent는 background다.
-        ...(isCodingBuiltin(agent.agent) && agent.workspace?.kind === "project"
-          ? { tab: true as const }
-          : {}),
+        // project의 harness agent가 `open: "tab"`이면 GUI 터미널 탭 팀원으로 연다(내장 coding agent는 기본 tab, custom harness는 기본 background).
+        ...(guiTab ? { tab: true as const } : {}),
         // 다른 컴퓨터의 mail이 연 session은 다른 컴퓨터로 보내지 못한다. 부른 workspace는 이 기계의 것이 아니라 남기지 않는다.
         openedByMachine: opener.kind === "remote" ? opener.machine : null,
         skipAllowed: options?.skipAllowed,
       });
       return started.ok ? ok(targetOf(started.value)) : started;
+    },
+    defaultOpen(agent) {
+      return (
+        deps.agents.agent(agent)?.open ??
+        (isCodingBuiltin(agent) ? "tab" : "background")
+      );
     },
     appIdOf(app) {
       const found = deps.apps.appByName(app);

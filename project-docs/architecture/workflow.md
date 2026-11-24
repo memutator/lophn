@@ -176,15 +176,16 @@ workflow는 사람, agent, 앱 tool, 앱 event를 비결정적 함수처럼 조�
   - `StateChanged(workflow_instances)`: instance·줄·checkpoint·연결 세션의 주요 상태 전이 시 발행. Run 화면, `DeskSwitcher`, artifact view가 다시 읽는다.
   - `TurnEnded`(commit 뒤) 및 router의 outgoing `agent_calls` 정산 알림: 로컬 step stall 감지와 통합 `agent()` primitive가 구독한다.
 - **저장 (ledger migration & blob)**:
-  - `workflow_instances`: `inputs_json`, `code_snapshot` 열 포함(기존 행은 null). `workflow_instance.code_snapshot` permanent blob field 등록(`workflow_snapshot` purpose).
+  - `workflow_instances`: `inputs_json`, `code_snapshot`, `open_mode` 열 포함(기존 행은 null). `workflow_instance.code_snapshot` permanent blob field 등록(`workflow_snapshot` purpose).
   - `workflow_lines`: `kind` 13종(`started`, `report`, `edit`, `handed`, `not_handed`, `ended`, `stopped`, `lophn_restarted`, `program_exited`, `step_stalled`, `retried`, `escalated`, `code_updated`), 고치기와 지우기를 막는 append-only trigger 유지.
   - `workflow_checkpoints`: `(instance, key)` PK, `kind`, `state`, `handle_ref`, `output_json`, `error_json`, `started_at`, `finished_at`, `workflow_checkpoints_instance` 인덱스. 저장 데이터이므로 이후 모양 변경 시 ledger migration 필수.
   - `sessions`: `workflow_origin` JSON 열(`{ project, workflow, instance, step }`, nullable) + `(workflow_origin ->> '$.instance')` partial 인덱스. step 입력의 `messages` 열(`step_instance`, `step_name`).
   - 파일 저장: 정의 `<data>/projects/<prj>/workflows/<name>/`, flow stderr log `<data>/flows/<instance>.log`, 실행 시 snapshot 임시 폴더 `<data>/projects/.flow-snapshots/<instance>-<runId>/`.
-- **flow 통로 (`@lophn/flow` 2.0.0 ↔ core stdin/stdout JSON 줄, 상한 1 MiB)**:
+- **flow 통로 (`@lophn/flow` 2.1.0 ↔ core stdin/stdout JSON 줄, 상한 1 MiB)**:
   - core → process: `start`(`instance`, `input`, `inputs?`, `checkpoints?`), `response`(`id`, `outcome`: `{ ok: true, result }` | `{ ok: false, reason, message, session? }`), `event`(`subscription_id`, `source`, `event`, `payload`).
-  - process → core: `step_begin` / `step_end`(`key` 필수), `agent`(`key`, `agent`, `prompt`, `input?`, `schema?`, `mode?`, `session?`, `step?`, `on?`, `cancel_id?`), `human`(`key`, `with`, `prompt`, `input?`, `step?`, `session?`, `cancel_id?`), `workflow`(`key`, `workflow`, `input?`, `inputs?`, `cancel_id?`), `tool`(`key`, `app`, `tool`, `input?`, `cancel_id?`), `cancel`(`cancel_id`), `subscribe`(`subscription_id`, `source`, `event`, `workspace?`) / `unsubscribe`(`subscription_id`), `report`(`step`, `text`, `refs?`, `data?`, `next?`), `escalate`(`step?`, `reason`).
-  - SDK 공개 API(`@lophn/flow` 2.0.0): `input`, `inputs`, `instance`, `step`, `agent`, `human`, `workflow`, `tool`, `onEvent`, `report`, `escalate`, `withFallback`.
+  - process → core: `step_begin` / `step_end`(`key` 필수), `agent`(`key`, `agent`, `prompt`, `input?`, `schema?`, `mode?`, `session?`, `open?`, `step?`, `on?`, `cancel_id?`), `human`(`key`, `with`, `prompt`, `input?`, `step?`, `session?`, `open?`, `cancel_id?`), `workflow`(`key`, `workflow`, `input?`, `inputs?`, `cancel_id?`), `tool`(`key`, `app`, `tool`, `input?`, `cancel_id?`), `cancel`(`cancel_id`), `subscribe`(`subscription_id`, `source`, `event`, `workspace?`) / `unsubscribe`(`subscription_id`), `report`(`step`, `text`, `refs?`, `data?`, `next?`), `escalate`(`step?`, `reason`).
+  - SDK 공개 API(`@lophn/flow` 2.1.0): `input`, `inputs`, `instance`, `step`, `agent`, `human`, `workflow`, `tool`, `onEvent`, `report`, `escalate`, `withFallback`.
+  - **session 열기 방식(`open: "tab" | "background"`)**: `StartWorkflow`의 run 덮어쓰기(`open`·`step_open`) → 선언 `steps.<name>.open` / `agent({ open })` / `human({ open })` → `participants.<key>.open` → `human` step 기본(`"tab"`) → agent 정의 `open` → 내장 기본(내장 coding agent `"tab"`, 그 밖 `"background"`) 순으로 결정한다. `"tab"`이면 project harness agent(custom harness 포함, 해당 agent의 `harness_config`·`deny` 적용)는 workflow desk에 GUI 터미널 탭(`harness_gui = 1`)을, `lophn`·`custom` agent는 workflow desk에 Agent 탭을 연다. `"background"`이면 탭을 자동으로 열지 않고 뒤에서 돌린다.
 - **SDK (`@lophn/agent`)**:
   - `SessionInfo`에 선택적 `workflow?: { project, workflow, instance, step } | null` 추가(1.17.0).
 - **artifact (`artifacts/static`, `artifacts/instance`)**:

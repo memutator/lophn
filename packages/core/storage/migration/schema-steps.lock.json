@@ -434,5 +434,9 @@
   {
     "id": "projects.commands",
     "sha256": "dd5914526ebbfbf134d6f060ded7824c5dee98067a35798ca870c428e8e4f926"
+  },
+  {
+    "id": "workflows.instances-open-mode",
+    "sha256": "ff420f83f8151892476a756435ae3fe4289c411f5b6ba749e2dbaffd3a22aa3f"
   }
 ]

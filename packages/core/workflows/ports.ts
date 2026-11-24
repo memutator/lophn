@@ -7,6 +7,7 @@ import type { Input, Output } from "../../protocol/server/mod.ts";
 import type {
   CallableAgentOption,
   SessionChoice,
+  SessionOpenMode,
   WorkflowCheckpoint,
   WorkflowInstance,
   workflowCheckpointUpsert,
@@ -150,9 +151,10 @@ export type WorkflowRemote = {
   handOf(call: string): Result<{ instance: Id<"wfi">; step: string } | null>;
 };
 
-// project workspace에서 호출 가능한 agent 목록. 구현은 workflows wiring이 agents/cards로 끼운다.
+// project workspace에서 호출 가능한 agent 목록과 agent별 기본 session 열기 방식.
 export type WorkflowAgents = {
   listCallable(project: Id<"prj">): Promise<Result<CallableAgentOption[]>>;
+  defaultOpen?(address: AgentAddress): Promise<SessionOpenMode | undefined>;
 };
 
 // flow process를 띄우고 멈춘다. 구현은 flows wiring이 끼운다.

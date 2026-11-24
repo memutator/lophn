@@ -1,6 +1,13 @@
 import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
+import {
+  SESSION_OPEN_MODES,
+  type SessionOpenMode,
+  sessionOpenModeSchema,
+} from "../lophn-agent/agent-values.ts";
 import { workspaceNameSchema } from "../lophn-agent/workspaces.ts";
+
+export { SESSION_OPEN_MODES, sessionOpenModeSchema, type SessionOpenMode };
 
 export const workflowNameSchema = z
   .string()
@@ -41,6 +48,7 @@ export const participantSchema = z.union([
     agent: z.string().min(1),
     workspace: workspaceNameSchema.optional(),
     on: z.string().min(1).optional(),
+    open: sessionOpenModeSchema.optional(),
   }),
   z.strictObject({ kind: z.literal("human") }),
 ]);

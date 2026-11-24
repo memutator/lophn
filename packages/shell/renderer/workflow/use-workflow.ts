@@ -39,6 +39,10 @@ export interface UseWorkflow {
     text: string,
     step?: string,
     inputs?: Record<string, unknown>,
+    options?: {
+      readonly open?: "tab" | "background";
+      readonly stepOpen?: Record<string, "tab" | "background">;
+    },
   ): Promise<boolean>;
   stop(): void;
   retry(step?: string): void;
@@ -140,13 +144,17 @@ export function useWorkflow({
       setDefinitionReads((count) => count + 1);
       reload();
     },
-    async start(text, step, inputs) {
+    async start(text, step, inputs, options) {
       if (entry === null) return false;
       const result = await source.startWorkflow({
         workflow: entry.key,
         text,
         step,
         ...(inputs === undefined ? {} : { inputs }),
+        ...(options?.open === undefined ? {} : { open: options.open }),
+        ...(options?.stepOpen === undefined
+          ? {}
+          : { step_open: options.stepOpen }),
       });
       if (!result.ok) {
         setNotice({

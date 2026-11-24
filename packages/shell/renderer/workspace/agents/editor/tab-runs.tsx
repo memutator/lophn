@@ -135,9 +135,11 @@ export function RunsTab(props: RunsTabProps) {
     } else if (picked === "custom") {
       next.runtime = "custom";
       delete next.harness_config;
+      delete next.open;
     } else {
       delete next.runtime;
       delete next.harness_config;
+      delete next.open;
       delete next.tools;
       delete next.skills;
     }
@@ -225,6 +227,34 @@ export function RunsTab(props: RunsTabProps) {
             }
           />
           <Issues issues={issues("model")} />
+          <Group name="open" heading={t("agents.heading.session-open")}>
+            <SegmentedControl
+              size="sm"
+              label={t("agents.label.session-open")}
+              value={definition.open ?? (coding ? "tab" : "background")}
+              options={[
+                { value: "tab", label: t("agents.label.session-open-tab") },
+                {
+                  value: "background",
+                  label: t("agents.label.session-open-background"),
+                },
+              ]}
+              onValueChange={(picked) => {
+                const defaultOpen = coding ? "tab" : "background";
+                onChange(
+                  withField(
+                    definition,
+                    "open",
+                    picked === defaultOpen ? undefined : picked,
+                  ),
+                );
+              }}
+            />
+            <p className={styles.note}>
+              {t("agents.notice.session-open-help")}
+            </p>
+            <Issues issues={issues("open")} />
+          </Group>
         </>
       ) : (
         <div className={styles.group} data-field="model">

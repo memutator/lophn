@@ -80,6 +80,7 @@ import {
   ASK_ANSWERED_TOPIC,
   ASK_ENDED_TOPIC,
   CALL_SESSION_OPENED_TOPIC,
+  WORKFLOW_SESSION_OPENED_TOPIC,
   CANCEL_TEXT,
   callsAppCancel,
   callsAppSend,
@@ -425,6 +426,34 @@ export const routerWiring: WiringFactory = () => {
           source: same ? data.opener : null,
         });
       };
+      // workflow step이 `open: "tab"`으로 넘긴 session은 GUI 탭 팀원이 아닌 경우 원 workflow desk·step 묶음에 Agent 탭으로 연다.
+      const openWorkflowSessionTab = (session: Id<"ses">) => {
+        const loaded = ledgerSnapshot(ctx.ledgerPath, (lookup) =>
+          loadSession(lookup, session),
+        );
+        if (!loaded.ok || !loaded.value) return;
+        if (loaded.value.harness_gui) return;
+        if (loaded.value.workflow_origin === null) return;
+        let origin: WorkflowOrigin | null = null;
+        try {
+          const parsed = workflowOriginSchema.safeParse(
+            JSON.parse(loaded.value.workflow_origin),
+          );
+          if (parsed.success) origin = parsed.data;
+        } catch {
+          return;
+        }
+        if (origin === null) return;
+        ctx.hostQueue.openTab({
+          owner: "person",
+          workspace: { kind: "project", id: origin.project },
+          target: { session },
+          relation: null,
+          source: null,
+          desk: { workflow: origin.workflow },
+          group: `${origin.instance}:${origin.step}`,
+        });
+      };
       // 앱이 보낸 call이 끝났다. 앱에는 queue가 없어 `call.settled` event(발행자 lophn)로 그 앱에만 알린다.
       const settled = (data: {
         app: string;
@@ -481,6 +510,9 @@ export const routerWiring: WiringFactory = () => {
               session: opened.session,
               relation: "stage",
             });
+          } else if (action.topic === WORKFLOW_SESSION_OPENED_TOPIC) {
+            const opened = action.data as { session: Id<"ses"> };
+            openWorkflowSessionTab(opened.session);
           } else if (action.topic === ASK_ANSWERED_TOPIC) {
             ctx.peek.approvals?.askReplies.answered(
               action.data as Parameters<

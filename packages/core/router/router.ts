@@ -55,6 +55,7 @@ import {
   APP_CALL_SETTLED_TOPIC,
   ASK_ANSWERED_TOPIC,
   CALL_SESSION_OPENED_TOPIC,
+  WORKFLOW_SESSION_OPENED_TOPIC,
   ASK_ENDED_TOPIC,
   calId,
   FAILURE_TEXTS,
@@ -304,7 +305,7 @@ export function createRouter(deps: RouterDeps): Router {
     agent: AgentAtWorkspace,
     to: CallTarget,
     spawn: boolean,
-    input: Pick<RouteInput, "skipAllowed" | "member">,
+    input: Pick<RouteInput, "skipAllowed" | "member" | "open">,
   ): Result<Resolved> {
     const opened = directory.open(
       tx,
@@ -314,6 +315,7 @@ export function createRouter(deps: RouterDeps): Router {
       {
         skipAllowed: input.skipAllowed,
         ...(input.member === undefined ? {} : { member: input.member }),
+        ...(input.open === undefined ? {} : { open: input.open }),
       },
     );
     if (opened.ok) {
@@ -847,6 +849,15 @@ export function createRouter(deps: RouterDeps): Router {
         caller: from.session,
         session: receiver,
       });
+    }
+    if (input.kind === "step" && input.workflowOrigin != null) {
+      const effectiveOpen =
+        input.open ?? directory.defaultOpen?.(target.agent.agent);
+      if (effectiveOpen === "tab") {
+        announce(tx, WORKFLOW_SESSION_OPENED_TOPIC, {
+          session: receiver,
+        });
+      }
     }
     return ok({
       call,

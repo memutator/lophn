@@ -9,6 +9,7 @@ import { WORKSPACE_KINDS } from "../../protocol/lophn-agent/workspaces.ts";
 import {
   type HandResult,
   sessionChoiceSchema,
+  sessionOpenModeSchema,
   stepNameSchema,
   stepNextSchema,
   workflowCheck,
@@ -246,6 +247,9 @@ const start = defineCommand({
     inputs: workflowInputValuesSchema
       .optional()
       .describe("declarative workflow inputs as a JSON object"),
+    open: sessionOpenModeSchema
+      .optional()
+      .describe("override session open mode for this run (tab | background)"),
   }),
   positional: ["workflow", "text"],
   effect: "write",

@@ -289,6 +289,7 @@ function orderedFrontmatter(value: Plain): Plain {
     value.harness_config as Plain | undefined,
   );
   if (harness !== undefined) out.harness_config = harness;
+  if (value.open !== undefined) out.open = value.open;
   for (const key of EMPTY_DEFAULT_LISTS) {
     const list = value[key] as Plain[] | undefined;
     if (list === undefined || list.length === 0) continue;

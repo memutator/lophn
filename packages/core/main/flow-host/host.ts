@@ -616,6 +616,7 @@ export function createFlowHost(deps: FlowHostDeps): FlowHost {
                   ...(request.session !== undefined
                     ? { session: request.session as "new" | "same" | Id<"ses"> }
                     : {}),
+                  ...(request.open !== undefined ? { open: request.open } : {}),
                   ...(request.on !== undefined ? { on: request.on } : {}),
                   signal: controller.signal,
                 });
@@ -651,6 +652,7 @@ export function createFlowHost(deps: FlowHostDeps): FlowHost {
                   ...(request.session !== undefined
                     ? { session: request.session as "new" | "same" | Id<"ses"> }
                     : {}),
+                  ...(request.open !== undefined ? { open: request.open } : {}),
                   signal: controller.signal,
                 });
                 return closing ? null : toFlowOutcome(outcome);

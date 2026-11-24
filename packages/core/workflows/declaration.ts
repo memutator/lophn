@@ -2,6 +2,7 @@ import { parse } from "yaml";
 import type { Id } from "../../protocol/base/mod.ts";
 import {
   declarationStepSchema,
+  FLOW_SDK_SUPPORTED_FROM,
   FLOW_SDK_VERSION,
   FLOW_STEP_BY,
   type InstanceStep,
@@ -16,7 +17,7 @@ import type { DefinitionFile, FlowSdkInfo } from "./ports.ts";
 export const DEFAULT_MISSING_FLOW_SDK = "1.0.0";
 export const DEFAULT_FLOW_SDK_INFO: FlowSdkInfo = {
   current: FLOW_SDK_VERSION,
-  supported_from: FLOW_SDK_VERSION,
+  supported_from: FLOW_SDK_SUPPORTED_FROM,
 };
 
 export function compareVersion(a: string, b: string): number {
@@ -149,6 +150,7 @@ export function participantsOf(
             agent: p.agent,
             ...(p.workspace !== undefined && { workspace: p.workspace }),
             ...(p.on !== undefined && { on: p.on }),
+            ...(p.open !== undefined && { open: p.open }),
           };
   }
   return out;
@@ -165,6 +167,7 @@ export function stepsOf(declaration: WorkflowDeclaration): InstanceStep[] {
       in: s.in ?? "",
       out: s.out ?? "",
       next: s.next ?? [],
+      ...(s.open !== undefined ? { open: s.open } : {}),
     };
   });
 }
@@ -251,11 +254,25 @@ export function entryOf(
     problem: null,
     ...io,
     participants: participantsOf(declaration),
-    steps: stepsOf(declaration).map((s) => ({
-      name: s.name,
-      by: s.by,
-      with: s.with,
-      next: s.next,
-    })),
+    steps: stepsOf(declaration).map((s) => {
+      const participants = participantsOf(declaration);
+      const by = participants[s.by];
+      const human = by !== undefined && "kind" in by && by.kind === "human";
+      const target = human
+        ? s.with !== null
+          ? participants[s.with]
+          : undefined
+        : by;
+      const participantOpen =
+        target !== undefined && !("kind" in target) ? target.open : undefined;
+      const open = s.open ?? participantOpen ?? (human ? "tab" : undefined);
+      return {
+        name: s.name,
+        by: s.by,
+        with: s.with,
+        next: s.next,
+        ...(open !== undefined ? { open } : {}),
+      };
+    }),
   };
 }

@@ -62,6 +62,7 @@ export type AgentAddress = {
 
 export type AgentMode = "turn" | "report";
 export type SessionChoice = "new" | "same" | (string & {});
+export type SessionOpenMode = "tab" | "background";
 
 export type EventWorkspaceFilter =
   | string
@@ -91,6 +92,7 @@ export type AgentRequest = {
   key?: string;
   mode?: AgentMode;
   session?: SessionChoice;
+  open?: SessionOpenMode;
   step?: string;
   on?: string;
   signal?: AbortSignal;
@@ -103,6 +105,7 @@ export type HumanRequest = {
   step?: string;
   key?: string;
   session?: SessionChoice;
+  open?: SessionOpenMode;
   signal?: AbortSignal;
 };
 
@@ -147,6 +150,7 @@ export type WireRequestBody =
       schema?: Record<string, unknown>;
       mode?: AgentMode;
       session?: SessionChoice;
+      open?: SessionOpenMode;
       step?: string;
       on?: string;
       cancel_id?: string;
@@ -159,6 +163,7 @@ export type WireRequestBody =
       input?: unknown;
       step?: string;
       session?: SessionChoice;
+      open?: SessionOpenMode;
       cancel_id?: string;
     }
   | {

@@ -20,6 +20,7 @@ import {
   participantKeySchema,
   participantSchema,
   sessionChoiceSchema,
+  sessionOpenModeSchema,
   stepNameSchema,
   stepNextSchema,
   workflowCheckpointKindSchema,
@@ -48,6 +49,7 @@ export const handoffPlanSchema = z
     human_turn: z.boolean(),
     cause: z.enum(["start", "report", "edit", "retry"]),
     session: sessionChoiceSchema.nullable(),
+    open: sessionOpenModeSchema.optional(),
     // 이 컴퓨터의 받는 곳(to)이거나, 다른 컴퓨터의 받는 곳(remote: 명단의 그 컴퓨터와 기계를 건너는 주소)이다.
     delivery: z
       .union([
@@ -91,6 +93,7 @@ export const workflowInstanceCreate = defineCommand({
     steps: z.array(instanceStepSchema),
     started_by: startedBySchema,
     code_snapshot: z.string().min(1).nullable().optional(),
+    open_mode: sessionOpenModeSchema.nullable().optional(),
     handoff: handoffPlanSchema.nullable(), // null이면 flow다. 넘기지 않는다
   }),
   output: z.object({

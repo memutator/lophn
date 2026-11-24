@@ -42,10 +42,12 @@ does not read it or call it wrong.
 
 - `agent`: for a folder with `flow.ts`, the agent whose assignment app command
   (`tool`) calls use. It is an agent handle; when left out it is `lophn`.
-- `participants`: a map from a key you choose to `{ agent, workspace?, on? }`
+- `participants`: a map from a key you choose to `{ agent, workspace?, on?, open? }`
   or `{ kind: human }`.
   - `agent` is the agent's handle. `workspace` is `{project: <name>}` or
     `{app: <slug>}`; when left out it is this instance's project, not home.
+  - `open`: optional `"tab"` or `"background"` default for this participant's
+    sessions in this workflow.
   - `on: <computer>` hands that participant's steps to the agent on another
     computer of the person (a name or id from `lophn machine computers`). The
     project must exist there under the same cross-computer id; `workspace`
@@ -53,7 +55,7 @@ does not read it or call it wrong.
     goes when it comes back; a step that arrives late waits for the person
     there. A `human` participant has no `on`, and a private project does not
     hand steps to another computer.
-- `steps`: a map from a step name to `{ by, with?, prompt, in?, out?, next? }`.
+- `steps`: a map from a step name to `{ by, with?, prompt, in?, out?, next?, open? }`.
   Required (non-empty) when there is no `flow.ts` (YAML shorthand); optional
   when `flow.ts` is present (for display and `report` step names).
   - `by`: the participant key that does the step.
@@ -63,6 +65,9 @@ does not read it or call it wrong.
   - `in`, `out`: what it receives and what it produces, in words.
   - `next`: the candidate next steps, step names or `end`. `end` cannot be a
     step name.
+  - `open`: optional `"tab"` or `"background"` for this step (overrides
+    participant and agent defaults). Human steps (`by` a `human` participant)
+    default to `"tab"`.
 - `inputs`: optional map from input key (1-63 chars) to a start-time form field:
   `{ type, label?, description?, required?, default?, placeholder?, when?, options?, min?, max?, kind? }`.
   - `type`: `string`, `text`, `number` (`min?`, `max?`), `boolean`, `select`
@@ -177,7 +182,7 @@ if (!draft.ok) {
 }
 ```
 
-`@lophn/flow` (v2.0.0) exports:
+`@lophn/flow` (v2.1.0) exports:
 
 - `input: string`: the start text.
 - `inputs: Readonly<Record<string, unknown>>`: frozen validated values from
@@ -188,15 +193,19 @@ if (!draft.ok) {
   `fn`. Sequential primitives inside `step` get deterministic sub-keys
   (`${key}/${kind}#${n}`, isolated across `Promise.all` via `AsyncLocalStorage`).
   Wrap each `Promise.all` branch in its own `step(key, ...)` or pass an explicit `key`.
-- `agent({ agent, prompt, input?, schema?, key?, mode?, session?, step?, on?, signal? })`:
+- `agent({ agent, prompt, input?, schema?, key?, mode?, session?, open?, step?, on?, signal? })`:
   calls an agent and returns `Outcome<SoftOutput>`. `mode` is `"turn"` (default;
   waits for turn completion and open outgoing `agent_calls` to settle, returning
   `stalled` if calls settle with no follow-up turn) or `"report"` (waits for
-  `workflow.report`). `session` is `"new"`, `"same"`, or a session id. `signal`
-  cancels the running turn.
-- `human({ with, prompt, input?, step?, key?, session?, signal? })`:
+  `workflow.report`). `session` is `"new"`, `"same"`, or a session id. `open`
+  is `"tab"` (open a visible interactive tab in the workflow desk — GUI terminal
+  tab for project harness agents, Agent tab for `lophn`/`custom`) or
+  `"background"` (run quietly without opening a tab). `signal` cancels the
+  running turn.
+- `human({ with, prompt, input?, step?, key?, session?, open?, signal? })`:
   starts a human-agent conversation (`human_turn`) and waits for `workflow.report`.
-  Excluded from stall detection; process stays alive while waiting.
+  Defaults `open` to `"tab"`. Excluded from stall detection; process stays alive
+  while waiting.
 - `workflow({ workflow, input?, inputs?, key?, signal? })`:
   calls another workflow in the same project as a sub-workflow (cross-project is
   `forbidden`, cycle or nesting depth > 5 is `conflict`).
@@ -246,6 +255,30 @@ jobs and desk layout in sync), use `lophn workflow rename` and
 
 Starting: a person (screen, `lophn workflow start --inputs <json>`), a job
 (`workflow_start`), or a parent `workflow()` starts it.
+
+## Tab vs background (`open`)
+
+Choose `open: tab` or `open: background` intentionally on `steps`, `participants`,
+or `agent()` / `human()` calls based on whether the person should watch or
+interact with the session:
+
+- **Use `open: tab`** when the person is expected to monitor live progress,
+  approve tool/permission prompts, steer mid-run, inspect diffs/output live, or
+  converse directly (for example: interactive design/planning, coding or
+  implementation steps the person watches, human-in-the-loop checkpoints).
+  For project harness agents (both built-in and custom harness definitions),
+  `open: tab` opens a GUI terminal tab in the workflow desk using that agent's
+  own `harness_config` (model/options). For `lophn`/`custom` agents, it opens
+  an Agent tab in the workflow desk. `human` steps default to `tab`.
+- **Use `open: background`** when the step is autonomous, quiet, or fanned out
+  in parallel and the person only cares about the final report (for example:
+  automated code review, lint/verification checks, background synthesis,
+  parallel research workers, unattended scheduled jobs).
+- **Omit `open`** to inherit the agent definition's own `open` setting (configured
+  in Agents › Runs on; built-in coding agents default to `tab`, custom harness
+  agents and non-human `lophn` steps default to `background`). The person can
+  also override tab vs background per run in the workflow Start box or via
+  `lophn workflow start --open tab|background`.
 
 ## A step message is all a participant gets
 

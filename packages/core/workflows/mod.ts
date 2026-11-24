@@ -41,6 +41,7 @@ export {
   stepsOf,
 } from "./declaration.ts";
 export { workflowLinesSchemaSteps } from "./lines-schema.ts";
+export { WORKFLOW_OPEN_MODE_SCHEMA_STEP } from "./open-mode-schema.ts";
 export type {
   DefinitionFile,
   StepTurn,

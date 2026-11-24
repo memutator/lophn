@@ -54,8 +54,8 @@ harness ─ 전역 hook ─▶ lophn hook <harness> <event> ─▶ core hook soc
 harness runtime은 다섯이다: `claude-code`, `codex`, `opencode`, `omp`, `antigravity`. 다섯 모두 단일 상주 구조화 프로토콜 어댑터([harness-gui.md](harness-gui.md))로 돈다. 정의의 `runtime`이 harness인 agent는 lophn session을 갖지만 run-loop가 돌리지 않는다. 사람이 즐겨찾기한 coding agent(`shell.coding_agents.favorites`) 가운데 이 다섯은 정의 file 없이 전역 내장 agent(id `coding_<harness id>`, handle `claude`·`codex`·`opencode`·`omp`·`antigravity`)로 있고, 사람이 만든 custom harness agent 정의도 다섯 runtime과 `harness_config`(model·options)를 모두 쓸 수 있다([agent-definition.md](agent-definition.md)).
 
 실행 모드는 둘이다:
-- **`tab` 모드 (`harness_gui = 1`)**: project 터미널의 GUI 탭 팀원([harness-gui.md](harness-gui.md) "팀원"). project에서 연 GUI 탭과 project에서 부른 내장 coding agent(call, `team spawn`)가 이 모드로 열린다. 그 queue는 그 터미널 GUI 탭만 가져가며, TUI 열기가 거절한다.
-- **`background` 모드 (`harness_gui = 0`)**: Home·앱 workspace의 harness agent, 사람이 정의한 harness agent(custom `harness_config` 포함), 창 없는 무인 Job·Workflow. 터미널 PTY 없이 core 안 상주 ACP adapter(`terminal: null`)로 실행되고, turn이 끝나고 queue가 비면 짧은 linger(15초) 뒤 handle을 닫는다.
+- **`tab` 모드 (`harness_gui = 1`)**: project 터미널의 GUI 탭 팀원([harness-gui.md](harness-gui.md) "팀원"). project에서 연 GUI 탭과 `open: "tab"`으로 열린 project harness agent(내장 coding agent 기본, 또는 agent 정의·workflow step·participant·실행 덮어쓰기가 `open: "tab"`으로 정한 custom harness agent)가 이 모드로 열린다. 그 탭은 해당 session의 agent 정의(`harness_config`·`permissions.deny`)로 CLI를 띄우며, 그 queue는 그 터미널 GUI 탭만 가져가고 TUI 열기는 거절한다. workflow 출처(`workflow_origin`)가 있는 탭은 turn이 끝나도 자동으로 닫지 않고 workflow desk에 남긴다.
+- **`background` 모드 (`harness_gui = 0`)**: Home·앱 workspace의 harness agent, `open: "background"`인 harness agent(custom harness agent 기본, 또는 `open: "background"`로 정한 내장 coding agent), 창 없는 무인 Job·Workflow. 터미널 PTY 없이 core 안 상주 ACP adapter(`terminal: null`)로 실행되고, turn이 끝나고 queue가 비면 짧은 linger(15초) 뒤 handle을 닫는다.
 
 ```
 Router ─ session.transport = harness ─▶ harness queue(core 메모리, run-loop queue와 따로)

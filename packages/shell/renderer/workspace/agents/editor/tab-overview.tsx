@@ -224,6 +224,14 @@ export function OverviewTab(props: OverviewTabProps) {
           <GlanceRow name="runtime" label={t("agents.label.field-runtime")}>
             <RuntimeName runtime={facts.runtime} />
           </GlanceRow>
+          {harness ? (
+            <GlanceRow name="open" label={t("agents.label.field-session-open")}>
+              {(definition.open ?? (facts.coding ? "tab" : "background")) ===
+              "tab"
+                ? t("agents.label.session-open-tab")
+                : t("agents.label.session-open-background")}
+            </GlanceRow>
+          ) : null}
           <GlanceRow name="model" label={t("agents.label.field-model")}>
             {harness ? (
               (harnessModel ?? own)

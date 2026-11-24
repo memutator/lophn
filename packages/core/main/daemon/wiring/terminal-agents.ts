@@ -344,24 +344,27 @@ export const terminalAgentsWiring: WiringFactory = () => {
           Promise.resolve(
             err({ code: "unavailable", message: "core is still starting" }),
           ),
-        memberDeny: (harness) => {
-          const deny = ledgerSnapshot(
-            ctx.ledgerPath,
-            (lookup) =>
-              workspaceDepsOf(lookup.sql).agents.agent(
-                `coding_${harness}` as AgentId,
-              )?.deny ?? [],
-          );
+        memberDeny: (harness, session) => {
+          const deny = ledgerSnapshot(ctx.ledgerPath, (lookup) => {
+            const agentId =
+              (session != null
+                ? (loadSession(lookup, session)?.agent as AgentId | undefined)
+                : undefined) ?? (`coding_${harness}` as AgentId);
+            return (
+              workspaceDepsOf(lookup.sql).agents.agent(agentId)?.deny ?? []
+            );
+          });
           return deny.ok ? deny.value : [];
         },
-        memberLaunch: (harness) => {
-          const config = ledgerSnapshot(
-            ctx.ledgerPath,
-            (lookup) =>
-              workspaceDepsOf(lookup.sql).agents.agent(
-                `coding_${harness}` as AgentId,
-              )?.harnessConfig,
-          );
+        memberLaunch: (harness, session) => {
+          const config = ledgerSnapshot(ctx.ledgerPath, (lookup) => {
+            const agentId =
+              (session != null
+                ? (loadSession(lookup, session)?.agent as AgentId | undefined)
+                : undefined) ?? (`coding_${harness}` as AgentId);
+            return workspaceDepsOf(lookup.sql).agents.agent(agentId)
+              ?.harnessConfig;
+          });
           return config.ok ? config.value : undefined;
         },
         enforcesDeny: (harness) => HARNESS_GUI_ADAPTERS[harness].enforcesDeny,

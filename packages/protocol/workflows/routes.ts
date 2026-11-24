@@ -6,6 +6,7 @@ import { readCursorSchema, seqSchema } from "../base/values.ts";
 import { withReadCommon } from "../base/envelope.ts";
 import {
   sessionChoiceSchema,
+  sessionOpenModeSchema,
   stepNameSchema,
   stepNextSchema,
   workflowKeySchema,
@@ -64,6 +65,8 @@ export const workflowStart = defineMemory({
     text: z.string().min(1),
     step: stepNameSchema.optional(),
     inputs: workflowInputValuesSchema.optional(),
+    open: sessionOpenModeSchema.optional(),
+    step_open: z.record(stepNameSchema, sessionOpenModeSchema).optional(),
   }),
   // flow는 넘기지 않아 handed가 null이다.
   output: z.object({

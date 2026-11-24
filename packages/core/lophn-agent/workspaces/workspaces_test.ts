@@ -582,6 +582,95 @@ test("a built-in coding agent called into a project opens as a GUI tab member; H
       assert.ok(background.ok);
       assert.equal(mark(background.value.session), 0);
     }
+
+    // 내장 coding agent도 open: "background"로 덮어쓰면 background(harness_gui = 0)로 열린다.
+    const forcedBg = directory.open(
+      tx,
+      {
+        agent: "coding_claude",
+        workspace: { kind: "project", id: PROJECT },
+      } as never,
+      { kind: "program" },
+      null,
+      { open: "background" },
+    );
+    assert.ok(forcedBg.ok);
+    assert.equal(mark(forcedBg.value.session), 0);
+
+    // custom harness agent도 agent 정의 open: "tab" 또는 options.open: "tab"이면 project에서 GUI 탭 팀원(harness_gui = 1)으로 열린다.
+    const customDir = createSessionDirectory({
+      ...coding,
+      agents: {
+        ...coding.agents,
+        agent: (id: string) =>
+          id === "agt_custom_tab"
+            ? {
+                id: id as never,
+                handle: "builder-neon",
+                workspace: null,
+                name: "Builder Neon",
+                skip: false,
+                runtime: "antigravity" as const,
+                open: "tab" as const,
+                apps: [],
+                deny: [],
+                remoteApps: [],
+                browserProfile: null,
+              }
+            : id === "agt_custom_bg"
+              ? {
+                  id: id as never,
+                  handle: "reviewer",
+                  workspace: null,
+                  name: "Reviewer",
+                  skip: false,
+                  runtime: "antigravity" as const,
+                  apps: [],
+                  deny: [],
+                  remoteApps: [],
+                  browserProfile: null,
+                }
+              : coding.agents.agent(id as never),
+      },
+      sql: () => sql,
+    });
+    const customDefaultTab = customDir.open(
+      tx,
+      {
+        agent: "agt_custom_tab",
+        workspace: { kind: "project", id: PROJECT },
+      } as never,
+      { kind: "program" },
+      null,
+    );
+    assert.ok(customDefaultTab.ok);
+    assert.equal(mark(customDefaultTab.value.session), 1);
+
+    const customDefaultBg = customDir.open(
+      tx,
+      {
+        agent: "agt_custom_bg",
+        workspace: { kind: "project", id: PROJECT },
+      } as never,
+      { kind: "program" },
+      null,
+    );
+    assert.ok(customDefaultBg.ok);
+    assert.equal(mark(customDefaultBg.value.session), 0);
+
+    const customOverrideTab = customDir.open(
+      tx,
+      {
+        agent: "agt_custom_bg",
+        workspace: { kind: "project", id: PROJECT },
+      } as never,
+      { kind: "program" },
+      null,
+      { open: "tab" },
+    );
+    assert.ok(customOverrideTab.ok);
+    assert.equal(mark(customOverrideTab.value.session), 1);
+
     db.close();
   } finally {
     rmSync(root, { recursive: true, force: true });

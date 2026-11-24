@@ -85,6 +85,13 @@ export const agents = {
   "agents.notice.extensions-help":
     "Tools of an assigned extension are available to this agent. Only extensions installed and turned on are listed. A custom agent still picks the ones it uses under Tools.",
   "agents.heading.runtime": "Runtime",
+  "agents.heading.session-open": "Open sessions in",
+  "agents.label.field-session-open": "Sessions",
+  "agents.label.session-open": "Open sessions in",
+  "agents.label.session-open-tab": "Tab",
+  "agents.label.session-open-background": "Background",
+  "agents.notice.session-open-help":
+    "Tab opens an interactive GUI terminal tab in the workspace or workflow desk so you can watch, approve, or steer. Background runs quietly without opening a tab. Workflows can override this per step.",
   "agents.heading.tools": "Tools",
   "agents.label.agent-instructions": "Instructions for this agent",
   "agents.label.description": "Role",

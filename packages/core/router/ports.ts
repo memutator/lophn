@@ -15,6 +15,7 @@ import type { Mail } from "../../protocol/lophn-agent/mail.ts";
 import type {
   AgentRuntime,
   Modality,
+  SessionOpenMode,
 } from "../../protocol/lophn-agent/agent-values.ts";
 import type {
   AgentAddress,
@@ -106,8 +107,12 @@ export interface SessionDirectory {
       skipAllowed?: boolean;
       // 다른 컴퓨터의 `team spawn --on`: 그 기계가 지은 id와 그 기계의 부모 session. 상한은 그 기계가 셌다.
       member?: { id: Id<"ses">; parent: Id<"ses"> };
+      // session을 탭으로 열지 background로 돌릴지. 없으면 agent 정의와 내장 기본을 따른다.
+      open?: SessionOpenMode;
     },
   ): Result<TargetSession>;
+  // 그 agent의 기본 session 열기 방식(agent 정의의 open 또는 내장 기본).
+  defaultOpen?(agent: AgentId): SessionOpenMode;
   // `team spawn --on`: 다른 컴퓨터에서 도는 팀원의 자리를 이 기계의 부모 밑에 연다. 팀 상한을 센다(넘으면 conflict).
   openMember(
     tx: Tx,

@@ -31,12 +31,13 @@ import {
 - `inputs: Readonly<Record<string, unknown>>` — `workflow.yaml`에 선언한 `inputs`로 받은 구조화 입력이다(선언이 없거나 값이 없으면 `{}`). 시작 시 core가 검증·기본값 적용·redaction을 끝낸 읽기 전용(frozen) 객체다.
 - `instance: string` — instance id다.
 - `step<T>(key, fn)` — durable checkpoint 단위다. `key`(비어 있지 않은 고유 문자열)는 **필수**다. 이미 `completed`로 저장된 `key`는 재시작·재개 replay 때 `fn`을 다시 돌리지 않고 저장된 값을 바로 돌려준다. `step` 안에서 순차 호출하는 primitive는 `AsyncLocalStorage`로 격리된 순번(`${key}/${kind}#${n}`)을 자동 부여받는다. `Promise.all` 병렬 분기는 각 항목을 고유 `step(key, ...)`로 감싸거나 명시적 `key`를 준다.
-- `agent({ agent, prompt, input?, schema?, key?, mode?, session?, step?, on?, signal? })` — `Promise<Outcome<SoftOutput>>`.
+- `agent({ agent, prompt, input?, schema?, key?, mode?, session?, open?, step?, on?, signal? })` — `Promise<Outcome<SoftOutput>>`.
   - `mode`: `"turn"`(기본, turn 끝 + 열린 `agent_calls` 0개일 때 완료; 열린 call이 모두 닫혔는데 후속 turn이 없으면 `stalled`) 또는 `"report"`(세션이 `workflow.report`를 낼 때 완료).
   - `session`: `"new"`(기본), `"same"`, 또는 session id.
+  - `open`: `"tab"`(보이는 탭으로 열어 사람이 진행을 지켜보거나 승인·개입할 수 있게 함; project의 harness agent는 GUI 터미널 탭, lophn/custom은 workflow desk의 Agent 탭) 또는 `"background"`(탭을 자동으로 열지 않고 뒤에서 실행). 생략하면 agent 정의의 `open` 설정과 기본 규칙(내장 coding agent는 `tab`, 그 밖은 `background`)을 따른다.
   - `on`: 다른 컴퓨터의 이름 또는 id.
   - `signal`: `AbortSignal`. 취소되면 core가 turn을 멈추고 `cancelled`를 돌려준다.
-- `human({ with, prompt, input?, step?, key?, session?, signal? })` — `Promise<Outcome<SoftOutput>>`. `with`(agent 주소 또는 handle) 세션에 `human_turn`으로 입력을 넣고 사람이 논의해 `workflow.report`로 완료할 때까지 기다린다. core가 켜져 있는 동안 process를 유지하며 stall 판정에서 제외된다.
+- `human({ with, prompt, input?, step?, key?, session?, open?, signal? })` — `Promise<Outcome<SoftOutput>>`. `with`(agent 주소 또는 handle) 세션에 `human_turn`으로 입력을 넣고 사람이 논의해 `workflow.report`로 완료할 때까지 기다린다. `open`을 생략하면 기본은 `"tab"`이다. core가 켜져 있는 동안 process를 유지하며 stall 판정에서 제외된다.
 - `workflow({ workflow, input?, inputs?, key?, signal? })` — `Promise<Outcome<SoftOutput>>`. 같은 project 안의 다른 workflow를 sub-workflow로 호출한다(다른 project는 `forbidden`, 순환·최대 깊이 5 초과는 `conflict`).
 - `tool<T = unknown>({ app, tool, input?, key?, signal? })` — `Promise<Outcome<T>>`. 앱 command를 부르고 2단계 checkpoint로 기록한다. `workflow.yaml`의 `agent`(없으면 lophn)의 현재 할당 안에서만 되고 public command만 부른다.
 - `onEvent({ source, event, workspace? }, handler)` — `() => void`. 실행 중 앱 event(앱 slug/id)나 session event(`source: "lophn"`)를 비영속 구독한다. 반환된 disposer를 부르면 구독을 해제한다.

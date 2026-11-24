@@ -4,7 +4,7 @@
 // 시작이 실패하면 적은 글을 지키고(알림은 탭 위쪽 toast), 성공하면 비운다.
 import { useState } from "react";
 import { Button } from "@lophn/ui/primitives";
-import { Field, Select, Textarea } from "@lophn/ui/input";
+import { Field, SegmentedControl, Select, Textarea } from "@lophn/ui/input";
 import { Tooltip } from "@lophn/ui/overlay";
 import { t } from "@lophn/i18n";
 
@@ -21,6 +21,8 @@ import { InputsForm } from "./inputs-form.tsx";
 import { workflowProblemText } from "./model.ts";
 import styles from "./start-box.module.css";
 
+type SessionOpenMode = "tab" | "background";
+
 export function StartBox({
   entry,
   callableAgents = [],
@@ -33,6 +35,10 @@ export function StartBox({
     text: string,
     step: string | undefined,
     inputs: Record<string, unknown> | undefined,
+    options?: {
+      readonly open?: SessionOpenMode;
+      readonly stepOpen?: Record<string, SessionOpenMode>;
+    },
   ) => Promise<boolean>;
 }) {
   const isFlow = entry.kind === "flow";
@@ -42,6 +48,12 @@ export function StartBox({
     declarations !== undefined && Object.keys(declarations).length > 0;
   const [text, setText] = useState("");
   const [step, setStep] = useState(steps[0]?.name ?? "");
+  const [flowOpen, setFlowOpen] = useState<"default" | SessionOpenMode>(
+    "default",
+  );
+  const [stepOpenOverrides, setStepOpenOverrides] = useState<
+    Record<string, SessionOpenMode>
+  >({});
   const [values, setValues] = useState<Record<string, unknown>>(() =>
     declarations === undefined ? {} : resolveInputDefaults(declarations),
   );
@@ -65,6 +77,25 @@ export function StartBox({
     });
   };
 
+  const effectiveStepOpen = (
+    item: NonNullable<WorkflowEntryView["steps"]>[number],
+  ): SessionOpenMode =>
+    stepOpenOverrides[item.name] ?? item.open ?? "background";
+
+  const toggleStepOpen = (
+    item: NonNullable<WorkflowEntryView["steps"]>[number],
+  ) => {
+    const base: SessionOpenMode = item.open ?? "background";
+    const next: SessionOpenMode =
+      effectiveStepOpen(item) === "tab" ? "background" : "tab";
+    setStepOpenOverrides((prev) => {
+      const updated = { ...prev };
+      if (next === base) delete updated[item.name];
+      else updated[item.name] = next;
+      return updated;
+    });
+  };
+
   const start = () => {
     if (!ready) return;
     let normalizedInputs: Record<string, unknown> | undefined;
@@ -85,11 +116,27 @@ export function StartBox({
       setErrors({});
       normalizedInputs = validated.value;
     }
+    const openOption = isFlow && flowOpen !== "default" ? flowOpen : undefined;
+    const stepOpenOption =
+      !isFlow && Object.keys(stepOpenOverrides).length > 0
+        ? stepOpenOverrides
+        : undefined;
+    const options =
+      openOption !== undefined || stepOpenOption !== undefined
+        ? {
+            ...(openOption === undefined ? {} : { open: openOption }),
+            ...(stepOpenOption === undefined
+              ? {}
+              : { stepOpen: stepOpenOption }),
+          }
+        : undefined;
     setStarting(true);
-    void onStart(text, isFlow ? undefined : step, normalizedInputs)
+    void onStart(text, isFlow ? undefined : step, normalizedInputs, options)
       .then((started) => {
         if (started) {
           setText("");
+          setFlowOpen("default");
+          setStepOpenOverrides({});
           setValues(
             declarations === undefined
               ? {}
@@ -144,6 +191,66 @@ export function StartBox({
             disabled={!entry.startable || starting}
             onChange={changeInput}
           />
+        </div>
+      ) : null}
+      {isFlow ? (
+        <div className={styles.openModes} data-session-open-mode="">
+          <Field
+            label={t("workflow.label.session-open")}
+            help={t("workflow.note.session-open-flow")}
+          >
+            <SegmentedControl
+              size="sm"
+              label={t("workflow.label.session-open")}
+              value={flowOpen}
+              options={[
+                {
+                  value: "default",
+                  label: t("workflow.label.session-open-default"),
+                },
+                { value: "tab", label: t("workflow.label.session-open-tab") },
+                {
+                  value: "background",
+                  label: t("workflow.label.session-open-background"),
+                },
+              ]}
+              onValueChange={(value) =>
+                setFlowOpen(value as "default" | SessionOpenMode)
+              }
+            />
+          </Field>
+        </div>
+      ) : steps.length > 0 ? (
+        <div className={styles.openModes} data-session-open-steps="">
+          <Field
+            label={t("workflow.label.session-open")}
+            help={t("workflow.note.session-open-steps")}
+          >
+            <div className={styles.stepOpenList}>
+              {steps.map((item) => {
+                const mode = effectiveStepOpen(item);
+                return (
+                  <button
+                    key={item.name}
+                    type="button"
+                    className={styles.stepOpenChip}
+                    data-step-open={mode}
+                    data-step-name={item.name}
+                    disabled={!entry.startable || starting}
+                    aria-pressed={mode === "tab"}
+                    onClick={() => toggleStepOpen(item)}
+                  >
+                    <span className={styles.stepOpenName}>{item.name}</span>
+                    <span className={styles.stepOpenBadge}>
+                      {mode === "tab"
+                        ? t("workflow.label.session-open-tab")
+                        : t("workflow.label.session-open-background")}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </Field>
         </div>
       ) : null}
       <div className={styles.row}>

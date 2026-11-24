@@ -72,6 +72,14 @@ export const workflow = {
     "{count, plural, one {# active workflow} other {# active workflows}}",
   "workflow.label.finished-at": "Finished {when}",
   "workflow.label.first-step": "First step",
+  "workflow.label.session-open": "Sessions",
+  "workflow.label.session-open-default": "Default",
+  "workflow.label.session-open-tab": "Tab",
+  "workflow.label.session-open-background": "Background",
+  "workflow.note.session-open-steps":
+    "Click a step to switch between opening an interactive tab or running in the background for this run.",
+  "workflow.note.session-open-flow":
+    "Choose whether this run follows the workflow's tab/background choices or opens all sessions in tabs or background.",
   "workflow.label.input": "Input",
   "workflow.label.input-no": "No",
   "workflow.label.input-required": "{label} *",

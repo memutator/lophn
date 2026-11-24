@@ -8,6 +8,7 @@ import { manualClock } from "../../base/mod.ts";
 import { instanceFromRow, lineFromRow } from "./rows.ts";
 import { WORKFLOW_CHECKPOINTS_SCHEMA_STEP } from "./checkpoint-schema.ts";
 import { WORKFLOW_INPUTS_SCHEMA_STEP } from "./inputs-schema.ts";
+import { WORKFLOW_OPEN_MODE_SCHEMA_STEP } from "./open-mode-schema.ts";
 import { workflowLinesSchemaSteps } from "./lines-schema.ts";
 import { workflowsNoHarnessKindSteps, workflowsSchemaSteps } from "./schema.ts";
 import { applyMigrations } from "../storage/migration/mod.ts";
@@ -254,6 +255,62 @@ test("기존 workflow_instances 행은 workflows.checkpoints-and-snapshot step �
         .prepare("select count(*) as n from workflow_checkpoints")
         .get() as { n: number };
       assert.equal(left.n, 0);
+    } finally {
+      after.close();
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("기존 workflow_instances 행은 workflows.instances-open-mode step 뒤 open_mode가 NULL이고 tab·background만 받는다", async () => {
+  const root = await mkdtemp(join(tmpdir(), "lophn-workflows-open-mode-"));
+  try {
+    const path = join(root, "lophn.db");
+    const deps = { clock: manualClock(Date.UTC(2026, 10, 1)) };
+    const beforeSteps = [
+      ...workflowsSchemaSteps,
+      ...workflowsNoHarnessKindSteps,
+      ...workflowLinesSchemaSteps,
+      WORKFLOW_INPUTS_SCHEMA_STEP,
+      WORKFLOW_CHECKPOINTS_SCHEMA_STEP,
+    ];
+    assert.equal((await applyMigrations(path, beforeSteps, deps)).ok, true);
+    const db = new DatabaseSync(path);
+    db.exec(`
+      insert into workflow_instances (id, project, workflow, input, state, participants, steps, human_turn, started_by, created_at, finished_at, state_seq)
+        values ('${WFI}', '${PRJ}', 'review', 'hello', 'running',
+          '{"me":{"kind":"human"}}', '[]', 0, '{"kind":"user"}', '${AT}', NULL, 1);
+    `);
+    db.close();
+
+    assert.equal(
+      (
+        await applyMigrations(
+          path,
+          [...beforeSteps, WORKFLOW_OPEN_MODE_SCHEMA_STEP],
+          deps,
+        )
+      ).ok,
+      true,
+    );
+    const after = new DatabaseSync(path);
+    try {
+      const existing = after
+        .prepare("select open_mode from workflow_instances where id = ?")
+        .get(WFI) as { open_mode: unknown };
+      assert.equal(existing.open_mode, null);
+      after.exec(
+        `update workflow_instances set open_mode = 'tab' where id = '${WFI}';`,
+      );
+      after.exec(
+        `update workflow_instances set open_mode = 'background' where id = '${WFI}';`,
+      );
+      assert.throws(() =>
+        after.exec(
+          `update workflow_instances set open_mode = 'invalid' where id = '${WFI}';`,
+        ),
+      );
     } finally {
       after.close();
     }

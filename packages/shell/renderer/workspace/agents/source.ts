@@ -20,6 +20,7 @@ import type {
   HarnessConfig,
   McpOff,
   Modality,
+  SessionOpenMode,
 } from "../../../../protocol/lophn-agent/agent-values.ts";
 import type { McpServer } from "../../../../protocol/lophn-agent/mcp-settings.ts";
 import type {
@@ -145,6 +146,8 @@ export interface AgentDraft {
   readonly model?: ModelChoice;
   /** harness runtime이 CLI를 띄울 때 쓰는 model과 축 값(effort 등). */
   readonly harness_config?: HarnessConfig;
+  /** session을 여는 기본 방식(tab | background). 없으면 내장 기본을 따른다. */
+  readonly open?: SessionOpenMode;
   readonly skills_off?: readonly string[];
   readonly mcp_off?: readonly McpOff[];
   readonly mcp_servers?: readonly McpServer[];

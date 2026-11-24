@@ -15,6 +15,7 @@ import type {
 import type { InputDelivery } from "../../protocol/lophn-agent/inputs.ts";
 import type { AgentAddress } from "../../protocol/lophn-agent/workspaces.ts";
 import type { WorkflowOrigin } from "../../protocol/workflows/values.ts";
+import type { SessionOpenMode } from "../../protocol/lophn-agent/agent-values.ts";
 import type { NoticeKind } from "../../protocol/lophn-agent/input-tags.ts";
 import type { RoutedInput, TargetSession } from "./ports.ts";
 
@@ -44,6 +45,8 @@ export type RouteInput = {
   step?: { instance: Id<"wfi">; step: string } | null;
   // 이 컴퓨터로 넘긴 step이면 받은 session에 적을 workflow_origin. 다른 컴퓨터에서 받은 step은 그 기계의 project id라 싣지 않는다.
   workflowOrigin?: WorkflowOrigin | null;
+  // session을 탭으로 열지 background로 돌릴지. 없으면 agent 정의와 내장 기본을 따른다.
+  open?: SessionOpenMode;
   // notice면 그 종류.
   notice?: NoticeKind | null;
   // agent의 SendCall·ReplyCall과 run이 넣은 사람 메시지(`SendMessage`의 `unattended: true`)가 싣는다. 없으면 false.
@@ -115,6 +118,9 @@ export const TEAM_SPAWNED_TOPIC = "router.team-spawned";
 
 // agent의 call이 새 session을 열었다(`{caller, session}`, `team spawn`은 제외). main thread가 그 session의 Agent 탭을 요청한다.
 export const CALL_SESSION_OPENED_TOPIC = "router.call-session-opened";
+
+// workflow step이 `open: "tab"`으로 session을 열거나 넘겼다(`{session}`). main thread가 GUI 탭 팀원이 아닌 session의 Agent 탭을 workflow desk에 연다.
+export const WORKFLOW_SESSION_OPENED_TOPIC = "router.workflow-session-opened";
 
 // 부모가 ask call에 답했다(`{call, decision, text}`). main thread가 짝인 request나 질문을 푼다.
 export const ASK_ANSWERED_TOPIC = "router.ask-answered";

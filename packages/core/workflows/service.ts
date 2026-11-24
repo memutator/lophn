@@ -22,6 +22,7 @@ import {
   type LineBy,
   type ReportLine,
   type SessionChoice,
+  type SessionOpenMode,
   type StartedBy,
   validateWorkflowInputs,
   type WorkflowCheckpoint,
@@ -287,6 +288,7 @@ export type RunAgentCallRequest = {
   input?: JsonValue;
   schema?: Record<string, JsonValue>;
   session?: SessionChoice | Id<"ses">;
+  open?: SessionOpenMode;
   on?: string;
   signal?: AbortSignal;
 };
@@ -300,6 +302,7 @@ export type RunHumanStepRequest = {
   prompt: string;
   input?: JsonValue;
   session?: SessionChoice | Id<"ses">;
+  open?: SessionOpenMode;
   signal?: AbortSignal;
 };
 
@@ -658,6 +661,10 @@ export function createWorkflowService(deps: {
         codeSnapshot = captured.value;
       }
       const id = ids.newId("wfi") as Id<"wfi">;
+      const flowSteps = flowStepsOf(parsed.declaration).map((s) => {
+        const override = input.step_open?.[s.name];
+        return override !== undefined ? { ...s, open: override } : s;
+      });
       const created = await store.create({
         id,
         project: project.value.id,
@@ -665,8 +672,9 @@ export function createWorkflowService(deps: {
         input: input.text,
         ...(validatedInputs !== undefined ? { inputs: validatedInputs } : {}),
         ...(codeSnapshot !== undefined ? { code_snapshot: codeSnapshot } : {}),
+        ...(input.open !== undefined ? { open_mode: input.open } : {}),
         participants: participantsOf(parsed.declaration),
-        steps: flowStepsOf(parsed.declaration),
+        steps: flowSteps,
         started_by: by,
         handoff: null,
       });
@@ -700,7 +708,10 @@ export function createWorkflowService(deps: {
       });
     }
 
-    const steps = stepsOf(parsed.declaration);
+    const steps = stepsOf(parsed.declaration).map((s) => {
+      const override = input.step_open?.[s.name] ?? input.open;
+      return override !== undefined ? { ...s, open: override } : s;
+    });
     const participants = participantsOf(parsed.declaration);
     const step = input.step ?? steps[0]!.name;
     if (!steps.some((s) => s.name === step)) {
@@ -713,6 +724,7 @@ export function createWorkflowService(deps: {
       workflow: name,
       input: input.text,
       ...(validatedInputs !== undefined ? { inputs: validatedInputs } : {}),
+      ...(input.open !== undefined ? { open_mode: input.open } : {}),
       participants,
       steps,
       started_by: by,
@@ -873,6 +885,7 @@ export function createWorkflowService(deps: {
 
     let targetAgent: AgentAddress;
     let targetOn: string | undefined = req.on;
+    let participantOpen: SessionOpenMode | undefined;
     if (req.agent !== undefined) {
       targetAgent = {
         ...req.agent,
@@ -899,6 +912,7 @@ export function createWorkflowService(deps: {
         workspace: p.workspace ?? { project: state.instance.project },
       };
       targetOn = req.on ?? p.on;
+      participantOpen = p.open;
     } else {
       return {
         ok: false,
@@ -966,6 +980,15 @@ export function createWorkflowService(deps: {
       },
     };
 
+    const declaredStepOpen = state.instance.steps.find(
+      (s) => s.name === req.step,
+    )?.open;
+    const effectiveOpen: SessionOpenMode | undefined =
+      state.instance.open_mode ??
+      declaredStepOpen ??
+      req.open ??
+      participantOpen;
+
     try {
       const outcome = await runAgentPrimitive(wrappedPorts, {
         agent: targetAgent,
@@ -974,6 +997,7 @@ export function createWorkflowService(deps: {
         ...(req.schema !== undefined ? { schema: req.schema } : {}),
         mode: req.mode ?? "turn",
         ...(req.session !== undefined ? { session: req.session } : {}),
+        ...(effectiveOpen !== undefined ? { open: effectiveOpen } : {}),
         sameSession,
         origin: {
           project: state.instance.project as Id<"prj">,
@@ -1265,6 +1289,12 @@ export function createWorkflowService(deps: {
       },
     };
 
+    const declaredStepOpen = state.instance.steps.find(
+      (s) => s.name === req.step,
+    )?.open;
+    const effectiveOpen: SessionOpenMode =
+      state.instance.open_mode ?? declaredStepOpen ?? req.open ?? "tab";
+
     try {
       const outcome = await runAgentPrimitive(wrappedPorts, {
         agent: targetAgent,
@@ -1272,6 +1302,7 @@ export function createWorkflowService(deps: {
         ...(req.input !== undefined ? { input: req.input } : {}),
         mode: "report",
         ...(req.session !== undefined ? { session: req.session } : {}),
+        open: effectiveOpen,
         sameSession,
         origin: {
           project: state.instance.project as Id<"prj">,
@@ -1709,13 +1740,41 @@ export function createWorkflowService(deps: {
       const listed = await files.list(project.value.id);
       if (!listed.ok) return listed;
       const sdkInfo = await resolveFlowSdkInfo();
-      const workflows = listed.value.map((file) =>
-        entryOf(
-          project.value.id,
-          `${project.value.name}/${file.name}`,
-          file,
-          sdkInfo,
-        ),
+      const workflows = await Promise.all(
+        listed.value.map(async (file) => {
+          const entry = entryOf(
+            project.value.id,
+            `${project.value.name}/${file.name}`,
+            file,
+            sdkInfo,
+          );
+          if (
+            entry.kind !== "agent" ||
+            entry.steps === null ||
+            entry.participants === null ||
+            agents?.defaultOpen === undefined
+          ) {
+            return entry;
+          }
+          const participants = entry.participants;
+          const steps = await Promise.all(
+            entry.steps.map(async (step) => {
+              if (step.open !== undefined) return step;
+              const by = participants[step.by];
+              if (by === undefined || "kind" in by) {
+                return { ...step, open: "tab" as const };
+              }
+              const resolved = await agents.defaultOpen!({
+                agent: by.agent,
+                workspace: by.workspace ?? { project: project.value.id },
+              });
+              return resolved === undefined
+                ? step
+                : { ...step, open: resolved };
+            }),
+          );
+          return { ...entry, steps };
+        }),
       );
       if (agents === undefined) {
         return ok({ workflows });

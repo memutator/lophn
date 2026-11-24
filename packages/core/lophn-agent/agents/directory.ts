@@ -4,6 +4,7 @@ import type {
   AgentId,
   AgentRuntime,
   HarnessConfig,
+  SessionOpenMode,
   Workspace,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { cardByHandle } from "./card.ts";
@@ -34,6 +35,8 @@ export type AgentInfo = {
   deny: readonly string[];
   /** harness runtime의 model·option 설정. 없거나 비면 CLI 기본이다. */
   harnessConfig?: HarnessConfig;
+  /** session을 여는 기본 방식(tab | background). 없으면 내장 규칙을 따른다. */
+  open?: SessionOpenMode;
   // 할당한 다른 기계의 앱. id로 둔다(그 앱은 이 기계에 slug가 없다). 사람만 쓰는 칸이다.
   remoteApps: readonly RemoteAppLine[];
   // 정의의 browser profile id 그대로다(지운 profile일 수 있다). null은 기본 profile이고, 정의 file이 틀려 읽지 못하면
@@ -68,6 +71,9 @@ function infoOf(loaded: Loaded): AgentInfo {
     ...(loaded.definition?.harness_config === undefined
       ? {}
       : { harnessConfig: loaded.definition.harness_config }),
+    ...(loaded.definition?.open === undefined
+      ? {}
+      : { open: loaded.definition.open }),
     remoteApps: loaded.definition?.remote_apps ?? [],
     browserProfile:
       loaded.definition === null

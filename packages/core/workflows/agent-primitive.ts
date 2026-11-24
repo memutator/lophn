@@ -7,6 +7,7 @@ import type {
 import type {
   FlowAgentMode,
   SessionChoice,
+  SessionOpenMode,
   WorkflowOrigin,
   WorkflowOutcomeReason,
   WorkflowSoftOutput,
@@ -75,6 +76,7 @@ export type AgentHandOffInput = {
   origin: WorkflowOrigin;
   mode: FlowAgentMode;
   human: boolean;
+  open?: SessionOpenMode;
 };
 
 export type AgentHandOffResult =
@@ -160,6 +162,8 @@ export type AgentPrimitiveRequest = {
   on?: string;
   // 사람 step은 stall 판정에서 제외한다.
   human?: boolean;
+  // session을 탭으로 열지 background로 돌릴지. 없으면 agent 정의와 기본 규칙을 따른다.
+  open?: SessionOpenMode;
   // mode: "report"에서 stall이 났을 때 stalled Outcome으로 바로 끝낼지(true), report/cancel을 계속 기다릴지(false, 기본).
   stalledResolves?: boolean;
   signal?: AbortSignal;
@@ -662,6 +666,7 @@ export function runAgentPrimitive(
       origin: req.origin,
       mode,
       human,
+      ...(req.open !== undefined ? { open: req.open } : {}),
     };
 
     void Promise.resolve()

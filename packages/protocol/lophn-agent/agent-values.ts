@@ -172,6 +172,12 @@ export const harnessConfigSchema = z.strictObject({
 });
 export type HarnessConfig = z.infer<typeof harnessConfigSchema>;
 
+// session을 여는 방식. tab은 보이는 탭(project의 harness는 GUI 터미널 탭, lophn/custom은 workflow desk의 Agent 탭)으로 열고,
+// background는 탭을 자동으로 열지 않고 뒤에서 돌린다(harness는 headless background ACP). 없으면 기본 규칙을 따른다.
+export const SESSION_OPEN_MODES = ["tab", "background"] as const;
+export const sessionOpenModeSchema = z.enum(SESSION_OPEN_MODES);
+export type SessionOpenMode = z.infer<typeof sessionOpenModeSchema>;
+
 // 한 줄 목적. 목록 카드와 다른 agent가 읽는 한 줄이라 줄바꿈과 긴 글을 받지 않는다.
 export const AGENT_DESCRIPTION_MAX_CHARS = 200;
 const descriptionSchema = nonblankSchema.refine(
@@ -215,6 +221,7 @@ const frontmatterFields = {
   modality: modalityFieldSchema.optional(),
   model: modelChoiceSchema.optional(),
   harness_config: harnessConfigSchema.optional(),
+  open: sessionOpenModeSchema.optional(),
   skills_off: skillsSchema.optional(),
   mcp_off: mcpOffListSchema.optional(),
   mcp_servers: mcpServersSchema.optional(),
@@ -236,6 +243,7 @@ const frontmatterOutputFields = {
   modality: modalityFieldSchema.optional(),
   model: modelChoiceOutputSchema.optional(),
   harness_config: harnessConfigSchema.optional(),
+  open: sessionOpenModeSchema.optional(),
   skills_off: skillsSchema.optional(),
   mcp_off: mcpOffListOutputSchema.optional(),
   mcp_servers: mcpServersSchema.optional(),

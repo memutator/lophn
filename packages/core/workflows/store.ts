@@ -10,6 +10,7 @@ import type {
   InstanceStep,
   Participant,
   ReportLine,
+  SessionOpenMode,
   StartedBy,
   WorkflowInstance,
   WorkflowLine,
@@ -76,6 +77,7 @@ export function insertInstance(
     input: string;
     inputs?: Record<string, unknown>;
     code_snapshot?: string | null;
+    open_mode?: SessionOpenMode | null;
     participants: Record<string, Participant>;
     steps: InstanceStep[];
     current: Current;
@@ -118,6 +120,10 @@ export function insertInstance(
   if (instance.code_snapshot !== undefined && instance.code_snapshot !== null) {
     cols.push("code_snapshot");
     values.push(instance.code_snapshot);
+  }
+  if (instance.open_mode !== undefined && instance.open_mode !== null) {
+    cols.push("open_mode");
+    values.push(instance.open_mode);
   }
   const placeholders = cols.map(() => "?").join(", ");
   sql.run(

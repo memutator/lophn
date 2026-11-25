@@ -1,5 +1,5 @@
 id: remote-terminal-latency-regression
-version: 0.23.176
+version: 0.23.178
 title: 원격 터미널 키 입력마다 resize·fit이 돌고 idle·scrollback 읽기가 과부하를 내던 지연을 고친다
 modules: [packages/core/terminals, packages/core/terminal-view, packages/core/remote, packages/remote-client, packages/shell/renderer]
 change: |

@@ -408,12 +408,20 @@ export class TerminalDisplays {
               screen[screen.length - 1]!.seq,
             );
           } else {
-            kept.view.reset();
             kept.view.resize(
               reply.value.runtime.columns,
               reply.value.runtime.rows,
             );
-            this.#write(kept, screen, true);
+            if (kept.view.replace !== undefined) {
+              const step = acceptOutput(kept.lastSeq, kept.generation, screen);
+              if (step.writes.length > 0) {
+                kept.view.replace(step.writes.join(""));
+                kept.lastSeq = step.lastSeq;
+              }
+            } else {
+              kept.view.reset();
+              this.#write(kept, screen, true);
+            }
           }
         }
         this.#trace(key, kept, { e: "catch_up", chunks: screen.length });

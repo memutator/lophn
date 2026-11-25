@@ -408,7 +408,7 @@ test("TerminalScreenChanged의 diff는 base_seq가 맞을 때만 덮어쓰고 �
   h.screenChanged(2, diff(1));
   assert.equal(h.requests.length, 1);
   assert.deepStrictEqual(h.replays.slice(1), [
-    "\x1b[2;1H\x1b[2K\x1b[0;1mls\x1b[0m\x1b[2;3H\x1b[?25h",
+    "\x1b[?2026h\x1b[2;1H\x1b[2K\x1b[0;1mls\x1b[0m\x1b[2;3H\x1b[?25h\x1b[?2026l",
   ]);
 
   // seq 3을 놓쳤다. base가 2가 아니니 snapshot을 읽는다.

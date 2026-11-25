@@ -1,10 +1,12 @@
 // PTY host process의 시작점. core가 자기 Electron Node(ELECTRON_RUN_AS_NODE)로 이 file을 띄우고 stdin·stdout pipe로만 말한다.
 // 테스트는 serve.ts를 바로 쓰고 이 file은 process의 stdin·stdout·신호만 꽂는다.
 import { lstatSync, statSync } from "node:fs";
+import { release } from "node:os";
 import process from "node:process";
 import { systemClock } from "../../../base/clock.ts";
 import { createIdSource } from "../../../base/id.ts";
 import { cryptoRandom } from "../../../base/random.ts";
+import { windowsBuildNumber } from "./conpty-sync.ts";
 import { serveHost } from "./serve.ts";
 import { createWinForegroundReader } from "./win-foreground.ts";
 
@@ -15,7 +17,10 @@ const served = serveHost({
     env: process.env,
     platform: process.platform,
     ...(process.platform === "win32"
-      ? { winForeground: createWinForegroundReader() }
+      ? {
+          windowsBuildNumber: windowsBuildNumber(release()),
+          winForeground: createWinForegroundReader(),
+        }
       : {}),
     // 앱 실행 alias(WindowsApps\pwsh.exe)는 stat이 EACCES라 existsSync가 false다. 자리만 본다.
     exists: (file) => {

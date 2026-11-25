@@ -42,8 +42,12 @@ export function machineTerminalDeps(
             return reply.ok ? reply.value : "";
           },
         };
+  const windowsConpty =
+    machine === null &&
+    typeof navigator === "object" &&
+    /Windows/i.test(navigator.userAgent);
   const createView: TerminalDeps["createView"] = (host, edge) =>
-    createXtermView(host, edge, undefined, clipboard);
+    createXtermView(host, edge, undefined, clipboard, { windowsConpty });
   if (machine === null) {
     const terminalCore = createTerminalCore(core, events);
     return windowTerminalDeps(

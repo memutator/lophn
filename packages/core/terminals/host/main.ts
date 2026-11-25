@@ -13,6 +13,11 @@ import {
   terminalSessionId,
 } from "../../../protocol/lophn-agent/session-tag.ts";
 import { type ProcessGroup } from "./child-group.ts";
+import {
+  type ConptyFrameBuffer,
+  createConptyFrameBuffer,
+  DEFAULT_WINDOWS_BUILD,
+} from "./conpty-sync.ts";
 import { resolveCommandShell, resolveLoginShell, terminalEnv } from "./env.ts";
 import { foregroundGroupOf } from "./foreground.ts";
 import {
@@ -48,6 +53,10 @@ export type HostDeps = {
   schedule: (done: () => void) => void;
   /** 종료 확인 사이의 기다림. 테스트가 줄인다. */
   sleep?: (ms: number) => Promise<void>;
+  /** ConPTY 다시 그리기 묶기 timer. 테스트가 주입한다. */
+  after?: (ms: number, run: () => void) => () => void;
+  /** Windows OS build 번호(ConPTY xterm 호환 옵션). */
+  windowsBuildNumber?: number;
   controlFd?: number;
   /** process가 끝나 runtime이 바뀌었다. 요청의 답이 아니라 host가 먼저 알린다. */
   onRuntime?: (runtime: TerminalRuntime) => void;
@@ -61,6 +70,8 @@ type Session = {
   screen: Screen;
   handle: PtyHandle | null;
   group: ProcessGroup | null;
+  /** Windows ConPTY 조각 묶기 버퍼. 종료·정리 때 남은 조각을 비운다. */
+  conptyBuffer: ConptyFrameBuffer | null;
   /** open 요청이 더한 env. restart가 이어 쓴다. */
   env?: Record<string, string>;
   /** 마지막으로 알린 foreground process argv를 이어 붙인 것. 바뀌었는지만 본다. */
@@ -148,11 +159,27 @@ function createHost(deps: HostDeps): Host {
       dropped_output: false,
       ...(isDedicated ? { dedicated: true as const } : {}),
     };
+    const defaultAfter = (ms: number, run: () => void) => {
+      const timer = setTimeout(run, ms);
+      return () => clearTimeout(timer);
+    };
+    const windowsPty =
+      deps.platform === "win32"
+        ? {
+            backend: "conpty" as const,
+            buildNumber: deps.windowsBuildNumber ?? DEFAULT_WINDOWS_BUILD,
+          }
+        : undefined;
     const session: Session = {
       runtime,
-      screen: new Screen(request.columns, request.rows),
+      screen: new Screen(
+        request.columns,
+        request.rows,
+        windowsPty === undefined ? {} : { windowsPty },
+      ),
       handle: null,
       group: null,
+      conptyBuffer: null,
       env: shellEnv,
       foreground: null,
       dedicated: isDedicated,
@@ -183,14 +210,25 @@ function createHost(deps: HostDeps): Host {
       runtime.state = "running";
       // 앱이 shell pid에서 process tree를 따라갈 수 있게 core에 알린다(CLI 자신의 pid가 아니다).
       runtime.shell_pid = handle.pid;
-      // 등록을 spawn 직후 동기로 붙인다. 미루면 초기 출력·종료를 놓친다.
-      session.handle?.onData((chunk) => {
+      const emitChunk = (chunk: string) => {
         // 한 탭 출력의 parse 예외가 host 전체를 끝내지 않게 한다.
         acceptChunk(session, chunk).catch((error: unknown) => {
           console.error("terminal output failed:", error);
         });
+      };
+      if (deps.platform === "win32") {
+        session.conptyBuffer = createConptyFrameBuffer({
+          flush: emitChunk,
+          after: deps.after ?? defaultAfter,
+        });
+      }
+      // 등록을 spawn 직후 동기로 붙인다. 미루면 초기 출력·종료를 놓친다.
+      session.handle?.onData((chunk) => {
+        if (session.conptyBuffer !== null) session.conptyBuffer.push(chunk);
+        else emitChunk(chunk);
       });
       session.handle?.onExit((exit) => {
+        session.conptyBuffer?.drain();
         // 성공을 추정하지 않고 관측한 종료를 기록한다. 이미 기록한
         // exited에 대한 두 번째 종료는 첫 관측을 대체하지 않는다.
         if (runtime.state === "unknown" || runtime.exit_code !== null) return;
@@ -532,6 +570,8 @@ function settleRuntime(
     session.runtime.state = "exited";
     session.runtime.failure_reason = null;
   }
+  session.conptyBuffer?.drain();
+  session.conptyBuffer = null;
   session.handle = null;
   if (disposeScreen) session.screen.dispose();
   return { ok: true, runtime: { ...session.runtime } };

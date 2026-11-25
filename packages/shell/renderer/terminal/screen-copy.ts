@@ -57,14 +57,14 @@ export function screenText(screen: Screen): string {
   return `${lines.join("\r\n")}\x1b[${y + 1};${x + 1}H\x1b[?25${hidden ? "l" : "h"}`;
 }
 
-/** diff의 바뀐 줄만 지금 xterm에 덮어쓰는 글 하나다(줄을 지우고 다시 쓴 뒤 커서를 둔다). viewport 맨 아래에 있을 때만 쓴다. */
+/** diff의 바뀐 줄만 지금 xterm에 덮어쓰는 글 하나다(DEC 2026으로 감싸 지우기·다시 쓰기 사이 깜빡임을 막는다). viewport 맨 아래에 있을 때만 쓴다. */
 export function diffText(diff: TerminalScreenDiff): string {
   const rows = diff.lines.map(
     ({ row, runs }) =>
       `\x1b[${row + 1};1H\x1b[2K${runs.map(runText).join("")}\x1b[0m`,
   );
   const { x, y, hidden } = diff.cursor;
-  return `${rows.join("")}\x1b[${y + 1};${x + 1}H\x1b[?25${hidden ? "l" : "h"}`;
+  return `\x1b[?2026h${rows.join("")}\x1b[${y + 1};${x + 1}H\x1b[?25${hidden ? "l" : "h"}\x1b[?2026l`;
 }
 
 /**

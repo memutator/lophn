@@ -21,6 +21,10 @@ export interface TerminalView {
   replay(text: string): void;
   /** 새 generation이면 화면을 비운다. 옛 출력·입력을 다시 쓰지 않는다. */
   reset(): void;
+  /** 화면을 비우고 새 사본을 한 frame(DEC 2026)에 갈아 끼운다. 동기 reset 뒤 비동기 write 사이의 빈 화면 깜빡임을 막는다. */
+  replace?(text: string): void;
+  /** 탭 DOM에 다시 붙은 뒤 xterm 표시를 강제로 다시 그린다(WebGL atlas stale 방지). */
+  refresh?(): void;
   /** PTY 치수로 맞춘다. 다시 붙을 때 snapshot은 PTY 치수로 직렬화돼 있어 그 치수로 써야 줄이 맞는다. */
   resize(columns: number, rows: number): void;
   focus(): void;
@@ -162,6 +166,7 @@ interface XtermLike {
   write(data: string, callback?: () => void): void;
   reset(): void;
   resize(columns: number, rows: number): void;
+  refresh?(start: number, end: number): void;
   focus(): void;
   onData(listener: (data: string) => void): { dispose(): void };
   onBinary(listener: (data: string) => void): { dispose(): void };
@@ -435,6 +440,7 @@ export function createXtermView(
   edge: HTMLCanvasElement,
   parts: XtermParts = REAL,
   clipboard: TerminalClipboard | null = null,
+  options: { windowsConpty?: boolean } = {},
 ): TerminalView {
   let theme = themeOf(host);
   const term = new parts.Terminal({
@@ -450,6 +456,10 @@ export function createXtermView(
     // 오른쪽 여백을 겸해 양쪽 간격이 같게 한다.
     overviewRuler: { width: Number.parseFloat(token(host, "--space-3") ?? "") },
     theme,
+    // 로컬 Windows ConPTY 터미널은 ConPTY 줄 증가·scrollback 호환 옵션을 켠다. 원격 사본에는 켜지 않는다.
+    ...(options.windowsConpty === true
+      ? { windowsPty: { backend: "conpty", buildNumber: 22621 } }
+      : {}),
     // unicode(글자 폭) API가 proposed다.
     allowProposedApi: true,
   });
@@ -627,12 +637,20 @@ export function createXtermView(
       ? adoptInlineStyles(host)
       : () => {};
   term.open(host);
-  // 셀은 WebGL renderer가 그린다(빠르다). WebGL2가 없거나 context를 잃으면 addon을 버려 DOM renderer로 돌아가고,
-  // 다음 fit·focus 때 다시 붙여 본다. GPU process가 되살아나도 xterm은 스스로 WebGL로 돌아오지 않는다.
+  // 셀은 WebGL renderer가 그린다(빠르다). 숨은(0x0) 컨테이너에 먼저 붙이면 Windows ANGLE에서 atlas가 깨질 수 있어
+  // 보이는 크기일 때만 붙인다. context를 반복해서 잃으면 DOM renderer에 머물러 깜빡임 loop를 막는다.
   // DOM renderer도 truecolor를 칠한다(shell CSP의 `style-src-attr`).
+  const MAX_WEBGL_LOSSES = 2;
   let webgl: WebglLike | null = null;
+  let webglLosses = 0;
+  const hostVisible = () =>
+    host.isConnected &&
+    (typeof host.clientWidth !== "number" ||
+      (host.clientWidth > 0 && host.clientHeight > 0));
   const attachWebgl = () => {
-    if (webgl !== null) return;
+    if (webgl !== null || webglLosses >= MAX_WEBGL_LOSSES || !hostVisible()) {
+      return;
+    }
     const addon = new parts.WebglAddon();
     try {
       term.loadAddon(addon);
@@ -642,7 +660,8 @@ export function createXtermView(
     }
     webgl = addon;
     addon.onContextLoss(() => {
-      trace({ e: "webgl_lost" });
+      webglLosses += 1;
+      trace({ e: "webgl_lost", count: webglLosses });
       addon.dispose();
       if (webgl === addon) webgl = null;
     });
@@ -669,6 +688,17 @@ export function createXtermView(
     reset() {
       trace({ e: "view_reset" });
       term.reset();
+    },
+    replace(text) {
+      trace({ e: "view_replace" });
+      replaying += 1;
+      // RIS와 새 화면을 한 write 안에서 DEC 2026으로 감싸 비운 frame이 먼저 그려지지 않게 한다.
+      term.write(`\x1bc\x1b[?2026h${text}\x1b[?2026l`, () => {
+        replaying -= 1;
+      });
+    },
+    refresh() {
+      if (term.rows > 0) term.refresh?.(0, term.rows - 1);
     },
     resize(columns, rows) {
       if (columns === term.cols && rows === term.rows) return;
@@ -773,6 +803,8 @@ export function createXtermView(
       pathProvider.dispose();
       unwatch();
       release();
+      webgl?.dispose();
+      webgl = null;
       term.dispose();
     },
   };

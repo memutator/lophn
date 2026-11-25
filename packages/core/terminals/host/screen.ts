@@ -26,6 +26,11 @@ export type ScreenRead =
       scrollback_key: string;
     });
 
+export type ScreenWindowsPty = {
+  readonly backend: "conpty";
+  readonly buildNumber: number;
+};
+
 export class Screen {
   readonly #term: headless.Terminal;
   readonly #serializer: serialize.SerializeAddon;
@@ -38,7 +43,11 @@ export class Screen {
   #mouseEncoding: number | null = null;
   #cursorHidden = false;
 
-  constructor(columns: number, rows: number) {
+  constructor(
+    columns: number,
+    rows: number,
+    options: { windowsPty?: ScreenWindowsPty } = {},
+  ) {
     this.#cols = columns;
     this.#rows = rows;
     this.#term = new headless.Terminal({
@@ -46,6 +55,9 @@ export class Screen {
       rows,
       scrollback: SCROLLBACK,
       allowProposedApi: true,
+      ...(options.windowsPty === undefined
+        ? {}
+        : { windowsPty: options.windowsPty }),
     });
     this.#serializer = new serialize.SerializeAddon();
     this.#term.loadAddon(this.#serializer);

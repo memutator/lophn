@@ -4,6 +4,7 @@ import { systemClock } from "../../../base/clock.ts";
 import { createIdSource } from "../../../base/id.ts";
 import { cryptoRandom } from "../../../base/random.ts";
 import { harnessOfProcess } from "../../../protocol/coding-agent/mod.ts";
+import { createConptyFrameBuffer, windowsBuildNumber } from "./conpty-sync.ts";
 import { parseWindowsCommandLine, selectWinForeground } from "./foreground.ts";
 import { hostFromNodePty } from "./main.ts";
 import type { PtyAdapter, PtyHandle } from "./pty.ts";
@@ -215,4 +216,116 @@ test("Windows foreground 선택은 자손 tree에서 가장 얕은 harness를 �
 
   await host.shutdown();
   assert.equal(stopped, true);
+});
+
+// Windows ConPTY는 ?25l + 지우기(2K) + 텍스트 + ?25h를 여러 조각으로 나눠 낸다. 한 조각씩 보내면 문장이 사라졌다가 다시 나타난다.
+test("ConPTY frame buffer는 쪼개진 다시 그리기 조각을 DEC 2026으로 묶고 일반 입력 echo는 지연하지 않는다", () => {
+  assert.equal(windowsBuildNumber("10.0.26100"), 26100);
+  assert.equal(windowsBuildNumber("unknown"), 22621);
+
+  const flushed: string[] = [];
+  const timers: { run: () => void; off: boolean }[] = [];
+  const buf = createConptyFrameBuffer({
+    flush: (chunk) => flushed.push(chunk),
+    after: (_ms, run) => {
+      const timer = { run, off: false };
+      timers.push(timer);
+      return () => {
+        timer.off = true;
+      };
+    },
+  });
+
+  // 일반 키 echo는 지우기·커서 숨김이 없어 즉시 그대로 나간다.
+  buf.push("a");
+  assert.deepEqual(flushed, ["a"]);
+
+  // ?25l + 2K + 텍스트 + ?25h가 세 조각으로 나뉘어 오면 ?25h에서 한 번에 DEC 2026으로 감싸 나간다.
+  buf.push("\x1b[?25l\x1b[5;1H\x1b[2K");
+  buf.push("hello world");
+  assert.equal(flushed.length, 1);
+  buf.push("\x1b[?25h");
+  assert.equal(flushed.length, 2);
+  assert.equal(
+    flushed[1],
+    "\x1b[?2026h\x1b[?25l\x1b[5;1H\x1b[2Khello world\x1b[?25h\x1b[?2026l",
+  );
+
+  // 커서를 영구히 숨기는 TUI는 첫 ?25l 상한 뒤 일반 텍스트 출력마다 보류하지 않고, 2K 끝 조각만 다음 조각과 묶는다.
+  buf.push("\x1b[?25linit");
+  assert.equal(flushed.length, 2);
+  timers.at(-1)!.run();
+  assert.equal(flushed.length, 3);
+  buf.push("plain");
+  assert.equal(flushed.length, 4);
+  assert.equal(flushed[3], "plain");
+
+  buf.push("\x1b[3;1H\x1b[2K");
+  assert.equal(flushed.length, 4);
+  buf.push("redrawn");
+  assert.equal(flushed.length, 5);
+  assert.equal(flushed[4], "\x1b[?2026h\x1b[3;1H\x1b[2Kredrawn\x1b[?2026l");
+});
+
+// 같은 치수의 resize를 ConPTY에 다시 보내면 전체 화면이 지워지고 다시 그려져 깜빡인다.
+test("같은 치수의 resize 요청은 PTY handle.resize를 다시 부르지 않는다", async () => {
+  let resizeCalls = 0;
+  const pty: PtyAdapter = {
+    spawn() {
+      return {
+        pid: 600,
+        write() {},
+        resize() {
+          resizeCalls += 1;
+        },
+        kill() {},
+        onData: () => ({ dispose() {} }),
+        onExit: () => ({ dispose() {} }),
+        foreground: () => null,
+      };
+    },
+    group: (groupPid) => ({
+      pid: groupPid,
+      kill: () => ({ confirmed: true }),
+      alive: () => false,
+    }),
+  };
+  const host = hostFromNodePty({
+    pty,
+    ids: createIdSource({ clock: systemClock, random: cryptoRandom }),
+    env: { SystemRoot: "C:\\Windows" },
+    platform: "win32",
+    exists: () => true,
+    checkFolder: (path) => ({ ok: true, path }),
+    schedule: (done) => setImmediate(done),
+    sleep: async () => {},
+  });
+  const opened = (await host.handle({
+    type: "open",
+    project: "prj",
+    folders: [{ folder_ref: "fld", path: "C:\\work" }],
+    columns: 80,
+    rows: 24,
+  })) as Extract<HostReply, { ok: true }>;
+
+  await host.handle({
+    type: "resize",
+    terminal_ref: opened.runtime.terminal_ref,
+    generation: opened.runtime.generation,
+    columns: 80,
+    rows: 24,
+    remote: true,
+  });
+  assert.equal(resizeCalls, 0);
+
+  await host.handle({
+    type: "resize",
+    terminal_ref: opened.runtime.terminal_ref,
+    generation: opened.runtime.generation,
+    columns: 100,
+    rows: 30,
+    remote: true,
+  });
+  assert.equal(resizeCalls, 1);
+  await host.shutdown();
 });

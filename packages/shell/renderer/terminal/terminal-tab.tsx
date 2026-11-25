@@ -291,6 +291,7 @@ export function TerminalTab({
     screen.appendChild(display.edge);
     const view = display.view;
     viewRef.current = view;
+    view.refresh?.();
     // Ctrl/Cmd-click한 링크는 main이 사람의 설정으로 어디에서 열지 정한다. browser 탭이면 이 터미널 옆에 연다. 실패해도 아무것도
     // 보이지 않는다.
     const offLink = view.onLink((url) => {

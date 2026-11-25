@@ -1,5 +1,5 @@
 id: acp-harness-gui
-version: 0.23.166
+version: 0.23.167
 platform_note: none
 title: "공용 ACP 클라이언트·Antigravity dialect, replay 일괄 반영, 통합 터미널 상태층, 삭제 tombstone, agy hook을 세운다"
 modules:

@@ -166,15 +166,71 @@ async function pages<T>(
 
 // ---------------------------------------------------------------- 본문과 보낸 쪽
 
+export type HarnessToolPart = {
+  readonly name: string;
+  readonly summary: string;
+  readonly status: "running" | "done" | "failed";
+};
+
 export type MessageBody = {
   content: ContentBlock[];
   reasoning: AcpReasoning | null;
   cards: AcpCard[];
   /** 사람이 `!`로 돌린 명령의 기록이면 그 본문. 저장 전에 redaction을 거친 값이다. */
   shell: ShellPart | null;
+  /** background harness가 tool 완료로 남긴 단일 `harness_tool` 기록이면 그 값. ACP `tool` 항목으로 투영한다. */
+  harnessTool: HarnessToolPart | null;
 };
 
-/** 저장된 메시지 본문. harness가 쓴 tool 줄은 전용 항목이 생기기 전까지 글 한 줄이다. 못 읽으면 null이다. */
+function harnessToolCategory(tool: string): AcpToolItem["category"] {
+  if (/web|fetch|browser|http/i.test(tool)) return "web";
+  if (/bash|shell|command|exec|terminal/i.test(tool)) return "command";
+  if (/read|view|cat/i.test(tool)) return "read";
+  if (/list|ls|glob|find_by_name/i.test(tool)) return "list";
+  if (/grep|search|find/i.test(tool)) return "search";
+  return "other";
+}
+
+function harnessToolTitle(name: string, summary: string): string {
+  const trimmed = summary.trim();
+  return trimmed !== "" ? trimmed : name;
+}
+
+function harnessToolItem(
+  env: AcpEnv,
+  input: {
+    id: string;
+    seq: number;
+    at: string;
+    turn: string | null;
+    part: HarnessToolPart;
+  },
+): AcpToolItem {
+  const { part } = input;
+  const title = env.redact(harnessToolTitle(part.name, part.summary)).trim();
+  return {
+    kind: "tool",
+    id: input.id,
+    seq: input.seq,
+    at: input.at,
+    by: "agent",
+    turn: input.turn,
+    tool: part.name,
+    category: harnessToolCategory(part.name),
+    title: title !== "" ? title : part.name,
+    state:
+      part.status === "done"
+        ? "ok"
+        : part.status === "running"
+          ? "running"
+          : "error",
+    duration_ms: null,
+    detail: { kind: "generic" },
+    body: null,
+  };
+}
+
+/** 저장된 메시지 본문. 단일 `harness_tool` 메시지는 ACP `tool` 항목으로 투영하고, 못 읽으면 null이다. */
 export async function readMessageBody(
   env: AcpEnv,
   message: string,
@@ -187,6 +243,7 @@ export async function readMessageBody(
   if (!parsed.success) return null;
   const content: ContentBlock[] = [];
   const cards: AcpCard[] = [];
+  const harnessTools: HarnessToolPart[] = [];
   let reasoning: AcpReasoning | null = null;
   let shell: ShellPart | null = null;
   for (const part of parsed.data.parts) {
@@ -208,9 +265,10 @@ export async function readMessageBody(
         };
         break;
       case "harness_tool":
-        content.push({
-          type: "text",
-          text: env.redact(`[${part.status}] ${part.name}: ${part.summary}`),
+        harnessTools.push({
+          name: part.name,
+          summary: part.summary,
+          status: part.status,
         });
         break;
       default:
@@ -222,7 +280,30 @@ export async function readMessageBody(
         );
     }
   }
-  return { content, reasoning, cards, shell };
+  if (
+    harnessTools.length === 1 &&
+    content.length === 0 &&
+    reasoning === null &&
+    cards.length === 0 &&
+    shell === null
+  ) {
+    return {
+      content,
+      reasoning,
+      cards,
+      shell,
+      harnessTool: harnessTools[0]!,
+    };
+  }
+  for (const tool of harnessTools) {
+    content.push({
+      type: "text",
+      text: env.redact(
+        `[${tool.status}] ${harnessToolTitle(tool.name, tool.summary)}`,
+      ),
+    });
+  }
+  return { content, reasoning, cards, shell, harnessTool: null };
 }
 
 export async function agentOfSession(
@@ -838,6 +919,27 @@ export async function buildAcpState(
             seq,
             message.created_at,
           ),
+      });
+      continue;
+    }
+    // background harness가 기록한 tool 완료 메시지는 일반 채팅 글이 아니라 접히는 tool 항목으로 투영한다.
+    if (body?.harnessTool != null) {
+      const part = body.harnessTool;
+      candidates.push({
+        id: message.id,
+        kind: "message",
+        turn: message.turn,
+        at: message.created_at,
+        rank: 0,
+        createdSeq: BigInt(message.created_seq),
+        make: (seq) =>
+          harnessToolItem(env, {
+            id: message.id,
+            seq,
+            at: message.created_at,
+            turn: message.turn,
+            part,
+          }),
       });
       continue;
     }
@@ -1558,7 +1660,8 @@ export async function acpUpdatesFor(
   const message = (id: string, turn: string | null, at: string) =>
     alloc.push({ id, kind: "message", turn, at, data: null });
   let projected: AgentEvent = event;
-  let body: Omit<MessageBody, "shell"> | null = null;
+  let body: Omit<MessageBody, "shell" | "harnessTool"> | null = null;
+  let harnessTool: HarnessToolPart | null = null;
   let detail = null as Awaited<ReturnType<typeof readToolDetail>>;
   let decision: Awaited<NonNullable<AcpCaptured["decision"]>> = null;
   const agents = new Map<string, AgentId | null>();
@@ -1608,14 +1711,18 @@ export async function acpUpdatesFor(
       {
         // agent의 답에는 shell part가 없다. 갱신의 body는 strict라 그 칸을 싣지 않는다.
         const read = await readMessageBody(env, event.payload.message);
-        body =
-          read === null
-            ? null
-            : {
-                content: read.content,
-                reasoning: read.reasoning,
-                cards: read.cards,
-              };
+        if (read?.harnessTool != null) {
+          harnessTool = read.harnessTool;
+        } else {
+          body =
+            read === null
+              ? null
+              : {
+                  content: read.content,
+                  reasoning: read.reasoning,
+                  cards: read.cards,
+                };
+        }
       }
       break;
     case "ToolCallStarted":
@@ -1687,6 +1794,23 @@ export async function acpUpdatesFor(
     // 순번을 못 붙이면 갱신을 내지 않는다. 화면은 다음 갱신의 순번 건너뜀으로 다시 읽는다.
     if (!allocated.ok) return [];
     seqs = allocated.value;
+  }
+  if (harnessTool !== null && event.type === "MessageRecorded") {
+    const seq = seqs.get(event.payload.message) ?? null;
+    return seq === null
+      ? []
+      : [
+          {
+            type: "tool_started",
+            item: harnessToolItem(env, {
+              id: event.payload.message,
+              seq,
+              at: event.at,
+              turn: event.payload.turn,
+              part: harnessTool,
+            }),
+          },
+        ];
   }
   return acpUpdatesOf(projected, {
     seq: (id) => seqs.get(id) ?? null,

@@ -637,6 +637,144 @@ test("harness runtime agent의 draft와 session meta는 model·steer capability�
   );
 });
 
+// background harness 실행이 남긴 단일 harness_tool 메시지는 평문 메시지가 아니라 접히는 ACP tool 항목으로 투영되고,
+// live 갱신(MessageRecorded → TurnEnded)과 snapshot의 결과가 같다.
+test("background harness의 harness_tool 메시지는 snapshot과 live 갱신 모두 ACP tool 항목으로 투영된다", async () => {
+  const TOOL_MSG = "msg_01h455vb4pex5v6nkc6gd5f099";
+  const base = env();
+  const harnessEnv: AcpEnv = {
+    read: <T>(route: { resource: string; method: string }, input: unknown) => {
+      if (key(route) === key(receivedMessageList)) {
+        return Promise.resolve(
+          ok({
+            messages: [
+              {
+                id: HUMAN,
+                from: { kind: "human" },
+                call: null,
+                reply_to: null,
+                turn: TURN,
+                delivery: "next_turn",
+                created_seq: "1",
+                created_at: at(0),
+              },
+              {
+                id: TOOL_MSG,
+                from: { kind: "agent", session: SES },
+                call: null,
+                reply_to: null,
+                turn: TURN,
+                delivery: "next_turn",
+                created_seq: "2",
+                created_at: at(1),
+              },
+            ],
+            next_cursor: null,
+          } as T),
+        );
+      }
+      if (key(route) === key(toolCallList)) {
+        return Promise.resolve(ok({ tool_calls: [], next_cursor: null } as T));
+      }
+      if (
+        key(route) === key(messageBody) &&
+        (input as { message: string }).message === TOOL_MSG
+      ) {
+        return Promise.resolve(
+          ok({
+            content: {
+              schema_version: 1,
+              parts: [
+                {
+                  kind: "harness_tool",
+                  name: "read_file",
+                  summary: `read_file /repo/${SECRET}.ts`,
+                  status: "done",
+                },
+              ],
+            },
+          } as T),
+        );
+      }
+      return base.read<T>(route, input);
+    },
+    redact: base.redact,
+  };
+
+  const stored = new Map<string, AcpStoredItem>();
+  const allocate = (_session: string, items: AcpAlloc[]) => {
+    const seqs = new Map<string, number>();
+    for (const item of items) {
+      if (!stored.has(item.id)) {
+        stored.set(item.id, { ...item, seq: stored.size + 1 });
+      }
+      seqs.set(item.id, stored.get(item.id)!.seq);
+    }
+    return Promise.resolve(ok(seqs));
+  };
+  const deps = { env: harnessEnv, allocate, openRequests: new Map() };
+
+  let folded: AcpState = EMPTY_ACP_STATE;
+  for (const [ev, cap] of [
+    [
+      event("MessageReceived", 0, {
+        message: HUMAN,
+        body: [{ type: "text", text: `go ${SECRET}` }],
+        from: { kind: "human" },
+        call: null,
+        reply_to: null,
+        steer: false,
+      }),
+      NONE,
+    ],
+    [event("TurnStarted", 0, { turn: TURN, input_message: HUMAN }), NONE],
+    [
+      event("MessageRecorded", 1, {
+        turn: TURN,
+        message: TOOL_MSG,
+        model_call: null,
+      }),
+      NONE,
+    ],
+    [
+      event("TurnEnded", 6, {
+        turn: TURN,
+        outcome: { kind: "completed", reason: "answer_completed" },
+        messages: [TOOL_MSG],
+        active_ms: 5000,
+        error: null,
+      }),
+      NONE,
+    ],
+  ] as [AgentEvent, AcpCaptured][]) {
+    for (const update of await acpUpdatesFor(deps, ev, cap)) {
+      acpUpdateSchema.parse(update);
+      folded = reduceAcp(folded, update);
+    }
+  }
+
+  const snapshot = await buildAcpState(harnessEnv, SES, {
+    steering: new Set(),
+    writing: null,
+    elapsed: null,
+    approval: null,
+    question: null,
+    session: null,
+    stored: [...stored.values()],
+    allocate: (items) => allocate(SES, items),
+  });
+  assert.ok(snapshot.ok);
+  acpStateSchema.parse(snapshot.value);
+  assert.deepStrictEqual(folded, snapshot.value);
+  const tool = snapshot.value.items.find((one) => one.id === TOOL_MSG);
+  assert.ok(tool !== undefined && tool.kind === "tool");
+  assert.equal(tool.tool, "read_file");
+  assert.equal(tool.category, "read");
+  assert.equal(tool.title, "read_file /repo/[redacted].ts");
+  assert.equal(tool.state, "ok");
+  assert.equal(folded.reread, false);
+});
+
 // 새 turn은 ledger head를 state_seq로 받아, 앞 turn이 끝난 뒤 event가 없었으면 끝난 앞 turn과 state_seq가 같다.
 test("state_seq가 같아도 도는 turn이 지금 turn이다", () => {
   const turn = (id: string, state: "running" | "finished", n: number) =>

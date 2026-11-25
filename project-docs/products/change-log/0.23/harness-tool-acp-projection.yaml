@@ -1,0 +1,17 @@
+id: harness-tool-acp-projection
+version: 0.23.171
+platform_note: none
+title: "background harness의 harness_tool 기록을 평문 메시지가 아니라 ACP tool 항목으로 투영한다"
+modules:
+  - packages/core/main
+  - packages/shell/renderer
+change: |
+  전: background harness 실행기가 기록한 단일 `harness_tool` 메시지가 ACP 변환(`acp-build.ts`)에서 `[done] read_file: read_file ...` 형태의 평문 채팅 메시지로 펼쳐져, 긴 background turn에서 tool 이력이 메시지 본문으로 줄줄이 쌓이고 tool 이름도 중복 표시됐다.
+  후: 단일 `harness_tool` 메시지를 snapshot(`buildAcpState`)과 live 갱신(`MessageRecorded` → `tool_started`) 모두 ACP `tool` 항목(`kind: "tool"`, category 추론, 중복 없는 제목, redaction 적용)으로 투영해 채팅 화면에서 접히는 tool 줄로 묶여 보인다. `readToolCallBody`는 `tcl_`가 아닌 id에 대해 불필요한 blob 조회 없이 `not_found`를 돌려준다.
+why: |
+  workflow의 background harness 세션(`harness_gui = 0`)을 열었을 때 tool 실행 이력이 일반 에이전트 답변 메시지처럼 쏟아져 대화를 읽기 어려웠다.
+decisions:
+  - text: "ledger의 `harness_tool` 저장 모양은 그대로 두고 ACP 투영(`acp-build.ts`)에서 `kind: \"tool\"`로 바꾼다. 이미 저장된 과거 background 세션도 migration 없이 바로 접히는 tool 줄로 보인다."
+    by: agent
+checklist:
+  - "기존 background harness 세션(예: workflow implement step)을 열었을 때 `[done] read_file: ...` 평문 줄 대신 접히는 tool 항목으로 묶여 보이는지 확인한다"

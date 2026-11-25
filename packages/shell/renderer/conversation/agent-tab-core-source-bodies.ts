@@ -146,13 +146,16 @@ async function readToolCallBodyMemo(
   return { ok: true, value: view };
 }
 
-/** call 줄을 펼칠 때 읽는 입력이나 결과. 실패는 그 code 그대로다. */
+/** call 줄을 펼칠 때 읽는 입력이나 결과. background harness tool(`msg_…`)은 별도 본문 blob이 없어 not_found다. */
 export function readToolCallBody(
   env: Env,
   memo: BodiesMemo,
   toolCall: string,
   part: "input" | "output",
 ): Promise<SourceResult<ToolCallBodyView>> {
+  if (!toolCall.startsWith("tcl_")) {
+    return Promise.resolve({ ok: false, code: "not_found" });
+  }
   return readToolCallBodyMemo(
     env,
     memo,

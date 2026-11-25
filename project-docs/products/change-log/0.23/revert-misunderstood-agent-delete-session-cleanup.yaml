@@ -1,5 +1,5 @@
 id: revert-misunderstood-agent-delete-session-cleanup
-version: 0.23.167
+version: 0.23.168
 platform_note: none
 title: "오해해서 넣은 Recent tombstone 삭제·agent.delete harness session 연쇄 삭제·agy DB 존재 필터를 되돌린다"
 modules:

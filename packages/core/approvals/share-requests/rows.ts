@@ -1,5 +1,5 @@
-import type { Sql } from "../../../protocol/server/mod.ts";
 import type { AgentId } from "../../../protocol/lophn-agent/workspaces.ts";
+import type { Sql } from "../../../protocol/server/mod.ts";
 
 type Query = Pick<Sql, "get" | "all">;
 

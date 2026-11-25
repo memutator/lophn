@@ -1,5 +1,66 @@
-export { createApprovals } from "./approvals.ts";
-export type { ApprovalsService } from "./approvals.ts";
-export { alwaysPatterns, judge } from "./gate/mod.ts";
-export type { AlwaysEffect, Approvals, TurnOrigin } from "./ports.ts";
+export {
+  type ApprovalsDeps,
+  type ApprovalsService,
+  createApprovals,
+  type SessionPermissionsViewInput,
+} from "./approvals.ts";
+export {
+  ANTI_BYPASS_NOTICE,
+  alwaysPatterns,
+  buildPermissionDenial,
+  categoryOfCall,
+  checkFileSelfProtection,
+  defaultToolName,
+  evaluatePermission,
+  evaluateShellUserRules,
+  formatDenialForModel,
+  isBroadRulePattern,
+  isPathInside,
+  isReadOnlySegment,
+  isReadOnlyShellCommand,
+  isSensitiveWorkspaceFile,
+  MAX_SHELL_COMMAND_BYTES,
+  matchesSessionGrant,
+  matchFloorRules,
+  normalize,
+  normalizePath,
+  type PermissionRequest,
+  type ProjectCommandPolicy,
+  type SelfProtectionHit,
+  type ShellRuleEvaluation,
+  type ShellScanResult,
+  type ShellSegment,
+  scanShellCommand,
+  shellRuleMatches,
+  targetSummaryOfCall,
+} from "./gate/mod.ts";
+export {
+  approvalSettings,
+  defaultModeSetting,
+  isLocalToolTrusted,
+  localToolTrustSetting,
+  migrateShellRulesDataStep,
+  permissionRuleLayers,
+  permissionRulesSetting,
+  withAlwaysPermissionRules,
+  withoutTrustedLocalTool,
+  withTrustedLocalTool,
+  workflowModesSetting,
+} from "./permission-rules/mod.ts";
+export type {
+  AlwaysEffect,
+  Approvals,
+  AskReplies,
+  JudgeWho,
+  OpenTurnRequestOptions,
+  SessionEffect,
+  TurnOrigin,
+} from "./ports.ts";
 export { createCoreRegistration } from "./registration.ts";
+export {
+  createSessionGrantStore,
+  MAX_RECENT_DENIALS_PER_SESSION,
+  type SessionGrantInput,
+  type SessionGrantStore,
+  sessionGrantInputForRequest,
+} from "./session-grants.ts";

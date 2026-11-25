@@ -1,21 +1,21 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
-import { parseActor } from "../../../protocol/base/mod.ts";
-import { assignmentPorts, type AssignmentState } from "../assignment/mod.ts";
 import {
   type AssignmentEntry,
   shareRequestDecide,
   shareRequestOpen,
 } from "../../../protocol/approvals/mod.ts";
+import { parseActor } from "../../../protocol/base/mod.ts";
 import type { AgentId } from "../../../protocol/lophn-agent/workspaces.ts";
 import type { CommandDefinition, Tx } from "../../../protocol/server/mod.ts";
 import { afterCommit } from "../../storage/ledger/after-commit.ts";
-import { loadShare, type ShareRow } from "./rows.ts";
+import { type AssignmentState, assignmentPorts } from "../assignment/mod.ts";
 import {
   SHARE_CODING_TOPIC,
   SHARE_REQUEST_TOPIC,
   type ShareCodingData,
   shareLookupPort,
 } from "./ports.ts";
+import { loadShare, type ShareRow } from "./rows.ts";
 
 type Event =
   | { type: "ShareRequestOpened"; app: string; app_name: string }

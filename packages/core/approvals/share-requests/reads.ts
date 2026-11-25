@@ -4,8 +4,8 @@ import {
   shareRequestList,
 } from "../../../protocol/approvals/mod.ts";
 import type { ReadDefinition } from "../../../protocol/server/mod.ts";
-import { allShares } from "./rows.ts";
 import { shareLookupPort } from "./ports.ts";
+import { allShares } from "./rows.ts";
 
 export const shareRequestListRead: ReadDefinition<typeof shareRequestList> = {
   route: shareRequestList,

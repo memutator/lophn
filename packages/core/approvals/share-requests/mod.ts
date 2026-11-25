@@ -3,9 +3,6 @@ export {
   createShareRequestCommands,
   eraseShareRequest,
 } from "./commands.ts";
-export { shareRequestListRead } from "./reads.ts";
-export { shareRequestSteps } from "./schema.ts";
-export { sharedAppsSetting } from "./settings.ts";
 export {
   SHARE_CODING_TOPIC,
   SHARE_REQUEST_TOPIC,
@@ -13,3 +10,6 @@ export {
   type ShareLookup,
   shareLookupPort,
 } from "./ports.ts";
+export { shareRequestListRead } from "./reads.ts";
+export { shareRequestSteps } from "./schema.ts";
+export { sharedAppsSetting } from "./settings.ts";

@@ -1,20 +1,38 @@
 import type {
   Assignment,
   GateCall,
+  IsolationBackend,
   Judgment,
-  ShellRuleLayers,
+  PermissionCategory,
+  PermissionRule,
+  PermissionRuleCategory,
+  PermissionRuleLayers,
+  RecoveryAction,
+  SessionGrant,
+  TurnRequestChoiceKind,
 } from "../../../protocol/approvals/mod.ts";
-import type { TurnMode } from "../../../protocol/lophn-agent/turn-values.ts";
-import { normalize, shellPieces, shellVerdict } from "./shell-match.ts";
-
-// 할당한 tool의 바깥 효과는 attended에서도 묻지 않는다(사람, 2026-10-21. `project-docs/architecture/approval.md`).
-// 사람이 묻기로 정하면 이 상수만 켠다.
-const ASK_EXTERNAL_WHEN_ATTENDED = false;
-
-// unattended·skip에서는 묻는 대신 그냥 돈다. 팀 자식(toParent)은 부모가 있으므로 mode와 상관없이 묻는다. deny는 이 길을 타지 않는다.
-function askIn(mode: TurnMode, toParent: boolean): Judgment {
-  return mode === "attended" || toParent ? { kind: "ask" } : { kind: "run" };
-}
+import type { McpTrust } from "../../../protocol/lophn-agent/mcp-settings.ts";
+import type {
+  ExecutionContext,
+  PermissionMode,
+} from "../../../protocol/lophn-agent/turn-values.ts";
+import { buildPermissionDenial, categoryOfCall } from "./denial.ts";
+import {
+  checkFileSelfProtection,
+  isPathInside,
+  isSensitiveWorkspaceFile,
+  normalizePath,
+} from "./paths.ts";
+import {
+  alwaysPatterns,
+  evaluateShellUserRules,
+  isReadOnlySegment,
+  isReadOnlyShellCommand,
+  matchFloorRules,
+  type ShellScanResult,
+  scanShellCommand,
+  shellRuleMatches,
+} from "./shell-match.ts";
 
 // project command 판정에 필요한 정책 값(ledger에서 읽은 값). 없으면 fail-closed(거절·승인 필요).
 export type ProjectCommandPolicy = {
@@ -29,69 +47,878 @@ const DEFAULT_PROJECT_COMMAND_POLICY: ProjectCommandPolicy = {
   approveWrites: true,
 };
 
-// IO 없는 순수 함수다. 같은 입력은 같은 결과다.
-export function judge(
+export type PermissionRequest = {
+  readonly call: GateCall;
+  readonly tool?: string;
+  readonly assignment?: Pick<Assignment, "entries"> | null;
+  readonly projectCommand?: ProjectCommandPolicy;
+  readonly mcpTrust?: McpTrust;
+  readonly localToolTrusted?: boolean;
+  readonly homeDir?: string;
+  readonly dataRoot?: string;
+  // OS sandbox 격리 슬롯. 이번 판은 none만 둔다.
+  readonly isolation?: IsolationBackend;
+};
+
+function ruleCategoryForCall(call: GateCall): PermissionRuleCategory | null {
+  switch (call.kind) {
+    case "shell":
+      return "shell";
+    case "file_read":
+    case "file_write":
+      return "file";
+    case "app_tool":
+      return "app_tool";
+    case "mcp_tool":
+      return "mcp_tool";
+    case "local_tool":
+      return "local_tool";
+    case "setting":
+    case "project_command":
+    case "project_command_definition":
+      return null;
+  }
+}
+
+function nonShellRuleTargets(call: GateCall, homeDir?: string): string[] {
+  switch (call.kind) {
+    case "file_read":
+    case "file_write":
+      return [...new Set([call.path, normalizePath(call.path, homeDir)])];
+    case "app_tool":
+      return [`${call.app}/${call.tool}`, call.tool];
+    case "mcp_tool":
+      return [`${call.server}/${call.tool}`];
+    case "local_tool":
+      return [
+        ...new Set([call.path, normalizePath(call.path, homeDir), call.name]),
+      ];
+    default:
+      return [];
+  }
+}
+
+function evaluateNonShellUserRules(
   call: GateCall,
-  assignment: Pick<Assignment, "entries"> | null,
-  shell: ShellRuleLayers,
-  mode: TurnMode,
-  toParent: boolean,
-  projectCommand: ProjectCommandPolicy = DEFAULT_PROJECT_COMMAND_POLICY,
-): Judgment {
-  if (call.kind === "shell") {
-    const normalized = normalize(call.command);
-    const candidates = [...new Set([normalized, ...shellPieces(call.command)])];
-    const verdicts = candidates.map((text) => shellVerdict(shell, text));
-    const denied = verdicts.find((verdict) => verdict.action === "deny");
-    if (denied) {
-      return { kind: "deny", reason: "shell_rule", pattern: denied.pattern };
+  layers: PermissionRuleLayers,
+  homeDir?: string,
+): { action: PermissionRule["action"] | null; pattern: string | null } {
+  const category = ruleCategoryForCall(call);
+  if (category === null || category === "shell") {
+    return { action: null, pattern: null };
+  }
+  const rules = [...layers.global, ...layers.project].filter(
+    (r) => r.category === category,
+  );
+  if (rules.length === 0) return { action: null, pattern: null };
+  const targets = nonShellRuleTargets(call, homeDir);
+
+  // 고정 우선순위: deny > ask > allow.
+  for (const action of ["deny", "ask", "allow"] as const) {
+    for (const rule of rules) {
+      if (rule.action !== action) continue;
+      if (targets.some((t) => shellRuleMatches(rule.pattern, t))) {
+        return { action, pattern: rule.pattern };
+      }
     }
-    return verdicts.some((verdict) => verdict.action === "ask")
-      ? askIn(mode, toParent)
-      : { kind: "run" };
   }
-  // 사람의 허락이 드는 설정은 사람에게만 묻는다. skip도 묻는다(사람이 "묻지 마"라고 한 것은 이 무게의 일이 아니다).
-  // unattended turn과 팀 자식에는 물을 사람이 없어 막는다: 부모가 대신 허락하지 못한다. setting의 toParent는 skip을 켠
-  // 팀 자식도 참이다(tool_gate/check가 그렇게 넘긴다).
+  return { action: null, pattern: null };
+}
+
+export function matchesSessionGrant(
+  grants: readonly SessionGrant[],
+  call: GateCall,
+  options?: { scan?: ShellScanResult; homeDir?: string },
+): boolean {
+  if (grants.length === 0) return false;
+  switch (call.kind) {
+    case "file_read":
+      return grants.some(
+        (g) =>
+          (g.category === "file_outside" || g.category === "file_read") &&
+          isPathInside(call.path, g.pattern, options?.homeDir),
+      );
+    case "file_write":
+      return grants.some(
+        (g) =>
+          (g.category === "file_outside" || g.category === "file_write") &&
+          isPathInside(call.path, g.pattern, options?.homeDir),
+      );
+    case "shell": {
+      const scan =
+        options?.scan ?? scanShellCommand(call.command, options?.homeDir);
+      if (scan.opaque || scan.elevated) return false;
+      const shellGrants = grants.filter((g) => g.category === "shell");
+      if (shellGrants.length === 0) return false;
+      if (
+        shellGrants.some((g) => shellRuleMatches(g.pattern, scan.normalized))
+      ) {
+        return true;
+      }
+      const topSegments = scan.segments.filter((s) => !s.unwrapped);
+      if (topSegments.length === 0) return false;
+      return topSegments.every(
+        (seg) =>
+          shellGrants.some((g) => shellRuleMatches(g.pattern, seg.raw)) ||
+          (!scan.hasOutputRedirection && isReadOnlySegment(seg)),
+      );
+    }
+    case "mcp_tool":
+      return grants.some(
+        (g) =>
+          g.category === "mcp_tool" &&
+          (g.pattern === call.server ||
+            g.pattern === `${call.server}/*` ||
+            g.pattern === `${call.server}/${call.tool}`),
+      );
+    case "app_tool":
+      return grants.some(
+        (g) =>
+          g.category === "app_tool" &&
+          (g.pattern === `${call.app}/${call.tool}` ||
+            g.pattern === `${call.app}/*`),
+      );
+    default:
+      return false;
+  }
+}
+
+type AskDecision = {
+  readonly kind: "ask";
+  readonly reason: string | null;
+  readonly outside_rewind: boolean;
+  readonly allowed_choices: TurnRequestChoiceKind[];
+  readonly personOnly?: boolean;
+  readonly rulePattern?: string | null;
+  readonly unattendedRecovery?: RecoveryAction | null;
+  readonly unattendedHint?: string | null;
+  readonly categoryOverride?: PermissionCategory;
+};
+
+function finalizeContext(
+  verdict: Judgment | AskDecision,
+  request: PermissionRequest,
+  context: ExecutionContext,
+): Judgment {
+  if (verdict.kind !== "ask") return verdict;
+
+  const ask = verdict as AskDecision;
+  if (context === "unattended") {
+    return {
+      kind: "deny",
+      denial: buildPermissionDenial({
+        call: request.call,
+        tool: request.tool,
+        category: ask.categoryOverride,
+        reasonKind: "no_person",
+        rulePattern: ask.rulePattern ?? null,
+        message:
+          ask.reason ??
+          "This action requires approval, but no person is present in an unattended run.",
+        recoveryHint:
+          ask.unattendedHint ??
+          "Pre-approve with a permission rule or run with permission mode set to full.",
+        recoveryAction: ask.unattendedRecovery ?? null,
+      }),
+    };
+  }
+
+  if (context === "team_child") {
+    if (ask.personOnly) {
+      return {
+        kind: "deny",
+        denial: buildPermissionDenial({
+          call: request.call,
+          tool: request.tool,
+          category: ask.categoryOverride,
+          reasonKind: "no_person",
+          rulePattern: ask.rulePattern ?? null,
+          message:
+            ask.reason ??
+            "This action requires direct person approval and cannot be delegated to a parent session.",
+          recoveryHint:
+            ask.unattendedHint ??
+            "Perform or trust this action directly from a person-attended session.",
+          recoveryAction: ask.unattendedRecovery ?? null,
+        }),
+      };
+    }
+    // 팀 자식의 물음은 부모에게 once만 열린다.
+    return {
+      kind: "ask",
+      reason: ask.reason,
+      outside_rewind: ask.outside_rewind,
+      allowed_choices: ["once", "reject"],
+    };
+  }
+
+  return {
+    kind: "ask",
+    reason: ask.reason,
+    outside_rewind: ask.outside_rewind,
+    allowed_choices: ask.allowed_choices,
+  };
+}
+
+function modeDeny(
+  request: PermissionRequest,
+  message: string,
+  categoryOverride?: PermissionCategory,
+): Judgment {
+  return {
+    kind: "deny",
+    denial: buildPermissionDenial({
+      call: request.call,
+      tool: request.tool,
+      category: categoryOverride,
+      reasonKind: "mode",
+      message,
+      recoveryHint:
+        "Switch the session permission mode to 'workspace' or higher to allow this action.",
+      recoveryAction: { kind: "change_mode", suggested_mode: "workspace" },
+    }),
+  };
+}
+
+// 통합 순수 판정 엔진. IO 없이 결정적으로 같은 입력에 같은 결과를 낸다.
+// 순서: 1. Floor/자기보호 → 2. 사용자 규칙(deny>ask>allow) → 3. 사람 전용 등급 →
+//       4. 민감 workspace 파일 → 5. 이번 대화 허락(sessionGrants) → 6. 단계 기본값 → 7. 실행 맥락.
+export function evaluatePermission(
+  request: PermissionRequest,
+  layers: PermissionRuleLayers,
+  sessionGrants: readonly SessionGrant[],
+  mode: PermissionMode,
+  context: ExecutionContext,
+): Judgment {
+  const { call } = request;
+  // 격리 슬롯은 판정 입력으로 열어 두되 이번 판은 "none"만 쓴다.
+  const _isolation: IsolationBackend = request.isolation ?? "none";
+  void _isolation;
+
+  const projectCommand =
+    request.projectCommand ?? DEFAULT_PROJECT_COMMAND_POLICY;
+
+  // ---------- 1. Floor / 자기 보호 ----------
+  if (call.kind === "shell") {
+    const scan = scanShellCommand(call.command, request.homeDir);
+    const floorHit = matchFloorRules(layers.floor, scan);
+    if (floorHit !== null) {
+      return {
+        kind: "deny",
+        denial: buildPermissionDenial({
+          call,
+          tool: request.tool,
+          category: "shell",
+          reasonKind: "floor",
+          rulePattern: floorHit.pattern,
+          message: `Command matches protected safety floor rule: ${floorHit.pattern}`,
+          recoveryHint:
+            "This command is permanently blocked by safety rules and cannot be overridden.",
+          recoveryAction: null,
+        }),
+      };
+    }
+
+    // ---------- 2. 사용자 규칙 (shell) ----------
+    const userRule = evaluateShellUserRules(layers, scan);
+    if (userRule.action === "deny") {
+      return {
+        kind: "deny",
+        denial: buildPermissionDenial({
+          call,
+          tool: request.tool,
+          category: "shell",
+          reasonKind: "user_deny",
+          rulePattern: userRule.pattern,
+          message: `Command blocked by permission deny rule: ${userRule.pattern}`,
+          recoveryHint:
+            "Edit or remove the matching deny rule in Settings > Permissions.",
+          recoveryAction: { kind: "edit_rule", category: "shell" },
+        }),
+      };
+    }
+
+    const patterns = alwaysPatterns(layers, call.command, request.homeDir);
+    const unattendedRecovery: RecoveryAction | null =
+      patterns.length > 0
+        ? {
+            kind: "add_allow_rule",
+            suggested_pattern: patterns[0],
+            category: "shell",
+          }
+        : null;
+    const unattendedHint =
+      patterns.length > 0
+        ? `Add an allow rule for "${patterns[0]}" or set permission mode to full.`
+        : "Run this command interactively or review why it cannot be auto-allowed.";
+
+    if (userRule.action === "ask") {
+      return finalizeContext(
+        {
+          kind: "ask",
+          reason: `Matched permission ask rule: ${userRule.pattern}`,
+          outside_rewind: true,
+          allowed_choices: ["once", "reject"],
+          rulePattern: userRule.pattern,
+          unattendedRecovery,
+          unattendedHint,
+        },
+        request,
+        context,
+      );
+    }
+
+    // elevated(sudo 등)와 opaque 명령은 user allow·session grant·읽기 목록으로 통과하지 못한다.
+    if (userRule.action === "allow" && !scan.opaque && !scan.elevated) {
+      return { kind: "run" };
+    }
+
+    // 내장 읽기 명령 목록(opaque·elevated·출력 리다이렉션이 없을 때).
+    if (isReadOnlyShellCommand(scan)) {
+      return { kind: "run" };
+    }
+
+    // read_only 단계에서는 읽기 목록 밖의 shell 실행을 막는다(낮춘 뒤 session grant도 우회 불가).
+    if (mode === "read_only") {
+      return modeDeny(
+        request,
+        "Non-read-only shell commands are blocked in read-only mode.",
+        "shell",
+      );
+    }
+
+    // ---------- 5. 이번 대화 허락 (shell) ----------
+    if (
+      !scan.opaque &&
+      !scan.elevated &&
+      matchesSessionGrant(sessionGrants, call, {
+        scan,
+        homeDir: request.homeDir,
+      })
+    ) {
+      return { kind: "run" };
+    }
+
+    // ---------- 6. 단계 기본값 (shell) ----------
+    if (scan.elevated) {
+      return finalizeContext(
+        {
+          kind: "ask",
+          reason:
+            "Elevated shell command (sudo/doas/su) requires explicit one-time approval.",
+          outside_rewind: true,
+          allowed_choices: ["once", "reject"],
+          unattendedRecovery: null,
+          unattendedHint:
+            "Elevated commands require an interactive person and cannot be auto-allowed.",
+        },
+        request,
+        context,
+      );
+    }
+
+    if (scan.opaque) {
+      return finalizeContext(
+        {
+          kind: "ask",
+          reason:
+            "Shell command could not be statically verified (unclosed syntax, dynamic expansion, or size limit).",
+          outside_rewind: true,
+          allowed_choices: ["once", "reject"],
+          unattendedRecovery: null,
+          unattendedHint:
+            "Simplify the command so it can be verified, or run it interactively.",
+        },
+        request,
+        context,
+      );
+    }
+
+    if (mode === "full") {
+      return { kind: "run" };
+    }
+
+    // ask / workspace 단계의 비-읽기 shell 명령.
+    const choices: TurnRequestChoiceKind[] = ["once", "session"];
+    if (patterns.length > 0) choices.push("always");
+    choices.push("reject");
+    return finalizeContext(
+      {
+        kind: "ask",
+        reason:
+          "Shell commands run outside rewind tracking and require approval.",
+        outside_rewind: true,
+        allowed_choices: choices,
+        unattendedRecovery,
+        unattendedHint,
+      },
+      request,
+      context,
+    );
+  }
+
+  // ---------- file_read / file_write ----------
+  if (call.kind === "file_read" || call.kind === "file_write") {
+    const protectedHit = checkFileSelfProtection(call, {
+      homeDir: request.homeDir,
+      dataRoot: request.dataRoot,
+    });
+    if (protectedHit !== null) {
+      return {
+        kind: "deny",
+        denial: buildPermissionDenial({
+          call,
+          tool: request.tool,
+          category: "file_sensitive",
+          reasonKind: "scope",
+          message: protectedHit.message,
+          recoveryHint:
+            "Protected credentials and lophn data root files cannot be accessed by file tools.",
+          recoveryAction: null,
+        }),
+      };
+    }
+
+    const sensitive = isSensitiveWorkspaceFile(call, request.homeDir);
+    const category = categoryOfCall(call, { sensitive });
+
+    const userRule = evaluateNonShellUserRules(call, layers, request.homeDir);
+    if (userRule.action === "deny") {
+      return {
+        kind: "deny",
+        denial: buildPermissionDenial({
+          call,
+          tool: request.tool,
+          category,
+          reasonKind: "user_deny",
+          rulePattern: userRule.pattern,
+          message: `File access blocked by permission deny rule: ${userRule.pattern}`,
+          recoveryHint:
+            "Edit or remove the matching deny rule in Settings > Permissions.",
+          recoveryAction: { kind: "edit_rule", category },
+        }),
+      };
+    }
+
+    // read_only 단계에서는 모든 파일 쓰기를 막는다(민감 파일·session grant 포함).
+    if (call.kind === "file_write" && mode === "read_only") {
+      return modeDeny(
+        request,
+        "File modifications are blocked in read-only mode.",
+        category,
+      );
+    }
+
+    if (userRule.action === "ask") {
+      return finalizeContext(
+        {
+          kind: "ask",
+          reason: `Matched permission ask rule: ${userRule.pattern}`,
+          outside_rewind: call.kind === "file_write" && call.outside_workspace,
+          allowed_choices: ["once", "reject"],
+          rulePattern: userRule.pattern,
+          categoryOverride: category,
+        },
+        request,
+        context,
+      );
+    }
+
+    // ---------- 4. 민감 workspace 파일 (모든 단계에서 묻는다) ----------
+    if (sensitive) {
+      return finalizeContext(
+        {
+          kind: "ask",
+          reason:
+            call.kind === "file_read"
+              ? "Reading sensitive environment files (.env*) requires approval in all modes."
+              : "Writing sensitive workspace configuration or tool files requires approval in all modes.",
+          outside_rewind: call.kind === "file_write" && call.outside_workspace,
+          allowed_choices: ["once", "reject"],
+          categoryOverride: "file_sensitive",
+        },
+        request,
+        context,
+      );
+    }
+
+    if (userRule.action === "allow") {
+      return { kind: "run" };
+    }
+
+    // ---------- 5. 이번 대화 허락 ----------
+    if (
+      matchesSessionGrant(sessionGrants, call, { homeDir: request.homeDir })
+    ) {
+      return { kind: "run" };
+    }
+
+    // ---------- 6. 단계 기본값 (file_read / file_write) ----------
+    if (call.kind === "file_read") {
+      if (!call.outside_workspace || mode === "full") {
+        return { kind: "run" };
+      }
+      return finalizeContext(
+        {
+          kind: "ask",
+          reason: `File is outside the workspace folder (${call.folder}).`,
+          outside_rewind: false,
+          allowed_choices: ["once", "session", "reject"],
+          categoryOverride: "file_outside",
+        },
+        request,
+        context,
+      );
+    }
+
+    // file_write (mode는 read_only가 아님)
+    if (mode === "full") {
+      return { kind: "run" };
+    }
+    if (mode === "workspace") {
+      if (!call.outside_workspace) return { kind: "run" };
+      return finalizeContext(
+        {
+          kind: "ask",
+          reason: `Writing outside the workspace folder (${call.folder}) requires approval.`,
+          outside_rewind: true,
+          allowed_choices: ["once", "session", "reject"],
+          categoryOverride: "file_outside",
+        },
+        request,
+        context,
+      );
+    }
+    // mode === "ask"
+    return finalizeContext(
+      {
+        kind: "ask",
+        reason: call.outside_workspace
+          ? `Writing outside the workspace folder (${call.folder}) requires approval.`
+          : "File modifications require approval in ask mode.",
+        outside_rewind: call.outside_workspace,
+        allowed_choices: ["once", "session", "reject"],
+        categoryOverride: category,
+      },
+      request,
+      context,
+    );
+  }
+
+  // ---------- 3. 사람 전용 등급: setting ----------
   if (call.kind === "setting") {
-    return mode === "unattended" || toParent
-      ? { kind: "deny", reason: "no_person", pattern: null }
-      : { kind: "ask" };
+    return finalizeContext(
+      {
+        kind: "ask",
+        reason: `Changing protected setting "${call.key}" requires explicit person approval.`,
+        outside_rewind: true,
+        allowed_choices: ["once", "reject"],
+        personOnly: true,
+      },
+      request,
+      context,
+    );
   }
-  // project command 실행: 쓸 수 없는 agent는 deny. ask_before_run이 켜져 있으면 attended·skip에서 사람에게 묻고,
-  // 팀 자식은 부모에게 묻고, unattended(팀 자식 제외)는 deny no_person이다.
+
+  // ---------- project_command ----------
   if (call.kind === "project_command") {
     if (!projectCommand.allowed) {
-      return { kind: "deny", reason: "not_assigned", pattern: null };
+      return {
+        kind: "deny",
+        denial: buildPermissionDenial({
+          call,
+          tool: request.tool,
+          category: "project_command",
+          reasonKind: "unassigned",
+          message: `Agent is not allowed to run project command "${call.name}".`,
+          recoveryHint:
+            "Allow this agent in the project command's allowed agents settings.",
+          recoveryAction: null,
+        }),
+      };
+    }
+    if (mode === "read_only") {
+      return modeDeny(
+        request,
+        "Running project commands is blocked in read-only mode.",
+        "project_command",
+      );
     }
     if (!projectCommand.askBeforeRun) return { kind: "run" };
-    if (toParent) return { kind: "ask" };
-    return mode === "unattended"
-      ? { kind: "deny", reason: "no_person", pattern: null }
-      : { kind: "ask" };
+    return finalizeContext(
+      {
+        kind: "ask",
+        reason: `Project command "${call.name}" requires approval before running.`,
+        outside_rewind: true,
+        allowed_choices: ["once", "reject"],
+      },
+      request,
+      context,
+    );
   }
-  // project command 정의 쓰기: approve_agent_writes가 꺼져 있으면 바로 쓰고, 켜져 있으면 사람에게만 묻는다
-  // (attended·skip에서 ask, unattended·팀 자식은 deny no_person).
+
+  // ---------- project_command_definition ----------
   if (call.kind === "project_command_definition") {
-    if (!projectCommand.approveWrites) return { kind: "run" };
-    return mode === "unattended" || toParent
-      ? { kind: "deny", reason: "no_person", pattern: null }
-      : { kind: "ask" };
+    if (!projectCommand.approveWrites) {
+      if (mode === "read_only") {
+        return modeDeny(
+          request,
+          "Modifying project command definitions is blocked in read-only mode.",
+          "project_command_definition",
+        );
+      }
+      return { kind: "run" };
+    }
+    return finalizeContext(
+      {
+        kind: "ask",
+        reason:
+          "Modifying project command definitions requires explicit person approval.",
+        outside_rewind: true,
+        allowed_choices: ["once", "reject"],
+        personOnly: true,
+      },
+      request,
+      context,
+    );
   }
-  // MCP server는 설정한 층이 곧 할당이라 할당을 보지 않는다. app_tool의 tool은 앱의 command 이름이고
-  // `removed_tools`도 command 이름을 담는다(operation은 할당 대상이 아니다). 이 판정은 이 기계의 호출이라 다른 기계의 앱 줄
-  // (`machine`이 있는 줄)은 보지 않는다: 앱 id는 기계 사이에 같아, 다른 기계에만 할당한 앱이 이 기계에서 통과하면 안 된다.
+
+  // ---------- local_tool ----------
+  if (call.kind === "local_tool") {
+    const userRule = evaluateNonShellUserRules(call, layers, request.homeDir);
+    if (userRule.action === "deny") {
+      return {
+        kind: "deny",
+        denial: buildPermissionDenial({
+          call,
+          tool: request.tool,
+          category: "local_tool",
+          reasonKind: "user_deny",
+          rulePattern: userRule.pattern,
+          message: `Local tool blocked by permission deny rule: ${userRule.pattern}`,
+          recoveryHint:
+            "Edit or remove the matching deny rule in Settings > Permissions.",
+          recoveryAction: { kind: "edit_rule", category: "local_tool" },
+        }),
+      };
+    }
+
+    const trusted = request.localToolTrusted === true && !call.changed;
+    if (!trusted) {
+      return finalizeContext(
+        {
+          kind: "ask",
+          reason: call.changed
+            ? `Local tool "${call.name}" changed since it was last trusted and requires re-approval.`
+            : `Local tool "${call.name}" is not yet trusted and requires person approval.`,
+          outside_rewind: true,
+          allowed_choices: ["once", "reject"],
+          personOnly: true,
+          unattendedRecovery: {
+            kind: "trust_local_tool",
+            tool_path: call.path,
+            sha256: call.sha256,
+          },
+          unattendedHint: `Trust the local tool "${call.name}" in /permissions before running unattended.`,
+        },
+        request,
+        context,
+      );
+    }
+
+    if (userRule.action === "ask") {
+      return finalizeContext(
+        {
+          kind: "ask",
+          reason: `Matched permission ask rule: ${userRule.pattern}`,
+          outside_rewind: true,
+          allowed_choices: ["once", "reject"],
+          rulePattern: userRule.pattern,
+        },
+        request,
+        context,
+      );
+    }
+
+    if (mode === "read_only") {
+      return modeDeny(
+        request,
+        "Running local tool scripts is blocked in read-only mode.",
+        "local_tool",
+      );
+    }
+    return { kind: "run" };
+  }
+
+  // ---------- app_tool ----------
   if (call.kind === "app_tool") {
-    const entry = assignment?.entries.find(
+    // 이 기계의 호출이라 다른 기계의 앱 줄(`machine`이 있는 줄)은 보지 않는다.
+    const entry = request.assignment?.entries.find(
       (item) => item.app === call.app && item.machine === undefined,
     );
-    if (!entry) return { kind: "deny", reason: "not_assigned", pattern: null };
-    if (entry.removed_tools.includes(call.tool)) {
-      return { kind: "deny", reason: "removed", pattern: null };
+    if (!entry) {
+      return {
+        kind: "deny",
+        denial: buildPermissionDenial({
+          call,
+          tool: request.tool,
+          category: "app_tool",
+          reasonKind: "unassigned",
+          message: `App ${call.app} is not assigned to this agent.`,
+          recoveryHint:
+            "Assign this app to the agent in Settings > Agents or /permissions.",
+          recoveryAction: { kind: "assign_app", app: call.app },
+        }),
+      };
     }
+    if (entry.removed_tools.includes(call.tool)) {
+      return {
+        kind: "deny",
+        denial: buildPermissionDenial({
+          call,
+          tool: request.tool,
+          category: "app_tool",
+          reasonKind: "removed",
+          message: `Tool "${call.tool}" is removed from this agent's app assignment.`,
+          recoveryHint:
+            "Re-enable this tool in the agent's app assignment settings.",
+          recoveryAction: { kind: "assign_app", app: call.app },
+        }),
+      };
+    }
+
+    const userRule = evaluateNonShellUserRules(call, layers, request.homeDir);
+    if (userRule.action === "deny") {
+      return {
+        kind: "deny",
+        denial: buildPermissionDenial({
+          call,
+          tool: request.tool,
+          category: "app_tool",
+          reasonKind: "user_deny",
+          rulePattern: userRule.pattern,
+          message: `App tool blocked by permission deny rule: ${userRule.pattern}`,
+          recoveryHint:
+            "Edit or remove the matching deny rule in Settings > Permissions.",
+          recoveryAction: { kind: "edit_rule", category: "app_tool" },
+        }),
+      };
+    }
+
+    if (mode === "read_only" && call.effect !== "read") {
+      return modeDeny(
+        request,
+        `Non-read app tool "${call.tool}" is blocked in read-only mode.`,
+        "app_tool",
+      );
+    }
+
+    if (userRule.action === "ask") {
+      return finalizeContext(
+        {
+          kind: "ask",
+          reason: `Matched permission ask rule: ${userRule.pattern}`,
+          outside_rewind: call.effect !== "read",
+          allowed_choices: ["once", "reject"],
+          rulePattern: userRule.pattern,
+        },
+        request,
+        context,
+      );
+    }
+
+    if (userRule.action === "allow") {
+      return { kind: "run" };
+    }
+
+    if (matchesSessionGrant(sessionGrants, call)) {
+      return { kind: "run" };
+    }
+
+    const askTools = entry.ask_tools ?? [];
+    if (askTools.includes(call.tool) && mode !== "full") {
+      return finalizeContext(
+        {
+          kind: "ask",
+          reason: `App tool "${call.tool}" is configured to ask before running.`,
+          outside_rewind: call.effect !== "read",
+          allowed_choices: ["once", "session", "reject"],
+        },
+        request,
+        context,
+      );
+    }
+
+    return { kind: "run" };
   }
-  if (ASK_EXTERNAL_WHEN_ATTENDED && call.effect === "external") {
-    return askIn(mode, toParent);
+
+  // ---------- mcp_tool ----------
+  const userRule = evaluateNonShellUserRules(call, layers, request.homeDir);
+  if (userRule.action === "deny") {
+    return {
+      kind: "deny",
+      denial: buildPermissionDenial({
+        call,
+        tool: request.tool,
+        category: "mcp_tool",
+        reasonKind: "user_deny",
+        rulePattern: userRule.pattern,
+        message: `MCP tool blocked by permission deny rule: ${userRule.pattern}`,
+        recoveryHint:
+          "Edit or remove the matching deny rule in Settings > Permissions.",
+        recoveryAction: { kind: "edit_rule", category: "mcp_tool" },
+      }),
+    };
   }
-  return { kind: "run" };
+
+  const isReadOnlyMcp = call.read_only === true;
+  if (mode === "read_only" && !isReadOnlyMcp) {
+    return modeDeny(
+      request,
+      `Non-read-only MCP tool "${call.server}/${call.tool}" is blocked in read-only mode.`,
+      "mcp_tool",
+    );
+  }
+
+  if (userRule.action === "ask") {
+    return finalizeContext(
+      {
+        kind: "ask",
+        reason: `Matched permission ask rule: ${userRule.pattern}`,
+        outside_rewind: true,
+        allowed_choices: ["once", "reject"],
+        rulePattern: userRule.pattern,
+        unattendedRecovery: { kind: "trust_mcp", server: call.server },
+        unattendedHint: `Mark MCP server "${call.server}" as trusted or adjust the ask rule.`,
+      },
+      request,
+      context,
+    );
+  }
+
+  if (userRule.action === "allow") {
+    return { kind: "run" };
+  }
+
+  if (matchesSessionGrant(sessionGrants, call)) {
+    return { kind: "run" };
+  }
+
+  const trust: McpTrust = request.mcpTrust ?? "untrusted";
+  if (trust === "trusted" || isReadOnlyMcp || mode === "full") {
+    return { kind: "run" };
+  }
+
+  return finalizeContext(
+    {
+      kind: "ask",
+      reason: `MCP server "${call.server}" is untrusted and tool "${call.tool}" is not marked read-only.`,
+      outside_rewind: true,
+      allowed_choices: ["once", "session", "reject"],
+      unattendedRecovery: { kind: "trust_mcp", server: call.server },
+      unattendedHint: `Mark MCP server "${call.server}" as trusted in Settings or /permissions.`,
+    },
+    request,
+    context,
+  );
 }

@@ -1,17 +1,24 @@
 // turn 안 request. 물음이 나온 turn이 기다리고, 메모리에만 둔다.
 // 꺼졌다 켜지면 비어 있고 다시 열지 않는다.
-import { err, ok, type Result } from "../../base/mod.ts";
+
 import type { Clock, IdSource } from "../../base/mod.ts";
+import { err, ok, type Result } from "../../base/mod.ts";
 import type {
-  ShellRuleLayers,
+  PermissionRuleLayers,
   TurnRequest,
   TurnRequestChoice,
+  TurnRequestChoiceKind,
   TurnRequestOutcome,
 } from "../../protocol/approvals/mod.ts";
 import type { Workspace } from "../../protocol/lophn-agent/workspaces.ts";
 import type { Bus } from "../events/ports.ts";
 import { alwaysPatterns } from "./gate/mod.ts";
-import type { AlwaysEffect, TurnOrigin } from "./ports.ts";
+import type {
+  AlwaysEffect,
+  OpenTurnRequestOptions,
+  SessionEffect,
+  TurnOrigin,
+} from "./ports.ts";
 
 type Cancelled = Extract<TurnRequestOutcome, { outcome: "cancelled" }>;
 
@@ -25,7 +32,8 @@ type Entry = {
 };
 
 type TurnRequestsDeps = {
-  shellRules(workspace: Workspace | null): ShellRuleLayers;
+  permissionRules(workspace: Workspace | null): PermissionRuleLayers;
+  homeDir?: string;
   bus: Pick<Bus, "publish">;
   clock: Clock;
   ids: IdSource;
@@ -33,6 +41,26 @@ type TurnRequestsDeps = {
 
 function cancelledFor(cause: Cancelled["cause"]): Cancelled {
   return { outcome: "cancelled", cause };
+}
+
+function defaultOutsideRewind(subject: TurnRequest["subject"]): boolean {
+  switch (subject.kind) {
+    case "shell":
+    case "mcp_tool":
+    case "local_tool":
+    case "setting":
+    case "project_command":
+    case "project_command_definition":
+      return true;
+    case "file_write":
+      return subject.outside_workspace;
+    case "file_read":
+      return false;
+    case "app_tool":
+      return subject.effect !== "read";
+    case "harness":
+      return true;
+  }
 }
 
 export function createTurnRequests(deps: TurnRequestsDeps) {
@@ -55,18 +83,47 @@ export function createTurnRequests(deps: TurnRequestsDeps) {
     open(
       origin: TurnOrigin,
       subject: TurnRequest["subject"],
+      options?: OpenTurnRequestOptions,
     ): Result<TurnRequest> {
+      // 부모가 푸는 request는 always가 없다: 부모가 권한 규칙을 더하는 길은 없다.
+      const patterns = origin.toParent
+        ? []
+        : options?.alwaysPatterns !== undefined
+          ? [...options.alwaysPatterns]
+          : subject.kind === "shell"
+            ? alwaysPatterns(
+                deps.permissionRules(origin.workspace),
+                subject.command,
+                deps.homeDir,
+              )
+            : [];
+
+      let allowedChoices: TurnRequestChoiceKind[];
+      if (origin.toParent) {
+        allowedChoices = ["once", "reject"];
+      } else if (options?.allowedChoices !== undefined) {
+        // `always_patterns`가 비어 있으면 `always` 선택지를 열지 않는다.
+        allowedChoices = options.allowedChoices.filter(
+          (choice) => choice !== "always" || patterns.length > 0,
+        );
+        if (allowedChoices.length === 0) allowedChoices = ["once", "reject"];
+      } else {
+        allowedChoices =
+          patterns.length > 0
+            ? ["once", "session", "always", "reject"]
+            : ["once", "reject"];
+      }
+
       const request: TurnRequest = {
         id: deps.ids.newId("apr"),
         session: origin.session,
         turn: origin.turn,
         tool_call: origin.tool_call,
         subject,
-        // 부모가 푸는 request는 always가 없다: 부모가 shell 규칙을 더하는 길은 없다.
-        always_patterns:
-          subject.kind === "shell" && !origin.toParent
-            ? alwaysPatterns(deps.shellRules(origin.workspace), subject.command)
-            : [],
+        always_patterns: patterns,
+        allowed_choices: allowedChoices,
+        reason: options?.reason ?? null,
+        outside_rewind: options?.outsideRewind ?? defaultOutsideRewind(subject),
         to_parent: origin.toParent,
         created_at: deps.clock.now(),
       };
@@ -92,7 +149,7 @@ export function createTurnRequests(deps: TurnRequestsDeps) {
         return Promise.resolve(cancelledFor("turn_ended"));
       }
       if (entry.outcome !== null) return Promise.resolve(entry.outcome);
-      return new Promise((resolve) => entry.waiters.push(resolve));
+      return new Promise((resolveWaiter) => entry.waiters.push(resolveWaiter));
     },
 
     // 사람의 결정. 호출 자격이 사람인지는 route가 정한다.
@@ -101,6 +158,7 @@ export function createTurnRequests(deps: TurnRequestsDeps) {
       id: string,
       choice: TurnRequestChoice,
       effects: ReadonlyMap<string, AlwaysEffect>,
+      sessionEffect?: SessionEffect,
     ): Promise<Result<{ outcome: TurnRequestOutcome }>> {
       const entry = entries.get(id);
       // 부모가 푸는 request는 카드가 없다. 사람이 결정하는 길을 열지 않는다.
@@ -120,10 +178,34 @@ export function createTurnRequests(deps: TurnRequestsDeps) {
           message: "the request is already decided",
         });
       }
+      if (!entry.request.allowed_choices.includes(choice.kind)) {
+        return err({
+          code: "invalid_input",
+          message: `choice "${choice.kind}" is not allowed for this request`,
+        });
+      }
+
       let outcome: TurnRequestOutcome;
       if (choice.kind === "reject") {
         entry.closed = true;
         outcome = { outcome: "reject", reason: choice.reason ?? null };
+      } else if (choice.kind === "session") {
+        // 아래 await 동안 다른 결정이 끼어들지 못하게 먼저 닫는다.
+        entry.closed = true;
+        if (sessionEffect !== undefined) {
+          const done = await sessionEffect(entry.request, entry.workspace);
+          if (!done.ok) {
+            entry.closed = false;
+            return done;
+          }
+          if (entry.outcome !== null) {
+            return err({
+              code: "conflict",
+              message: "the request was cancelled",
+            });
+          }
+        }
+        outcome = { outcome: "allow", scope: "session" };
       } else if (choice.kind === "always") {
         const effect = effects.get(entry.request.subject.kind);
         if (entry.request.always_patterns.length === 0 || !effect) {
@@ -132,7 +214,6 @@ export function createTurnRequests(deps: TurnRequestsDeps) {
             message: "this request cannot be allowed always",
           });
         }
-        // 아래 await 동안 다른 결정이 끼어들지 못하게 먼저 닫는다.
         entry.closed = true;
         const done = await effect(entry.request, entry.workspace);
         if (!done.ok) {

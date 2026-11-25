@@ -1,9 +1,9 @@
 import type { Result } from "../../../base/mod.ts";
-import { definePort } from "../../../protocol/base/mod.ts";
 import type {
   Assignment,
   AssignmentEntry,
 } from "../../../protocol/approvals/mod.ts";
+import { definePort } from "../../../protocol/base/mod.ts";
 import type { AgentId } from "../../../protocol/lophn-agent/workspaces.ts";
 
 // 할당은 agent 정의 파일(`apps`, `permissions.deny`)에 있다. approvals는 정의 파일도 앱 표도 모르므로

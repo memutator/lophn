@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { Id } from "../../../../protocol/base/ids.ts";
-import { CORE_CALL_CHANNEL } from "../../../ipc/core.ts";
+import { CORE_CALL_CHANNEL, CORE_WATCH_CHANNEL } from "../../../ipc/core.ts";
 import { createMachineRoute, type MachineLink } from "./machine-route.ts";
 
 const HOST = "mch_01jx0000000000000000000000" as Id<"mch">;
@@ -147,4 +147,32 @@ test("terminal_view/watch keeps remote lease while another window watches and re
     method: "watch",
     body: { terminal: "trm_1", on: false },
   });
+});
+
+test("remote core watch awaits link.watch and propagates failure to the caller", async () => {
+  const route = createMachineRoute();
+  route.attach({
+    link: () => ({
+      call: () => Promise.resolve({ ok: true, value: {} }),
+      watch: () => Promise.reject(new Error("remote watch failed")),
+    }),
+    self: () => SELF,
+    selfKnown: Promise.resolve(),
+  });
+  await assert.rejects(
+    async () =>
+      await route.handle(
+        CORE_WATCH_CHANNEL,
+        LOCAL_WINDOW,
+        {
+          machine: HOST,
+          conditions: [{ types: ["AcpUpdated"] }],
+        },
+        () => {
+          throw new Error("must not route locally");
+        },
+        () => true,
+      ),
+    /remote watch failed/,
+  );
 });

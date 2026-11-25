@@ -1793,3 +1793,108 @@ test("구독한 컴퓨터의 AppEventPublished가 상한을 넘으면 초과분�
     2,
   );
 });
+
+// join 직후 첫 ready가 오기 전 창이 watch를 걸어도 link.asked가 어긋나지 않아야 이후 창의 AcpUpdated ready가 유실되지 않는다.
+test("첫 ready 직전에 watch가 겹쳐도 다음 창 watch의 ready가 그 watcher로 정확히 배달된다", async (t) => {
+  const s = setup();
+  const aKey = generateKeyPair(s.random);
+  s.register(aKey, "computer");
+  const b: RosterEntryBody = {
+    type: "entry",
+    id: deviceId(55) as RosterEntryBody["id"],
+    kind: "computer",
+    key: remoteKeyText(s.coreKey.publicKey),
+    signing_key: FAKE_SIGNING_KEY,
+    machine: HOST_MACHINE,
+    name: "studio",
+    os: "linux",
+    rev: 1,
+    invite: null,
+  };
+  const snapshot = {
+    statements: [],
+    reach: [{ device: b.id, addresses: ["10.0.0.2"], port: 7432, relay: null }],
+  };
+  const roster = {
+    view: () => ({
+      devices: [{ body: b, signed_by: [], pending: false }],
+      removed: [],
+      folded: [],
+      conflicts: [],
+      invites: [],
+      keep: [],
+    }),
+    self: () => ({
+      id: deviceId(65),
+      hostKey: remoteKeyText(aKey.publicKey),
+      signingKey: "a-signing-key",
+    }),
+    snapshot: () => snapshot,
+    receive: async () => ok(snapshot),
+  } as unknown as Roster;
+  const published: BusEvent[] = [];
+  let links!: ReturnType<typeof createLinks>;
+  let injectedEarlyWatch = false;
+  links = createLinks({
+    roster,
+    name: () => "laptop",
+    dial: (_url) => {
+      const w = wire();
+      const origSend = w.phone.send.bind(w.phone);
+      let framesOut = 0;
+      w.phone.send = (bytes) => {
+        origSend(bytes);
+        framesOut += 1;
+        // hello + join 다음 첫 watch가 나간 직후(아직 첫 ready 도착 전)에 다른 watch가 끼어드는 레이스를 재현한다.
+        if (!injectedEarlyWatch && framesOut === 3) {
+          injectedEarlyWatch = true;
+          links.watch({ capability: "cap1", watcher: "w1" }, HOST_MACHINE, [
+            { types: ["StateChanged"] },
+          ]);
+        }
+      };
+      void s.host.accept(w.core as RemoteSocket);
+      return Promise.resolve(w.phone);
+    },
+    random: s.random,
+    clock: s.clock,
+    wait(ms, fn) {
+      const timer = setTimeout(fn, ms);
+      return () => clearTimeout(timer);
+    },
+    publish: (event) => void published.push(event),
+    logger: { error() {}, warn() {} } as never,
+    onPeerReady: () => {
+      links.watch(CORE_APP_EVENTS, HOST_MACHINE, [
+        { types: ["AppEventPublished"] },
+      ]);
+    },
+    onPeerCarry: () => undefined,
+    onPeerVault: () => undefined,
+    onPeerEvent: () => undefined,
+  });
+  links.sync(aKey);
+  t.after(() => links.sync(undefined));
+  for (let i = 0; i < 50 && links.list()[0]?.status !== "connected"; i++) {
+    await settle();
+  }
+  await settle();
+  published.length = 0;
+
+  assert.ok(
+    links.watch({ capability: "cap1", watcher: "w2" }, HOST_MACHINE, [
+      { session: `ses_0${"1".repeat(25)}`, types: ["AcpUpdated"] },
+    ]).ok,
+  );
+  await settle();
+
+  const readyWatchers = published.flatMap((event) => {
+    if (event.type !== "MachineFrameReceived") return [];
+    const payload = event.payload as {
+      frame: { type: string };
+      watcher?: string;
+    };
+    return payload.frame.type === "ready" ? [payload.watcher] : [];
+  });
+  assert.deepEqual(readyWatchers, ["w2"]);
+});

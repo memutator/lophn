@@ -8,7 +8,7 @@ import {
   busEventSchema,
   type EventCondition,
 } from "../../../../../protocol/events/mod.ts";
-import type { ConnectionState, CoreSource } from "../connection.ts";
+import type { CoreSource } from "../connection.ts";
 
 export type EventMessage =
   /** 조건이 걸렸다. 지금 상태를 snapshot으로 읽어 맞춘다. */
@@ -36,12 +36,6 @@ export function matchesCondition(
   }
   return condition.types === undefined || condition.types.includes(event.type);
 }
-
-const DISCONNECTED: ReadonlySet<ConnectionState["state"]> = new Set([
-  "stale",
-  "failed-start",
-  "failed-schema",
-]);
 
 interface Subscriber {
   readonly condition: EventCondition;
@@ -155,7 +149,8 @@ export function createEventClient(core: CoreSource): EventClient {
       const tracked = connected && conditions.length > 0 ? keys : null;
       if (tracked !== null) pendingWatches.push(tracked);
       core.watch?.(conditions)?.catch(() => {
-        // watch 호출이 실패하면 대기열에서 빼서 다음 구독자를 막지 않는다. 끊겼다면 재연결 ready가 다시 맞춘다.
+        // watch 호출이 실패하면 대기열에서 빼서 다음 구독자를 막지 않고 sentKey도 풀어 다시 걸 수 있게 한다.
+        if (sentKey === nextKey) sentKey = null;
         if (tracked !== null) {
           const at = pendingWatches.indexOf(tracked);
           if (at !== -1) pendingWatches.splice(at, 1);
@@ -167,7 +162,8 @@ export function createEventClient(core: CoreSource): EventClient {
   function start() {
     const stopEvents = core.onEvent?.(receive) ?? (() => {});
     const stopState = core.subscribe((state) => {
-      if (DISCONNECTED.has(state.state)) disconnect();
+      // 연결된 상태에서 ready가 아닌 상태(stale, starting 등)로 내려가면 끊김으로 보고 pendingWatches를 비운다.
+      if (state.state !== "ready") disconnect();
     });
     stopCore = () => {
       stopEvents();

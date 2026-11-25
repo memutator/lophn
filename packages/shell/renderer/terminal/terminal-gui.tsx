@@ -63,6 +63,7 @@ import type { TabItem } from "../workspace/model.ts";
 import type { TerminalCore } from "./core.ts";
 import type { TerminalDeps } from "./deps.ts";
 import type { TerminalStore } from "./store.ts";
+import styles from "./terminal.module.css";
 
 type Blocked = NonNullable<CodingSession["switch"]>["blocked"];
 
@@ -212,21 +213,35 @@ const DEFAULT_FRAME_SCHEDULER: FrameScheduler = {
   },
 };
 
+const INITIAL_RETRY_MS = [200, 500, 1000] as const;
+
+export interface GuiFollow {
+  stop(): void;
+  reload(): void;
+}
+
 /**
- * core의 ACP 길을 feed에 잇는다. 갱신 구독이 서면(ready) snapshot을 읽고, 읽는 사이 온 갱신은 snapshot 뒤에 접는다.
- * live 갱신은 한 animation frame 동안 모아 한 번에 `feed.apply`로 반영한다. 첫 snapshot을 받으면 `onLoaded`다. 해지를 돌려준다.
+ * core의 ACP 길을 feed에 잇는다. 시작과 동시에 snapshot을 읽어 화면을 열고, `AcpUpdated` 구독이 서면(ready) 놓친 갱신이
+ * 없도록 다시 맞춘다. 읽는 사이 온 갱신은 snapshot 뒤에 접고, live 갱신은 한 animation frame 동안 모아 반영한다.
+ * 첫 snapshot이 unavailable이면 잠시 재시도하고, 그래도 못 읽으면 `onFailed`를 부른다.
  */
 export function followGui(
   events: EventClient,
   feed: GuiFeed,
   onLoaded: () => void,
   frame: FrameScheduler = DEFAULT_FRAME_SCHEDULER,
-): () => void {
+  options: {
+    onFailed?: () => void;
+    retryMs?: readonly number[];
+  } = {},
+): GuiFollow {
   let buffer: AcpUpdate[] | null = null;
   let pending: AcpUpdate[] = [];
   let cancelFrame: (() => void) | null = null;
   let reads = 0;
+  let loaded = false;
   let stopped = false;
+  const retryMs = options.retryMs ?? INITIAL_RETRY_MS;
 
   const clearPending = () => {
     cancelFrame?.();
@@ -251,15 +266,30 @@ export function followGui(
     clearPending();
     const mine = ++reads;
     buffer = [];
-    const read = await readRoute(events.core, acpSnapshot, {
-      session: feed.session,
-    });
-    if (stopped || mine !== reads) return;
-    const updates = buffer;
-    buffer = null;
-    if (!read.ok) return;
-    feed.apply({ snapshot: read.value, updates });
-    onLoaded();
+    const delays = loaded ? [null] : [...retryMs, null];
+    for (const wait of delays) {
+      const read = await readRoute(events.core, acpSnapshot, {
+        session: feed.session,
+      }).catch((): { ok: false; code?: string } => ({ ok: false }));
+      if (stopped || mine !== reads) return;
+      if (read.ok) {
+        const updates = buffer;
+        buffer = null;
+        loaded = true;
+        feed.apply({ snapshot: read.value, updates });
+        onLoaded();
+        return;
+      }
+      if (!loaded && wait !== null && read.code === "unavailable") {
+        await new Promise((resolve) => setTimeout(resolve, wait));
+        if (stopped || mine !== reads) return;
+        buffer = [];
+        continue;
+      }
+      buffer = null;
+      if (!loaded) options.onFailed?.();
+      return;
+    }
   }
   const offUpdates = events.subscribe(
     { session: feed.session, types: ["AcpUpdated"] },
@@ -290,11 +320,18 @@ export function followGui(
       }
     },
   );
-  return () => {
-    stopped = true;
-    clearPending();
-    offUpdates();
-    offReplaced();
+  // 첫 화면은 원격 `watch`→`ready` 왕복을 기다리지 않고 바로 snapshot을 읽어 연다(`useAgentTabData`와 같은 규칙).
+  void load();
+  return {
+    reload() {
+      if (!stopped) void load();
+    },
+    stop() {
+      stopped = true;
+      clearPending();
+      offUpdates();
+      offReplaced();
+    },
   };
 }
 
@@ -544,9 +581,28 @@ export function TerminalGui({
   }, [feed, onTitle]);
   const own = useMemo(() => new DraftStore(), []);
   const [loaded, setLoaded] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const followRef = useRef<GuiFollow | null>(null);
   useEffect(() => {
     setLoaded(false);
-    return followGui(core.events, feed, () => setLoaded(true));
+    setFailed(false);
+    const handle = followGui(
+      core.events,
+      feed,
+      () => {
+        setFailed(false);
+        setLoaded(true);
+      },
+      undefined,
+      {
+        onFailed: () => setFailed(true),
+      },
+    );
+    followRef.current = handle;
+    return () => {
+      if (followRef.current === handle) followRef.current = null;
+      handle.stop();
+    };
   }, [core, feed]);
   const cwd = coding.cwd ?? "";
   const agentName = coding.agent_name;
@@ -650,7 +706,29 @@ export function TerminalGui({
   });
   return (
     <>
-      {source === null ? null : (
+      {source === null ? (
+        failed ? (
+          <div className={styles.placeholderWrap} data-gui-load-failed="">
+            <div className={styles.placeholder}>
+              <p>{t("conversation.error.load-failed")}</p>
+              <div style={{ display: "flex", gap: "var(--space-2)" }}>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon={actionIcons.retry}
+                  onClick={() => {
+                    setFailed(false);
+                    followRef.current?.reload();
+                  }}
+                >
+                  {t("common.button.retry")}
+                </Button>
+                {toggle.button}
+              </div>
+            </div>
+          </div>
+        ) : null
+      ) : (
         <EventsProvider client={feed.client}>
           {/* key context `agentView`은 이 바깥 칸이고, AgentView 안의 `agentView:<harness>`가 CLI key를 먼저 든다. 칸은 상자를 만들지 않는다. */}
           <div data-key-context="agentView" style={{ display: "contents" }}>

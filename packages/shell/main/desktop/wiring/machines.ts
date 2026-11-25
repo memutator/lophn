@@ -9,6 +9,7 @@ import { BrowserWindow, dialog, type WebContents, webContents } from "electron";
 import { isAbsolute } from "node:path";
 
 import type { Id } from "../../../../protocol/base/ids.ts";
+import { eventConditionSchema } from "../../../../protocol/events/mod.ts";
 import type { MachineStatus } from "../../../../protocol/machine/mod.ts";
 import {
   CORE_EVENT_CHANNEL,
@@ -149,24 +150,60 @@ export function register(ctx: ShellContext): Machines & Registered {
 
   // One watch at a time: each is its own request, and core must apply a subscriber's changes in the order they were made
   // (a later one overtaken by an earlier one leaves the old conditions in core).
+  const MAX_WATCH_CONDITIONS = 64;
+  function sanitizeConditions(conditions: Conditions): Conditions {
+    const usable: Conditions = [];
+    for (const condition of conditions) {
+      const parsed = eventConditionSchema.safeParse(condition);
+      if (parsed.success) {
+        usable.push(parsed.data);
+        if (usable.length >= MAX_WATCH_CONDITIONS) break;
+      }
+    }
+    return usable;
+  }
+
   let sending: Promise<unknown> = Promise.resolve();
   const send = (
     machine: Id<"mch">,
     watcher: string,
     conditions: Conditions,
-  ) => {
-    const run = () =>
-      ctx.core.machineCall("watch", { machine, watcher, conditions });
-    sending = sending.then(run, run);
+  ): Promise<CoreReply> => {
+    const run = async (): Promise<CoreReply> => {
+      try {
+        return (await ctx.core.machineCall("watch", {
+          machine,
+          watcher,
+          conditions,
+        })) as CoreReply;
+      } catch (error) {
+        return {
+          ok: false,
+          error: {
+            code: "unavailable",
+            message:
+              error instanceof Error ? error.message : "remote watch failed",
+          },
+        };
+      }
+    };
+    const next = sending.then(run, run);
+    sending = next;
+    return next;
   };
 
-  function watch(machine: Id<"mch">, watcher: string, conditions: Conditions) {
+  function watch(
+    machine: Id<"mch">,
+    watcher: string,
+    conditions: Conditions,
+  ): Promise<CoreReply> {
+    const usable = sanitizeConditions(conditions);
     const owners = watching.get(machine) ?? new Map<string, Conditions>();
-    if (conditions.length === 0) owners.delete(watcher);
-    else owners.set(watcher, conditions);
+    if (usable.length === 0) owners.delete(watcher);
+    else owners.set(watcher, usable);
     if (owners.size === 0) watching.delete(machine);
     else watching.set(machine, owners);
-    send(machine, watcher, conditions);
+    return send(machine, watcher, usable);
   }
 
   // A closed window of this computer stops watching every machine and releases any remote terminal view lease it alone held.
@@ -292,8 +329,12 @@ export function register(ctx: ShellContext): Machines & Registered {
         machine,
         ...input,
       }) as Promise<CoreReply>,
-    watch: (owner, conditions) =>
-      watch(machine, windowWatcher(owner), conditions),
+    watch: async (owner, conditions) => {
+      const reply = await watch(machine, windowWatcher(owner), conditions);
+      if (!reply.ok) {
+        throw new Error(reply.error?.message ?? "remote watch failed");
+      }
+    },
   });
   ctx.machineRoute.attach({
     link,

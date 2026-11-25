@@ -170,7 +170,10 @@ type Link = {
   body: RosterEntryBody;
   // 연 endpoint의 canonical 글. 붙지 않은 link는 주소가 바뀌면 새로 연다.
   endpoint: string;
-  connection: Connection & { sendRoster(roster: RosterSnapshot): void };
+  connection: Connection & {
+    sendRoster(roster: RosterSnapshot): void;
+    sendWatch(conditions: EventCondition[]): boolean;
+  };
   // 그 컴퓨터가 이 컴퓨터를 거절했거나(`join`, credential_revoked) 서명 key가 명단과 달랐다. 연결은 멈췄고 명단이 바뀌면 다시 연다.
   refused: boolean;
   // 마지막으로 낸 상태. 바뀔 때만 StateChanged를 낸다.
@@ -523,13 +526,13 @@ export function createLinks(deps: LinksDeps) {
     }
   }
 
-  // 기기의 합을 link에 건다. 붙은 link면 그 `ready`가 누구 것인지 둔다.
+  // 기기의 합을 link에 건다. 실제로 wire에 `watch` frame이 나갔을 때만 그 `ready`의 주인을 둔다.
   function send(device: string, subscriber: MachineSubscriber | undefined) {
     const link = links.get(device);
     if (link === undefined) return;
-    if (link.connection.current().state === "ready")
+    if (link.connection.sendWatch(conditionsOf(device))) {
       link.asked.push(subscriber);
-    void link.connection.watch(conditionsOf(device));
+    }
   }
 
   // 명단의 다른 컴퓨터. 이 기계의 화면은 기계 id로 고른다.

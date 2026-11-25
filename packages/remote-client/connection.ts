@@ -260,6 +260,8 @@ export function createConnection(
 ): Connection & {
   // Sends everything this device holds of the roster; the computer's answer goes to `onRoster`. Dropped when not connected.
   sendRoster(roster: RosterSnapshot): void;
+  // Replaces the watched conditions and reports whether a wire `watch` frame was actually sent on the current channel.
+  sendWatch(conditions: WatchConditions): boolean;
 } {
   let state: ConnectionState = { state: "starting", confirmedAt: null };
   let channel: RemoteClientChannel | undefined;
@@ -521,6 +523,16 @@ export function createConnection(
     }
   }
 
+  function sendWatch(conditions: WatchConditions): boolean {
+    // The core closes the channel on a condition it cannot parse (a session id that is not one), and every new channel
+    // sends the last watch again, so one bad condition kept the device offline for good. It is left out instead.
+    watching = conditions.filter(
+      (one) => eventConditionSchema.safeParse(one).success,
+    );
+    if (joining || !channel) return false;
+    return channel.send({ type: "watch", conditions: watching }).ok;
+  }
+
   void connect();
 
   return {
@@ -536,13 +548,9 @@ export function createConnection(
       if (lane.open < lane.limit) return send(input);
       return new Promise((resolve) => lane.queued.push({ input, resolve }));
     },
+    sendWatch,
     watch(conditions) {
-      // The core closes the channel on a condition it cannot parse (a session id that is not one), and every new channel
-      // sends the last watch again, so one bad condition kept the device offline for good. It is left out instead.
-      watching = conditions.filter(
-        (one) => eventConditionSchema.safeParse(one).success,
-      );
-      if (!joining) channel?.send({ type: "watch", conditions: watching });
+      sendWatch(conditions);
       return Promise.resolve();
     },
     onEvent(listener) {

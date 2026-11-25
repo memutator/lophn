@@ -58,18 +58,31 @@ export function useAgentTabList(source: AgentTabSource): AgentTabList {
 
   const refresh = useCallback(async () => {
     const token = (sequence.current += 1);
-    const [agent, sessions] = await Promise.all([
-      source.agent(),
-      source.sessions(),
-    ]);
+    // agent 정보와 지난 session 목록은 같이 읽되, 느린 원격 cli_sessions 응답이 화면 첫 표시를 막지 않게 agent부터 반영한다.
+    const agentTask = source.agent();
+    const sessionsTask = source.sessions();
+    const agent = await agentTask;
     if (token !== sequence.current) return;
     if (!agent.ok && agent.code === "not_found") {
       setRead({ agent: null, sessions: [], failed: false });
-    } else if (!agent.ok || !sessions.ok) {
-      setRead((state) => ({ ...state, failed: true }));
-    } else {
-      setRead({ agent: agent.value, sessions: sessions.value, failed: false });
+      return;
     }
+    if (!agent.ok) {
+      setRead((state) => ({ ...state, failed: true }));
+      return;
+    }
+    setRead((state) => ({
+      agent: agent.value,
+      sessions: state.sessions,
+      failed: false,
+    }));
+    const sessions = await sessionsTask;
+    if (token !== sequence.current) return;
+    if (!sessions.ok) {
+      setRead((state) => ({ ...state, failed: true }));
+      return;
+    }
+    setRead({ agent: agent.value, sessions: sessions.value, failed: false });
   }, [source]);
 
   // 이 tab의 agent·자리에서 session이 생기거나 끝나면 목록도 바뀐다. 다른 agent나 자리의 변화에는 다시 읽지 않는다.

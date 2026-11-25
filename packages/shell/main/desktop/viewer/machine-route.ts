@@ -23,7 +23,7 @@ export type MachineLink = {
     body: unknown;
   }): Promise<CoreReply>;
   // That window's (webContents id) whole conditions on this machine; `[]` stops it.
-  watch(owner: number, conditions: WatchConditions): void;
+  watch(owner: number, conditions: WatchConditions): Promise<void> | void;
 };
 
 const NOT_ALLOWED = {
@@ -161,15 +161,17 @@ export function createMachineRoute(): MachineRoute {
       if (channel === CORE_WATCH_CHANNEL) {
         const parsed = coreWatchSchema.safeParse(input);
         if (!parsed.success) return local();
-        const watch = () => {
+        const watch = async () => {
           const link = target(parsed.data.machine as Id<"mch">);
-          if (link === undefined) return void local();
-          if (allowed()) link.watch(contentsId, parsed.data.conditions);
+          if (link === undefined) {
+            await local();
+            return;
+          }
+          if (allowed()) await link.watch(contentsId, parsed.data.conditions);
         };
-        if (selfUnknown(parsed.data.machine)) {
-          void machines!.selfKnown.then(watch);
-        } else watch();
-        return undefined;
+        return selfUnknown(parsed.data.machine)
+          ? machines!.selfKnown.then(watch)
+          : watch();
       }
       return local();
     },

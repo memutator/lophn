@@ -259,6 +259,85 @@ test("팀 자식의 요청과 질문(to_parent)은 사람의 대기 목록에 �
   stop();
 });
 
+test("watch 실패와 starting 전이는 pendingWatches·sentKey를 오염시키지 않고 새 session 구독자가 ready를 받는다", async () => {
+  const listeners = new Set<(message: { kind: "ready" | "closed" }) => void>();
+  const stateListeners = new Set<
+    (state: { state: "starting" | "ready" | "stale"; confirmedAt: number | null }) => void
+  >();
+  let failNext = false;
+  let watches = 0;
+  const client = createEventClient({
+    subscribe: (fn) => {
+      stateListeners.add(fn);
+      return () => {
+        stateListeners.delete(fn);
+      };
+    },
+    call: () => Promise.resolve({ ok: true, value: {} }),
+    watch: () => {
+      watches += 1;
+      if (failNext) {
+        failNext = false;
+        return Promise.reject(new Error("remote watch failed"));
+      }
+      return Promise.resolve();
+    },
+    onEvent: (fn) => {
+      const wrapped = fn as (message: { kind: "ready" | "closed" }) => void;
+      listeners.add(wrapped);
+      return () => {
+        listeners.delete(wrapped);
+      };
+    },
+  });
+
+  const stopBase = client.subscribe({ types: ["StateChanged"] }, () => {});
+  await settle();
+  for (const fn of listeners) fn({ kind: "ready" });
+
+  // 중간 watch 호출이 실패해도 pendingWatches에 유령 항목이 남지 않고 sentKey도 풀려야 한다.
+  failNext = true;
+  let acpReady = 0;
+  const stopAcp = client.subscribe(
+    { session: SES, types: ["AcpUpdated"] },
+    (msg) => {
+      if (msg.kind === "ready") acpReady += 1;
+    },
+  );
+  await settle();
+  assert.equal(watches, 2);
+  assert.equal(acpReady, 0);
+
+  // 같은 조건으로 다시 붙을 때 sentKey가 풀려 있어 watch가 다시 나가고, ready를 받는다.
+  const stopAcp2 = client.subscribe(
+    { session: SES, types: ["AcpUpdated"] },
+    (msg) => {
+      if (msg.kind === "ready") acpReady += 1;
+    },
+  );
+  await settle();
+  assert.equal(watches, 3);
+  for (const fn of listeners) fn({ kind: "ready" });
+  assert.equal(acpReady, 2);
+
+  // 원격 link가 connected→connecting("starting")으로 내려가면 disconnected가 오고, 재연결 ready에서 다시 동기화된다.
+  let disconnected = 0;
+  const stopWatchDisconnect = client.subscribe(
+    { types: ["NoticeClosed"] },
+    (msg) => {
+      if (msg.kind === "disconnected") disconnected += 1;
+    },
+  );
+  await settle();
+  for (const fn of stateListeners) fn({ state: "starting", confirmedAt: null });
+  assert.equal(disconnected, 1);
+
+  stopWatchDisconnect();
+  stopAcp2();
+  stopAcp();
+  stopBase();
+});
+
 test("합친 Inbox의 key는 기계를 붙여 같은 앱 id의 동의가 두 기계에서 하나로 접히지 않는다", () => {
   assert.notEqual(inboxKey(null, REL), inboxKey("mch_other", REL));
   assert.notEqual(inboxKey("mch_a", APP), inboxKey("mch_b", APP));

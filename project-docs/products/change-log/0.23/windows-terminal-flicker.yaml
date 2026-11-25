@@ -1,5 +1,5 @@
 id: windows-terminal-flicker
-version: 0.23.176
+version: 0.23.179
 title: Windows 터미널 문장이 깜빡이며 사라졌다 다시 나타나는 ConPTY·WebGL·catch-up 문제를 고친다
 modules: [packages/core/terminals, packages/shell/renderer]
 change: |

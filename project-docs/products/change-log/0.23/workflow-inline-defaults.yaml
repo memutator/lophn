@@ -1,5 +1,5 @@
 id: workflow-inline-defaults
-version: 0.23.173
+version: 0.23.174
 platform_note: none
 title: Save workflow start settings inline as workflow.yaml defaults
 modules:

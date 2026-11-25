@@ -140,6 +140,8 @@ export type AgentPrimitivePorts = {
   subscribeTurnStarted?(fn: (event: AgentTurnStartedEvent) => void): () => void;
   // 선택: grace window 만료 직전 실행 중인 turn 유무를 재확인한다.
   isTurnRunning?(session: Id<"ses">): boolean | Promise<boolean>;
+  // 선택: 다음 turn을 열 미소비 입력이 대기 중인지 확인한다.
+  hasPendingMessages?(session: Id<"ses">): boolean | Promise<boolean>;
   stopSession(session: Id<"ses">): void | Promise<void>;
   onStalled?(info: AgentStalledInfo): void | Promise<void>;
   clock: Clock;
@@ -480,6 +482,26 @@ export function runAgentPrimitive(
       turnActive = false;
       clearGraceTimer();
 
+      const checkFollowUp = async (): Promise<
+        "running" | "pending" | "none"
+      > => {
+        if (ports.hasPendingMessages !== undefined) {
+          try {
+            if (await ports.hasPendingMessages(session)) return "pending";
+          } catch {
+            // 조회 실패는 아래 판정으로 넘긴다.
+          }
+        }
+        if (ports.isTurnRunning !== undefined) {
+          try {
+            if (await ports.isTurnRunning(session)) return "running";
+          } catch {
+            // 조회 실패는 아래 판정으로 넘긴다.
+          }
+        }
+        return "none";
+      };
+
       if (mode === "turn") {
         if (event.status === "failed") {
           const reason = event.errorReason ?? "model_error";
@@ -503,6 +525,17 @@ export function runAgentPrimitive(
         const open = await readOpenCalls(session);
         if (open === null || settled || turnActive) return;
         if (open === 0) {
+          const followUp = await checkFollowUp();
+          if (settled || turnActive) return;
+          if (followUp === "running") {
+            turnActive = true;
+            return;
+          }
+          if (followUp === "pending") {
+            awaitingOutgoingCalls = true;
+            scheduleSettlementGrace(session);
+            return;
+          }
           finish({
             ok: true,
             result: { summary: event.lastAssistantText ?? "" },
@@ -527,6 +560,17 @@ export function runAgentPrimitive(
         if (callsSettledSeq !== seqBefore) {
           await handleCallsSettled({ session });
         }
+        return;
+      }
+      const followUp = await checkFollowUp();
+      if (settled || turnActive) return;
+      if (followUp === "running") {
+        turnActive = true;
+        return;
+      }
+      if (followUp === "pending") {
+        awaitingOutgoingCalls = true;
+        scheduleSettlementGrace(session);
         return;
       }
       awaitingOutgoingCalls = false;

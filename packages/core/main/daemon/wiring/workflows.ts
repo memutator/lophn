@@ -52,6 +52,7 @@ import {
   type BodyPrepare,
   prepareBytes,
 } from "../../../lophn-agent/session/message-body.ts";
+import { hasUnstartedSessionMessages } from "../../../lophn-agent/session/message-commands.ts";
 import { loadSession } from "../../../lophn-agent/session/model.ts";
 import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import { workspaceDepsOf } from "../../../lophn-agent/workspaces/mod.ts";
@@ -349,6 +350,24 @@ export const workflowsWiring: WiringFactory = () => {
   const callsSettledListeners = new Set<
     (event: AgentCallsSettledEvent) => void
   >();
+  // 같은 session의 TurnStarted/TurnEnded 처리가 비동기 경합으로 역전되지 않도록 직렬화한다.
+  const sessionWork = new Map<Id<"ses">, Promise<void>>();
+  function enqueueSessionWork(
+    session: Id<"ses">,
+    task: () => Promise<void>,
+    onError: (error: unknown) => void,
+  ): void {
+    const prev = sessionWork.get(session) ?? Promise.resolve();
+    const next = prev
+      .then(task)
+      .catch(onError)
+      .finally(() => {
+        if (sessionWork.get(session) === next) {
+          sessionWork.delete(session);
+        }
+      });
+    sessionWork.set(session, next);
+  }
   // 새로 시작된 workflow instance의 AI 제목 생성 대기열(agent-runtime이 가져간다).
   const titleQueue: WorkflowTitleRequest[] = [];
   const MAX_TITLE_QUEUE = 64;
@@ -509,6 +528,12 @@ export const workflowsWiring: WiringFactory = () => {
                 "SELECT 1 AS found FROM turns WHERE session = ? AND state = 'running' LIMIT 1",
                 [session],
               ) !== undefined,
+          );
+          return Promise.resolve(found);
+        },
+        hasPendingMessages(session: Id<"ses">) {
+          const found = ledgerSnapshot(ctx.ledgerPath, (lookup) =>
+            hasUnstartedSessionMessages(lookup.sql, session),
           );
           return Promise.resolve(found);
         },
@@ -1202,6 +1227,10 @@ export const workflowsWiring: WiringFactory = () => {
           const res = await turns.isTurnRunning(session);
           return res.ok ? res.value : false;
         },
+        async hasPendingMessages(session) {
+          const res = await turns.hasPendingMessages(session);
+          return res.ok ? res.value : false;
+        },
         async stopSession(session) {
           await turns.stopSession(session);
         },
@@ -1418,13 +1447,17 @@ export const workflowsWiring: WiringFactory = () => {
             }
             if (event.type === "TurnStarted") {
               const session = event.session as Id<"ses">;
-              void service!.sessionResumed(session).catch((e) => {
-                ctx.telemetry.logger.error({
-                  component: "workflows",
-                  event: "stall_resume_failed",
-                  fields: { error: String(e) },
-                });
-              });
+              enqueueSessionWork(
+                session,
+                () => service!.sessionResumed(session),
+                (e) => {
+                  ctx.telemetry.logger.error({
+                    component: "workflows",
+                    event: "stall_resume_failed",
+                    fields: { error: String(e) },
+                  });
+                },
+              );
               if (turnStartedListeners.size === 0) return;
               const startedEvent: AgentTurnStartedEvent = {
                 session,
@@ -1440,20 +1473,24 @@ export const workflowsWiring: WiringFactory = () => {
               return;
             }
             if (event.type !== "TurnEnded") return;
-            void service!
-              .turnEnded({
-                session: event.session as Id<"ses">,
-                turn: event.payload.turn as Id<"trn">,
-                outcome: event.payload.outcome,
-                error: event.payload.error,
-              })
-              .catch((e) => {
+            const endedSession = event.session as Id<"ses">;
+            enqueueSessionWork(
+              endedSession,
+              () =>
+                service!.turnEnded({
+                  session: endedSession,
+                  turn: event.payload.turn as Id<"trn">,
+                  outcome: event.payload.outcome,
+                  error: event.payload.error,
+                }),
+              (e) => {
                 ctx.telemetry.logger.error({
                   component: "workflows",
                   event: "stall_check_failed",
                   fields: { error: String(e) },
                 });
-              });
+              },
+            );
 
             if (turnEndedListeners.size === 0) return;
             const session = event.session as Id<"ses">;
@@ -1506,13 +1543,17 @@ export const workflowsWiring: WiringFactory = () => {
         (event) => {
           const session = event.session as Id<"ses">;
           if (event.kind === "started") {
-            void service!.sessionResumed(session).catch((e) => {
-              ctx.telemetry.logger.error({
-                component: "workflows",
-                event: "stall_resume_failed",
-                fields: { error: String(e) },
-              });
-            });
+            enqueueSessionWork(
+              session,
+              () => service!.sessionResumed(session),
+              (e) => {
+                ctx.telemetry.logger.error({
+                  component: "workflows",
+                  event: "stall_resume_failed",
+                  fields: { error: String(e) },
+                });
+              },
+            );
             for (const fn of [...turnStartedListeners]) {
               try {
                 fn({ session });
@@ -1540,13 +1581,17 @@ export const workflowsWiring: WiringFactory = () => {
                   message: event.error,
                 }
               : null;
-          void service!.turnEnded({ session, outcome, error }).catch((e) => {
-            ctx.telemetry.logger.error({
-              component: "workflows",
-              event: "stall_check_failed",
-              fields: { error: String(e) },
-            });
-          });
+          enqueueSessionWork(
+            session,
+            () => service!.turnEnded({ session, outcome, error }),
+            (e) => {
+              ctx.telemetry.logger.error({
+                component: "workflows",
+                event: "stall_check_failed",
+                fields: { error: String(e) },
+              });
+            },
+          );
           if (turnEndedListeners.size === 0) return;
           const status =
             event.end === "completed"
@@ -1597,6 +1642,7 @@ export const workflowsWiring: WiringFactory = () => {
       turnEndedListeners.clear();
       turnStartedListeners.clear();
       callsSettledListeners.clear();
+      sessionWork.clear();
     },
   };
 };

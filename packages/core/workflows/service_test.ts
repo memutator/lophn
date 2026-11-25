@@ -190,12 +190,16 @@ test("reconcile marks pre-Phase-4 running flow instance blocked without relaunch
 const SES_A = "ses_01hzzzzzzzzzzzzzzzzzzzzzza" as Id<"ses">;
 const SES_B = "ses_01hzzzzzzzzzzzzzzzzzzzzzzb" as Id<"ses">;
 const TRN_1 = "trn_01hzzzzzzzzzzzzzzzzzzzzzza" as Id<"trn">;
+const TRN_2 = "trn_01hzzzzzzzzzzzzzzzzzzzzzzb" as Id<"trn">;
 const lophnAtWorkspace = { agent: "lophn", workspace: null } as const;
 
 function makeHarness(options?: {
   openCalls?: () => number;
   stepTurn?: () => StepTurn | null;
   resolveOpen?: () => boolean;
+  pendingMessages?: () => boolean;
+  turnRunning?: () => boolean;
+  lastTurn?: () => StepTurn | null;
 }) {
   const db = new DatabaseSync(":memory:");
   db.exec(workflowsSchemaSteps[0]!.sql);
@@ -206,6 +210,9 @@ function makeHarness(options?: {
   let openCalls = options?.openCalls ?? (() => 0);
   let stepTurn = options?.stepTurn ?? (() => null);
   let canResolve = options?.resolveOpen ?? (() => true);
+  let pendingMessages = options?.pendingMessages ?? (() => false);
+  let turnRunning = options?.turnRunning ?? (() => false);
+  let lastTurn = options?.lastTurn ?? (() => null);
   const tx = {
     sql,
     now: () => AT,
@@ -290,6 +297,9 @@ function makeHarness(options?: {
       stopSession: () => Promise.resolve(ok(undefined)),
       stepTurn: () => Promise.resolve(ok(stepTurn())),
       openOutgoingCalls: () => Promise.resolve(ok(openCalls())),
+      hasPendingMessages: () => Promise.resolve(ok(pendingMessages())),
+      isTurnRunning: () => Promise.resolve(ok(turnRunning())),
+      lastTurn: () => Promise.resolve(ok(lastTurn())),
     },
     remote,
     logger,
@@ -352,6 +362,15 @@ function makeHarness(options?: {
     },
     setCanResolve(fn: () => boolean) {
       canResolve = fn;
+    },
+    setPendingMessages(fn: () => boolean) {
+      pendingMessages = fn;
+    },
+    setTurnRunning(fn: () => boolean) {
+      turnRunning = fn;
+    },
+    setLastTurn(fn: () => StepTurn | null) {
+      lastTurn = fn;
     },
   };
 }
@@ -464,8 +483,46 @@ test("turnEnded emits step_stalled once per attempt for non-human steps, skips h
       [],
     );
 
-    // 열린 call이 0개가 된 뒤 실패로 끝나면 실패 이유와 함께 step_stalled를 남긴다.
+    // 열린 call이 0이어도 미소비 대기 메시지·실행 중인 후속 turn·더 새 turn이 있으면 stall로 보지 않는다.
     h.setOpenCalls(() => 0);
+    h.setPendingMessages(() => true);
+    await h.service.turnEnded({
+      session: SES_A,
+      turn: TRN_1,
+      outcome: { kind: "completed", reason: "answer_completed" },
+      error: null,
+    });
+    h.setPendingMessages(() => false);
+    h.setTurnRunning(() => true);
+    await h.service.turnEnded({
+      session: SES_A,
+      turn: TRN_1,
+      outcome: { kind: "completed", reason: "answer_completed" },
+      error: null,
+    });
+    h.setTurnRunning(() => false);
+    h.setLastTurn(() => ({
+      turn: TRN_2,
+      state: "finished",
+      outcome: { kind: "completed", reason: "answer_completed" },
+    }));
+    await h.service.turnEnded({
+      session: SES_A,
+      turn: TRN_1,
+      outcome: { kind: "completed", reason: "answer_completed" },
+      error: null,
+    });
+    assert.deepStrictEqual(
+      h.linesOf(AGENT).filter((l) => l.kind === "step_stalled"),
+      [],
+    );
+
+    // 열린 call·대기 메시지·후속 turn이 모두 없는 상태에서 실패로 끝나면 실패 이유와 함께 step_stalled를 남긴다.
+    h.setLastTurn(() => ({
+      turn: TRN_1,
+      state: "finished",
+      outcome: { kind: "failed", reason: "model_error" },
+    }));
     await h.service.turnEnded({
       session: SES_A,
       turn: TRN_1,

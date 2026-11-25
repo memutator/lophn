@@ -451,6 +451,42 @@ export function unstartedHumanMessages(
     }));
 }
 
+// 그 session에 다음 turn을 열 미소비 입력(worker reply, 사람·program 메시지 등)이 대기 중인지.
+// shell 기록, fork 복사본, rewind로 숨긴 메시지, 이미 닫힌 수신 call은 제외한다.
+export function hasUnstartedSessionMessages(
+  sql: Pick<Sql, "get" | "all">,
+  session: string,
+): boolean {
+  const hasCallsTable =
+    sql.get(
+      "select 1 as found from sqlite_master where type = 'table' and name = 'agent_calls' limit 1",
+      [],
+    ) !== undefined;
+  const rows = sql.all(
+    `select m.created_seq
+     from messages m join sessions s on s.id = m.session
+     where m.session = ? and m.turn is null and s.lifecycle = 'open'
+       and m.shell = 0
+       and (s.forked_from_session is null or m.created_seq > (
+         select max(c.created_seq) from messages c
+         where c.session = s.id and c.turn is not null))
+       ${
+         hasCallsTable
+           ? `and not (
+         m.call is not null and m.reply_to is null
+         and exists (
+           select 1 from agent_calls ac
+           where ac.call = m.call and ac.state <> 'accepted'
+         ))`
+           : ""
+       }`,
+    [session],
+  );
+  if (rows.length === 0) return false;
+  const hidden = hiddenRanges({ sql }, session);
+  return rows.some((row) => !inHiddenRange(hidden, String(row["created_seq"])));
+}
+
 // 사람의 단추 한 번으로 새 session을 여는 요청이다(request.ts). Router가 session을 열고 입력을 넣은 뒤
 // 그 session에 사람 메시지를 쓴다.
 

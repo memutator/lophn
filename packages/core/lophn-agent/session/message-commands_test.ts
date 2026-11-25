@@ -7,6 +7,7 @@ import { ok } from "../../../base/mod.ts";
 import type { RequestContext, Tx } from "../../../protocol/server/mod.ts";
 import {
   createMessageCommands,
+  hasUnstartedSessionMessages,
   unstartedHumanMessages,
 } from "./message-commands.ts";
 import { receivedParts } from "../run-loop/input-text.ts";
@@ -82,6 +83,18 @@ test("재시작 때 되돌리는 사람 메시지는 turn이 가져가지 않은
     unstartedHumanMessages(sql).map((item) => item.id),
     ["m_queued", "m_own_queued"],
   );
+  // agent reply 등 turn이 아직 소비하지 않은 세션 입력을 감지하고 shell·fork 복사본·닫힌 세션은 제외한다.
+  assert.equal(hasUnstartedSessionMessages(sql, "ses_plain"), true);
+  assert.equal(hasUnstartedSessionMessages(sql, "ses_archived"), false);
+  assert.equal(hasUnstartedSessionMessages(sql, "ses_fork"), true);
+  assert.equal(hasUnstartedSessionMessages(sql, "ses_fork_idle"), false);
+
+  session("ses_reply_only", false);
+  message("m_prev", "ses_reply_only", "trn_1");
+  message("m_shell", "ses_reply_only", null, "human", 0, 1);
+  assert.equal(hasUnstartedSessionMessages(sql, "ses_reply_only"), false);
+  message("m_agent_reply", "ses_reply_only", null, "agent");
+  assert.equal(hasUnstartedSessionMessages(sql, "ses_reply_only"), true);
 });
 
 // 실패로 닫힌 run의 입력이 켤 때 다시 돌면 attended turn이 생겨 바깥 효과가 두 번 난다.

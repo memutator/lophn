@@ -2448,8 +2448,8 @@ export function createWorkflowService(deps: {
       }
     },
 
-    // local non-human step을 받은 session의 turn이 끝났을 때, 명시적 완료 report도 열린 하위 call도 없으면
-    // 넘김/retry 시도당 최대 한 번 step_stalled 줄을 남긴다.
+    // local non-human step을 받은 session의 turn이 끝났을 때, 명시적 완료 report·열린 하위 call·
+    // 대기 중 입력·후속 turn이 모두 없으면 넘김/retry 시도당 최대 한 번 step_stalled 줄을 남긴다.
     async turnEnded(event: {
       session: Id<"ses">;
       turn?: Id<"trn">;
@@ -2491,6 +2491,34 @@ export function createWorkflowService(deps: {
           continue;
         }
         if (open.value > 0) continue;
+        // 직전 turn 실행 중 마지막 worker 응답 등이 도착해 대기 중이거나 이미 후속 turn이 열렸으면 stall이 아니다.
+        // 상태 전이(open call -> pending message -> running turn -> newer turn) 순서대로 확인해 틈을 없앤다.
+        if (turns.hasPendingMessages !== undefined) {
+          const pending = await turns.hasPendingMessages(event.session);
+          if (!pending.ok) {
+            skip(item.id, pending.error.code);
+            continue;
+          }
+          if (pending.value) continue;
+        }
+        if (turns.isTurnRunning !== undefined) {
+          const active = await turns.isTurnRunning(event.session);
+          if (!active.ok) {
+            skip(item.id, active.error.code);
+            continue;
+          }
+          if (active.value) continue;
+        }
+        if (event.turn !== undefined && turns.lastTurn !== undefined) {
+          const latest = await turns.lastTurn(event.session);
+          if (!latest.ok) {
+            skip(item.id, latest.error.code);
+            continue;
+          }
+          if (latest.value !== null && latest.value.turn !== event.turn) {
+            continue;
+          }
+        }
         let alreadyResolved = false;
         const done = await apply(item.id, (freshState) => {
           const step = stalledStepFor(freshState, event.session);

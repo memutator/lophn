@@ -104,6 +104,8 @@ export type WorkflowTurns = {
   lastTurn?(session: Id<"ses">): Promise<Result<StepTurn | null>>;
   // 선택: 그 session에 실행 중인 turn이 있는지.
   isTurnRunning?(session: Id<"ses">): Promise<Result<boolean>>;
+  // 선택: 그 session에 다음 turn을 열 미소비 메시지가 대기 중인지.
+  hasPendingMessages?(session: Id<"ses">): Promise<Result<boolean>>;
 };
 
 // 세 command를 machine 자격으로 부른다.

@@ -38,6 +38,7 @@ function createHarness(options?: {
   handOffResult?: AgentHandOffResult;
   openCalls?: number;
   running?: boolean;
+  pendingMessages?: boolean;
 }) {
   const clock = manualClock(START_MS);
   const scheduled = new Map<number, { dueMs: number; fn: () => void }>();
@@ -74,6 +75,7 @@ function createHarness(options?: {
   const stalledCalls: AgentStalledInfo[] = [];
   let openCalls = options?.openCalls ?? 0;
   let running = options?.running ?? false;
+  let pendingMessages = options?.pendingMessages ?? false;
 
   const ports: AgentPrimitivePorts = {
     async handOff(input) {
@@ -103,6 +105,7 @@ function createHarness(options?: {
       return () => reportListeners.delete(fn);
     },
     isTurnRunning: () => running,
+    hasPendingMessages: () => pendingMessages,
     stopSession(session) {
       stoppedSessions.push(session);
     },
@@ -127,6 +130,9 @@ function createHarness(options?: {
     },
     setRunning(v: boolean) {
       running = v;
+    },
+    setPendingMessages(v: boolean) {
+      pendingMessages = v;
     },
     emitTurnStarted(e: AgentTurnStartedEvent) {
       for (const fn of [...turnStartedListeners]) fn(e);
@@ -502,4 +508,70 @@ test("countOpenOutgoingCalls counts accepted non-ask outgoing calls for a sessio
   } finally {
     db.close();
   }
+});
+
+test("handleTurnEnded waits when openCalls is 0 but a reply is pending or follow-up turn is already running", async () => {
+  // 1) mode: "report" — 직전 turn 중 마지막 worker가 끝나 openCalls=0이고 응답이 대기 중이면 stall하지 않는다.
+  const rep = createHarness({ openCalls: 0, pendingMessages: true });
+  const repPending = runAgentPrimitive(rep.ports, {
+    agent: { agent: "lead" },
+    prompt: "research",
+    mode: "report",
+    origin: ORIGIN,
+  });
+  await rep.flush();
+  rep.emitTurnEnded({
+    session: SES_1,
+    status: "completed",
+    lastAssistantText: "intermediate turn",
+  });
+  await rep.flush();
+  assert.strictEqual(rep.stalledCalls.length, 0);
+
+  // 후속 turn 시작 후 report로 정상 종료한다.
+  rep.setPendingMessages(false);
+  rep.setRunning(true);
+  rep.emitTurnStarted({ session: SES_1 });
+  await rep.advance(500);
+  assert.strictEqual(rep.stalledCalls.length, 0);
+  rep.emitReport({
+    instance: WFI,
+    step: "review",
+    session: SES_1,
+    summary: "done",
+  });
+  const repOutcome = await repPending;
+  assert.strictEqual(repOutcome.ok, true);
+
+  // 2) mode: "turn" — 후속 turn이 이미 실행 중이면 직전 turn 텍스트로 조기 완료하지 않는다.
+  const turnH = createHarness({ openCalls: 0, running: true });
+  const turnPending = runAgentPrimitive(turnH.ports, {
+    agent: { agent: "lead" },
+    prompt: "summarize",
+    origin: ORIGIN,
+  });
+  await turnH.flush();
+  let resolved = false;
+  void turnPending.then(() => {
+    resolved = true;
+  });
+  turnH.emitTurnEnded({
+    session: SES_1,
+    status: "completed",
+    lastAssistantText: "still waiting on last worker",
+  });
+  await turnH.flush();
+  assert.strictEqual(resolved, false);
+
+  turnH.setRunning(false);
+  turnH.emitTurnEnded({
+    session: SES_1,
+    status: "completed",
+    lastAssistantText: "final synthesis",
+  });
+  const turnOutcome = await turnPending;
+  assert.deepStrictEqual(turnOutcome, {
+    ok: true,
+    result: { summary: "final synthesis" },
+  });
 });

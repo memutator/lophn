@@ -1,0 +1,30 @@
+id: workflow-stall-pending-followup
+version: 0.23.170
+platform_note: none
+title: Avoid false workflow step_stalled when worker reply is queued or follow-up turn started
+modules:
+  - packages/core/lophn-agent
+  - packages/core/workflows
+  - packages/core/main
+change: |
+  Workflow stall detection (`workflows.turnEnded`) and `agent-primitive` (`handleTurnEnded`) now check
+  for pending unconsumed session messages (`hasUnstartedSessionMessages`), an already-running turn
+  (`isTurnRunning`), and a newer turn (`lastTurn !== event.turn`) when `openOutgoingCalls === 0`,
+  instead of immediately marking `step_stalled` or prematurely completing `mode: "turn"`.
+  In `wiring/workflows.ts`, `TurnStarted` (`sessionResumed`) and `TurnEnded` (`turnEnded`) handling
+  is also serialized per session so an older `TurnEnded` cannot record `step_stalled` after the
+  follow-up `TurnStarted` has already passed.
+why: |
+  When the last spawned worker finished while the lead session's previous turn was still running,
+  its `agent_call` transitioned to `done` and its reply was queued in `messages` before that turn
+  ended. When the previous turn ended, `openOutgoingCalls` was already 0 while the follow-up
+  synthesis turn started milliseconds later, causing the async `TurnEnded` handler to write
+  `step_stalled` after `TurnStarted` had already run and leaving an actively progressing step
+  marked `blocked`.
+decisions:
+  - text: |
+      Check pending work in strict state-transition order (`openOutgoingCalls` -> `hasPendingMessages`
+      -> `isTurnRunning` -> `lastTurn !== event.turn`) and serialize `TurnStarted`/`TurnEnded` per
+      session in workflows wiring. Rejected: adding an arbitrary sleep/grace delay to YAML
+      `turnEnded`, which only narrows the race window instead of closing it.
+    by: agent

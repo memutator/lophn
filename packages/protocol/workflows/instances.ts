@@ -87,6 +87,7 @@ export const workflowInstanceSchema = z
     id: idSchema("wfi"),
     project: idSchema("prj"),
     workflow: workflowNameSchema,
+    title: z.string().nullable().optional(),
     input: z.string(),
     inputs: workflowInputValuesSchema.optional(),
     state: workflowStateSchema,
@@ -348,6 +349,7 @@ export type WorkflowCheckpoint = z.infer<typeof workflowCheckpointSchema>;
 export const workflowChildSummarySchema = z.object({
   instance: idSchema("wfi"),
   workflow: workflowNameSchema,
+  title: z.string().nullable().optional(),
   state: workflowStateSchema,
   derived_status: derivedStatusSchema,
   started_at: atSchema,
@@ -420,6 +422,7 @@ export const workflowInstanceSummarySchema = z.object({
   id: idSchema("wfi"),
   project: idSchema("prj"),
   workflow: workflowNameSchema,
+  title: z.string().nullable().optional(),
   state: workflowStateSchema,
   current: currentSchema,
   input: z.string(),

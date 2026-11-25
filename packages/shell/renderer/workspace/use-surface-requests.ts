@@ -3,7 +3,7 @@
 // retry로 되돌린다). 열린 탭의 key는 `host:<tab id>`다. core 탭 표에 있는 탭(agent가 연 탭, 사람이 넘긴 탭)의 id는
 // `hostTabOf()`로만 찾고, 그 탭의 닫힘(넘긴 탭은 되찾음도)은 main을 거쳐 core에 알린다.
 import { useEffect, useRef, useState } from "react";
-
+import type { TabRelation } from "../../../protocol/lophn-agent/host-queue.ts";
 import { type LophnSurfaceApi, SURFACE_RELEASE_ID } from "../../ipc/surface.ts";
 import type { PendingHost } from "../app-frame/workspace-views.tsx";
 import {
@@ -11,18 +11,17 @@ import {
   type WorkspaceRef,
   workspaceKey,
 } from "../shell/desk-model.ts";
+import { closeTerminalTab } from "../terminal/deps.ts";
 import { sessionOf } from "./agent/tab-fields.ts";
+import { takeBack } from "./hand.ts";
 import type { SessionTabOpen } from "./kinds/agent.tsx";
 import { appPreviewTab } from "./kinds/app-preview.tsx";
 import { artifactTab } from "./kinds/artifact.tsx";
 import { openBrowserTab } from "./kinds/browser.tsx";
 import type { TabHost } from "./kinds/host.ts";
 import { openTerminal } from "./kinds/terminal.tsx";
-import { takeBack } from "./hand.ts";
 import { hostTabOf, type TabItem } from "./model.ts";
-import { closeTerminalTab } from "../terminal/deps.ts";
 import { type AgentOpen, openAt } from "./open-policy.ts";
-import type { TabRelation } from "../../../protocol/lophn-agent/host-queue.ts";
 
 const HOST_KEY = "host:";
 
@@ -36,6 +35,7 @@ function placementOf(
   target: AgentOpen["target"],
   owner: string | undefined,
   desk?: string,
+  deskWorkflow?: string,
   group?: string,
 ): SessionTabOpen {
   const sourceTab =
@@ -62,6 +62,7 @@ function placementOf(
             beside: at.beside,
             relation: at.relation,
             ...(targetDesk === undefined ? {} : { desk: targetDesk }),
+            ...(deskWorkflow === undefined ? {} : { deskWorkflow }),
             ...(group === undefined ? {} : { group }),
           }
         : { minimized: at.minimized === true }),
@@ -217,6 +218,7 @@ export function useSurfaceRequests(args: Args): void {
         source,
         Object.keys(target)[0] as AgentOpen["target"],
         owner,
+        desk?.instance ?? desk?.workflow,
         desk?.workflow,
         group,
       );

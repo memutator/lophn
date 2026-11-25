@@ -171,7 +171,7 @@ import {
   whereInDesk,
   workspaceKey,
 } from "../shell/desk-model.ts";
-import { DeskSwitcher } from "../shell/desk-switcher.tsx";
+import { type DeskOption, DeskSwitcher } from "../shell/desk-switcher.tsx";
 import { FloatLayer } from "../shell/float-layer.tsx";
 import {
   canGoGlobal,
@@ -208,7 +208,10 @@ import { TrayHost } from "../shell/tray/tray.tsx";
 import { useMachineLists } from "../shell/use-left-sidebar.ts";
 import { type TerminalDeps, terminalLive } from "../terminal/deps.ts";
 import { isLiveAgent } from "../terminal/store.ts";
-import { workflowDeskStatus } from "../workflow/model.ts";
+import {
+  instanceTitle,
+  workflowInstanceDeskStatus,
+} from "../workflow/model.ts";
 import { NewTabMenu } from "./add-tab-menu.tsx";
 import { agentOf, sessionOf } from "./agent/tab-fields.ts";
 import { lophnIdAt } from "./agents/agent-key.ts";
@@ -259,7 +262,7 @@ import {
   syncTerminalTab,
   terminalRefOf,
 } from "./kinds/terminal.tsx";
-import { openWorkflow } from "./kinds/workflow.tsx";
+import { openWorkflow, openWorkflowInstance } from "./kinds/workflow.tsx";
 import { clampFloatRect, hostTabOf } from "./model.ts";
 import { NoticeCard } from "./notice-card.tsx";
 import { openTabWithGroup } from "./open-policy.ts";
@@ -540,10 +543,12 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
   const [workflowList, setWorkflowList] = useState<ReadResult<
     readonly WorkflowEntryView[]
   > | null>(null);
-  // title bar DeskSwitcher가 workflow desk별 진행 상태를 보일 때 쓰는 실행 중 instance 목록.
+  // title bar DeskSwitcher가 workflow instance desk별 진행 상태와 제목을 보일 때 쓰는 실행 중 instance 목록.
   const [runningWorkflows, setRunningWorkflows] = useState<
     readonly WorkflowInstanceSummaryView[]
   >([]);
+  const runningWorkflowsRef = useRef(runningWorkflows);
+  runningWorkflowsRef.current = runningWorkflows;
   // desk마다 tab 줄·split·float·detached가 하나씩 있다. 화면이 그리고 고치는 것은 보이는 desk뿐이다.
   const [layout, setLayout] = useState<WorkspaceLayout>(defaultWorkspaceLayout);
   const desk = activeDesk(layout);
@@ -1018,6 +1023,41 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
   }, [workspaceId, source, readyWorkspace, readRunningWorkflows]);
   useStateChanged(["workflow_instances"], readRunningWorkflows);
 
+  // AI 제목 생성이나 Run 화면 rename으로 instance 제목이 바뀌면 열린 instance desk 이름과 run 탭 제목을 맞춘다.
+  useEffect(() => {
+    if (runningWorkflows.length === 0) return;
+    let next = latestLayout.current;
+    let changed = false;
+    for (const item of runningWorkflows) {
+      const existing = next.desks[item.id];
+      if (existing === undefined) continue;
+      const title = instanceTitle(item);
+      if (title === "") continue;
+      const runTabKey = `workflow-instance:${item.id}`;
+      const needsDesk =
+        existing.label !== title ||
+        existing.workflow !== item.workflow ||
+        existing.workflowInstance !== item.id;
+      const needsTab = existing.tabs.some(
+        (tab) => tab.key === runTabKey && tab.title !== title,
+      );
+      if (!needsDesk && !needsTab) continue;
+      next = updateDesk(next, item.id, (d) => ({
+        ...d,
+        label: title,
+        workflow: item.workflow,
+        workflowInstance: item.id,
+        tabs: needsTab
+          ? d.tabs.map((tab) =>
+              tab.key === runTabKey ? { ...tab, title } : tab,
+            )
+          : d.tabs,
+      }));
+      changed = true;
+    }
+    if (changed) commitRef.current(next, true, true);
+  }, [runningWorkflows]);
+
   // workflow 이름 변경·삭제 event는 workflow 목록을 다시 읽기 전에 layout desk를 원자적으로 맞춰
   // rename된 workflow desk가 `mergeVanished`로 Main에 합쳐지지 않게 한다.
   const readWorkflowsRef = useRef(readWorkflows);
@@ -1101,6 +1141,27 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     } else updateAt(found.desk, (item) => closeTab(item, key));
   };
 
+  // 없는 workflow(정의 또는 instance) desk를 만든다. instance id(`wfi_...`)면 running 목록이나 hint에서 workflow 이름과 제목을 채운다.
+  const addWorkflowOrInstanceDesk = (
+    all: WorkspaceLayout,
+    key: string,
+    hint?: { readonly workflow?: string; readonly label?: string },
+  ): WorkspaceLayout => {
+    if (key.startsWith("wfi_")) {
+      const running = runningWorkflowsRef.current.find(
+        (item) => item.id === key,
+      );
+      const workflowName = hint?.workflow ?? running?.workflow;
+      const label =
+        (running !== undefined ? instanceTitle(running) : "") ||
+        hint?.label ||
+        workflowName ||
+        key;
+      return addDesk(all, key, label, workflowName, key);
+    }
+    return addDesk(all, key, key, key);
+  };
+
   // 탭을 desk 끝에 붙이고 고른다. 같은 key가 어느 desk에 있으면 새로 붙이지 않고 그 desk로 건너가 고른다
   // (탭 key는 작업대 안에서 유일하다). preview 탭은 그 desk의 preview 자리를 바꿔 쓴다.
   // `select: false`면 붙이기만 하고 보던 탭을 그대로 둔다.
@@ -1108,6 +1169,15 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     const all = latestLayout.current;
     const found = findTab(all, tab.key);
     const select = options?.select !== false;
+    const tabWorkflowHint =
+      options?.deskWorkflow ??
+      (typeof tab.fields?.workflow === "string"
+        ? tab.fields.workflow
+        : undefined);
+    const tabLabelHint =
+      tab.kind === "workflow" && tab.title.trim() !== ""
+        ? tab.title
+        : undefined;
     if (!select) {
       if (found !== null) return;
       const open = (item: Desk) =>
@@ -1124,7 +1194,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
           },
           groupHints.current,
         );
-      // 지정된 desk가 있으면 `after`보다 먼저 따른다. workflow desk가 아직 없으면 homeDesk와 같이 만들어 붙인다(Main으로 떨어지지 않는다).
+      // 지정된 desk가 있으면 `after`보다 먼저 따른다. workflow(또는 instance) desk가 아직 없으면 homeDesk와 같이 만들어 붙인다(Main으로 떨어지지 않는다).
       // 그 밖에는 source(`after`)가 다른 desk에 있어도 보는 desk를 바꾸지 않고 그 desk에 붙인다.
       const at =
         options?.after === undefined
@@ -1143,7 +1213,10 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
         ) {
           commit(
             updateDesk(
-              addDesk(all, requested, requested, requested),
+              addWorkflowOrInstanceDesk(all, requested, {
+                workflow: tabWorkflowHint,
+                label: tabLabelHint,
+              }),
               requested,
               open,
             ),
@@ -1155,7 +1228,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
       else update(open);
       return;
     }
-    // 사는 desk가 있는 탭(workflow)이나 지정된 workflow desk는 그 desk로 건너가서 연다(없는 desk는 만든다). 이미 어느 desk에 열려 있으면 그 desk가 먼저다.
+    // 사는 desk가 있는 탭(workflow)이나 지정된 workflow(또는 instance) desk는 그 desk로 건너가서 연다(없는 desk는 만든다). 이미 어느 desk에 열려 있으면 그 desk가 먼저다.
     const home = tabKindOf(tab.kind)?.homeDesk?.(tab);
     const workflowDesk =
       home ??
@@ -1179,7 +1252,10 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
       workflowDesk !== undefined &&
       found === null &&
       !Object.hasOwn(all.desks, workflowDesk)
-        ? addDesk(all, workflowDesk, workflowDesk, workflowDesk)
+        ? addWorkflowOrInstanceDesk(all, workflowDesk, {
+            workflow: tabWorkflowHint,
+            label: tabLabelHint,
+          })
         : all;
     // detached 탭은 그 창을 앞으로 가져올 뿐 붙이지 않는다. 다른 desk의 것이면 그 desk로 건너간다.
     if (found?.where === "detached") {
@@ -1518,21 +1594,27 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
         ? undefined
         : agentRow(entry, sidebarAgents.agents, workspace);
     if (row === undefined || agentViewSource === undefined) return false;
-    const workflowDesk =
+    const workflowOrigin =
       open?.options?.desk === undefined &&
       entry?.workflowOrigin != null &&
       workspace.kind === "project" &&
       workspace.id === entry.workflowOrigin.project
-        ? entry.workflowOrigin.workflow
+        ? entry.workflowOrigin
         : undefined;
     return openAgent(host, {
       agent: row.assignment,
       name: row.name,
       session,
       ...open,
-      ...(workflowDesk === undefined
+      ...(workflowOrigin === undefined
         ? {}
-        : { options: { ...open?.options, desk: workflowDesk } }),
+        : {
+            options: {
+              ...open?.options,
+              desk: workflowOrigin.instance,
+              deskWorkflow: workflowOrigin.workflow,
+            },
+          }),
     });
   };
 
@@ -2748,7 +2830,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
         if (
           own !== undefined &&
           own.key !== MAIN_DESK &&
-          own.workflow === undefined
+          (own.workflow === undefined || own.workflowInstance !== undefined)
         ) {
           setDeskRenameAsk((count) => count + 1);
         }
@@ -3382,50 +3464,145 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     );
   };
 
-  const deskOptions = [
-    ...Object.values(layout.desks).map((item) => {
-      const flowStatus =
-        item.workflow === undefined
-          ? undefined
-          : workflowDeskStatus(item.workflow, runningWorkflows);
-      return {
+  // divider 위(Desks): Main·사용자 desk + 실행 중인 workflow instance + 아직 열려 있는 끝난 instance desk.
+  // divider 아래(Workflows): 프로젝트의 모든 workflow 정의(class).
+  const runningIds = new Set(runningWorkflows.map((item) => item.id));
+  const ownDeskOptions: DeskOption[] = Object.values(layout.desks)
+    .filter(
+      (item) =>
+        item.workflow === undefined && item.workflowInstance === undefined,
+    )
+    .map((item) => ({
+      key: item.key,
+      label: item.label,
+      section: "desks",
+      workflow: false,
+      renameable: item.key !== MAIN_DESK,
+      deletable: item.key !== MAIN_DESK,
+    }));
+  const runningInstanceOptions: DeskOption[] = runningWorkflows.map((inst) => ({
+    key: inst.id,
+    label: instanceTitle(inst),
+    section: "desks",
+    workflow: true,
+    subtitle: inst.workflow,
+    ...(workflowInstanceDeskStatus(inst) ?? {}),
+    renameable: true,
+    deletable: false,
+  }));
+  const finishedInstanceOptions: DeskOption[] = Object.values(layout.desks)
+    .filter(
+      (item) =>
+        item.workflowInstance !== undefined &&
+        !runningIds.has(item.workflowInstance),
+    )
+    .map((item) => ({
+      key: item.key,
+      label: item.label,
+      section: "desks",
+      workflow: true,
+      ...(item.workflow === undefined ? {} : { subtitle: item.workflow }),
+      renameable: true,
+      deletable: true,
+    }));
+  const definitionNames = new Set<string>();
+  const workflowClassOptions: DeskOption[] = [];
+  if (workflowList?.ok === true) {
+    for (const entry of workflowList.value) {
+      definitionNames.add(entry.name);
+      workflowClassOptions.push({
+        key: entry.name,
+        label: entry.name,
+        section: "workflows",
+        workflow: true,
+        renameable: false,
+        deletable: false,
+      });
+    }
+  }
+  for (const item of Object.values(layout.desks)) {
+    if (
+      item.workflow !== undefined &&
+      item.workflowInstance === undefined &&
+      !definitionNames.has(item.key)
+    ) {
+      definitionNames.add(item.key);
+      workflowClassOptions.push({
         key: item.key,
         label: item.label,
-        workflow: item.workflow !== undefined,
-        ...(flowStatus === undefined ? {} : flowStatus),
-        manageable: item.key !== MAIN_DESK && item.workflow === undefined,
-      };
-    }),
-    // 목록에 있지만 아직 desk가 없는 workflow. 고르면 desk를 만들고 그 workflow 탭을 연다.
-    ...(workflowList?.ok === true
-      ? workflowList.value
-          .filter((entry) => !Object.hasOwn(layout.desks, entry.name))
-          .map((entry) => ({
-            key: entry.name,
-            label: entry.name,
-            workflow: true,
-            ...(workflowDeskStatus(entry.name, runningWorkflows) ?? {}),
-          }))
-      : []),
+        section: "workflows",
+        workflow: true,
+        renameable: false,
+        deletable: false,
+      });
+    }
+  }
+  const deskOptions: DeskOption[] = [
+    ...ownDeskOptions,
+    ...runningInstanceOptions,
+    ...finishedInstanceOptions,
+    ...workflowClassOptions,
   ];
-  // DeskSwitcher의 순서와 같다: 사람이 만든 desk, 그다음 workflow desk.
-  const deskOrder = [
-    ...deskOptions.filter((item) => !item.workflow),
-    ...deskOptions.filter((item) => item.workflow),
-  ];
+  // DeskSwitcher의 순서와 같다: Desks(Main·사용자 desk·instance desk), 그다음 Workflows(정의).
+  const deskOrder = deskOptions;
   const requestCloseDesk = (key: string) => {
     const gone = latestLayout.current.desks[key];
-    if (
-      gone !== undefined &&
-      key !== MAIN_DESK &&
-      gone.workflow === undefined
-    ) {
+    if (gone === undefined || key === MAIN_DESK) return;
+    const isCustom = gone.workflow === undefined;
+    const isFinishedInstance =
+      gone.workflowInstance !== undefined &&
+      !runningIds.has(gone.workflowInstance);
+    if (isCustom || isFinishedInstance) {
       setClosingDesk(key);
     }
   };
   const selectDesk = (key: string) => {
+    const running = runningWorkflowsRef.current.find((item) => item.id === key);
+    if (running !== undefined) {
+      const existing = latestLayout.current.desks[key];
+      if (existing !== undefined && existing.tabs.length > 0) {
+        switchDesk(key);
+      } else {
+        openWorkflowInstance(
+          host,
+          running.workflow,
+          running.id,
+          instanceTitle(running),
+        );
+      }
+      return;
+    }
     if (Object.hasOwn(latestLayout.current.desks, key)) switchDesk(key);
     else openWorkflow(host, key);
+  };
+  const renameDeskOrInstance = (key: string, label: string) => {
+    const trimmed = label.trim();
+    if (trimmed === "") return;
+    const existing = latestLayout.current.desks[key];
+    const instanceId =
+      existing?.workflowInstance ?? (key.startsWith("wfi_") ? key : undefined);
+    if (existing !== undefined) {
+      const runTabKey =
+        instanceId === undefined ? null : `workflow-instance:${instanceId}`;
+      let next = renameDesk(latestLayout.current, key, trimmed);
+      if (runTabKey !== null) {
+        next = updateDesk(next, key, (d) => ({
+          ...d,
+          tabs: d.tabs.map((tab) =>
+            tab.key === runTabKey ? { ...tab, title: trimmed } : tab,
+          ),
+        }));
+      }
+      commit(next);
+    }
+    if (instanceId !== undefined) {
+      setRunningWorkflows((prev) =>
+        prev.map((item) =>
+          item.id === instanceId ? { ...item, title: trimmed } : item,
+        ),
+      );
+      void source.renameWorkflowInstance?.(instanceId, trimmed);
+    }
   };
   const newDesk = () => {
     const all = latestLayout.current;
@@ -3827,9 +4004,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
                     current={layout.active}
                     onSelect={selectDesk}
                     onNewDesk={newDesk}
-                    onRename={(key, label) =>
-                      commit(renameDesk(latestLayout.current, key, label))
-                    }
+                    onRename={renameDeskOrInstance}
                     onDelete={requestCloseDesk}
                     renameAsk={deskRenameAsk}
                   />

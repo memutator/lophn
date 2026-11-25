@@ -43,6 +43,7 @@ import {
 } from "../../../projects/lookups.ts";
 import { openConnection } from "../../../storage/ledger/mod.ts";
 import { WORKFLOW_OPEN_MODE_SCHEMA_STEP } from "../../../workflows/open-mode-schema.ts";
+import { WORKFLOW_TITLE_SCHEMA_STEP } from "../../../workflows/title-schema.ts";
 import { createProductRedactor, type WiringFactory } from "./context.ts";
 
 const key = (route: { resource: string; method: string }) =>
@@ -90,6 +91,7 @@ export const projectCommandsWiring: WiringFactory = () => {
     schemaStepsAfterTeams: [
       ...PROJECT_COMMANDS_SCHEMA_STEPS,
       WORKFLOW_OPEN_MODE_SCHEMA_STEP,
+      WORKFLOW_TITLE_SCHEMA_STEP,
     ],
     operations: () => [
       {

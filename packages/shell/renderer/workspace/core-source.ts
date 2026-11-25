@@ -6,6 +6,7 @@
 
 import { jobList } from "../../../protocol/jobs/jobs.ts";
 import { projectApi } from "../../../protocol/projects/project-api.ts";
+import { workflowInstanceRename } from "../../../protocol/workflows/commands.ts";
 import {
   workflowDelete,
   workflowExport,
@@ -441,6 +442,7 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
             id: entry.id,
             project: entry.project,
             workflow: entry.workflow,
+            ...(entry.title === undefined ? {} : { title: entry.title }),
             state: entry.state,
             current: entry.current,
             input: entry.input,
@@ -521,11 +523,34 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
       if (!reply.ok) {
         return { ok: false, message: reply.error?.code ?? "internal" };
       }
+      const started = reply.value as {
+        instance: { id: string; title?: string | null };
+      };
       return {
         ok: true,
         value: {
-          instance: (reply.value as { instance: { id: string } }).instance.id,
+          instance: started.instance.id,
+          ...(started.instance.title === undefined
+            ? {}
+            : { title: started.instance.title }),
         },
+      };
+    },
+
+    async renameWorkflowInstance(instance, title) {
+      const reply = await core.call(
+        commandCall(workflowInstanceRename, {
+          input: { instance, title },
+          compare: {},
+          key: `wfi-rename-${crypto.randomUUID()}`,
+        }),
+      );
+      if (!reply.ok) {
+        return { ok: false, message: reply.error?.code ?? "internal" };
+      }
+      return {
+        ok: true,
+        value: { title: (reply.value as { title: string }).title },
       };
     },
 

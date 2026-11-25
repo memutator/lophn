@@ -189,6 +189,7 @@ export interface WorkflowCheckpointView {
 export interface WorkflowChildSummaryView {
   readonly instance: string;
   readonly workflow: string;
+  readonly title?: string | null;
   readonly state: WorkflowState;
   readonly derived_status: WorkflowDerivedStatus;
   readonly started_at: string;
@@ -311,6 +312,7 @@ export interface WorkflowInstanceView {
   readonly id: string;
   readonly project: string;
   readonly workflow: string;
+  readonly title?: string | null;
   readonly input: string;
   readonly inputs?: Readonly<Record<string, unknown>>;
   readonly state: WorkflowState;
@@ -352,6 +354,7 @@ export interface WorkflowInstanceSummaryView {
   readonly id: string;
   readonly project: string;
   readonly workflow: string;
+  readonly title?: string | null;
   readonly state: WorkflowState;
   readonly current: WorkflowInstanceView["current"];
   readonly input: string;
@@ -463,7 +466,12 @@ export interface WorkspaceSource {
     inputs?: Record<string, unknown>;
     open?: "tab" | "background";
     step_open?: Record<string, "tab" | "background">;
-  }): Promise<ReadResult<{ instance: string }>>;
+  }): Promise<ReadResult<{ instance: string; title?: string | null }>>;
+  /** workflow instance의 제목을 바꾼다. */
+  renameWorkflowInstance?(
+    instance: string,
+    title: string,
+  ): Promise<ReadResult<{ title: string }>>;
   stopWorkflow(instance: string): Promise<ReadResult<null>>;
   /** 막힌 step을 같은 session에서 이어서 다시 시도한다. step을 빼면 current step이다. */
   retryWorkflowStep(instance: string, step?: string): Promise<ReadResult<null>>;

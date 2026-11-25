@@ -13,7 +13,10 @@ import {
 import type { TerminalAgentSession } from "../../../protocol/coding-agent/terminals.ts";
 import type { SidebarAgent } from "../workspace/sidebar/sidebar-agent.ts";
 import type { TabItem } from "./desk-model.ts";
-import type { LayoutDesks } from "./left-sidebar-workspaces.ts";
+import type {
+  LayoutDesks,
+  SidebarWaitingWorkflow,
+} from "./left-sidebar-workspaces.ts";
 
 export interface SidebarValues {
   readonly agents: readonly SidebarAgent[];
@@ -27,8 +30,8 @@ export interface SidebarValues {
   readonly elsewhereDesks: ReadonlyMap<string, LayoutDesks>;
   /** project id → main이 저장한 coding agent session. */
   readonly savedTerminals: ReadonlyMap<string, readonly TerminalAgentSession[]>;
-  /** project id → 사람 차례를 기다리는 workflow 이름. */
-  readonly workflows: ReadonlyMap<string, readonly string[]>;
+  /** project id → 사람 차례를 기다리는 workflow instance. */
+  readonly workflows: ReadonlyMap<string, readonly SidebarWaitingWorkflow[]>;
   /** 펼친 Recent의 workspace key. */
   readonly recentExpanded: ReadonlySet<string>;
   /** workspace key → 펼친 Recent의 page 번호(0부터). */

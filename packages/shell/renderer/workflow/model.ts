@@ -23,11 +23,11 @@ import type {
 } from "../workspace/source.ts";
 import {
   participantText,
-  type Shown,
-  shownOf,
-  STATE_KEY,
   type StepRow as Row,
+  type Shown,
+  STATE_KEY,
   type StepShown,
+  shownOf,
   stepRows,
   turnOf,
 } from "./rules.ts";
@@ -115,6 +115,19 @@ export const runTitle = (input: string): string =>
     .split("\n")
     .map((line) => line.trim())
     .find((line) => line !== "") ?? "";
+
+/** instance가 표시할 이름. 저장된 자체 title → 시작 입력 첫 줄 → workflow 이름 순이다. */
+export function instanceTitle(item: {
+  readonly title?: string | null;
+  readonly input?: string;
+  readonly workflow?: string;
+}): string {
+  const saved = item.title?.trim();
+  if (saved !== undefined && saved !== "") return saved;
+  const fromInput = item.input === undefined ? "" : runTitle(item.input);
+  if (fromInput !== "") return fromInput;
+  return item.workflow ?? "";
+}
 
 /** agent의 얼굴. 탭이 agent 목록에서 handle과 agent id 둘 다로 찾아 넘긴다(없으면 handle 글만 보인다). */
 export interface WorkflowFace {
@@ -904,6 +917,26 @@ const DESK_TONE_KEY: Record<ActiveWorkflowTone, MessageKey> = {
   blocked: "workflow.label.desk-blocked",
   working: "workflow.label.desk-running",
 };
+
+/**
+ * title bar DeskSwitcher의 workflow instance desk 줄에 실을 진행 상태(글과 색).
+ * 실행 중이 아니면 undefined다.
+ */
+export function workflowInstanceDeskStatus(
+  instance: WorkflowInstanceSummaryView,
+): { readonly status: string; readonly tone: ActiveWorkflowTone } | undefined {
+  if (instance.state !== "running") return undefined;
+  const tone = activeToneOf(instance);
+  const toneLabel = t(DESK_TONE_KEY[tone]);
+  const step = instance.current?.step;
+  return {
+    tone,
+    status:
+      step === undefined
+        ? toneLabel
+        : t("workflow.label.desk-step-status", { step, status: toneLabel }),
+  };
+}
 
 /**
  * title bar DeskSwitcher의 workflow desk 줄에 실을 진행 상태(글과 색).

@@ -83,6 +83,11 @@ export {
 } from "./snapshot.ts";
 export { loadChildInstances, runningInstances } from "./store.ts";
 export {
+  autoWorkflowTitle,
+  renameWorkflowTitle,
+  WORKFLOW_TITLE_SCHEMA_STEP,
+} from "./title-schema.ts";
+export {
   extractFinalSoftOutput,
   MAX_SUBWORKFLOW_DEPTH,
   runSubWorkflowCall,

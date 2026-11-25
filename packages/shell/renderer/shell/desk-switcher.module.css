@@ -192,6 +192,16 @@
   padding-inline: var(--space-2);
 }
 
+/* 진행 상태가 있는 workflow instance 줄은 평소 상태만 보이고 hover·focus 때 편집 단추가 드러난다. */
+.row[data-has-status] .actions {
+  display: none;
+}
+
+.row[data-has-status]:hover .actions,
+.row[data-has-status]:focus-within .actions {
+  display: inline-flex;
+}
+
 .action {
   display: inline-flex;
   align-items: center;

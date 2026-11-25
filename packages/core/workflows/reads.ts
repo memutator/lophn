@@ -345,6 +345,7 @@ export function createWorkflowReads(deps: WorkflowReadDeps = {}): {
           (child) => ({
             instance: child.id,
             workflow: child.workflow,
+            title: child.title ?? null,
             state: child.state,
             derived_status: deriveSummaryStatus(snapshot.sql, child),
             started_at: child.created_at,
@@ -403,6 +404,7 @@ export function createWorkflowReads(deps: WorkflowReadDeps = {}): {
             id: instance.id,
             project: instance.project,
             workflow: instance.workflow,
+            title: instance.title ?? null,
             state: instance.state,
             current: instance.current,
             input: instance.input,

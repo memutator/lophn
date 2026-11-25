@@ -15,32 +15,31 @@ import {
   toolGateCheck,
 } from "../../../protocol/approvals/mod.ts";
 import { appGet } from "../../../protocol/apps/mod.ts";
-import { artifactsFolder } from "../../../protocol/projects/mod.ts";
 import { askWait } from "../../../protocol/lophn-agent/ask-tool.ts";
 import {
   type AgentId,
   type AgentWorkspace,
   instructionsGet,
 } from "../../../protocol/lophn-agent/mod.ts";
+import { workspaceToolNames } from "../../../protocol/lophn-agent/tool-lists.ts";
 import { toolResultFolder } from "../../../protocol/lophn-agent/tool-results.ts";
-import { projectApi } from "../../../protocol/projects/mod.ts";
+import { artifactsFolder, projectApi } from "../../../protocol/projects/mod.ts";
 import { workflowsFolder } from "../../../protocol/workflows/paths.ts";
 import { FILE_HOOKS, readMemoryTexts } from "../../agent-workspaces/hooks.ts";
 import { memoryNames } from "../../agent-workspaces/memory-names.ts";
+import { workspacePrompt } from "../../agent-workspaces/prompts/prompts.ts";
+import { BUNDLED_SKILLS_ROOT } from "../../agent-workspaces/skills/root.ts";
 import { listArtifactEntries } from "../../agent-workspaces/workspace/artifact-list.ts";
 import {
   workspaceDataFolder,
   workspaceDataSkillsFolder,
   workspaceDataToolsFolder,
 } from "../../agent-workspaces/workspace/data-folder.ts";
+import { PROJECT_LAYER } from "../../agent-workspaces/workspace/project-layer.ts";
 import {
   type WorkspaceFiles,
   workspaceData,
 } from "../../agent-workspaces/workspace/workspace-data.ts";
-import { PROJECT_LAYER } from "../../agent-workspaces/workspace/project-layer.ts";
-import { workspacePrompt } from "../../agent-workspaces/prompts/prompts.ts";
-import { BUNDLED_SKILLS_ROOT } from "../../agent-workspaces/skills/root.ts";
-import { workspaceToolNames } from "../../../protocol/lophn-agent/tool-lists.ts";
 import {
   createMcpToolkit,
   type McpKit,
@@ -171,6 +170,7 @@ export function productDriver(
     preparer: TurnPreparer;
     compactor: Compactor;
     listMcpTools: McpKit["listTools"];
+    resolveModel: ReturnType<typeof createModelResolver>;
   } => {
     const ids = createIdSource({ clock: systemClock, random: cryptoRandom });
     const resolveModel = createModelResolver({
@@ -309,7 +309,12 @@ export function productDriver(
         );
       },
     });
-    return { preparer, compactor, listMcpTools: mcpKit.listTools };
+    return {
+      preparer,
+      compactor,
+      listMcpTools: mcpKit.listTools,
+      resolveModel,
+    };
   };
 }
 

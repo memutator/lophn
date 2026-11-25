@@ -25,6 +25,7 @@ import {
   type HandoffPlan,
   type LineBy,
   type WorkflowSoftOutput,
+  type WorkflowTitleRequest,
   workflowCheck,
   workflowCheckpointUpsert,
   workflowDelete,
@@ -35,6 +36,8 @@ import {
   workflowInstanceApply,
   workflowInstanceCreate,
   workflowInstanceRead,
+  workflowInstanceRename,
+  workflowInstanceSetAiTitle,
   workflowList,
   workflowRename,
   workflowReport,
@@ -42,6 +45,7 @@ import {
   workflowRetry,
   workflowStart,
   workflowStop,
+  workflowTitleRequestTake,
 } from "../../../../protocol/workflows/mod.ts";
 import { callPolicySetting } from "../../../config/setting-declarations.ts";
 import {
@@ -154,7 +158,9 @@ export function withStepText(
     const create = envelope.command === workflowInstanceCreate.name;
     const applyCmd = envelope.command === workflowInstanceApply.name;
     const upsertCp = envelope.command === workflowCheckpointUpsert.name;
-    if (!create && !applyCmd && !upsertCp) {
+    const renameInst = envelope.command === workflowInstanceRename.name;
+    const aiTitleInst = envelope.command === workflowInstanceSetAiTitle.name;
+    if (!create && !applyCmd && !upsertCp && !renameInst && !aiTitleInst) {
       return ok(envelope);
     }
     const redact = createProductRedactor(deps.known());
@@ -175,6 +181,19 @@ export function withStepText(
       return done.value;
     };
 
+    if (renameInst || aiTitleInst) {
+      const raw = envelope.input as
+        | Input<typeof workflowInstanceRename>
+        | Input<typeof workflowInstanceSetAiTitle>;
+      const title = safe(raw.title);
+      if (unfinished) {
+        return err({
+          code: "unavailable",
+          message: "workflow text redaction did not finish",
+        });
+      }
+      return ok({ ...envelope, input: { ...raw, title } });
+    }
     if (upsertCp) {
       const raw = envelope.input as Input<typeof workflowCheckpointUpsert>;
       const redacted = redactCheckpointPayload(
@@ -215,6 +234,7 @@ export function withStepText(
       const raw = envelope.input as Input<typeof workflowInstanceCreate>;
       input = {
         ...raw,
+        ...(typeof raw.title === "string" ? { title: safe(raw.title) } : {}),
         input: safe(raw.input),
         ...(raw.inputs !== undefined
           ? { inputs: safeJson(raw.inputs) as Record<string, unknown> }
@@ -329,6 +349,9 @@ export const workflowsWiring: WiringFactory = () => {
   const callsSettledListeners = new Set<
     (event: AgentCallsSettledEvent) => void
   >();
+  // 새로 시작된 workflow instance의 AI 제목 생성 대기열(agent-runtime이 가져간다).
+  const titleQueue: WorkflowTitleRequest[] = [];
+  const MAX_TITLE_QUEUE = 64;
   let readHelper:
     | (<T>(
         r: { resource: string; method: string },
@@ -901,6 +924,10 @@ export const workflowsWiring: WiringFactory = () => {
         remote,
         snapshots,
         lifecycle,
+        onTitleNeeded(request) {
+          if (titleQueue.length >= MAX_TITLE_QUEUE) titleQueue.shift();
+          titleQueue.push(request);
+        },
         clock: ctx.clock,
         ids,
         logger: ctx.telemetry.logger,
@@ -1356,6 +1383,18 @@ export const workflowsWiring: WiringFactory = () => {
             handler((i: Parameters<typeof built.importWorkflow>[0]) =>
               built.importWorkflow(i),
             ),
+          ],
+          [
+            route(workflowTitleRequestTake),
+            (who) => {
+              if (parseActor(who.actor)?.kind !== "machine") {
+                return err({
+                  code: "forbidden",
+                  message: "only agent runtime takes workflow title requests",
+                });
+              }
+              return ok({ request: titleQueue.shift() ?? null });
+            },
           ],
         ],
       });

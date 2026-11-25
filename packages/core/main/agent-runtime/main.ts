@@ -7,11 +7,6 @@ import {
   type Result,
   systemClock,
 } from "../../../base/mod.ts";
-import {
-  createTelemetry,
-  readTelemetryConfig,
-} from "../../diagnostics/telemetry.ts";
-import { tracedFetch } from "../../diagnostics/spans.ts";
 import type { Tracer } from "../../../base/telemetry/mod.ts";
 import { type ReadRoute, routePath } from "../../../protocol/base/mod.ts";
 import { createRpcClient } from "../../../protocol/client/mod.ts";
@@ -25,6 +20,11 @@ import {
   crashDiagnostic,
   installCrashHandler,
 } from "../../diagnostics/crash.ts";
+import { tracedFetch } from "../../diagnostics/spans.ts";
+import {
+  createTelemetry,
+  readTelemetryConfig,
+} from "../../diagnostics/telemetry.ts";
 import type { McpKit } from "../../lophn-agent/extensions/mcp-toolkit.ts";
 import {
   CATALOG_AUTO_UPDATE_KEY,
@@ -59,6 +59,7 @@ import { startMcpToolsPump } from "./mcp-tools-pump.ts";
 import { redact } from "./redact.ts";
 import { createSecretLink } from "./secret-link.ts";
 import { createTurnSourceLink } from "./turn-source-link.ts";
+import { startWorkflowTitlePump } from "./workflow-title-pump.ts";
 
 export { redact };
 
@@ -132,7 +133,9 @@ async function startAgentRuntime(input: {
   } & {
     // 사람이 요청한 Compact의 요약을 끝내는 일. 없으면 요약을 하지 않는다.
     compactor?: Compactor;
-  } & { listMcpTools?: McpKit["listTools"] }; // Grants 화면의 MCP tool 목록 읽기. 없으면 목록 요청에 답하지 않는다.
+  } & { listMcpTools?: McpKit["listTools"] } & {
+    resolveModel?: Parameters<typeof startWorkflowTitlePump>[0]["resolveModel"];
+  }; // Grants 화면의 MCP tool 목록 읽기. 없으면 목록 요청에 답하지 않는다.
 }): Promise<Result<Runtime>> {
   const streams = input.streams ?? {
     stdin: Readable.toWeb(process.stdin) as ReadableStream<Uint8Array>,
@@ -301,12 +304,23 @@ async function startAgentRuntime(input: {
         })
       : Promise.resolve();
   let toolsPumping: Promise<void> = Promise.resolve();
+  let workflowTitlePumping: Promise<void> = Promise.resolve();
   if (input.driver !== undefined) {
-    const { compactor, preparer, listMcpTools } = input.driver(calls!);
+    const { compactor, preparer, listMcpTools, resolveModel } = input.driver(
+      calls!,
+    );
     if (input.pump === true && listMcpTools !== undefined) {
       toolsPumping = startMcpToolsPump({
         call: calls!.machine,
         list: listMcpTools,
+        signal: pumpStop.signal,
+      });
+    }
+    if (input.pump === true && resolveModel !== undefined) {
+      workflowTitlePumping = startWorkflowTitlePump({
+        call: calls!.machine,
+        resolveModel,
+        redact: calls!.redact,
         signal: pumpStop.signal,
       });
     }
@@ -370,6 +384,7 @@ async function startAgentRuntime(input: {
       await pumping;
       await authPumping;
       await toolsPumping;
+      await workflowTitlePumping;
     },
   };
   return ok(runtime);

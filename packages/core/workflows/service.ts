@@ -27,6 +27,7 @@ import {
   validateWorkflowInputs,
   type WorkflowCheckpoint,
   type WorkflowSoftOutput,
+  type WorkflowTitleRequest,
   type workflowCheckpointUpsert,
   type workflowDelete,
   type workflowEdit,
@@ -74,6 +75,7 @@ import type {
 import { deriveWorkflowStatus } from "./reads.ts";
 import { remoteTurnEndedText } from "./remote.ts";
 import { STATUS_LINE_KINDS, type StatusLineKind } from "./store.ts";
+import { autoWorkflowTitle } from "./title-schema.ts";
 import {
   runSubWorkflowCall,
   type SubWorkflowRequest,
@@ -364,6 +366,7 @@ export function createWorkflowService(deps: {
   snapshots?: WorkflowSnapshots;
   lifecycle?: WorkflowLifecycle;
   agentPorts?: AgentPrimitivePorts;
+  onTitleNeeded?: (request: WorkflowTitleRequest) => void;
   clock?: Clock;
   ids: IdSource;
   logger: Logger;
@@ -378,6 +381,7 @@ export function createWorkflowService(deps: {
     remote,
     snapshots,
     lifecycle,
+    onTitleNeeded,
     ids,
     logger,
   } = deps;
@@ -708,6 +712,7 @@ export function createWorkflowService(deps: {
         codeSnapshot = captured.value;
       }
       const id = ids.newId("wfi") as Id<"wfi">;
+      const initialTitle = autoWorkflowTitle(input.text, validatedInputs);
       const flowSteps = flowStepsOf(parsed.declaration).map((s) => {
         const override = input.step_open?.[s.name];
         return override !== undefined ? { ...s, open: override } : s;
@@ -716,6 +721,7 @@ export function createWorkflowService(deps: {
         id,
         project: project.value.id,
         workflow: name,
+        ...(initialTitle !== null ? { title: initialTitle } : {}),
         input: input.text,
         ...(validatedInputs !== undefined ? { inputs: validatedInputs } : {}),
         ...(codeSnapshot !== undefined ? { code_snapshot: codeSnapshot } : {}),
@@ -726,6 +732,15 @@ export function createWorkflowService(deps: {
         handoff: null,
       });
       if (!created.ok) return created;
+      onTitleNeeded?.({
+        instance: id,
+        workflow: name,
+        input: created.value.instance.input,
+        ...(created.value.instance.inputs !== undefined
+          ? { inputs: created.value.instance.inputs }
+          : {}),
+        expected: created.value.instance.title ?? null,
+      });
       // process 인자에는 redaction을 거친 instance.input·instance.inputs를 넘긴다.
       const launched = await flows.launch({
         instance: id,
@@ -765,10 +780,12 @@ export function createWorkflowService(deps: {
       return fail("not_found", "step not found");
     }
     const id = ids.newId("wfi") as Id<"wfi">;
+    const initialTitle = autoWorkflowTitle(input.text, validatedInputs);
     const created = await store.create({
       id,
       project: project.value.id,
       workflow: name,
+      ...(initialTitle !== null ? { title: initialTitle } : {}),
       input: input.text,
       ...(validatedInputs !== undefined ? { inputs: validatedInputs } : {}),
       ...(input.open !== undefined ? { open_mode: input.open } : {}),
@@ -786,6 +803,17 @@ export function createWorkflowService(deps: {
         remote,
       }),
     });
+    if (created.ok) {
+      onTitleNeeded?.({
+        instance: id,
+        workflow: name,
+        input: created.value.instance.input,
+        ...(created.value.instance.inputs !== undefined
+          ? { inputs: created.value.instance.inputs }
+          : {}),
+        expected: created.value.instance.title ?? null,
+      });
+    }
     if (created.ok && created.value.handed !== null) {
       let remoteCall: string | null = null;
       if (

@@ -1,7 +1,8 @@
 // workflow 탭이 source에서 읽고 쓰는 곳. 정의는 열릴 때와 [Refresh]에서, instance 목록과 고른 instance는 처음과
 // `workflow_instances` 변경이 올 때와 시작·멈춤이 끝난 뒤에 다시 읽는다. 읽는 동안 앞 값을 두고, 읽기 실패는 앞 값을 지우지 않고 알린다.
-import { useCallback, useEffect, useRef, useState } from "react";
+
 import { t } from "@lophn/i18n";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useFollowedRead } from "../desktop/connection/core-read.ts";
 import type {
@@ -47,6 +48,7 @@ export interface UseWorkflow {
   stop(): void;
   retry(step?: string): void;
   resume(useLatestCode?: boolean): void;
+  rename(title: string): void;
 }
 
 export function useWorkflow({
@@ -55,6 +57,7 @@ export function useWorkflow({
   workflow,
   instance,
   onInstance,
+  onStarted,
 }: {
   source: WorkspaceSource;
   /** prj id. */
@@ -63,6 +66,10 @@ export function useWorkflow({
   workflow: string;
   instance: string | null;
   onInstance: (instance: string | null) => void;
+  onStarted?: (started: {
+    readonly instance: string;
+    readonly title: string | null;
+  }) => void;
 }): UseWorkflow {
   const [definitions, setDefinitions] = useState<Definitions>({
     state: "loading",
@@ -168,7 +175,14 @@ export function useWorkflow({
       }
       setNotice(null);
       instancesRead.reload();
-      onInstance(result.value.instance);
+      if (onStarted !== undefined) {
+        onStarted({
+          instance: result.value.instance,
+          title: result.value.title ?? null,
+        });
+      } else {
+        onInstance(result.value.instance);
+      }
       return true;
     },
     stop() {
@@ -205,6 +219,16 @@ export function useWorkflow({
           });
         }
         reload();
+      });
+    },
+    rename(title) {
+      if (instance === null || source.renameWorkflowInstance === undefined) {
+        return;
+      }
+      const trimmed = title.trim();
+      if (trimmed === "") return;
+      void source.renameWorkflowInstance(instance, trimmed).then((result) => {
+        if (result.ok) reload();
       });
     },
   };

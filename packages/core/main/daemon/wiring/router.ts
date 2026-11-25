@@ -47,11 +47,11 @@ import {
   type ArtifactWorkspace,
   artifactsFolder,
 } from "../../../../protocol/projects/mod.ts";
+import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import {
   type WorkflowOrigin,
   workflowOriginSchema,
 } from "../../../../protocol/workflows/values.ts";
-import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import type { ApprovalsService } from "../../../approvals/approvals.ts";
 import type { AnnotationDelivery } from "../../../apps/annotations/ports.ts";
 import { appExists, appStatusOf } from "../../../apps/lookups.ts";
@@ -80,7 +80,6 @@ import {
   ASK_ANSWERED_TOPIC,
   ASK_ENDED_TOPIC,
   CALL_SESSION_OPENED_TOPIC,
-  WORKFLOW_SESSION_OPENED_TOPIC,
   CANCEL_TEXT,
   callsAppCancel,
   callsAppSend,
@@ -93,6 +92,7 @@ import {
   remoteStepBody,
   TAKEN_RESTART_TEXTS,
   TEAM_SPAWNED_TOPIC,
+  WORKFLOW_SESSION_OPENED_TOPIC,
 } from "../../../router/mod.ts";
 import {
   type CommandEnvelope,
@@ -410,7 +410,7 @@ export const routerWiring: WiringFactory = () => {
             target: { session: data.session },
             relation: null,
             source: null,
-            desk: { workflow: origin.workflow },
+            desk: { workflow: origin.workflow, instance: origin.instance },
             group: `${origin.instance}:${origin.step}`,
           });
           return;
@@ -450,7 +450,7 @@ export const routerWiring: WiringFactory = () => {
           target: { session },
           relation: null,
           source: null,
-          desk: { workflow: origin.workflow },
+          desk: { workflow: origin.workflow, instance: origin.instance },
           group: `${origin.instance}:${origin.step}`,
         });
       };

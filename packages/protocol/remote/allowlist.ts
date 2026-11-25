@@ -247,6 +247,7 @@ import {
   secretPut,
   secretStatus,
 } from "../secrets/secret-file.ts";
+import { workflowInstanceRename } from "../workflows/commands.ts";
 import {
   workflowExport,
   workflowImport,
@@ -393,6 +394,7 @@ export const REMOTE_ALLOWED_ROUTES = [
   workflowExport,
   workflowInstanceList,
   workflowInstanceRead,
+  workflowInstanceRename,
   workflowStart,
   workflowRetry,
   workflowResume,

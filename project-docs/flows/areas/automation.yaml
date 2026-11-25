@@ -1762,3 +1762,63 @@ flows:
     crosses_process: false
     risk: [data-loss]
     docs: [architecture/workflow.md, architecture/remote.md]
+
+  - id: workflow-instance-rename
+    title: 사람이 workflow instance의 제목을 바꾼다
+    actor: person
+    entries: [route:workflow_instances/rename]
+    boundary: [workflows, core-api]
+    code: [packages/core/workflows/commands.ts, packages/core/workflows/title-schema.ts, packages/core/main/daemon/wiring/workflows.ts]
+    steps:
+      - 제목을 redaction하고 1~120자 검증 뒤 workflow_instances.title을 갱신하고 StateChanged(workflow_instances)를 발행한다
+    outcomes:
+      - id: renamed
+        observe: [ledger:workflow_instances, event:StateChanged, response]
+      - id: not-found
+        code: not_found
+        when: instance가 없다
+        observe: [response]
+      - id: invalid-input
+        code: invalid_input
+        when: 제목이 비었거나 120자를 넘는다
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: user 자격이 아니다
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: redaction이 끝나지 않았다
+        observe: [response]
+    crosses_process: false
+    docs: [architecture/workflow.md]
+
+  - id: workflow-instance-ai-title
+    title: agent runtime이 전역 기본 model로 새 workflow instance의 AI 제목을 짓는다
+    actor: system
+    entries: [route:workflow_instances/title-request-take, route:workflow_instances/set-ai-title]
+    boundary: [workflows, lophn-agent]
+    code: [packages/core/main/agent-runtime/workflow-title-pump.ts, packages/core/lophn-agent/prompt-assembly/title.ts, packages/core/workflows/commands.ts, packages/core/main/daemon/wiring/workflows.ts]
+    steps:
+      - workflow instance 시작 시 대기열에 쌓인 요청을 agent-runtime이 가져가 model-default로 2~6단어 제목을 만들고 expected가 아직 일치할 때만 저장한다
+    outcomes:
+      - id: applied
+        observe: [ledger:workflow_instances, event:StateChanged, response]
+      - id: skipped
+        when: 그 사이 사람이 제목을 바꿨거나 기본 model이 없다
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: instance가 없다
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: machine 자격이 아니다
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: redaction이 끝나지 않았다
+        observe: [response]
+    crosses_process: true
+    declared_only: [invalid_input]
+    docs: [architecture/workflow.md]

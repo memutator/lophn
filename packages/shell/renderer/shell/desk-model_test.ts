@@ -13,6 +13,7 @@ import {
   type Desk,
   defaultWorkspaceLayout,
   deskEntries,
+  deskSidebarLabel,
   detachTab,
   dockFloat,
   emptyDesk,
@@ -875,4 +876,41 @@ test("WorkflowRemoved 시 removeWorkflowDesk가 workflow desk와 열린 workflow
     ["keep"],
   );
   assertValid(removed.desks[MAIN_DESK]!, ["keep"]);
+});
+
+test("workflow instance desk keeps its own key/title on workflow rename and formats title/workflow in sidebar desks", () => {
+  const wfi = "wfi_01hzzzzzzzzzzzzzzzzzzzzzza";
+  let layout = addDesk(
+    defaultWorkspaceLayout(),
+    wfi,
+    "Fix auth timeout",
+    "old-wf",
+    wfi,
+  );
+  layout = { ...layout, active: wfi };
+  const runTab: TabItem = {
+    key: `workflow-instance:${wfi}`,
+    kind: "workflow",
+    title: "Fix auth timeout",
+    fields: { workflow: "old-wf", instance: wfi },
+  };
+  layout = updateDesk(layout, wfi, (desk) => openTab(desk, runTab));
+
+  assert.equal(deskSidebarLabel(layout.desks[MAIN_DESK]!), "Main");
+  assert.equal(deskSidebarLabel(layout.desks[wfi]!), "Fix auth timeout/old-wf");
+
+  const renamed = renameWorkflowDesk(layout, "old-wf", "new-wf");
+  assert.equal(renamed.active, wfi);
+  assert.equal(renamed.desks[wfi]?.label, "Fix auth timeout");
+  assert.equal(renamed.desks[wfi]?.workflow, "new-wf");
+  assert.equal(renamed.desks[wfi]?.workflowInstance, wfi);
+  assert.equal(renamed.desks[wfi]?.tabs[0]?.fields?.workflow, "new-wf");
+  assert.equal(
+    deskSidebarLabel(renamed.desks[wfi]!),
+    "Fix auth timeout/new-wf",
+  );
+
+  const removed = removeWorkflowDesk(renamed, "new-wf");
+  assert.equal(removed.active, MAIN_DESK);
+  assert.equal(removed.desks[wfi], undefined);
 });

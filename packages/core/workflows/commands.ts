@@ -17,6 +17,8 @@ import {
   workflowCheckpointUpsert,
   workflowInstanceApply,
   workflowInstanceCreate,
+  workflowInstanceRename,
+  workflowInstanceSetAiTitle,
 } from "../../protocol/workflows/mod.ts";
 import { FAILURE_TEXTS, type Router, routerFor } from "../router/mod.ts";
 import {
@@ -35,7 +37,9 @@ import {
   insertInstance,
   loadInstance,
   updateInstance,
+  updateInstanceTitle,
 } from "./store.ts";
+import { renameWorkflowTitle } from "./title-schema.ts";
 
 function registerSnapshotBlobRefs(
   tx: Tx,
@@ -316,6 +320,8 @@ export function createWorkflowCommands(
   create: CommandDefinition<typeof workflowInstanceCreate>;
   apply: CommandDefinition<typeof workflowInstanceApply>;
   upsertCheckpoint: CommandDefinition<typeof workflowCheckpointUpsert>;
+  rename: CommandDefinition<typeof workflowInstanceRename>;
+  setAiTitle: CommandDefinition<typeof workflowInstanceSetAiTitle>;
 } {
   function finish(tx: Tx, scope: Scope): Result<WorkflowInstance> {
     const updated = updateInstance(tx.sql, scope.instance, scope.draft);
@@ -352,6 +358,7 @@ export function createWorkflowCommands(
           id: input.id as Id<"wfi">,
           project: input.project as Id<"prj">,
           workflow: input.workflow,
+          ...(input.title !== undefined ? { title: input.title } : {}),
           input: input.input,
           ...(input.inputs !== undefined ? { inputs: input.inputs } : {}),
           ...(input.code_snapshot !== undefined
@@ -705,6 +712,72 @@ export function createWorkflowCommands(
           at: tx.now(),
         });
         return upserted.ok ? ok({ checkpoint: upserted.value }) : upserted;
+      },
+    },
+    rename: {
+      route: workflowInstanceRename,
+      handle(tx, ctx, input) {
+        if (parseActor(ctx.actor)?.kind !== "user") {
+          return fail("forbidden", "only the user renames a workflow instance");
+        }
+        const loaded = loadInstance(tx.sql, input.instance);
+        if (!loaded.ok) return loaded;
+        const current = loaded.value;
+        if (current === null) {
+          return fail("not_found", "workflow instance not found");
+        }
+        const checked = renameWorkflowTitle(input.title);
+        if (!checked.ok) return checked;
+        if (current.title === checked.value) {
+          return ok({
+            id: current.id,
+            title: checked.value,
+            state_seq: current.state_seq,
+          });
+        }
+        const updated = updateInstanceTitle(tx.sql, current.id, checked.value);
+        if (!updated.ok) return updated;
+        return ok({
+          id: current.id,
+          title: checked.value,
+          state_seq: updated.value,
+        });
+      },
+    },
+    setAiTitle: {
+      route: workflowInstanceSetAiTitle,
+      handle(tx, ctx, input) {
+        if (notMachine(ctx)) {
+          return fail(
+            "forbidden",
+            "only core sets a workflow instance AI title",
+          );
+        }
+        const loaded = loadInstance(tx.sql, input.instance);
+        if (!loaded.ok) return loaded;
+        const current = loaded.value;
+        if (current === null) {
+          return fail("not_found", "workflow instance not found");
+        }
+        const checked = renameWorkflowTitle(input.title);
+        if (!checked.ok) return checked;
+        const currentTitle = current.title ?? null;
+        if (currentTitle !== input.expected || currentTitle === checked.value) {
+          return ok({
+            id: current.id,
+            title: currentTitle,
+            changed: false,
+            state_seq: current.state_seq,
+          });
+        }
+        const updated = updateInstanceTitle(tx.sql, current.id, checked.value);
+        if (!updated.ok) return updated;
+        return ok({
+          id: current.id,
+          title: checked.value,
+          changed: true,
+          state_seq: updated.value,
+        });
       },
     },
   };

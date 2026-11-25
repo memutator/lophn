@@ -133,8 +133,10 @@ export interface TabHost {
       readonly after?: string;
       readonly beside?: boolean;
       readonly relation?: OpenRelation;
-      /** 붙일 desk. `after`보다 먼저 따르고, workflow desk 이름이 아직 없으면 만든다. */
+      /** 붙일 desk. `after`보다 먼저 따르고, workflow(또는 instance) desk가 아직 없으면 만든다. */
       readonly desk?: string;
+      /** `desk`가 workflow instance id(`wfi_...`)일 때 그 instance가 속한 workflow 이름. */
+      readonly deskWorkflow?: string;
       /** 같은 부모·step에서 병렬로 생긴 탭의 묶음 key(예: `"<instance>:<step>"`). 2번째 탭부터 1-leaf bundle로 자동 묶는다. */
       readonly group?: string;
     },

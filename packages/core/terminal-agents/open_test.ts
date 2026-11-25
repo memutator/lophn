@@ -215,7 +215,7 @@ test("a member with workflow_origin keeps PTY in exec project and targets the wo
       command: "claude --gui",
       tab: {
         workspace: WORKFLOW_PROJECT,
-        desk: { workflow: "release" },
+        desk: { workflow: "release", instance: INSTANCE },
         group: `${INSTANCE}:review`,
       },
     },

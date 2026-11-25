@@ -2,8 +2,8 @@
 // `<harness> gui [--resume <id>]`를 친다. 창이 없어도 열린다(그 project를 보이는 창이 있으면 탭으로 보인다). 되살리기는 ledger의
 // harness agent session에 한한다(그 CLI session id를 ledger가 안다). 한 CLI session에 process 둘을 띄우지 않는다.
 import { err, ok, type Result } from "../../base/mod.ts";
-import { HARNESS_ADAPTERS } from "../../protocol/coding-agent/mod.ts";
 import { isGuiHarness } from "../../protocol/acp/mod.ts";
+import { HARNESS_ADAPTERS } from "../../protocol/coding-agent/mod.ts";
 import { guiSessionId } from "../../protocol/lophn-agent/session-tag.ts";
 import type { WorkflowOrigin } from "../../protocol/workflows/values.ts";
 
@@ -13,10 +13,10 @@ const OPEN_KEYS_MAX = 200;
 // 터미널에 `--resume <id>`로 치는 글자다. shell 함수가 받는 글자(`[A-Za-z0-9._-]` 200자)만 싣는다.
 const CLI_SESSION = /^[A-Za-z0-9._-]{1,200}$/;
 
-/** workflow_origin이 있는 팀원 탭의 배치(원 workflow의 workspace·desk·묶음). 터미널 PTY는 실행 project에 둔다. */
+/** workflow_origin이 있는 팀원 탭의 배치(원 workflow의 workspace·instance desk·묶음). 터미널 PTY는 실행 project에 둔다. */
 export type CodingOpenTab = {
   workspace: string;
-  desk: { workflow: string };
+  desk: { workflow: string; instance?: string };
   group: string;
 };
 
@@ -190,7 +190,7 @@ export function createCodingOpen(deps: CodingOpenDeps) {
           ? undefined
           : {
               workspace: origin.project,
-              desk: { workflow: origin.workflow },
+              desk: { workflow: origin.workflow, instance: origin.instance },
               group: `${origin.instance}:${origin.step}`,
             };
       return await deps.open(

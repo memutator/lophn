@@ -13,6 +13,7 @@ export const hostToolContentSchema = z.discriminatedUnion("type", [
   }),
 ]);
 export type HostToolContent = z.infer<typeof hostToolContentSchema>;
+
 import { loginIdSchema } from "../secrets/logins.ts";
 import { pageInputSchema } from "./page-view.ts";
 import { workspaceSchema } from "./workspaces.ts";
@@ -134,8 +135,13 @@ const tabOpenPayloadSchema = z.strictObject({
   source: idSchema("ses").nullable(),
   // 그 탭의 주인 session이다. 없으면 사람의 탭이다.
   owner: idSchema("ses").optional(),
-  // workflow_origin이 있는 session의 탭은 실행 cwd와 무관하게 그 workflow의 desk에 연다.
-  desk: z.strictObject({ workflow: z.string().min(1) }).optional(),
+  // workflow_origin이 있는 session의 탭은 실행 cwd와 무관하게 그 workflow instance의 desk에 연다.
+  desk: z
+    .strictObject({
+      workflow: z.string().min(1),
+      instance: idSchema("wfi").optional(),
+    })
+    .optional(),
   // 같은 부모·step에서 병렬로 생긴 탭이 같은 묶음 key를 가지면 renderer가 한 탭 묶음으로 둔다.
   group: z.string().min(1).optional(),
 });

@@ -1,5 +1,16 @@
-import { APP_TOOL_CONTRACT } from "../tools/mod.ts";
-import { EXTERNAL_TOOL_CONTRACT } from "../extensions/mod.ts";
+import {
+  assignmentGet,
+  toolGateCheck,
+} from "../../../protocol/approvals/mod.ts";
+import {
+  appSkills,
+  appTools,
+} from "../../../protocol/apps/declaration/read.ts";
+import { appGet, appRuntime } from "../../../protocol/apps/mod.ts";
+import { settingsList } from "../../../protocol/config/mod.ts";
+import { eventsList } from "../../../protocol/events/mod.ts";
+import { askWait } from "../../../protocol/lophn-agent/ask-tool.ts";
+import { messageImagePath } from "../../../protocol/lophn-agent/message-images.ts";
 import {
   agentRead,
   checkpointTurn,
@@ -19,18 +30,15 @@ import {
   messagesList,
   modelCallList,
   modelDefaultRead,
-  workspaceSessionCompactRequests,
-  workspaceSessionRead,
-  workspaceModelRead,
   providerList,
   providerRead,
   receivedMessageList,
   recordMessage,
   recordToolRequest,
   requestSessionCompact,
-  setSessionAiTitle,
   rewindList,
   sessionSummary,
+  setSessionAiTitle,
   startModelCall,
   startToolCall,
   startTurn,
@@ -41,21 +49,17 @@ import {
   turnList,
   turnRead,
   userModelInfoRead,
+  workspaceModelRead,
+  workspaceSessionCompactRequests,
+  workspaceSessionRead,
 } from "../../../protocol/lophn-agent/mod.ts";
-import { appGet, appRuntime } from "../../../protocol/apps/mod.ts";
-import {
-  assignmentGet,
-  toolGateCheck,
-} from "../../../protocol/approvals/mod.ts";
-import {
-  appSkills,
-  appTools,
-} from "../../../protocol/apps/declaration/read.ts";
-import { eventsList } from "../../../protocol/events/mod.ts";
-import { settingsList } from "../../../protocol/config/mod.ts";
-import { askWait } from "../../../protocol/lophn-agent/ask-tool.ts";
-import { messageImagePath } from "../../../protocol/lophn-agent/message-images.ts";
 import { machinesAppTools } from "../../../protocol/remote/mod.ts";
+import {
+  workflowInstanceSetAiTitle,
+  workflowTitleRequestTake,
+} from "../../../protocol/workflows/mod.ts";
+import { EXTERNAL_TOOL_CONTRACT } from "../extensions/mod.ts";
+import { APP_TOOL_CONTRACT } from "../tools/mod.ts";
 
 // agent runtime이 core loopback을 부르는 길이다. machine 자격은 아래 route만 열고 목록에 없는 경로는
 // 요청하지 않는다. turn의 agent 자격은 core가 그 credential의 scope로 막으므로 경로를 고르지 않는다.
@@ -126,6 +130,9 @@ export const RUNTIME_MACHINE_ROUTES = [
   machinesAppTools,
   // confirm 재검사의 프로세스 nonce. agent credential은 turn이 running일 때만 있다.
   appRuntime,
+  // workflow instance 시작 직후 전역 기본 model로 제목을 짓는다.
+  workflowTitleRequestTake,
+  workflowInstanceSetAiTitle,
 ] as const;
 
 // machine credential이 가져야 하는 operation 이름이다.

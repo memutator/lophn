@@ -1492,6 +1492,7 @@ function summaryOf(
     id: instance.id,
     project: instance.project,
     workflow: instance.workflow,
+    ...(instance.title === undefined ? {} : { title: instance.title }),
     state: instance.state,
     current: instance.current,
     input: instance.input,
@@ -1727,10 +1728,16 @@ export function fakeWorkspaceSource(
       }
       const id = `wfi_fake${instances.length + 1}`;
       const at = FAKE_NOW.toISOString();
+      const firstLine =
+        text
+          .split("\n")
+          .map((line) => line.trim())
+          .find((line) => line !== "") ?? null;
       const instance: WorkflowInstanceView = {
         id,
         project: entry.project,
         workflow: entry.name,
+        title: firstLine,
         input: text,
         ...(normalizedInputs === undefined ? {} : { inputs: normalizedInputs }),
         state: "running",
@@ -1768,7 +1775,25 @@ export function fakeWorkspaceSource(
         },
         ...instances,
       ];
-      return Promise.resolve({ ok: true, value: { instance: id } });
+      return Promise.resolve({
+        ok: true,
+        value: { instance: id, title: firstLine },
+      });
+    },
+    renameWorkflowInstance(id, title) {
+      const detail = instances.find((item) => item.instance.id === id);
+      if (detail === undefined) {
+        return Promise.resolve({ ok: false, message: "not_found" });
+      }
+      const trimmed = title.trim();
+      if (trimmed.length === 0) {
+        return Promise.resolve({ ok: false, message: "invalid_input" });
+      }
+      changeInstance(id, (item) => ({
+        ...item,
+        instance: { ...item.instance, title: trimmed },
+      }));
+      return Promise.resolve({ ok: true, value: { title: trimmed } });
     },
     stopWorkflow(id) {
       const detail = instances.find((item) => item.instance.id === id);

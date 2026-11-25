@@ -108,6 +108,8 @@ export interface Desk {
   readonly label: string;
   /** workflow desk면 workflow 이름. 사람이 만든 desk에는 없다. */
   readonly workflow?: string;
+  /** workflow instance 전용 desk면 그 instance id(`wfi_...`). 없으면 workflow 정의 desk거나 일반 desk다. */
+  readonly workflowInstance?: string;
   readonly tabs: readonly TabItem[];
   readonly selected: string | null;
   readonly groups: readonly Group[];
@@ -129,17 +131,34 @@ export interface WorkspaceLayout {
   readonly quick?: WorkspaceQuick;
 }
 
-export function emptyDesk(key: string, label: string, workflow?: string): Desk {
+export function emptyDesk(
+  key: string,
+  label: string,
+  workflow?: string,
+  workflowInstance?: string,
+): Desk {
   return {
     key,
     label,
     ...(workflow === undefined ? {} : { workflow }),
+    ...(workflowInstance === undefined ? {} : { workflowInstance }),
     tabs: [],
     selected: null,
     groups: [],
     floats: [],
     detached: [],
   };
+}
+
+/** 왼쪽 sidebar의 desk 구분 머리글. workflow instance desk면 `<title>/<workflow>`다. */
+export function deskSidebarLabel(
+  desk: Pick<Desk, "label" | "workflow" | "workflowInstance">,
+): string {
+  return desk.workflowInstance !== undefined &&
+    desk.workflow !== undefined &&
+    desk.label !== desk.workflow
+    ? `${desk.label}/${desk.workflow}`
+    : desk.label;
 }
 
 export function defaultWorkspaceLayout(): WorkspaceLayout {
@@ -1678,6 +1697,7 @@ export function addDesk(
   key: string,
   label: string,
   workflow?: string,
+  workflowInstance?: string,
 ): WorkspaceLayout {
   if (
     Object.hasOwn(layout.desks, key) ||
@@ -1687,7 +1707,10 @@ export function addDesk(
   }
   return {
     ...layout,
-    desks: { ...layout.desks, [key]: emptyDesk(key, label, workflow) },
+    desks: {
+      ...layout.desks,
+      [key]: emptyDesk(key, label, workflow, workflowInstance),
+    },
   };
 }
 

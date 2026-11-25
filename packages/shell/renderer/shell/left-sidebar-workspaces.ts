@@ -54,6 +54,7 @@ import { codingFaceOf } from "../workspace/agents/coding-face.ts";
 import type { PanelTerminal } from "../workspace/sidebar/panel-types.ts";
 import type { SidebarAgent } from "../workspace/sidebar/sidebar-agent.ts";
 import {
+  deskSidebarLabel,
   MAIN_DESK,
   type TabItem,
   type WorkspaceLayout,
@@ -100,9 +101,12 @@ export function layoutDesks(layout: WorkspaceLayout): LayoutDesks {
   const at = new Map<string, string>();
   const owned = new Map<string, OwnedTab[]>();
   for (const desk of Object.values(layout.desks)) {
-    list.push({ key: desk.key, label: desk.label });
-    if (desk.workflow !== undefined)
+    list.push({ key: desk.key, label: deskSidebarLabel(desk) });
+    if (desk.workflowInstance !== undefined) {
+      at.set(`workflow-instance:${desk.workflowInstance}`, desk.key);
+    } else if (desk.workflow !== undefined) {
       at.set(`workflow:${desk.workflow}`, desk.key);
+    }
     const places: { tab: TabItem; place: OwnedTab["place"] }[] = [
       ...desk.tabs.map((tab) => ({ tab, place: "tab" as const })),
       ...desk.floats.map((item) => ({
@@ -144,6 +148,15 @@ export function layoutDesks(layout: WorkspaceLayout): LayoutDesks {
 /** 사람이 Recent에서 지운 줄의 key → 지운 때(epoch ms). */
 export type HiddenRecent = ReadonlyMap<string, number>;
 
+/** 사람 차례를 기다리는 workflow 항목. 문자열이면 옛 workflow 이름, 객체면 instance 단위다. */
+export type SidebarWaitingWorkflow =
+  | string
+  | {
+      readonly instance: string;
+      readonly workflow: string;
+      readonly title: string;
+    };
+
 export interface WorkspacesInput {
   readonly now: number;
   /** 이 창이 보이는 workspace. */
@@ -174,8 +187,8 @@ export interface WorkspacesInput {
   readonly remoteTerminals: readonly RemoteTerminal[];
   /** workspace key → 터미널 참조 → 그 workspace의 layout에 열린 그 터미널의 탭 key. */
   readonly attached: ReadonlyMap<string, ReadonlyMap<string, string>>;
-  /** 이 창이 보이는 workspace에서 사람 차례를 기다리는 workflow 이름. */
-  readonly workflows: readonly string[];
+  /** 이 창이 보이는 workspace에서 사람 차례를 기다리는 workflow(또는 instance). */
+  readonly workflows: readonly SidebarWaitingWorkflow[];
   readonly hidden: HiddenRecent;
 }
 
@@ -477,28 +490,38 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
     const key = workspaceKey(ref);
     const waiting: SidebarSession[] =
       key === here
-        ? input.workflows.map((workflow) => ({
-            kind: "workflow",
-            ref: workflow,
-            title: workflow,
-            agent: { kind: "workflow" },
-            dot: "waiting",
-            actions: false,
-            at: 0,
-          }))
+        ? input.workflows.map((entry) => {
+            const ref = typeof entry === "string" ? entry : entry.instance;
+            const title = typeof entry === "string" ? entry : entry.title;
+            return {
+              kind: "workflow",
+              ref,
+              title,
+              agent: { kind: "workflow" },
+              dot: "waiting",
+              actions: false,
+              at: 0,
+            };
+          })
         : [];
     const items = [...waiting, ...(current.get(key) ?? []).sort(stable)];
     const desks = input.desks.get(key);
-    // 탭이 없는 줄(host 요청을 잃었거나 사람이 안 보고 닫은 것)은 workflow_origin의 workflow desk가 있으면 거기에, 아니면 Main desk에 둔다.
+    // 탭이 없는 줄(host 요청을 잃었거나 사람이 안 보고 닫은 것)은 workflow_origin의 instance desk(없으면 workflow desk)에, 아니면 Main desk에 둔다.
     const main = desks?.list.find((desk) => desk.key === MAIN_DESK);
     const deskOf = (item: SidebarSession) => {
-      const placed = desks?.at.get(
-        item.kind === "workflow" ? `workflow:${item.ref}` : item.ref,
-      );
+      const placed =
+        item.kind === "workflow"
+          ? (desks?.at.get(`workflow-instance:${item.ref}`) ??
+            desks?.at.get(`workflow:${item.ref}`))
+          : desks?.at.get(item.ref);
       if (placed !== undefined) return placed;
       if (item.kind === "session" && ref.kind === "project") {
         const origin = workflowOriginBy.get(item.ref);
         if (origin != null && origin.project === ref.id) {
+          const instDesk = desks?.at.get(
+            `workflow-instance:${origin.instance}`,
+          );
+          if (instDesk !== undefined) return instDesk;
           const wfDesk = desks?.at.get(`workflow:${origin.workflow}`);
           if (wfDesk !== undefined) return wfDesk;
         }

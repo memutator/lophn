@@ -1,0 +1,29 @@
+id: workflow-instance-desk-and-title
+version: 0.23.169
+platform_note: none
+title: "workflow instance 전용 desk 모델과 instance 자체 title·AI 자동 제목·사이드바 표기를 도입한다"
+modules:
+  - packages/protocol
+  - packages/core/host-queue
+  - packages/core/lophn-agent
+  - packages/core/terminal-agents
+  - packages/core/workflows
+  - packages/core/main
+  - packages/shell/main
+  - packages/shell/renderer
+change: |
+  - **workflow instance 자체 `title` 필드와 AI 자동 제목**: `workflow_instances.title` 열(`workflows.instances-title` ledger migration)과 `workflow_instances/rename`·`workflow_instances/set-ai-title`·`workflow_instances/title-request-take` route를 추가했다. 시작 시 입력 첫 60자로 초기 제목을 저장하고 `agent-runtime`이 전역 기본 model(`model-default`)로 2~6단어 AI 제목을 생성해 반영한다(그 사이 사람이 rename했으면 덮어쓰지 않는다).
+  - **workflow instance = 전용 desk 모델**: `Desk`와 저장 layout에 선택 필드 `workflow_instance`를 추가해 instance마다 독립 desk(`key = instance id`)를 두고, core의 `tab_open` `desk` payload에도 `instance`를 실어 같은 workflow를 병렬 실행해도 세션·터미널 탭이 instance별로 격리된다.
+  - **`DeskSwitcher` divider 위/아래 분리 및 Run 화면 rename**: divider 위(`Desks`)에는 `Main`·사용자 desk와 함께 실행 중인 workflow instance(자체 title, 진행 상태, inline rename; 끝난 instance desk는 닫기 포함)를, divider 아래(`Workflows`)에는 workflow 정의 목록을 둔다. `RunView` 머리글에서도 instance 제목을 inline으로 바꿀 수 있다.
+  - **왼쪽 사이드바 `<title>/<workflow>` 표시**: 사이드바의 desk 구분 머리글(`.deskHead`)에서 workflow instance desk는 `<title>/<workflow>` 형식으로 보이고, `workflow_origin` 세션과 사람 차례 waiting 항목도 instance desk 묶음에 맞춘다.
+why: |
+  기존에는 workflow 정의당 desk가 하나뿐이고 실행 중이든 아니든 모두 divider 아래 Workflows에 묶여 있어, 지금 돌아가는 실행(instance)과 정의(class)의 구분이 흐리고 같은 workflow를 여러 개 동시에 돌리면 탭과 이름이 섞였다. instance마다 독립 desk와 자체 제목을 부여해 실행 중인 작업과 지난 기록을 명확히 구분하게 한다.
+decisions:
+  - text: "workflow instance마다 전용 desk(`key = instance id`)를 두고 divider 위를 실행 중/열린 desk, 아래를 workflow 정의 목록으로 분리한다. 버린 길: workflow당 desk 1개를 유지한 채 UI 위치만 이동(병렬 실행 시 탭 격리 불가)."
+    by: person
+  - text: "instance 제목은 시작 시 입력 첫 60자로 즉시 채운 뒤 `agent-runtime`이 `model-default`로 AI 제목을 생성해 비동기 갱신하며, 사용자가 이미 rename한 경우 덮어쓰지 않는다."
+    by: person
+checklist:
+  - "DeskSwitcher에서 실행 중인 workflow instance가 divider 위 Desks에 자체 제목과 상태로 올라오고, divider 아래 Workflows에 정의 목록이 남는지 확인한다"
+  - "새 workflow run을 시작했을 때 전용 instance desk로 이동하고 기본 model 설정 시 AI 제목으로 자동 갱신되는지 확인한다"
+  - "왼쪽 사이드바의 desk 구분 머리글에 `<title>/<workflow>` 형식으로 표시되는지 확인한다"

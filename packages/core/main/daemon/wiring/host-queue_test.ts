@@ -1312,7 +1312,10 @@ test("workflow_origin이 있는 session의 coding 탭 열기는 실행 project�
       kind: "project",
       id: wfProject,
     });
-    assert.deepStrictEqual(req.payload.desk, { workflow: "dev-loop" });
+    assert.deepStrictEqual(req.payload.desk, {
+      workflow: "dev-loop",
+      instance,
+    });
     assert.equal(req.payload.group, `${instance}:implement`);
   } finally {
     await rm(dir, { recursive: true, force: true });

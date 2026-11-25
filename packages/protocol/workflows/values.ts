@@ -7,12 +7,35 @@ import {
 } from "../lophn-agent/agent-values.ts";
 import { workspaceNameSchema } from "../lophn-agent/workspaces.ts";
 
-export { SESSION_OPEN_MODES, sessionOpenModeSchema, type SessionOpenMode };
+export { SESSION_OPEN_MODES, type SessionOpenMode, sessionOpenModeSchema };
 
 export const workflowNameSchema = z
   .string()
   .max(63)
   .regex(/^[a-z][a-z0-9]*(-[a-z0-9]+)*$/);
+
+// workflow instance 제목의 글자는 사람이 보는 글자(grapheme cluster)다. 자동 제목은 앞 60자, 사람 rename은 120자 이하다.
+export const WORKFLOW_TITLE_AUTO_MAX = 60;
+export const WORKFLOW_TITLE_MAX = 120;
+
+const titleSegmenter = new Intl.Segmenter(undefined, {
+  granularity: "grapheme",
+});
+
+function workflowTitleLength(text: string): number {
+  let count = 0;
+  for (const _ of titleSegmenter.segment(text)) count += 1;
+  return count;
+}
+
+export const workflowTitleSchema = z
+  .string()
+  .refine((value) => value.trim().length > 0, {
+    message: "expected a nonblank title",
+  })
+  .refine((value) => workflowTitleLength(value.trim()) <= WORKFLOW_TITLE_MAX, {
+    message: "title is longer than 120 characters",
+  });
 
 // 사람과 agent가 보는 이름 `<project 이름>/<name>`이다. 저장하지 않고 도착할 때 project id로 푼다.
 export const workflowKeySchema = z.string().refine(

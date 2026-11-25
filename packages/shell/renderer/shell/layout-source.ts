@@ -357,6 +357,9 @@ function deskFromStored(key: string, value: unknown): Desk | null {
     key,
     label: typeof desk.label === "string" ? desk.label : key,
     ...(typeof desk.workflow === "string" ? { workflow: desk.workflow } : {}),
+    ...(typeof desk.workflow_instance === "string"
+      ? { workflowInstance: desk.workflow_instance }
+      : {}),
     tabs: compact(list("tabs").map(tabFromStored)),
     selected: typeof desk.selected_tab === "string" ? desk.selected_tab : null,
     groups: compact(list("groups").map(groupFromStored)),
@@ -447,6 +450,9 @@ function deskToStored(input: Desk): Stored {
   return {
     label: desk.label,
     ...(desk.workflow === undefined ? {} : { workflow: desk.workflow }),
+    ...(desk.workflowInstance === undefined
+      ? {}
+      : { workflow_instance: desk.workflowInstance }),
     tabs: desk.tabs.map((tab) => tabToStored(tab)),
     selected_tab: desk.selected,
     groups: desk.groups.map((group) => ({

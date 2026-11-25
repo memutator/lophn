@@ -11,6 +11,7 @@ import {
   workflowRetry,
   workflowStart,
   workflowStop,
+  workflowTitleRequestTake,
 } from "../../protocol/workflows/mod.ts";
 import type { ReaderRegistration } from "../storage/ledger/mod.ts";
 import { WORKFLOW_SNAPSHOT_BLOB_FIELD } from "./checkpoint-schema.ts";
@@ -37,7 +38,13 @@ export function createLedgerRegistration(
   return {
     schemaSteps: workflowsSchemaSteps,
     blobFields: [WORKFLOW_SNAPSHOT_BLOB_FIELD],
-    commands: [commands.create, commands.apply, commands.upsertCheckpoint],
+    commands: [
+      commands.create,
+      commands.apply,
+      commands.upsertCheckpoint,
+      commands.rename,
+      commands.setAiTitle,
+    ],
     reads: [reads.read, reads.list, reads.activity],
     memoryRoutes: [
       workflowList,
@@ -52,6 +59,7 @@ export function createLedgerRegistration(
       workflowDelete,
       workflowExport,
       workflowImport,
+      workflowTitleRequestTake,
     ],
   };
 }

@@ -75,6 +75,7 @@ export function insertInstance(
     id: Id<"wfi">;
     project: Id<"prj">;
     workflow: string;
+    title?: string | null;
     input: string;
     inputs?: Record<string, unknown>;
     code_snapshot?: string | null;
@@ -114,6 +115,14 @@ export function insertInstance(
     instance.created_at,
     nextStateSeq(sql),
   ];
+  if (
+    instance.title !== undefined &&
+    instance.title !== null &&
+    hasColumn(sql, "workflow_instances", "title")
+  ) {
+    cols.push("title");
+    values.push(instance.title);
+  }
   if (instance.inputs !== undefined) {
     cols.push("inputs_json");
     values.push(JSON.stringify(instance.inputs));
@@ -131,6 +140,21 @@ export function insertInstance(
     `INSERT INTO workflow_instances (${cols.join(", ")}) VALUES (${placeholders})`,
     values,
   );
+}
+
+export function updateInstanceTitle(
+  sql: Write,
+  id: string,
+  title: string,
+): Result<string> {
+  const seq = nextStateSeq(sql);
+  const changed = sql.run(
+    "UPDATE workflow_instances SET title = ?, state_seq = ? WHERE id = ?",
+    [title, seq, id],
+  );
+  return Number(changed.changes) === 1
+    ? ok(String(seq))
+    : err({ code: "not_found", message: "workflow instance not found" });
 }
 
 export function loadInstance(
@@ -389,6 +413,20 @@ export function hasTable(sql: Pick<Sql, "get">, name: string): boolean {
     sql.get(
       "SELECT 1 AS found FROM sqlite_master WHERE type = 'table' AND name = ?",
       [name],
+    ) !== undefined
+  );
+}
+
+// 초기 schema만 올린 단위 test DB에서 나중에 더한 열 유무를 확인한다.
+export function hasColumn(
+  sql: Pick<Sql, "get">,
+  table: string,
+  column: string,
+): boolean {
+  return (
+    sql.get(
+      `SELECT 1 AS found FROM pragma_table_info('${table}') WHERE name = ?`,
+      [column],
     ) !== undefined
   );
 }

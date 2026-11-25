@@ -28,10 +28,13 @@ export function instanceFromRow(
     row.open_mode === "tab" || row.open_mode === "background"
       ? row.open_mode
       : undefined;
+  const title =
+    typeof row.title === "string" && row.title.length > 0 ? row.title : null;
   const parsed = workflowInstanceSchema.safeParse({
     id: row.id,
     project: row.project,
     workflow: row.workflow,
+    title,
     input: row.input,
     ...(inputs !== undefined ? { inputs } : {}),
     state: row.state,

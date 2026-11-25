@@ -1,12 +1,13 @@
 // workflow 하나의 run 목록. 도는 run(사람 차례, 막힌 것, 도는 것)과 지난 run(끝났거나 멈춘 것)을 따로 그린다. 줄을 누르면 그 run 화면으로 간다.
-import { useState } from "react";
+
+import { t } from "@lophn/i18n";
 import { Button, Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
-import { t } from "@lophn/i18n";
+import { useState } from "react";
 
 import { commonIcons } from "../icons/mod.ts";
 import type { WorkflowInstanceSummaryView } from "../workspace/source.ts";
-import { groupRuns, runTitle, shownOfRun, whenOf } from "./model.ts";
+import { groupRuns, instanceTitle, shownOfRun, whenOf } from "./model.ts";
 import styles from "./run-list.module.css";
 import { StateMark } from "./state-mark.tsx";
 
@@ -29,7 +30,7 @@ function RunRow({
         onClick={() => onSelect(item.id)}
       >
         <span className={styles.main}>
-          <span className={styles.title}>{runTitle(item.input)}</span>
+          <span className={styles.title}>{instanceTitle(item)}</span>
           <span className={styles.meta}>
             <StateMark
               shown={shownOfRun(item.state, item.current, item.derived_status)}

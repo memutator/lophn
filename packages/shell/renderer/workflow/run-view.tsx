@@ -2,10 +2,11 @@
 // session(상태, 마지막 말, 실패 이유, [Open session]), 마지막 report, 산출물 파일, Activity가 그 step에 붙는다.
 // 지금 step은 펼쳐져 있고 지금 어디에 있는지 한 장([Open session], [Retry], [Resume])을 안에 가진다. 지난 step은 report 두 줄로 접혀 있다.
 // 서로 대신하는 step은 한 단계에 묶이고 이 run이 지나가지 않은 쪽은 한 줄로만 남는다. 시작 입력과 checkpoint 같은 세부는 접혀 있다.
-import { type ReactNode, useState } from "react";
-import { Button, Icon } from "@lophn/ui/primitives";
-import { iconPixels } from "@lophn/ui/shared";
+
 import { type MessageKey, t } from "@lophn/i18n";
+import { Button, Icon, IconButton } from "@lophn/ui/primitives";
+import { iconPixels } from "@lophn/ui/shared";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import { actionIcons, commonIcons, editorIcons } from "../icons/mod.ts";
 import type { SessionDot } from "../parts/agent-session/activity.ts";
@@ -23,12 +24,12 @@ import {
   cellsOfRun,
   type FaceOf,
   headLines,
+  instanceTitle,
   type Now,
   nowOf,
   refsOf,
   refsOfStep,
   runInputsOf,
-  runTitle,
   STEP_KEY,
   type StepCell,
   type StepRow,
@@ -372,6 +373,7 @@ export function RunView({
   onStop,
   onRetry,
   onResume,
+  onRename,
   onSelectInstance,
   onOpenArtifact,
   onOpenSession,
@@ -392,6 +394,8 @@ export function RunView({
   onRetry?: ((step?: string) => void) | null;
   /** 멈춘 flow instance를 replay로 이어 간다. 없으면 [Resume] 단추를 그리지 않는다. */
   onResume?: ((useLatestCode: boolean) => void) | null;
+  /** instance 제목을 바꾼다. 없으면 이름 바꾸기 단추를 그리지 않는다. */
+  onRename?: ((title: string) => void) | null;
   /** 자식 sub-workflow나 부모 workflow instance로 이동한다. */
   onSelectInstance?: ((instance: string) => void) | null;
   onOpenArtifact: () => void;
@@ -419,7 +423,8 @@ export function RunView({
         : workspaceNameOf?.(workspace.id),
     onOpenFile: onOpenFile ?? null,
   };
-  const title = runTitle(instance.input);
+  const title = instanceTitle(instance);
+  const [renaming, setRenaming] = useState(false);
   const now = nowOf(detail);
   const nowStep = nowStepOf(now);
   // 다음 step으로 넘기지 못하면 current는 report를 낸 앞 step에 남는다. 그 step은 끝난 것이고 지금 일은 넘기지 못한 step에 있다.
@@ -483,7 +488,8 @@ export function RunView({
       line.kind !== "program_exited" &&
       line.seq !== nowBlockedSeq,
   );
-  const hasLongInput = instance.input.trim() !== title;
+  const hasLongInput =
+    instance.input.trim() !== "" && instance.input.trim() !== title;
   const touched = (index: number) =>
     rows[index].current ||
     rows[index].report !== undefined ||
@@ -507,7 +513,31 @@ export function RunView({
       </div>
       <header className={styles.head}>
         <div className={styles.headText}>
-          <h1 className={styles.title}>{title}</h1>
+          <div className={styles.titleRow}>
+            {renaming && onRename != null ? (
+              <TitleRenameInput
+                value={title}
+                onDone={(next) => {
+                  setRenaming(false);
+                  if (next !== undefined && next !== title) onRename(next);
+                }}
+              />
+            ) : (
+              <>
+                <h1 className={styles.title}>{title}</h1>
+                {onRename == null ? null : (
+                  <span className={styles.titleEdit}>
+                    <IconButton
+                      icon={actionIcons.edit}
+                      label={t("workflow.button.rename")}
+                      size="sm"
+                      onClick={() => setRenaming(true)}
+                    />
+                  </span>
+                )}
+              </>
+            )}
+          </div>
           <p className={styles.meta}>
             <StateMark
               shown={shownOfRun(
@@ -719,7 +749,11 @@ export function RunView({
               const body = (
                 <>
                   <span className={styles.childMain}>
-                    <span className={styles.childName}>{child.workflow}</span>
+                    <span className={styles.childName}>
+                      {child.title != null && child.title.trim() !== ""
+                        ? `${child.title} / ${child.workflow}`
+                        : child.workflow}
+                    </span>
                     <span className={styles.childMeta}>
                       <StateMark shown={shown} />
                       <span>{when}</span>
@@ -853,5 +887,40 @@ export function RunView({
         </Fold>
       )}
     </section>
+  );
+}
+
+function TitleRenameInput({
+  value,
+  onDone,
+}: {
+  value: string;
+  onDone: (next: string | undefined) => void;
+}) {
+  const done = useRef(false);
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    input.current?.focus();
+    input.current?.select();
+  }, []);
+  const finish = (next: string | undefined) => {
+    if (done.current) return;
+    done.current = true;
+    onDone(next);
+  };
+  const typed = (el: HTMLInputElement) => el.value.trim() || value;
+  return (
+    <input
+      ref={input}
+      className={styles.titleInput}
+      aria-label={t("workflow.button.rename")}
+      defaultValue={value}
+      onBlur={(event) => finish(typed(event.currentTarget))}
+      onKeyDown={(event) => {
+        event.stopPropagation();
+        if (event.key === "Enter") finish(typed(event.currentTarget));
+        else if (event.key === "Escape") finish(undefined);
+      }}
+    />
   );
 }

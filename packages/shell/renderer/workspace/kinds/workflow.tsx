@@ -5,7 +5,7 @@ import { useMemo } from "react";
 import { useFollowedRead } from "../../desktop/connection/core-read.ts";
 import { runToastAction } from "../../desktop/connection/toasts/toast-actions.ts";
 import { commonIcons } from "../../icons/mod.ts";
-import type { FaceOf } from "../../workflow/model.ts";
+import { type FaceOf, instanceTitle } from "../../workflow/model.ts";
 import { WorkflowPage } from "../../workflow/workflow-page.tsx";
 import { codingFaceOf } from "../agents/coding-face.ts";
 import type { TabItem } from "../model.ts";
@@ -16,12 +16,19 @@ import type { TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
 import { openTerminal, terminalRefOf } from "./terminal.tsx";
 
-/** 탭 값 하나. `host`를 모른다(workflow-shell의 자리 seed도 이 값을 쓴다). */
-export function workflowTab(name: string, instance?: string): TabItem {
+/** 탭 값 하나. instance가 없으면 workflow 정의 탭(`workflow:<name>`), 있으면 instance 전용 탭(`workflow-instance:<id>`)이다. */
+export function workflowTab(
+  name: string,
+  instance?: string,
+  title?: string,
+): TabItem {
   return {
-    key: `workflow:${name}`,
+    key:
+      instance === undefined
+        ? `workflow:${name}`
+        : `workflow-instance:${instance}`,
     kind: "workflow",
-    title: name,
+    title: title !== undefined && title.trim() !== "" ? title : name,
     fields:
       instance === undefined
         ? { workflow: name }
@@ -29,13 +36,24 @@ export function workflowTab(name: string, instance?: string): TabItem {
   };
 }
 
-/** workflow 탭을 연다. 이미 열려 있으면 고르기만 한다. */
+/** workflow 정의 탭을 연다. 이미 열려 있으면 고르기만 한다. */
 export function openWorkflow(
   host: TabHost,
   workflow: string,
   instance?: string,
+  title?: string,
 ): void {
-  host.openTab(workflowTab(workflow, instance));
+  host.openTab(workflowTab(workflow, instance, title));
+}
+
+/** workflow instance 전용 desk와 run 탭을 연다. */
+export function openWorkflowInstance(
+  host: TabHost,
+  workflow: string,
+  instance: string,
+  title?: string,
+): void {
+  host.openTab(workflowTab(workflow, instance, title));
 }
 
 export const workflowKind: TabKindDef = {
@@ -43,6 +61,8 @@ export const workflowKind: TabKindDef = {
   labelKey: "workflow.label.kind",
   icon: commonIcons.workflow,
   homeDesk(tab) {
+    const instance = tab.fields?.instance;
+    if (typeof instance === "string") return instance;
     const workflow = tab.fields?.workflow;
     return typeof workflow === "string" ? workflow : undefined;
   },
@@ -153,6 +173,7 @@ function WorkflowTabBody({
 }) {
   const faceOf = useFaces(host, project);
   const agentView = host.agentView;
+  const isInstanceTab = tab.key.startsWith("workflow-instance:");
   return (
     <WorkflowPage
       project={project}
@@ -163,11 +184,38 @@ function WorkflowTabBody({
       dotOf={
         agentView === null ? undefined : (session) => agentView.dotOf(session)
       }
-      onInstance={(next) =>
+      onStarted={
+        isInstanceTab
+          ? undefined
+          : (started) =>
+              openWorkflowInstance(
+                host,
+                workflow,
+                started.instance,
+                started.title ?? undefined,
+              )
+      }
+      onOpenActiveInstance={
+        isInstanceTab
+          ? undefined
+          : (item) =>
+              openWorkflowInstance(
+                host,
+                item.workflow,
+                item.id,
+                instanceTitle(item),
+              )
+      }
+      onInstance={(next) => {
+        if (isInstanceTab) {
+          if (next === null) openWorkflow(host, workflow);
+          else openWorkflowInstance(host, workflow, next);
+          return;
+        }
         host.patchTab(tab.key, () => ({
           fields: next === null ? { workflow } : { workflow, instance: next },
-        }))
-      }
+        }));
+      }}
       onOpenArtifact={(view, picked) =>
         openWorkflowArtifact(host, {
           project,
@@ -214,11 +262,11 @@ function WorkflowTabBody({
           host.openTab(existing);
           return;
         }
-        // 살아 있는 GUI 터미널 팀원이지만 이 창에 탭이 닫혀 있으면 workflow desk에 바로 붙인다.
+        // 살아 있는 GUI 터미널 팀원이지만 이 창에 탭이 닫혀 있으면 workflow instance desk에 바로 붙인다.
         if (liveRef !== undefined) {
           openTerminal(host, {
             terminal: liveRef,
-            open: { options: { desk: workflow } },
+            open: { options: { desk: instance ?? workflow } },
           });
           return;
         }

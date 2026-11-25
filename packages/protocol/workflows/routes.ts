@@ -322,6 +322,28 @@ export const workflowImport = defineMemory({
   errors: [...readErrors, "forbidden", "conflict"],
 });
 
+export const workflowTitleRequestSchema = z.strictObject({
+  instance: idSchema("wfi"),
+  workflow: workflowNameSchema,
+  input: z.string(),
+  inputs: workflowInputValuesSchema.optional(),
+  expected: z.string().nullable(),
+});
+export type WorkflowTitleRequest = z.infer<typeof workflowTitleRequestSchema>;
+
+// agent-runtime이 새로 시작된 workflow instance의 AI 제목 생성 요청을 하나씩 가져간다.
+export const workflowTitleRequestTake = defineMemory({
+  resource: "workflow_instances",
+  method: "title-request-take",
+  name: "TakeWorkflowTitleRequest",
+  input: z.strictObject({}),
+  output: z.object({
+    request: workflowTitleRequestSchema.nullable(),
+  }),
+  actors: ["machine"],
+  errors: ["unauthorized", "forbidden", "unavailable"],
+});
+
 export const WORKFLOW_ROUTES = [
   workflowList,
   workflowStart,
@@ -338,4 +360,5 @@ export const WORKFLOW_ROUTES = [
   workflowInstanceRead,
   workflowInstanceList,
   workflowInstanceActivity,
+  workflowTitleRequestTake,
 ] as const;

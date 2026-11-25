@@ -1,7 +1,7 @@
 // workflow 탭 한 개의 본문. 화면은 둘이다: workflow 화면(이름, 도는 run, 새 run 칸과 그 안의 세로 step, 지난 run)과 run 하나의 화면.
 // 탭이 고른 run이 있으면 run 화면이고 [All runs]로 돌아온다. `host`를 모른다. 탭 kind가 props를 채우고, gallery는 Workspace 없이 세운다.
-import { type ReactElement, useEffect, useState } from "react";
-import { Button, Icon, IconButton } from "@lophn/ui/primitives";
+
+import { t } from "@lophn/i18n";
 import {
   EmptyState,
   ErrorState,
@@ -9,8 +9,9 @@ import {
   useDelayedLoading,
 } from "@lophn/ui/feedback";
 import { Toast } from "@lophn/ui/overlay";
+import { Button, Icon, IconButton } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
-import { t } from "@lophn/i18n";
+import { type ReactElement, useEffect, useState } from "react";
 
 import {
   actionIcons,
@@ -22,6 +23,7 @@ import {
 import type { SessionDot } from "../parts/agent-session/activity.ts";
 import type {
   WorkflowEntryView,
+  WorkflowInstanceSummaryView,
   WorkflowSessionNodeView,
   WorkspaceSource,
 } from "../workspace/source.ts";
@@ -46,6 +48,13 @@ export interface WorkflowPageProps {
   instance: string | null;
   source: WorkspaceSource;
   onInstance: (instance: string | null) => void;
+  /** 새 run이 시작됐을 때 그 instance 전용 desk로 이동한다. 없으면 `onInstance`로 연다. */
+  onStarted?: (started: {
+    readonly instance: string;
+    readonly title: string | null;
+  }) => void;
+  /** 실행 중인 run 줄을 눌렀을 때 그 instance 전용 desk로 이동한다. 없으면 `onInstance`로 연다. */
+  onOpenActiveInstance?: (item: WorkflowInstanceSummaryView) => void;
   onOpenArtifact: (view: "static" | "instance", instance?: string) => void;
   /** step을 받은 session의 대화를 연다. null이면 단추를 그리지 않는다. */
   onOpenSession:
@@ -164,6 +173,11 @@ export function WorkflowPage(props: WorkflowPageProps): ReactElement {
               onStop={state.stop}
               onRetry={state.retry}
               onResume={state.resume}
+              onRename={
+                props.source.renameWorkflowInstance === undefined
+                  ? null
+                  : state.rename
+              }
               onSelectInstance={(next) => onInstance(next)}
               onOpenArtifact={() =>
                 props.onOpenArtifact("instance", detail.instance.id)
@@ -230,7 +244,21 @@ export function WorkflowPage(props: WorkflowPageProps): ReactElement {
           <>
             {/* 도는 run은 새 run 칸보다 먼저 온다: 탭을 열면 사람을 기다리는 run이 가장 위에 있다. */}
             {active.length === 0 ? null : (
-              <RunList instances={active} part="active" onSelect={onInstance} />
+              <RunList
+                instances={active}
+                part="active"
+                onSelect={(id) => {
+                  const found = active.find((item) => item.id === id);
+                  if (
+                    found !== undefined &&
+                    props.onOpenActiveInstance !== undefined
+                  ) {
+                    props.onOpenActiveInstance(found);
+                  } else {
+                    onInstance(id);
+                  }
+                }}
+              />
             )}
             <StartBox
               key={entry.key}

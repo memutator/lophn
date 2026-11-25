@@ -76,6 +76,7 @@ import {
 } from "../../shell/left-sidebar-model.ts";
 import {
   type LayoutDesks,
+  type SidebarWaitingWorkflow,
   sidebarWorkspaces,
 } from "../../shell/left-sidebar-workspaces.ts";
 import type { QuickLaunch } from "../../shell/quick-launch.tsx";
@@ -88,6 +89,7 @@ import {
 } from "../../shell/use-left-sidebar.ts";
 import { closeTerminalTab, type TerminalDeps } from "../../terminal/deps.ts";
 import { isLiveAgent } from "../../terminal/store.ts";
+import { instanceTitle } from "../../workflow/model.ts";
 import { agentOf, sessionOf } from "../agent/tab-fields.ts";
 import { lophnIdAt } from "../agents/agent-key.ts";
 import {
@@ -114,13 +116,13 @@ import { movedTab, putTab, sessionTab } from "./move-tab.ts";
 import type { PanelTerminal } from "./panel-types.ts";
 import type { SidebarAgent } from "./sidebar-agent.ts";
 
-const NO_WORKFLOWS: readonly string[] = [];
+const NO_WORKFLOWS: readonly SidebarWaitingWorkflow[] = [];
 
-/** 이 project에서 사람 차례를 기다리는 workflow 이름(Home은 없다). instance가 바뀔 때마다 다시 읽는다. */
+/** 이 project에서 사람 차례를 기다리는 workflow instance 목록(Home은 없다). instance가 바뀔 때마다 다시 읽는다. */
 function useHumanTurnWorkflows(
   source: WorkspaceSource,
   project: string | null,
-): readonly string[] {
+): readonly SidebarWaitingWorkflow[] {
   // workspace를 옮기면 창의 마지막 값에서 시작한다.
   const [all, setAll] = useRemembered("workflows");
   // 값에 project를 실어 project를 옮긴 직후 앞 project의 값이 새 project 자리에 들지 않게 한다.
@@ -141,14 +143,14 @@ function useHumanTurnWorkflows(
   useEffect(() => {
     if (read.state !== "ready" || read.value === null) return;
     const { project: at, items } = read.value;
-    const names = [
-      ...new Set(
-        items
-          .filter((item) => item.current?.human_turn === true)
-          .map((item) => item.workflow),
-      ),
-    ];
-    setAll((now) => new Map(now).set(at, names));
+    const waiting: SidebarWaitingWorkflow[] = items
+      .filter((item) => item.current?.human_turn === true)
+      .map((item) => ({
+        instance: item.id,
+        workflow: item.workflow,
+        title: instanceTitle(item),
+      }));
+    setAll((now) => new Map(now).set(at, waiting));
   }, [read, setAll]);
   return (project === null ? undefined : all.get(project)) ?? NO_WORKFLOWS;
 }

@@ -1,23 +1,17 @@
 import { lstat } from "node:fs/promises";
 import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
 import { describeThrown } from "../../../../base/telemetry/mod.ts";
+import { appTools } from "../../../../protocol/apps/declaration/read.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
-import {
-  codingAgentsSetting,
-  devicesSetting,
-} from "../../../config/shell-settings.ts";
-import { HARNESS_ADAPTERS } from "../../../../protocol/coding-agent/harness-adapter.ts";
 import { handoffCommand } from "../../../../protocol/coding-agent/handoff.ts";
+import { HARNESS_ADAPTERS } from "../../../../protocol/coding-agent/harness-adapter.ts";
 import type { HarnessId } from "../../../../protocol/coding-agent/harnesses.ts";
 import {
   HOME_TERMINAL_PROJECT,
   type TerminalProject,
 } from "../../../../protocol/coding-agent/terminals.ts";
-import type { Login } from "../../../../protocol/secrets/mod.ts";
-import { appTools } from "../../../../protocol/apps/declaration/read.ts";
-import { devicesList } from "../../../../protocol/remote/routes.ts";
-import type { HostToolContent } from "../../../../protocol/lophn-agent/host-queue.ts";
 import { publishStateChanged } from "../../../../protocol/events/changes.ts";
+import type { HostToolContent } from "../../../../protocol/lophn-agent/host-queue.ts";
 import {
   BROWSER_WAIT_DEFAULT_MS,
   type BrowserAction,
@@ -44,15 +38,22 @@ import {
   tabsOpen,
   tabsShow,
 } from "../../../../protocol/lophn-agent/mod.ts";
+import { PHONE_TAB_TEXT } from "../../../../protocol/phone/drive.ts";
 import {
   ARTIFACT_ENTRY,
   artifactsFolder,
 } from "../../../../protocol/projects/mod.ts";
+import { devicesList } from "../../../../protocol/remote/routes.ts";
+import type { Login } from "../../../../protocol/secrets/mod.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import {
   type WorkflowOrigin,
   workflowOriginSchema,
 } from "../../../../protocol/workflows/values.ts";
+import {
+  codingAgentsSetting,
+  devicesSetting,
+} from "../../../config/shell-settings.ts";
 import {
   createHostQueue,
   fileHandoffs,
@@ -66,6 +67,10 @@ import {
   withinTeam,
 } from "../../../host-queue/mod.ts";
 import {
+  createPageView,
+  type PageView,
+} from "../../../host-queue/page-view.ts";
+import {
   createPhoneDriver,
   PHONE_BY_PERSON,
   type PhoneDriveDeps,
@@ -74,19 +79,14 @@ import {
 } from "../../../host-queue/phone.ts";
 import type { PhoneTab } from "../../../host-queue/queue.ts";
 import {
-  createPageView,
-  type PageView,
-} from "../../../host-queue/page-view.ts";
-import {
   type AgentSessionRow,
   loadSession,
   workspaceOf,
 } from "../../../lophn-agent/session/model.ts";
-import { workspaceDepsOf } from "../../../lophn-agent/workspaces/mod.ts";
-import { PHONE_TAB_TEXT } from "../../../../protocol/phone/drive.ts";
 import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
-import { createHostLink, type MemoryHandler } from "../../../server/mod.ts";
+import { workspaceDepsOf } from "../../../lophn-agent/workspaces/mod.ts";
 import { loginProfileOn, loginsOf } from "../../../secrets/mod.ts";
+import { createHostLink, type MemoryHandler } from "../../../server/mod.ts";
 import { agentBrowserProfile } from "./browser-profile.ts";
 import { createProductRedactor, type WiringFactory } from "./context.ts";
 
@@ -137,11 +137,13 @@ function workflowOriginOf(
 
 function workflowDeskOf(
   origin: WorkflowOrigin | null,
-): { desk: { workflow: string }; group: string } | Record<never, never> {
+):
+  | { desk: { workflow: string; instance: string }; group: string }
+  | Record<never, never> {
   return origin === null
     ? {}
     : {
-        desk: { workflow: origin.workflow },
+        desk: { workflow: origin.workflow, instance: origin.instance },
         group: `${origin.instance}:${origin.step}`,
       };
 }
@@ -149,7 +151,9 @@ function workflowDeskOf(
 function sameProjectDeskOf(
   workspace: HostWorkspace,
   origin: WorkflowOrigin | null,
-): { desk: { workflow: string }; group: string } | Record<never, never> {
+):
+  | { desk: { workflow: string; instance: string }; group: string }
+  | Record<never, never> {
   return origin !== null &&
     workspace.kind === "project" &&
     workspace.id === origin.project

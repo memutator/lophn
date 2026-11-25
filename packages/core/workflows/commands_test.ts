@@ -12,6 +12,7 @@ import { createWorkflowCommands } from "./commands.ts";
 import { workflowLinesSchemaSteps } from "./lines-schema.ts";
 import { workflowsSchemaSteps } from "./schema.ts";
 import { loadInstance, loadLines } from "./store.ts";
+import { WORKFLOW_TITLE_SCHEMA_STEP } from "./title-schema.ts";
 
 const WFI = "wfi_01hzzzzzzzzzzzzzzzzzzzzzza";
 const PRJ = "prj_01hzzzzzzzzzzzzzzzzzzzzzza";
@@ -380,6 +381,107 @@ test("report persists refs/data and same-session retried never opens a new sessi
     assert.ok(!closedRetry.ok);
     assert.equal(closedRetry.error.code, "conflict");
     assert.equal(openedCount, 1);
+  } finally {
+    db.close();
+  }
+});
+
+test("workflow instance title: rename persists user title and AI title does not overwrite user rename", () => {
+  const db = new DatabaseSync(":memory:");
+  try {
+    db.exec(workflowsSchemaSteps[0]!.sql);
+    db.exec(WORKFLOW_TITLE_SCHEMA_STEP.sql);
+    const sql = createSql(db, () => true);
+    const tx = {
+      sql,
+      now: () => "2026-11-25T00:00:00.000Z",
+      newId: (prefix: string) => `${prefix}_01hzzzzzzzzzzzzzzzzzzzzzzb`,
+      port: () => ({ push: () => {} }),
+    } as unknown as Tx;
+    const commands = createWorkflowCommands();
+    const machineCtx = {
+      actor: "machine",
+      principal: "machine:workflows",
+      conditions: {},
+    } as never;
+    const userCtx = {
+      actor: "user",
+      principal: "user:person",
+      conditions: {},
+    } as never;
+
+    const created = commands.create.handle(
+      tx,
+      machineCtx,
+      {
+        id: WFI,
+        project: PRJ,
+        workflow: "cleanroom",
+        title: "Initial auto title",
+        input: "Initial auto title\nmore detail",
+        participants: {},
+        steps: [],
+        started_by: { kind: "user" },
+        handoff: null,
+      },
+      {},
+    );
+    assert.ok(created.ok);
+    assert.equal(created.value.instance.title, "Initial auto title");
+
+    // non-user cannot call rename
+    const forbidden = commands.rename.handle(
+      tx,
+      machineCtx,
+      { instance: WFI, title: "Not allowed" },
+      {},
+    );
+    assert.ok(!forbidden.ok);
+    assert.equal(forbidden.error.code, "forbidden");
+
+    // AI title applies when expected matches current title
+    const aiApplied = commands.setAiTitle.handle(
+      tx,
+      machineCtx,
+      {
+        instance: WFI,
+        expected: "Initial auto title",
+        title: "Fix auth timeout",
+      },
+      {},
+    );
+    assert.ok(aiApplied.ok);
+    assert.equal(aiApplied.value.changed, true);
+    assert.equal(aiApplied.value.title, "Fix auth timeout");
+
+    // User rename updates title
+    const renamed = commands.rename.handle(
+      tx,
+      userCtx,
+      { instance: WFI, title: "  Auth timeout hotfix  " },
+      {},
+    );
+    assert.ok(renamed.ok);
+    assert.equal(renamed.value.title, "Auth timeout hotfix");
+
+    // Stale AI title with old expected does NOT overwrite user's title
+    const staleAi = commands.setAiTitle.handle(
+      tx,
+      machineCtx,
+      {
+        instance: WFI,
+        expected: "Fix auth timeout",
+        title: "Late AI overwrite",
+      },
+      {},
+    );
+    assert.ok(staleAi.ok);
+    assert.equal(staleAi.value.changed, false);
+    assert.equal(staleAi.value.title, "Auth timeout hotfix");
+
+    const loaded = loadInstance(sql, WFI);
+    assert.ok(loaded.ok && loaded.value !== null);
+    assert.equal(loaded.value.title, "Auth timeout hotfix");
   } finally {
     db.close();
   }

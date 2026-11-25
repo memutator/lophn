@@ -9,7 +9,7 @@
 // shell/desk-model.ts와 짝이다.
 import { z } from "zod";
 import { tabKindOf } from "./kinds/registry.ts";
-import { tabKey } from "./kinds/values.ts";
+import { idOf, tabKey } from "./kinds/values.ts";
 import {
   DEFAULT_DESK,
   deskKey,
@@ -99,6 +99,11 @@ const workspaceDeskSchema = z
   .strictObject({
     label: z.string().min(1).max(200),
     workflow: z.string().min(1).max(200).optional(),
+    // workflow instance 전용 desk면 그 instance id(`wfi_...`)다. 판 14 안에서 더한 선택 필드라 없는 옛 파일은 정의 desk다.
+    workflow_instance: z
+      .string()
+      .refine((value) => idOf("wfi", value) !== null)
+      .optional(),
     tabs: z.array(layoutTabSchema).max(TABS_MAX),
     selected_tab: tabKey.nullable(),
     // 초기 개발 파일에는 없다. 없으면 group이 없다.

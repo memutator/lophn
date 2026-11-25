@@ -1,12 +1,11 @@
 import {
-  err,
-  ok,
   type Clock,
+  err,
   type IdSource,
+  ok,
   type Result,
 } from "../../base/mod.ts";
 import type { Id } from "../../protocol/base/ids.ts";
-import { PHONE_TAB_TEXT } from "../../protocol/phone/drive.ts";
 import {
   BROWSER_CALL_MS,
   type BrowserTabState,
@@ -21,6 +20,7 @@ import {
   type TabListItem,
   type TabRelation,
 } from "../../protocol/lophn-agent/host-queue.ts";
+import { PHONE_TAB_TEXT } from "../../protocol/phone/drive.ts";
 
 // core 메모리의 host queue와 agent가 연 탭의 표다. 꺼지면 사라진다.
 // host는 `/host-link` 연결(`connect`)로 붙고 queue가 닿는 요청을 바로 밀어 준다. 연결이 열려 있으면 shell이 붙어 있다.
@@ -193,8 +193,8 @@ type OpenInput = {
   tab?: Id<"tab">;
   // browser 탭의 profile이다. 없으면 기본 profile이다.
   profile?: Id<"bpf">;
-  // workflow_origin이 있는 session의 탭은 그 workflow의 desk에 연다.
-  desk?: { workflow: string };
+  // workflow_origin이 있는 session의 탭은 그 workflow instance의 desk에 연다.
+  desk?: { workflow: string; instance?: string };
   // 같은 부모·step에서 병렬로 생긴 탭이 같은 묶음 key를 가지면 renderer가 한 묶음으로 둔다.
   group?: string;
 };

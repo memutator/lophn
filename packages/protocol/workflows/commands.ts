@@ -29,6 +29,7 @@ import {
   workflowNameSchema,
   workflowOutcomeErrorSchema,
   workflowRefsSchema,
+  workflowTitleSchema,
 } from "./values.ts";
 
 // 받는 곳. CallAddressInput에 대입된다(맨 `{session}` 꼴은 plan이 만들지 않는다).
@@ -87,6 +88,7 @@ export const workflowInstanceCreate = defineCommand({
     id: idSchema("wfi"),
     project: idSchema("prj"),
     workflow: workflowNameSchema,
+    title: z.string().nullable().optional(),
     input: z.string(),
     inputs: workflowInputValuesSchema.optional(),
     participants: z.record(participantKeySchema, participantSchema),
@@ -237,8 +239,62 @@ export const workflowCheckpointUpsert = defineCommand({
   ],
 });
 
+// 사람이 workflow instance의 제목을 바꾼다. running·ended·stopped 모두 허용한다.
+export const workflowInstanceRename = defineCommand({
+  resource: "workflow_instances",
+  method: "rename",
+  name: "RenameWorkflowInstance",
+  changes: [{ name: "workflow_instances", id: (input) => input.instance }],
+  input: z.strictObject({
+    instance: idSchema("wfi"),
+    title: workflowTitleSchema,
+  }),
+  output: z.object({
+    id: idSchema("wfi"),
+    title: workflowTitleSchema,
+    state_seq: seqSchema,
+  }),
+  actors: ["user"],
+  errors: [
+    "invalid_input",
+    "unauthorized",
+    "forbidden",
+    "not_found",
+    "unavailable",
+  ],
+});
+
+// 시작 직후 기본 model로 지은 제목을 적는다. 그 사이 사람이 이름을 바꿨으면(expected와 다르면) 덮어쓰지 않는다.
+export const workflowInstanceSetAiTitle = defineCommand({
+  resource: "workflow_instances",
+  method: "set-ai-title",
+  name: "SetWorkflowInstanceAiTitle",
+  changes: [{ name: "workflow_instances", id: (input) => input.instance }],
+  input: z.strictObject({
+    instance: idSchema("wfi"),
+    expected: z.string().nullable(),
+    title: workflowTitleSchema,
+  }),
+  output: z.object({
+    id: idSchema("wfi"),
+    title: z.string().nullable(),
+    changed: z.boolean(),
+    state_seq: seqSchema,
+  }),
+  actors: ["machine"],
+  errors: [
+    "invalid_input",
+    "unauthorized",
+    "forbidden",
+    "not_found",
+    "unavailable",
+  ],
+});
+
 export const WORKFLOW_COMMAND_ROUTES = [
   workflowInstanceCreate,
   workflowInstanceApply,
   workflowCheckpointUpsert,
+  workflowInstanceRename,
+  workflowInstanceSetAiTitle,
 ] as const;

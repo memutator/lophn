@@ -1,10 +1,11 @@
 // title bar 왼쪽의 desk 단추와 목록. desk 하나가 tab 줄·split·float을 통째로 가지므로 고르면 tab 줄이 통째로 바뀐다.
 // workflow desk는 이름까지 강조해 보이고, 사람이 만든 desk는 아이콘과 이름만 보인다. 목록은 줄 안에 단추(이름 바꾸기,
 // 지우기)를 두어야 해서 Menu가 아니라 Popover다.
-import { Fragment, useEffect, useRef, useState } from "react";
+
 import { t } from "@lophn/i18n";
-import { Icon } from "@lophn/ui/primitives";
 import { Popover } from "@lophn/ui/overlay";
+import { Icon } from "@lophn/ui/primitives";
+import { Fragment, useEffect, useRef, useState } from "react";
 
 import { useKeyLabel } from "../commands/react.tsx";
 import { actionIcons, shellIcons } from "../icons/mod.ts";
@@ -15,13 +16,21 @@ export type DeskStatusTone = "working" | "needs_you" | "blocked";
 export interface DeskOption {
   readonly key: string;
   readonly label: string;
-  /** workflow desk. Workflows 묶음에 들어간다. */
+  /** 목록 구역. Desks(divider 위, Main·사용자 desk·실행 중/열린 workflow instance desk)와 Workflows(divider 아래, workflow 정의). */
+  readonly section?: "desks" | "workflows";
+  /** workflow 아이콘과 강조 스타일을 쓴다(workflow instance desk와 workflow 정의 desk 모두). */
   readonly workflow?: boolean;
-  /** workflow desk 이름 옆의 상태 글(예: "execute · Running"). */
+  /** tooltip 등에 보일 보조 이름(예: instance가 속한 workflow 이름). */
+  readonly subtitle?: string;
+  /** workflow instance desk 이름 옆의 상태 글(예: "execute · Running"). */
   readonly status?: string;
-  /** workflow desk의 진행 상태 색/점(working | needs_you | blocked). */
+  /** workflow instance desk의 진행 상태 색/점(working | needs_you | blocked). */
   readonly tone?: DeskStatusTone;
-  /** 줄 오른쪽에 이름 바꾸기·지우기 단추를 둔다. Main과 workflow desk는 아니다. */
+  /** 줄 오른쪽에 이름 바꾸기 단추를 둔다(사람이 만든 desk와 workflow instance desk). */
+  readonly renameable?: boolean;
+  /** 줄 오른쪽에 지우기/닫기 단추를 둔다(사람이 만든 desk와 끝난 workflow instance desk). */
+  readonly deletable?: boolean;
+  /** 줄 오른쪽에 이름 바꾸기·지우기 단추를 둘 다 둔다(renameable·deletable의 축약). */
   readonly manageable?: boolean;
 }
 
@@ -84,94 +93,106 @@ export function DeskSwitcher({
   }, [renameAsk]);
   const now = desks.find((desk) => desk.key === current) ?? desks[0];
   if (now === undefined) return null;
-  const own = desks.filter((desk) => !desk.workflow);
-  const flows = desks.filter((desk) => desk.workflow);
+  const sectionOf = (desk: DeskOption): "desks" | "workflows" =>
+    desk.section ?? (desk.workflow ? "workflows" : "desks");
+  const own = desks.filter((desk) => sectionOf(desk) === "desks");
+  const flows = desks.filter((desk) => sectionOf(desk) === "workflows");
   const workflowSummary = summarizeWorkflowDesks(desks);
   const pick = (key: string) => {
     setOpen(false);
     onSelect(key);
   };
-  const row = (desk: DeskOption) => (
-    <div
-      key={desk.key}
-      className={styles.row}
-      data-current={desk.key === now.key || undefined}
-      data-desk-row={desk.key}
-      data-tone={desk.tone}
-    >
-      {desk.key === renaming ? (
-        <>
-          <span className={styles.lead}>
-            <Icon
-              icon={desk.workflow ? shellIcons.workflow : shellIcons.desk}
-              pixels={16}
-            />
-          </span>
-          <RenameInput
-            label={desk.label}
-            onDone={(name) => {
-              if (name !== undefined && name !== desk.label) {
-                onRename(desk.key, name);
-              }
-              setRenaming(null);
-            }}
-          />
-        </>
-      ) : (
-        <button
-          type="button"
-          className={styles.pick}
-          onClick={() => pick(desk.key)}
-        >
-          <span className={styles.lead}>
-            <Icon
-              icon={
-                desk.key === now.key
-                  ? shellIcons.current
-                  : desk.workflow
-                    ? shellIcons.workflow
-                    : shellIcons.desk
-              }
-              pixels={16}
-            />
-          </span>
-          <span className={styles.name}>{desk.label}</span>
-          {desk.status === undefined && desk.tone === undefined ? null : (
-            <span className={styles.status} data-tone={desk.tone}>
-              {desk.tone === undefined ? null : (
-                <span
-                  className={styles.dot}
-                  data-tone={desk.tone}
-                  aria-hidden="true"
-                />
-              )}
-              {desk.status === undefined ? null : <span>{desk.status}</span>}
+  const row = (desk: DeskOption) => {
+    const canRename = desk.renameable ?? desk.manageable ?? false;
+    const canDelete = desk.deletable ?? desk.manageable ?? false;
+    const hasStatus = desk.status !== undefined || desk.tone !== undefined;
+    return (
+      <div
+        key={desk.key}
+        className={styles.row}
+        data-current={desk.key === now.key || undefined}
+        data-desk-row={desk.key}
+        data-tone={desk.tone}
+        data-has-status={hasStatus || undefined}
+      >
+        {desk.key === renaming ? (
+          <>
+            <span className={styles.lead}>
+              <Icon
+                icon={desk.workflow ? shellIcons.workflow : shellIcons.desk}
+                pixels={16}
+              />
             </span>
-          )}
-        </button>
-      )}
-      {desk.manageable ? (
-        <span className={styles.actions}>
+            <RenameInput
+              label={desk.label}
+              onDone={(name) => {
+                if (name !== undefined && name !== desk.label) {
+                  onRename(desk.key, name);
+                }
+                setRenaming(null);
+              }}
+            />
+          </>
+        ) : (
           <button
             type="button"
-            className={styles.action}
-            aria-label={t("shell.button.desk-rename", { name: desk.label })}
-            onClick={() => setRenaming(desk.key)}
+            className={styles.pick}
+            onClick={() => pick(desk.key)}
           >
-            <Icon icon={actionIcons.edit} pixels={14} />
+            <span className={styles.lead}>
+              <Icon
+                icon={
+                  desk.key === now.key
+                    ? shellIcons.current
+                    : desk.workflow
+                      ? shellIcons.workflow
+                      : shellIcons.desk
+                }
+                pixels={16}
+              />
+            </span>
+            <span className={styles.name}>{desk.label}</span>
+            {!hasStatus ? null : (
+              <span className={styles.status} data-tone={desk.tone}>
+                {desk.tone === undefined ? null : (
+                  <span
+                    className={styles.dot}
+                    data-tone={desk.tone}
+                    aria-hidden="true"
+                  />
+                )}
+                {desk.status === undefined ? null : <span>{desk.status}</span>}
+              </span>
+            )}
           </button>
-          <button
-            type="button"
-            className={styles.action}
-            aria-label={t("shell.button.desk-delete", { name: desk.label })}
-            onClick={() => onDelete(desk.key)}
-          >
-            <Icon icon={shellIcons.close} pixels={14} />
-          </button>
-        </span>
-      ) : null}
-    </div>
-  );
+        )}
+        {desk.key !== renaming && (canRename || canDelete) ? (
+          <span className={styles.actions}>
+            {canRename ? (
+              <button
+                type="button"
+                className={styles.action}
+                aria-label={t("shell.button.desk-rename", { name: desk.label })}
+                onClick={() => setRenaming(desk.key)}
+              >
+                <Icon icon={actionIcons.edit} pixels={14} />
+              </button>
+            ) : null}
+            {canDelete ? (
+              <button
+                type="button"
+                className={styles.action}
+                aria-label={t("shell.button.desk-delete", { name: desk.label })}
+                onClick={() => onDelete(desk.key)}
+              >
+                <Icon icon={shellIcons.close} pixels={14} />
+              </button>
+            ) : null}
+          </span>
+        ) : null}
+      </div>
+    );
+  };
   return (
     <span className={styles.slot}>
       <Popover

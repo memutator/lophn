@@ -14,13 +14,16 @@ import type {
   Tx,
 } from "../../protocol/server/mod.ts";
 import {
+  isJobModeEscalated,
   isJobTargetUnavailable,
   type JobTargetAvailability,
+  type JobWorkflowModes,
   jobHeld,
   jobMachinePort,
   jobsChanged,
   jobZonePort,
   targetAvailabilityOf,
+  workflowModesPortOf,
 } from "./ports.ts";
 import { jobRunFromRow } from "./rows.ts";
 import { dueTurns } from "./schedule.ts";
@@ -127,6 +130,7 @@ function turnFor(
   zone: string,
   me: string,
   availability: JobTargetAvailability,
+  modes: JobWorkflowModes,
 ): Result<void> {
   const loaded = loadJob(tx.sql, id, me);
   if (!loaded.ok) return loaded;
@@ -145,9 +149,12 @@ function turnFor(
   const spec = { every: job.every, at: job.at, zone };
   const came = job.next_due_at !== null && job.next_due_at <= now;
   const turns = came ? dueTurns(spec, job.next_due_at!, now) : null;
-  // 보관된 앱·project의 job은 enabled를 건드리지 않고 실행 줄을 만들지 않으며 next_due_at만 다음 주기로 민다.
-  // 보관 해제하면 역방향 수정 없이 다음 주기부터 저절로 다시 돈다.
-  if (isJobTargetUnavailable(job, availability)) {
+  // 보관된 앱·project의 job이나 승인 뒤 권한 단계가 full로 올라간 workflow_start job은
+  // enabled를 건드리지 않고 실행 줄을 만들지 않으며 next_due_at만 다음 주기로 민다.
+  if (
+    isJobTargetUnavailable(job, availability) ||
+    isJobModeEscalated(job, modes)
+  ) {
     if (turns !== null) {
       setNextDue(tx.sql, id, turns.next);
       jobsChanged(tx);
@@ -215,8 +222,13 @@ function turnFor(
 }
 
 // claimed_at이 없는 queued 줄을 한 번만 넘긴다.
-// 주인이 이 기계가 아닌 job의 줄은 넘기지 않는다.
-function handOut(tx: Tx, now: string, me: string): Result<JobTurn[]> {
+// 주인이 이 기계가 아닌 job이나 권한 단계 상승으로 재승인 대기 중인 job의 줄은 넘기지 않는다.
+function handOut(
+  tx: Tx,
+  now: string,
+  me: string,
+  modes: JobWorkflowModes,
+): Result<JobTurn[]> {
   const start: JobTurn[] = [];
   const ids = tx.sql.all(
     `SELECT id FROM job_runs
@@ -226,15 +238,18 @@ function handOut(tx: Tx, now: string, me: string): Result<JobTurn[]> {
     [me],
   );
   for (const row of ids) {
-    tx.sql.run("UPDATE job_runs SET claimed_at = ? WHERE id = ?", [
-      now,
-      row.id as string,
-    ]);
     const run = loadJobRun(tx.sql, row.id as string);
     if (!run.ok) return run;
     const job = loadJob(tx.sql, run.value!.job, me);
     if (!job.ok) return job;
-    start.push({ job: job.value!, job_run: run.value! });
+    if (job.value === null || isJobModeEscalated(job.value, modes)) {
+      continue;
+    }
+    tx.sql.run("UPDATE job_runs SET claimed_at = ? WHERE id = ?", [
+      now,
+      row.id as string,
+    ]);
+    start.push({ job: job.value, job_run: run.value! });
   }
   return ok(start);
 }
@@ -282,6 +297,7 @@ export function createDueCommands(): {
           ...closed.keys(),
         ]);
         const availability = targetAvailabilityOf(tx);
+        const modes = workflowModesPortOf(tx);
         for (const id of [...ids].sort()) {
           const turn = turnFor(
             tx,
@@ -292,10 +308,11 @@ export function createDueCommands(): {
             zone,
             me,
             availability,
+            modes,
           );
           if (!turn.ok) return turn;
         }
-        const start = handOut(tx, now, me);
+        const start = handOut(tx, now, me, modes);
         if (!start.ok) return start;
         const next = tx.sql.get(
           "SELECT min(next_due_at) AS next FROM jobs WHERE enabled = 1 AND machine = ?",
@@ -386,6 +403,12 @@ export function createDueCommands(): {
           }
           if (job.value?.approved_at === null) {
             return fail("conflict", "the job waits for approval");
+          }
+          if (
+            job.value !== null &&
+            isJobModeEscalated(job.value, workflowModesPortOf(tx))
+          ) {
+            return fail("conflict", "the job is paused until re-approved");
           }
           const open = tx.sql.get(
             "SELECT id FROM job_runs WHERE job = ? AND state IN ('queued', 'running')",

@@ -13,14 +13,18 @@ import {
 import type { AgentAtWorkspace } from "../../protocol/lophn-agent/mod.ts";
 import type { ReadDefinition, Sql } from "../../protocol/server/mod.ts";
 import {
+  enrichJobWithModes,
   isJobTargetUnavailable,
+  type JobWorkflowModes,
   jobEventPolicyPort,
   jobMachinePort,
   jobTargetsPort,
   targetAvailabilityOf,
+  workflowModesPortOf,
 } from "./ports.ts";
 import {
   hasActivity,
+  loadApprovedWorkflowJobs,
   loadHolds,
   loadJob,
   loadJobRuns,
@@ -36,6 +40,7 @@ function turnsOf(
   sql: Pick<Sql, "get" | "all">,
   runs: JobRunRecord[],
   me: string,
+  modes?: JobWorkflowModes,
 ): Result<JobTurn[]> {
   const turns: JobTurn[] = [];
   for (const job_run of runs) {
@@ -44,7 +49,11 @@ function turnsOf(
     if (job.value === null) {
       return err({ code: "internal", message: "job run without a job" });
     }
-    turns.push({ job: job.value, job_run });
+    turns.push({
+      job:
+        modes === undefined ? job.value : enrichJobWithModes(job.value, modes),
+      job_run,
+    });
   }
   return ok(turns);
 }
@@ -90,7 +99,9 @@ export function createJobReads(): {
         // 대상 앱·project가 보관됐거나 지워졌으면 enabled를 건드리지 않고 target_unavailable을 달아 보인다.
         const policy = snapshot.port(jobEventPolicyPort);
         const availability = targetAvailabilityOf(snapshot);
-        const page = loaded.value.slice(0, PAGE).map((job) => {
+        const workflowModes = workflowModesPortOf(snapshot);
+        const page = loaded.value.slice(0, PAGE).map((rawJob) => {
+          const job = enrichJobWithModes(rawJob, workflowModes);
           // 다른 컴퓨터의 앱 event로 도는 job은 이 컴퓨터의 선언으로 알 수 없다.
           const sourceGone =
             job.trigger?.app != null &&
@@ -141,14 +152,28 @@ export function createJobReads(): {
       handle(snapshot) {
         const machine = snapshot.port(jobMachinePort).id();
         if (!machine.ok) return machine;
-        const loaded = loadPendingJobs(snapshot.sql, machine.value);
-        return loaded.ok
-          ? ok({
-              jobs: loaded.value,
-              as_of_seq: snapshot.as_of_seq,
-              next_cursor: null,
-            })
-          : loaded;
+        const workflowModes = workflowModesPortOf(snapshot);
+        const unapproved = loadPendingJobs(snapshot.sql, machine.value);
+        if (!unapproved.ok) return unapproved;
+        const approvedWorkflows = loadApprovedWorkflowJobs(
+          snapshot.sql,
+          machine.value,
+        );
+        if (!approvedWorkflows.ok) return approvedWorkflows;
+        const escalated = approvedWorkflows.value
+          .map((job) => enrichJobWithModes(job, workflowModes))
+          .filter((job) => job.approval_paused_reason === "mode_escalated");
+        const jobs = [
+          ...unapproved.value.map((job) =>
+            enrichJobWithModes(job, workflowModes),
+          ),
+          ...escalated,
+        ].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+        return ok({
+          jobs,
+          as_of_seq: snapshot.as_of_seq,
+          next_cursor: null,
+        });
       },
     },
     // job마다 하나라 쪽을 나누지 않는다.
@@ -159,7 +184,12 @@ export function createJobReads(): {
         if (!machine.ok) return machine;
         const loaded = loadHolds(snapshot.sql, machine.value);
         if (!loaded.ok) return loaded;
-        const holds = turnsOf(snapshot.sql, loaded.value, machine.value);
+        const holds = turnsOf(
+          snapshot.sql,
+          loaded.value,
+          machine.value,
+          workflowModesPortOf(snapshot),
+        );
         return holds.ok
           ? ok({
               holds: holds.value,

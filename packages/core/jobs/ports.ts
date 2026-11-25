@@ -9,6 +9,7 @@ import type {
 import type {
   AgentAddress,
   AgentAtWorkspace,
+  PermissionMode,
 } from "../../protocol/lophn-agent/mod.ts";
 import type { Tx } from "../../protocol/server/mod.ts";
 import { afterCommit } from "../storage/ledger/after-commit.ts";
@@ -96,6 +97,91 @@ export function isJobTargetUnavailable(
     case "workflow_start":
       return !availability.projectActive(action.project as Id<"prj">);
   }
+}
+
+// workflow_start job의 현재 participant별 권한 단계(기억된 설정·기본값 해석)를 읽는 port.
+// 구현은 조립(jobs-registration)이 settings(`approvals.workflow_modes`)와 workflow 선언으로 꽂는다.
+export type JobWorkflowModes = {
+  workflowModesOf(
+    project: Id<"prj">,
+    workflow: string,
+  ): Record<string, PermissionMode>;
+};
+export const jobWorkflowModesPort = definePort<JobWorkflowModes>(
+  "jobs.workflow_modes",
+);
+
+const NO_WORKFLOW_MODES: JobWorkflowModes = {
+  workflowModesOf: () => ({}),
+};
+
+// 격리된 단위 테스트가 이 port를 꽂지 않았으면 빈 map으로 본다.
+export function workflowModesPortOf(
+  holder: Pick<Tx, "port">,
+): JobWorkflowModes {
+  const port = holder.port(jobWorkflowModesPort) as
+    | Partial<JobWorkflowModes>
+    | undefined;
+  if (typeof port?.workflowModesOf === "function") {
+    return port as JobWorkflowModes;
+  }
+  return NO_WORKFLOW_MODES;
+}
+
+// 승인 시점의 participant별 권한 단계(approvedModes)와 지금 기억된 단계(currentModes)를 비교해
+// 어느 participant라도 'full'로 올라갔으면 true를 돌려준다(재승인 전까지 멈춤).
+export function hasModeEscalated(
+  approvedModes: Readonly<Record<string, PermissionMode>> | null | undefined,
+  currentModes: Readonly<Record<string, PermissionMode>> | null | undefined,
+): boolean {
+  if (currentModes === null || currentModes === undefined) return false;
+  for (const [key, mode] of Object.entries(currentModes)) {
+    if (mode === "full" && (approvedModes?.[key] ?? "workspace") !== "full") {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function isJobModeEscalated(
+  job: Pick<JobRecord, "action" | "approved_at" | "participant_modes">,
+  modes: JobWorkflowModes,
+): boolean {
+  if (job.approved_at === null || job.action.kind !== "workflow_start") {
+    return false;
+  }
+  const current = modes.workflowModesOf(
+    job.action.project as Id<"prj">,
+    job.action.workflow,
+  );
+  return hasModeEscalated(job.participant_modes ?? null, current);
+}
+
+export function enrichJobWithModes(
+  job: JobRecord,
+  modes: JobWorkflowModes,
+): JobRecord {
+  if (job.action.kind !== "workflow_start") return job;
+  const approvedModes = job.participant_modes ?? null;
+  const currentModes = modes.workflowModesOf(
+    job.action.project as Id<"prj">,
+    job.action.workflow,
+  );
+  const escalated =
+    job.approved_at !== null && hasModeEscalated(approvedModes, currentModes);
+  const effectiveModes =
+    Object.keys(currentModes).length > 0
+      ? currentModes
+      : approvedModes !== null && Object.keys(approvedModes).length > 0
+        ? approvedModes
+        : undefined;
+  return {
+    ...job,
+    ...(effectiveModes !== undefined
+      ? { participant_modes: effectiveModes }
+      : {}),
+    approval_paused_reason: escalated ? "mode_escalated" : null,
+  };
 }
 
 // event를 때로 가진 job이 쓰는 판정. 앱 이름 풀기와 선언된 event, call 정책의 보이는 범위는 다른 module의 일이라 조립이 꽂는다.
@@ -189,6 +275,10 @@ export type JobSchedulerDeps = {
   store: JobSchedulerStore;
   starter: JobStarter;
   logger: Logger;
+  workflowModesOf?(
+    project: string,
+    workflow: string,
+  ): Promise<Record<string, PermissionMode>> | Record<string, PermissionMode>;
 };
 
 export type JobScheduler = {

@@ -44,12 +44,14 @@ export {
 } from "./declaration.ts";
 export { workflowLinesSchemaSteps } from "./lines-schema.ts";
 export { WORKFLOW_OPEN_MODE_SCHEMA_STEP } from "./open-mode-schema.ts";
+export { WORKFLOW_PARTICIPANT_MODES_SCHEMA_STEP } from "./participant-modes-schema.ts";
 export type {
   DefinitionFile,
   StepTurn,
   WorkflowAgents,
   WorkflowFiles,
   WorkflowFlows,
+  WorkflowPermissionModes,
   WorkflowProjects,
   WorkflowRemote,
   WorkflowSnapshots,
@@ -92,6 +94,7 @@ export {
 export {
   extractFinalSoftOutput,
   MAX_SUBWORKFLOW_DEPTH,
+  parentPermissionCeiling,
   runSubWorkflowCall,
   type SubWorkflowRequest,
 } from "./workflow-call.ts";

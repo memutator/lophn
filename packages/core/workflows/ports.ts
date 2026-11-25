@@ -1,7 +1,10 @@
 import type { Result } from "../../base/mod.ts";
 import type { Id } from "../../protocol/base/mod.ts";
 import type { RemoteWorkspace } from "../../protocol/lophn-agent/calls.ts";
-import type { TurnOutcome } from "../../protocol/lophn-agent/mod.ts";
+import type {
+  PermissionMode,
+  TurnOutcome,
+} from "../../protocol/lophn-agent/mod.ts";
 import type { AgentAddress } from "../../protocol/lophn-agent/workspaces.ts";
 import type { Input, Output } from "../../protocol/server/mod.ts";
 import type {
@@ -174,6 +177,30 @@ export type WorkflowRemote = {
 export type WorkflowAgents = {
   listCallable(project: Id<"prj">): Promise<Result<CallableAgentOption[]>>;
   defaultOpen?(address: AgentAddress): Promise<SessionOpenMode | undefined>;
+};
+
+// workflow participant 권한 단계 해석 port. 기억된 단계(approvals.workflow_modes), agent 정의 기본 단계,
+// 전역 기본 단계(approvals.default_mode), harness runtime 판별을 조립(wiring/workflows.ts)이 꽂는다.
+export type WorkflowPermissionModes = {
+  rememberedModesOf?(
+    project: Id<"prj">,
+    workflow: string,
+  ):
+    | Promise<Record<string, PermissionMode> | undefined>
+    | Record<string, PermissionMode>
+    | undefined;
+  agentDefaultModeOf?(
+    agent: string,
+    project?: Id<"prj">,
+  ): Promise<PermissionMode | undefined> | PermissionMode | undefined;
+  globalDefaultMode?():
+    | Promise<PermissionMode | undefined>
+    | PermissionMode
+    | undefined;
+  isHarnessAgent?(
+    agent: string,
+    project?: Id<"prj">,
+  ): Promise<boolean> | boolean;
 };
 
 // flow process를 띄우고 멈춘다. 구현은 flows wiring이 끼운다.

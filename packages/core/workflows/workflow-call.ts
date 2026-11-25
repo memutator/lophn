@@ -1,6 +1,10 @@
 import type { z } from "zod";
 import type { Result } from "../../base/mod.ts";
 import type { Id } from "../../protocol/base/mod.ts";
+import {
+  minPermissionMode,
+  type PermissionMode,
+} from "../../protocol/lophn-agent/mod.ts";
 import type { Output } from "../../protocol/server/mod.ts";
 import type {
   ReportLine,
@@ -27,8 +31,51 @@ export type SubWorkflowRequest = {
   workflow: string;
   input: string;
   inputs?: Record<string, unknown>;
+  // sub-workflow를 호출한 부모 참가자 key나 명시적 부모 권한 단계(없으면 부모 instance에서 계산).
+  callingParticipant?: string;
+  parentMode?: PermissionMode;
   signal?: AbortSignal;
 };
+
+// 부모 instance에서 sub-workflow가 넘을 수 없는 권한 상한을 구한다.
+// 호출한 참가자가 정해져 있으면 그 참가자의 단계, 없으면 현재 실행 step 담당 참가자의 단계,
+// 그마저 없으면(flow 등) 부모 participant_modes 가운데 가장 좁은 단계다.
+export function parentPermissionCeiling(
+  parent: Pick<
+    WorkflowInstance,
+    "current" | "steps" | "participants" | "participant_modes"
+  >,
+  callingParticipant?: string,
+): PermissionMode | undefined {
+  const modes = parent.participant_modes;
+  if (modes === undefined) return undefined;
+  if (
+    callingParticipant !== undefined &&
+    modes[callingParticipant] !== undefined
+  ) {
+    return modes[callingParticipant];
+  }
+  if (parent.current !== null) {
+    const step = parent.steps.find((s) => s.name === parent.current!.step);
+    if (step !== undefined) {
+      const by = parent.participants[step.by];
+      const key =
+        by !== undefined && "kind" in by && by.kind === "human"
+          ? step.with
+          : step.by;
+      if (key !== null && modes[key] !== undefined) {
+        return modes[key];
+      }
+    }
+  }
+  const values = Object.values(modes);
+  if (values.length === 0) return undefined;
+  let narrowest = values[0]!;
+  for (let i = 1; i < values.length; i++) {
+    narrowest = minPermissionMode(narrowest, values[i]!);
+  }
+  return narrowest;
+}
 
 export type SubWorkflowDeps = {
   store: WorkflowStore;
@@ -40,6 +87,7 @@ export type SubWorkflowDeps = {
       inputs?: Record<string, unknown>;
     },
     by: StartedBy,
+    options?: { maxMode?: PermissionMode },
   ): Promise<Result<z.output<typeof workflowStart.output>>>;
   stop(
     input: { instance: Id<"wfi"> },
@@ -392,6 +440,8 @@ export async function runSubWorkflowCall(
     });
   }
 
+  const maxMode =
+    req.parentMode ?? parentPermissionCeiling(parent, req.callingParticipant);
   const started = await deps.start(
     {
       workflow: `${parent.project}/${target.workflowName}`,
@@ -399,6 +449,7 @@ export async function runSubWorkflowCall(
       ...(req.inputs !== undefined ? { inputs: req.inputs } : {}),
     },
     { kind: "workflow", instance: req.parentInstance },
+    maxMode !== undefined ? { maxMode } : undefined,
   );
   if (!started.ok) {
     const failed: WorkflowOutcome<WorkflowSoftOutput> = {

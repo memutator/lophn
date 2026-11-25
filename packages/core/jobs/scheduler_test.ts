@@ -88,3 +88,54 @@ for (const [state, closedAs] of [
     await scheduler.stop();
   });
 }
+
+test("scheduler refuses to launch a workflow_start job whose remembered mode escalated to full", async () => {
+  const started: string[] = [];
+  const ended: Array<{ id: string; state: string; reason?: string }> = [];
+  const turn = {
+    job: {
+      id: "job_01hzzzzzzzzzzzzzzzzzzzzzza",
+      action: {
+        kind: "workflow_start",
+        project: "prj_01hzzzzzzzzzzzzzzzzzzzzzza",
+        workflow: "deploy",
+        text: "go",
+      },
+      participant_modes: { worker: "workspace" },
+    },
+    job_run: { id: JOB_RUN, state: "queued" },
+  } as unknown as JobTurn;
+  const scheduler = createJobScheduler({
+    clock: manualClock(Date.parse("2026-01-01T00:00:00.000Z")),
+    timers: { set: () => 0, clear: () => {} },
+    store: {
+      open: () => Promise.resolve(ok([])),
+      claimDue: () => Promise.resolve(ok({ start: [turn], next_due_at: null })),
+      started: () => Promise.resolve(ok(undefined)),
+      ended: (jobRun, state, reason) => {
+        ended.push({ id: jobRun, state, reason });
+        return Promise.resolve(ok(undefined));
+      },
+    },
+    starter: {
+      start: (job) => {
+        started.push(job.id);
+        return Promise.resolve(
+          ok({ run: null, instance: INSTANCE, session: null }),
+        );
+      },
+      waitRun: () => Promise.reject(new Error("unused")),
+      runState: () => Promise.reject(new Error("unused")),
+      instanceState: () => Promise.reject(new Error("unused")),
+    },
+    workflowModesOf: () => ({ worker: "full" }),
+    logger,
+  });
+
+  await scheduler.start();
+  await scheduler.stop();
+  assert.deepStrictEqual(started, []);
+  assert.deepStrictEqual(ended, [
+    { id: JOB_RUN, state: "cancelled", reason: "mode_escalated" },
+  ]);
+});

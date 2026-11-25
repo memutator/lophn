@@ -3,6 +3,7 @@ import type { Id } from "../../protocol/base/mod.ts";
 import {
   MESSAGE_BODY_FIELD,
   MESSAGE_BODY_OWNER_KIND,
+  type PermissionMode,
   type Workspace,
 } from "../../protocol/lophn-agent/mod.ts";
 import type { Sql } from "../../protocol/server/mod.ts";
@@ -80,6 +81,7 @@ export function insertInstance(
     inputs?: Record<string, unknown>;
     code_snapshot?: string | null;
     open_mode?: SessionOpenMode | null;
+    participant_modes?: Record<string, PermissionMode>;
     participants: Record<string, Participant>;
     steps: InstanceStep[];
     current: Current;
@@ -134,6 +136,14 @@ export function insertInstance(
   if (instance.open_mode !== undefined && instance.open_mode !== null) {
     cols.push("open_mode");
     values.push(instance.open_mode);
+  }
+  if (
+    instance.participant_modes !== undefined &&
+    Object.keys(instance.participant_modes).length > 0 &&
+    hasColumn(sql, "workflow_instances", "participant_modes_json")
+  ) {
+    cols.push("participant_modes_json");
+    values.push(JSON.stringify(instance.participant_modes));
   }
   const placeholders = cols.map(() => "?").join(", ");
   sql.run(

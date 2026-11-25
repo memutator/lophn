@@ -32,6 +32,7 @@ import { createWorkflowCommands } from "./commands.ts";
 import { entryOf } from "./declaration.ts";
 import { WORKFLOW_INPUTS_SCHEMA_STEP } from "./inputs-schema.ts";
 import { workflowLinesSchemaSteps } from "./lines-schema.ts";
+import { WORKFLOW_PARTICIPANT_MODES_SCHEMA_STEP } from "./participant-modes-schema.ts";
 import { redactJsonValues, stepBody } from "./plan.ts";
 import type {
   DefinitionFile,
@@ -2030,5 +2031,231 @@ test("SetWorkflowDefaults preserves YAML comments and anchors, validates inputs/
   } finally {
     await rm(root, { recursive: true, force: true });
     await rm(outside, { recursive: true, force: true });
+  }
+});
+
+test("workflow participant_modes precedence, harness exclusion, and sub-workflow minPermissionMode clamping", async () => {
+  const db = new DatabaseSync(":memory:");
+  try {
+    db.exec(workflowsSchemaSteps[0]!.sql);
+    db.exec(WORKFLOW_INPUTS_SCHEMA_STEP.sql);
+    db.exec(WORKFLOW_PARTICIPANT_MODES_SCHEMA_STEP.sql);
+    const sql = createSql(db, () => true);
+    const tx = {
+      sql,
+      now: () => AT,
+      newId: (prefix: string) => `${prefix}_01hzzzzzzzzzzzzzzzzzzzzzz9`,
+      port: () => ({ push: () => {} }),
+    } as unknown as Tx;
+    const routedModes: Array<{ step: string; mode: string | undefined }> = [];
+    const fakeRouter = {
+      route: (_tx: Tx, input: Record<string, unknown>) => {
+        routedModes.push({
+          step: String((input.step as { step?: string } | undefined)?.step),
+          mode: input.permissionMode as string | undefined,
+        });
+        return ok({
+          call: null,
+          state: "done",
+          fail_reason: null,
+          session: "ses_01hzzzzzzzzzzzzzzzzzzzzzza",
+        });
+      },
+    };
+    const commands = createWorkflowCommands(() => ok(fakeRouter as never));
+    const machineCtx = { actor: "machine" } as never;
+
+    const parentDecl = [
+      "participants:",
+      "  planner:",
+      "    agent: lophn",
+      "  reviewer:",
+      "    agent: reviewer",
+      "  helper:",
+      "    agent: custom-helper",
+      "  coder:",
+      "    agent: claude",
+      "  custom_harness:",
+      "    agent: my-codex",
+      "  me:",
+      "    kind: human",
+      "steps:",
+      "  plan:",
+      "    by: planner",
+      "    prompt: plan it",
+      "    next: [end]",
+    ].join("\n");
+    const childDecl = [
+      "participants:",
+      "  worker:",
+      "    agent: lophn",
+      "  narrow:",
+      "    agent: reviewer",
+      "  coder:",
+      "    agent: codex",
+      "steps:",
+      "  run:",
+      "    by: worker",
+      "    prompt: do child work",
+      "    next: [end]",
+    ].join("\n");
+
+    const files: WorkflowFiles = {
+      list: () =>
+        Promise.resolve(
+          ok([
+            {
+              name: "parent-wf",
+              declaration: parentDecl,
+              flow: false,
+              artifacts: { static: false, instance: false },
+            },
+            {
+              name: "child-wf",
+              declaration: childDecl,
+              flow: false,
+              artifacts: { static: false, instance: false },
+            },
+          ]),
+        ),
+    };
+    const agents: WorkflowAgents = {
+      listCallable: () =>
+        Promise.resolve(
+          ok([
+            { name: "lophn", kind: "lophn" },
+            { name: "reviewer", kind: "custom" },
+            { name: "custom-helper", kind: "custom" },
+            { name: "claude", kind: "claude-code" },
+            { name: "codex", kind: "codex" },
+            { name: "my-codex", kind: "codex" },
+          ]),
+        ),
+    };
+    const remote: WorkflowRemote = {
+      computer: () => err({ code: "not_found", message: "no peer" }),
+      workspace: () => err({ code: "not_found", message: "no ws" }),
+      isPrivate: () => false,
+      receivedStep: () => Promise.resolve(ok(null)),
+      report: () => Promise.resolve(ok(undefined)),
+      handOf: () => ok(null),
+    };
+
+    let seq = 0;
+    const svc = createWorkflowService({
+      files,
+      projects: {
+        resolve: () =>
+          Promise.resolve(ok({ id: PRJ as Id<"prj">, name: "demo" })),
+        nameOf: () => Promise.resolve(ok("demo")),
+      },
+      agents,
+      turns: {
+        stopSession: () => Promise.resolve(ok(undefined)),
+        stepTurn: () => Promise.resolve(ok(null)),
+        openOutgoingCalls: () => Promise.resolve(ok(0)),
+      },
+      store: {
+        create: (input) =>
+          Promise.resolve(commands.create.handle(tx, machineCtx, input, {})),
+        apply: (input, compare) =>
+          Promise.resolve(
+            commands.apply.handle(tx, machineCtx, input, compare),
+          ),
+        read: (instance) => {
+          const inst = loadInstance(sql, instance);
+          if (!inst.ok || inst.value === null) {
+            return Promise.resolve(
+              err({ code: "not_found", message: "not found" }),
+            );
+          }
+          const lines = loadLines(sql, instance, { after: 0, limit: null });
+          const reports = lastReports(sql, instance);
+          return Promise.resolve(
+            ok({
+              instance: inst.value,
+              lines: lines.ok ? lines.value : [],
+              last_reports: reports.ok ? reports.value : {},
+              remote_steps: [],
+              as_of_seq: "1",
+              next_cursor: null,
+            }),
+          );
+        },
+        running: () => Promise.resolve(runningInstances(sql)),
+      },
+      flows: {
+        launch: () => Promise.resolve(ok(undefined)),
+        stop: () => Promise.resolve(ok(undefined)),
+      },
+      remote,
+      rememberedModesOf: (_project, workflow) =>
+        workflow === "parent-wf"
+          ? { planner: "full", reviewer: "read_only", coder: "full" }
+          : { worker: "full", narrow: "read_only" },
+      agentDefaultModeOf: (agent) =>
+        agent === "custom-helper" ? "ask" : undefined,
+      globalDefaultMode: () => "workspace",
+      ids: {
+        newId: (prefix) =>
+          `${prefix}_01hzzzzzzzzzzzzzzzzzzzzz${String(seq++).padStart(2, "0")}`,
+      },
+      logger,
+    });
+
+    // 1) precedence: explicit user input ("ask" for planner) > remembered ("read_only" for reviewer)
+    //    > agent default ("ask" for custom-helper) > global default; harness/human excluded.
+    const parentStarted = await svc.start(
+      {
+        workflow: "demo/parent-wf",
+        text: "run parent",
+        participant_modes: {
+          planner: "ask",
+          coder: "full",
+          custom_harness: "full",
+        },
+      },
+      { kind: "user" },
+    );
+    assert.ok(parentStarted.ok);
+    assert.deepStrictEqual(parentStarted.value.instance.participant_modes, {
+      planner: "ask",
+      reviewer: "read_only",
+      helper: "ask",
+    });
+    assert.deepStrictEqual(routedModes[0], { step: "plan", mode: "ask" });
+
+    // 2) job start ignores explicit participant_modes and uses remembered -> agent default -> global default.
+    const jobStarted = await svc.start(
+      {
+        workflow: "demo/parent-wf",
+        text: "run from job",
+        participant_modes: { planner: "read_only" },
+      },
+      { kind: "job", job: "job_01hzzzzzzzzzzzzzzzzzzzzzza" as Id<"job"> },
+    );
+    assert.ok(jobStarted.ok);
+    assert.deepStrictEqual(jobStarted.value.instance.participant_modes, {
+      planner: "full",
+      reviewer: "read_only",
+      helper: "ask",
+    });
+
+    // 3) sub-workflow started by parent-wf (current step 'plan' is planner with mode "ask"):
+    //    child's worker remembered "full" is clamped to min("ask", "full") = "ask",
+    //    while child's narrow remembered "read_only" stays "read_only" (never widened),
+    //    and harness coder is excluded.
+    const childStarted = await svc.start(
+      { workflow: "demo/child-wf", text: "run child" },
+      { kind: "workflow", instance: parentStarted.value.instance.id },
+    );
+    assert.ok(childStarted.ok);
+    assert.deepStrictEqual(childStarted.value.instance.participant_modes, {
+      worker: "ask",
+      narrow: "read_only",
+    });
+    assert.deepStrictEqual(routedModes.at(-1), { step: "run", mode: "ask" });
+  } finally {
+    db.close();
   }
 });

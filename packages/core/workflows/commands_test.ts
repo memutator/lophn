@@ -10,9 +10,14 @@ import type { RoutedInput } from "../router/ports.ts";
 import { createSql } from "../storage/ledger/sqlite.ts";
 import { createWorkflowCommands } from "./commands.ts";
 import { workflowLinesSchemaSteps } from "./lines-schema.ts";
+import { WORKFLOW_PARTICIPANT_MODES_SCHEMA_STEP } from "./participant-modes-schema.ts";
 import { workflowsSchemaSteps } from "./schema.ts";
 import { loadInstance, loadLines } from "./store.ts";
 import { WORKFLOW_TITLE_SCHEMA_STEP } from "./title-schema.ts";
+import {
+  parentPermissionCeiling,
+  runSubWorkflowCall,
+} from "./workflow-call.ts";
 
 const WFI = "wfi_01hzzzzzzzzzzzzzzzzzzzzzza";
 const PRJ = "prj_01hzzzzzzzzzzzzzzzzzzzzzza";
@@ -485,4 +490,242 @@ test("workflow instance title: rename persists user title and AI title does not 
   } finally {
     db.close();
   }
+});
+
+test("workflow participant_modes persists on instance and passes permissionMode to router on step handoffs", () => {
+  const db = new DatabaseSync(":memory:");
+  try {
+    db.exec(workflowsSchemaSteps[0]!.sql);
+    db.exec(WORKFLOW_PARTICIPANT_MODES_SCHEMA_STEP.sql);
+    const sql = createSql(db, () => true);
+    const routedCalls: Array<{
+      step: string | undefined;
+      permissionMode: string | undefined;
+      unattended: boolean | undefined;
+    }> = [];
+    const tx = {
+      sql,
+      now: () => "2026-11-25T00:00:00.000Z",
+      newId: (prefix: string) => `${prefix}_01hzzzzzzzzzzzzzzzzzzzzzzb`,
+      port: () => ({ push: () => {} }),
+    } as unknown as Tx;
+    const fakeRouter = {
+      route: (_tx: Tx, input: Record<string, unknown>) => {
+        routedCalls.push({
+          step: (input.step as { step?: string } | undefined)?.step,
+          permissionMode: input.permissionMode as string | undefined,
+          unattended: input.unattended as boolean | undefined,
+        });
+        return ok({
+          call: null,
+          state: "done",
+          fail_reason: null,
+          session: SES,
+        });
+      },
+    };
+    const commands = createWorkflowCommands(() => ok(fakeRouter as never));
+    const ctx = { actor: "machine" } as never;
+
+    const created = commands.create.handle(
+      tx,
+      ctx,
+      {
+        id: WFI,
+        project: PRJ,
+        workflow: "deploy",
+        input: "ship",
+        participants: {
+          planner: { agent: "lophn" },
+          executor: { agent: "lophn" },
+          coder: { agent: "claude" },
+        },
+        participant_modes: {
+          planner: "read_only",
+          executor: "full",
+        },
+        steps: [],
+        started_by: { kind: "user" },
+        handoff: { ...plan("plan"), participant: "planner", cause: "start" },
+      },
+      {},
+    );
+    assert.ok(created.ok);
+    assert.deepStrictEqual(created.value.instance.participant_modes, {
+      planner: "read_only",
+      executor: "full",
+    });
+
+    const loaded = loadInstance(sql, WFI);
+    assert.ok(loaded.ok && loaded.value !== null);
+    assert.deepStrictEqual(loaded.value.participant_modes, {
+      planner: "read_only",
+      executor: "full",
+    });
+
+    // 다음 step(executor, human_turn: false)은 저장된 participant_modes.executor("full")을 받는다.
+    const nextHand = commands.apply.handle(
+      tx,
+      ctx,
+      {
+        instance: WFI,
+        change: {
+          kind: "report",
+          step: "plan",
+          text: "planned",
+          next: "exec",
+          session: "new",
+        },
+        by: { kind: "agent", session: SES },
+        handoff: { ...plan("exec"), participant: "executor" },
+      },
+      { state_seq: loaded.value.state_seq },
+    );
+    assert.ok(nextHand.ok);
+
+    // harness participant(coder)는 participant_modes에 없으므로 permissionMode가 undefined다.
+    const harnessHand = commands.apply.handle(
+      tx,
+      ctx,
+      {
+        instance: WFI,
+        change: {
+          kind: "report",
+          step: "exec",
+          text: "handoff to harness",
+          next: "code",
+          session: "new",
+        },
+        by: { kind: "agent", session: SES },
+        handoff: { ...plan("code"), participant: "coder", human_turn: true },
+      },
+      { state_seq: nextHand.value.instance.state_seq },
+    );
+    assert.ok(harnessHand.ok);
+
+    assert.deepStrictEqual(routedCalls, [
+      { step: "plan", permissionMode: "read_only", unattended: true },
+      { step: "exec", permissionMode: "full", unattended: true },
+      { step: "code", permissionMode: undefined, unattended: false },
+    ]);
+  } finally {
+    db.close();
+  }
+});
+
+test("sub-workflow call computes parentPermissionCeiling and passes maxMode to start", async () => {
+  assert.equal(
+    parentPermissionCeiling({
+      current: { step: "plan", human_turn: false },
+      steps: [
+        {
+          name: "plan",
+          by: "planner",
+          with: null,
+          prompt: "p",
+          in: "",
+          out: "",
+          next: [],
+        },
+      ],
+      participants: {
+        planner: { agent: "lophn" },
+        deployer: { agent: "lophn" },
+      },
+      participant_modes: { planner: "ask", deployer: "full" },
+    }),
+    "ask",
+  );
+  // flow 등 current가 없으면 부모 participant_modes 중 가장 좁은 단계를 상한으로 삼는다.
+  assert.equal(
+    parentPermissionCeiling({
+      current: null,
+      steps: [],
+      participants: {
+        a: { agent: "lophn" },
+        b: { agent: "lophn" },
+      },
+      participant_modes: { a: "full", b: "read_only" },
+    }),
+    "read_only",
+  );
+
+  const CHILD = "wfi_01hzzzzzzzzzzzzzzzzzzzzzzc" as const;
+  let receivedMaxMode: string | undefined;
+  const parentInstance = {
+    id: WFI,
+    project: PRJ,
+    workflow: "parent",
+    input: "go",
+    state: "running" as const,
+    participants: { planner: { agent: "lophn" }, deployer: { agent: "lophn" } },
+    steps: [
+      {
+        name: "plan",
+        by: "planner",
+        with: null,
+        prompt: "p",
+        in: "",
+        out: "",
+        next: [],
+      },
+    ],
+    current: { step: "plan", human_turn: false },
+    started_by: { kind: "user" as const },
+    participant_modes: {
+      planner: "workspace" as const,
+      deployer: "full" as const,
+    },
+    created_at: "2026-11-25T00:00:00.000Z",
+    finished_at: null,
+    state_seq: "1",
+  };
+  const childInstance = {
+    ...parentInstance,
+    id: CHILD,
+    workflow: "child",
+    state: "ended" as const,
+    started_by: { kind: "workflow" as const, instance: WFI },
+    finished_at: "2026-11-25T00:01:00.000Z",
+  };
+
+  const outcome = await runSubWorkflowCall(
+    {
+      store: {
+        create: () => Promise.reject(new Error("unused")),
+        apply: () => Promise.reject(new Error("unused")),
+        running: () => Promise.resolve(ok([])),
+        read: (id) =>
+          Promise.resolve(
+            ok({
+              instance: id === WFI ? parentInstance : childInstance,
+              last_reports: {},
+              lines: [],
+              remote_steps: [],
+              as_of_seq: "1",
+              next_cursor: null,
+            }),
+          ),
+      },
+      projects: {
+        resolve: () => Promise.resolve(ok({ id: PRJ, name: "demo" })),
+        nameOf: () => Promise.resolve(ok("demo")),
+      },
+      start: (_input, _by, options) => {
+        receivedMaxMode = options?.maxMode;
+        return Promise.resolve(ok({ instance: childInstance, handed: null }));
+      },
+      stop: () => Promise.resolve(ok({ instance: childInstance })),
+      subscribeInstanceUpdated: () => () => {},
+      loadCheckpoints: () => Promise.resolve(ok([])),
+    },
+    {
+      parentInstance: WFI,
+      key: "sub#1",
+      workflow: "child",
+      input: "run child",
+    },
+  );
+  assert.ok(outcome.ok);
+  assert.equal(receivedMaxMode, "workspace");
 });

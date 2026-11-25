@@ -1,6 +1,7 @@
 import { err, ok, type Result } from "../../base/mod.ts";
 import { type Id, parseActor } from "../../protocol/base/mod.ts";
 import { textBlocks } from "../../protocol/lophn-agent/content-block.ts";
+import type { PermissionMode } from "../../protocol/lophn-agent/mod.ts";
 import type {
   CommandDefinition,
   RequestContext,
@@ -127,6 +128,7 @@ type Scope = {
   workflow: string;
   project: string;
   at: string;
+  participantModes?: Record<string, PermissionMode>;
   draft: Draft;
 };
 
@@ -198,7 +200,13 @@ function handOff(
       call: sent.value.call,
     });
   }
-  const routed = made.value.route(scope.tx, {
+  const participantMode =
+    plan.participant !== null
+      ? scope.participantModes?.[plan.participant]
+      : undefined;
+  const routeInput: Parameters<Router["route"]>[1] & {
+    permissionMode?: PermissionMode;
+  } = {
     from: { kind: "program" },
     to: delivery.to,
     reply: "none",
@@ -216,9 +224,13 @@ function handOff(
       step: plan.step,
     },
     ...(plan.open !== undefined ? { open: plan.open } : {}),
+    ...(participantMode !== undefined
+      ? { permissionMode: participantMode }
+      : {}),
     // 사람 step(by: me / human())은 사람이 바로 대화·질문(ask)·승인에 답하는 자리이므로 attended turn으로 연다.
     unattended: !plan.human_turn,
-  });
+  };
+  const routed = made.value.route(scope.tx, routeInput);
   if (!routed.ok) return routed;
   if (routed.value.state === "failed") {
     return notHanded("unresolved", FAILURE_TEXTS[routed.value.fail_reason!]);
@@ -367,6 +379,9 @@ export function createWorkflowCommands(
           ...(input.open_mode !== undefined
             ? { open_mode: input.open_mode }
             : {}),
+          ...(input.participant_modes !== undefined
+            ? { participant_modes: input.participant_modes }
+            : {}),
           participants: input.participants,
           steps: input.steps,
           current: null,
@@ -379,6 +394,9 @@ export function createWorkflowCommands(
           workflow: input.workflow,
           project: input.project,
           at,
+          ...(input.participant_modes !== undefined
+            ? { participantModes: input.participant_modes }
+            : {}),
           draft: {
             state: "running",
             current: null,
@@ -424,6 +442,9 @@ export function createWorkflowCommands(
           workflow: current.workflow,
           project: current.project,
           at: tx.now(),
+          ...(current.participant_modes !== undefined
+            ? { participantModes: current.participant_modes }
+            : {}),
           draft: {
             state: current.state,
             current: current.current,

@@ -3,7 +3,10 @@ import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { ok } from "../../base/mod.ts";
 import type { Id } from "../../protocol/base/mod.ts";
-import type { AgentAtWorkspace } from "../../protocol/lophn-agent/mod.ts";
+import type {
+  AgentAtWorkspace,
+  PermissionMode,
+} from "../../protocol/lophn-agent/mod.ts";
 import type { Tx } from "../../protocol/server/mod.ts";
 import { createSql } from "../storage/ledger/sqlite.ts";
 import {
@@ -12,12 +15,18 @@ import {
   eraseJobsOfWorkflow,
   renameJobsOfWorkflow,
 } from "./commands.ts";
+import { createDueCommands } from "./due.ts";
+import { createEventCommands } from "./events.ts";
 import {
+  hasModeEscalated,
   JOBS_CHANGED_TOPIC,
+  jobEventPolicyPort,
   jobMachinePort,
   jobTargetsPort,
+  jobWorkflowModesPort,
   jobZonePort,
 } from "./ports.ts";
+import { createJobReads } from "./reads.ts";
 import { insertJob, loadJob, loadJobRuns } from "./store.ts";
 import { jobsTestSteps, THIS_MACHINE } from "./test-steps.ts";
 
@@ -452,6 +461,253 @@ test("eraseJobsOfAgent, eraseJobsOfWorkflow, and renameJobsOfWorkflow clean up a
     assert.ok(kept4.ok && kept4.value !== null);
     const kept6 = loadJob(sql, "job_01hzzzzzzzzzzzzzzzzzzzzzz6", THIS_MACHINE);
     assert.ok(kept6.ok && kept6.value !== null);
+  } finally {
+    db.close();
+  }
+});
+
+test("workflow_start job snapshots approved_modes, pauses on escalation to full, reappears in pending, and resumes after re-approval", () => {
+  // hasModeEscalated unit checks
+  assert.equal(hasModeEscalated({ a: "workspace" }, { a: "workspace" }), false);
+  assert.equal(hasModeEscalated({ a: "read_only" }, { a: "workspace" }), false);
+  assert.equal(hasModeEscalated({ a: "workspace" }, { a: "full" }), true);
+  assert.equal(hasModeEscalated(null, { a: "full" }), true);
+  assert.equal(hasModeEscalated({ a: "full" }, { a: "full" }), false);
+  assert.equal(hasModeEscalated({ a: "full" }, { a: "full", b: "full" }), true);
+
+  const db = new DatabaseSync(":memory:");
+  try {
+    for (const step of jobsTestSteps) db.exec(step.sql);
+    const sql = createSql(db, () => true);
+    let now = "2026-11-25T00:00:00.000Z";
+    let seq = 0;
+    let currentModes: Record<string, PermissionMode> = {
+      planner: "workspace",
+      worker: "ask",
+    };
+    const ports = new Map<unknown, unknown>([
+      [
+        jobTargetsPort,
+        {
+          creatorOf: (session: string) => agents[session],
+          resolveProject: () => ok(PRJ),
+        },
+      ],
+      [jobZonePort, { zone: () => "UTC" }],
+      [jobMachinePort, { id: () => ok(THIS_MACHINE) }],
+      [
+        jobEventPolicyPort,
+        {
+          resolveSource: () => ok({ app: APP, slug: "notes" }),
+          declares: () => true,
+          drivenSession: () => false,
+          reaches: () => true,
+          isPrivate: () => false,
+        },
+      ],
+      [
+        jobWorkflowModesPort,
+        {
+          workflowModesOf: () => ({ ...currentModes }),
+        },
+      ],
+    ]);
+    const tx = {
+      sql,
+      now: () => now,
+      as_of_seq: "1",
+      newId: (prefix: string) =>
+        `${prefix}_01hzzzzzzzzzzzzzzzzzzzzz${String(seq++).padStart(2, "0")}`,
+      port: (key: unknown) => ports.get(key) ?? { push: () => {} },
+    } as unknown as Tx;
+
+    const commands = createJobCommands();
+    const due = createDueCommands();
+    const events = createEventCommands();
+    const reads = createJobReads();
+    const agent = { actor: `agent:${LOPHN_1}` } as never;
+    const user = { actor: "user" } as never;
+    const machine = { actor: "machine" } as never;
+
+    // 1) 주기 workflow_start job + event workflow_start job 생성
+    const createdScheduled = commands.create.handle(
+      tx,
+      agent,
+      {
+        title: "Hourly workflow",
+        every: "1h",
+        action: {
+          kind: "workflow_start",
+          workflow: "acme/deploy",
+          text: "run deploy",
+        },
+        missed_policy: "run",
+      },
+      {} as never,
+    );
+    assert.ok(createdScheduled.ok);
+    const schedId = createdScheduled.value.job.id;
+
+    const createdEvent = commands.create.handle(
+      tx,
+      agent,
+      {
+        title: "Event workflow",
+        trigger: { source: "notes", event: "saved" },
+        action: {
+          kind: "workflow_start",
+          workflow: "acme/deploy",
+          text: "on saved",
+        },
+      },
+      {} as never,
+    );
+    assert.ok(createdEvent.ok);
+    const eventId = createdEvent.value.job.id;
+
+    // 승인 전 pending에는 현재 participant_modes가 보이고 approval_paused_reason은 null이다.
+    const pendingBefore = reads.pending.handle(tx as never, user, {});
+    assert.ok(pendingBefore.ok);
+    assert.equal(pendingBefore.value.jobs.length, 2);
+    assert.deepStrictEqual(pendingBefore.value.jobs[0]!.participant_modes, {
+      planner: "workspace",
+      worker: "ask",
+    });
+    assert.equal(pendingBefore.value.jobs[0]!.approval_paused_reason, null);
+
+    // 2) 두 job 승인 -> approved_modes_json에 현재 단계 snapshot 저장
+    for (const id of [schedId, eventId]) {
+      const approved = commands.approve.handle(
+        tx,
+        user,
+        { job: id, choice: "approve" },
+        {} as never,
+      );
+      assert.ok(approved.ok && approved.value.job !== null);
+      assert.deepStrictEqual(approved.value.job.participant_modes, {
+        planner: "workspace",
+        worker: "ask",
+      });
+      assert.equal(approved.value.job.approval_paused_reason, null);
+    }
+    const rawRow = db
+      .prepare("SELECT approved_modes_json FROM jobs WHERE id = ?")
+      .get(schedId) as { approved_modes_json: string };
+    assert.deepStrictEqual(JSON.parse(rawRow.approved_modes_json), {
+      planner: "workspace",
+      worker: "ask",
+    });
+
+    // 아직 escalate되지 않았으므로 재승인은 conflict다.
+    const dupApprove = commands.approve.handle(
+      tx,
+      user,
+      { job: schedId, choice: "approve" },
+      {} as never,
+    );
+    assert.ok(!dupApprove.ok && dupApprove.error.code === "conflict");
+
+    // 3) 기억된 단계가 full로 올라가면 due.claimDue와 events.fire가 실행을 멈춘다.
+    currentModes = { planner: "workspace", worker: "full" };
+
+    // pending과 list에 mode_escalated로 다시 나타난다.
+    const pendingEscalated = reads.pending.handle(tx as never, user, {});
+    assert.ok(pendingEscalated.ok);
+    assert.deepStrictEqual(
+      pendingEscalated.value.jobs.map((j) => [
+        j.id,
+        j.approval_paused_reason,
+        j.participant_modes,
+      ]),
+      [
+        [schedId, "mode_escalated", { planner: "workspace", worker: "full" }],
+        [eventId, "mode_escalated", { planner: "workspace", worker: "full" }],
+      ],
+    );
+
+    const listedEscalated = reads.list.handle(tx as never, user, {});
+    assert.ok(listedEscalated.ok);
+    assert.equal(
+      listedEscalated.value.jobs.every(
+        (j) => j.approval_paused_reason === "mode_escalated",
+      ),
+      true,
+    );
+
+    now = "2026-11-25T01:00:00.000Z";
+    const pausedClaim = due.claimDue.handle(
+      tx,
+      machine,
+      { startup: false },
+      {} as never,
+    );
+    assert.ok(pausedClaim.ok);
+    assert.deepStrictEqual(pausedClaim.value.start, []);
+    const runsWhilePaused = loadJobRuns(sql, schedId, { limit: 10 });
+    assert.ok(runsWhilePaused.ok && runsWhilePaused.value.length === 0);
+
+    const pausedFire = events.fire.handle(
+      tx,
+      machine,
+      {
+        publisher: APP,
+        event: "saved",
+        payload: { id: 1 },
+        chain: [],
+        session: null,
+      },
+      {} as never,
+    );
+    assert.ok(pausedFire.ok);
+    assert.deepStrictEqual(pausedFire.value, { fired: 0, skipped: 0 });
+
+    // 4) 사람이 재승인하면 approved_modes_json이 갱신되고 pending에서 사라지며 정상 실행된다.
+    for (const id of [schedId, eventId]) {
+      const reapproved = commands.approve.handle(
+        tx,
+        user,
+        { job: id, choice: "approve" },
+        {} as never,
+      );
+      assert.ok(reapproved.ok && reapproved.value.job !== null);
+      assert.equal(reapproved.value.job.approval_paused_reason, null);
+      assert.deepStrictEqual(reapproved.value.job.participant_modes, {
+        planner: "workspace",
+        worker: "full",
+      });
+    }
+
+    const pendingAfter = reads.pending.handle(tx as never, user, {});
+    assert.ok(pendingAfter.ok);
+    assert.deepStrictEqual(pendingAfter.value.jobs, []);
+
+    now = "2026-11-25T02:00:00.000Z";
+    const resumedClaim = due.claimDue.handle(
+      tx,
+      machine,
+      { startup: false },
+      {} as never,
+    );
+    assert.ok(resumedClaim.ok);
+    assert.deepStrictEqual(
+      resumedClaim.value.start.map((t) => t.job.id),
+      [schedId],
+    );
+
+    const resumedFire = events.fire.handle(
+      tx,
+      machine,
+      {
+        publisher: APP,
+        event: "saved",
+        payload: { id: 2 },
+        chain: [],
+        session: null,
+      },
+      {} as never,
+    );
+    assert.ok(resumedFire.ok);
+    assert.deepStrictEqual(resumedFire.value, { fired: 1, skipped: 0 });
   } finally {
     db.close();
   }

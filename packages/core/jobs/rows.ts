@@ -1,11 +1,18 @@
+import { z } from "zod";
 import { err, ok, type Result } from "../../base/mod.ts";
-import type { AgentAtWorkspace } from "../../protocol/lophn-agent/mod.ts";
 import {
   type JobRecord,
-  jobRecordSchema,
   type JobRunRecord,
+  jobRecordSchema,
   jobRunRecordSchema,
 } from "../../protocol/jobs/mod.ts";
+import {
+  type AgentAtWorkspace,
+  type PermissionMode,
+  permissionModeSchema,
+} from "../../protocol/lophn-agent/mod.ts";
+
+const approvedModesSchema = z.record(z.string().min(1), permissionModeSchema);
 
 // createSql은 INTEGER를 bigint로 준다. 1n === 1은 늘 거짓이라 Number()로 읽는다.
 export function jobRunFromRow(
@@ -40,6 +47,23 @@ export function jobFromRow(
   lastRun: JobRunRecord | null,
   me: string,
 ): Result<JobRecord> {
+  let approvedModes: Record<string, PermissionMode> | undefined;
+  if (
+    row.approved_modes_json !== undefined &&
+    row.approved_modes_json !== null
+  ) {
+    try {
+      const checked = approvedModesSchema.safeParse(
+        JSON.parse(String(row.approved_modes_json)),
+      );
+      if (!checked.success) {
+        return err({ code: "internal", message: "invalid stored job" });
+      }
+      approvedModes = checked.data;
+    } catch {
+      return err({ code: "internal", message: "invalid stored job" });
+    }
+  }
   const parsed = jobRecordSchema.safeParse({
     id: row.id,
     title: row.title,
@@ -60,6 +84,9 @@ export function jobFromRow(
     missed_policy: row.missed_policy,
     enabled: Number(row.enabled) === 1,
     approved_at: row.approved_at,
+    ...(approvedModes !== undefined
+      ? { participant_modes: approvedModes }
+      : {}),
     next_due_at: row.next_due_at,
     machine: row.machine ?? null,
     runs_here: row.machine === null || row.machine === me,

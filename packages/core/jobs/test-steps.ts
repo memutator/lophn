@@ -1,4 +1,5 @@
 import type { SchemaStep } from "../../protocol/server/mod.ts";
+import { JOBS_APPROVAL_MODES_SCHEMA_STEP } from "./approval-modes-schema.ts";
 import { jobMachineSchemaSteps } from "./machine-schema.ts";
 import { jobsSchemaSteps } from "./schema.ts";
 import { jobTriggerSchemaSteps } from "./trigger-schema.ts";
@@ -8,6 +9,7 @@ export const jobsTestSteps: readonly SchemaStep[] = [
   ...jobsSchemaSteps,
   ...jobTriggerSchemaSteps,
   ...jobMachineSchemaSteps,
+  JOBS_APPROVAL_MODES_SCHEMA_STEP,
 ];
 
 // 테스트의 tx port에 꽂는 이 기계다. 다른 기계는 OTHER_MACHINE으로 쓴다.

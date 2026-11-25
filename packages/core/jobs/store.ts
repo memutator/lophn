@@ -9,7 +9,10 @@ import type {
   JobTrigger,
   MissedPolicy,
 } from "../../protocol/jobs/mod.ts";
-import type { AgentAtWorkspace } from "../../protocol/lophn-agent/mod.ts";
+import type {
+  AgentAtWorkspace,
+  PermissionMode,
+} from "../../protocol/lophn-agent/mod.ts";
 import type { Sql } from "../../protocol/server/mod.ts";
 import { isJobTargetUnavailable, type JobTargetAvailability } from "./ports.ts";
 import { creatorColumns, jobFromRow, jobRunFromRow } from "./rows.ts";
@@ -145,11 +148,46 @@ export function replaceJob(
   );
 }
 
+function hasColumn(
+  sql: Pick<Sql, "get">,
+  table: string,
+  column: string,
+): boolean {
+  return (
+    sql.get(
+      `SELECT 1 AS found FROM pragma_table_info('${table}') WHERE name = ?`,
+      [column],
+    ) !== undefined
+  );
+}
+
 export function approveJob(
   sql: Write,
   id: string,
-  fields: { approved_at: string; next_due_at: string | null },
+  fields: {
+    approved_at: string;
+    next_due_at: string | null;
+    approved_modes?: Record<string, PermissionMode> | null;
+  },
 ): void {
+  if (
+    fields.approved_modes !== undefined &&
+    hasColumn(sql, "jobs", "approved_modes_json")
+  ) {
+    sql.run(
+      "UPDATE jobs SET approved_at = ?, next_due_at = ?, approved_modes_json = ?, updated_at = ? WHERE id = ?",
+      [
+        fields.approved_at,
+        fields.next_due_at,
+        fields.approved_modes === null
+          ? null
+          : JSON.stringify(fields.approved_modes),
+        fields.approved_at,
+        id,
+      ],
+    );
+    return;
+  }
   sql.run(
     "UPDATE jobs SET approved_at = ?, next_due_at = ?, updated_at = ? WHERE id = ?",
     [fields.approved_at, fields.next_due_at, fields.approved_at, id],
@@ -161,6 +199,26 @@ export function loadPendingJobs(sql: Query, me: string): Result<JobRecord[]> {
   const jobs: JobRecord[] = [];
   for (const row of sql.all(
     "SELECT * FROM jobs WHERE approved_at IS NULL AND machine = ? ORDER BY id",
+    [me],
+  )) {
+    const job = withLastRun(sql, row, me);
+    if (!job.ok) return job;
+    jobs.push(job.value);
+  }
+  return ok(jobs);
+}
+
+// 이 기계에서 이미 승인된 workflow_start job(권한 단계가 full로 올라가 재승인이 필요한지 확인하는 데 쓴다).
+export function loadApprovedWorkflowJobs(
+  sql: Query,
+  me: string,
+): Result<JobRecord[]> {
+  const jobs: JobRecord[] = [];
+  for (const row of sql.all(
+    `SELECT * FROM jobs
+      WHERE approved_at IS NOT NULL AND machine = ?
+        AND json_extract(action, '$.kind') = 'workflow_start'
+      ORDER BY id`,
     [me],
   )) {
     const job = withLastRun(sql, row, me);

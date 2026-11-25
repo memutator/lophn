@@ -25,11 +25,14 @@ import type {
   Tx,
 } from "../../protocol/server/mod.ts";
 import {
+  enrichJobWithModes,
+  hasModeEscalated,
   jobEventPolicyPort,
   jobMachinePort,
   jobsChanged,
   jobTargetsPort,
   jobZonePort,
+  workflowModesPortOf,
 } from "./ports.ts";
 import { creatorColumns } from "./rows.ts";
 import { firstDue } from "./schedule.ts";
@@ -540,7 +543,19 @@ export function createJobCommands(): {
         if (!loaded.ok) return loaded;
         const job = loaded.value;
         if (job === null) return fail("not_found", "job not found");
-        if (job.approved_at !== null) {
+        const modesPort = workflowModesPortOf(tx);
+        const currentModes =
+          job.action.kind === "workflow_start"
+            ? modesPort.workflowModesOf(
+                job.action.project as Id<"prj">,
+                job.action.workflow,
+              )
+            : {};
+        const escalated =
+          job.approved_at !== null &&
+          job.action.kind === "workflow_start" &&
+          hasModeEscalated(job.participant_modes ?? null, currentModes);
+        if (job.approved_at !== null && !escalated) {
           return fail("conflict", "job is already approved");
         }
         jobsChanged(tx);
@@ -550,6 +565,12 @@ export function createJobCommands(): {
         }
         // 승인한 순간부터 센다. 기다린 동안은 놓친 것으로 치지 않는다.
         const now = tx.now();
+        const approvedModes =
+          job.action.kind === "workflow_start"
+            ? Object.keys(currentModes).length > 0
+              ? currentModes
+              : null
+            : undefined;
         approveJob(tx.sql, job.id, {
           approved_at: now,
           // event job은 때가 없다(next_due_at은 늘 null이고 event가 차례를 연다).
@@ -564,9 +585,14 @@ export function createJobCommands(): {
                   now,
                 )
               : null,
+          ...(approvedModes !== undefined
+            ? { approved_modes: approvedModes }
+            : {}),
         });
         const approved = loadJob(tx.sql, job.id, machine.value);
-        return approved.ok ? ok({ job: approved.value! }) : approved;
+        return approved.ok
+          ? ok({ job: enrichJobWithModes(approved.value!, modesPort) })
+          : approved;
       },
     },
     remove: {

@@ -28,6 +28,17 @@ export function instanceFromRow(
     row.open_mode === "tab" || row.open_mode === "background"
       ? row.open_mode
       : undefined;
+  let participantModes: unknown;
+  if (
+    row.participant_modes_json !== undefined &&
+    row.participant_modes_json !== null
+  ) {
+    try {
+      participantModes = JSON.parse(String(row.participant_modes_json));
+    } catch {
+      return err({ code: "internal", message: "invalid stored workflow" });
+    }
+  }
   const title =
     typeof row.title === "string" && row.title.length > 0 ? row.title : null;
   const parsed = workflowInstanceSchema.safeParse({
@@ -47,6 +58,9 @@ export function instanceFromRow(
     started_by: JSON.parse(String(row.started_by)),
     ...(codeSnapshot !== undefined ? { code_snapshot: codeSnapshot } : {}),
     ...(openMode !== undefined ? { open_mode: openMode } : {}),
+    ...(participantModes !== undefined
+      ? { participant_modes: participantModes }
+      : {}),
     created_at: row.created_at,
     finished_at: row.finished_at,
     state_seq: String(row.state_seq),

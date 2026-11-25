@@ -2,6 +2,7 @@ import { type Clock, ERROR_CODES, type ErrorCode } from "../../base/mod.ts";
 import type { Id, JsonValue } from "../../protocol/base/mod.ts";
 import type {
   AgentAddress,
+  PermissionMode,
   TurnOutcome,
 } from "../../protocol/lophn-agent/mod.ts";
 import type {
@@ -77,6 +78,7 @@ export type AgentHandOffInput = {
   mode: FlowAgentMode;
   human: boolean;
   open?: SessionOpenMode;
+  permissionMode?: PermissionMode;
 };
 
 export type AgentHandOffResult =
@@ -166,6 +168,8 @@ export type AgentPrimitiveRequest = {
   human?: boolean;
   // session을 탭으로 열지 background로 돌릴지. 없으면 agent 정의와 기본 규칙을 따른다.
   open?: SessionOpenMode;
+  // participant에 고정된 권한 단계(lophn/custom participant만).
+  permissionMode?: PermissionMode;
   // mode: "report"에서 stall이 났을 때 stalled Outcome으로 바로 끝낼지(true), report/cancel을 계속 기다릴지(false, 기본).
   stalledResolves?: boolean;
   signal?: AbortSignal;
@@ -712,6 +716,9 @@ export function runAgentPrimitive(
       mode,
       human,
       ...(req.open !== undefined ? { open: req.open } : {}),
+      ...(req.permissionMode !== undefined
+        ? { permissionMode: req.permissionMode }
+        : {}),
     };
 
     void Promise.resolve()

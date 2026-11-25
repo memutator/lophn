@@ -14,11 +14,13 @@ import type {
 } from "../../protocol/server/mod.ts";
 import { allowAppEvent, allowSessionEvent } from "../events/mod.ts";
 import {
+  isJobModeEscalated,
   isJobTargetUnavailable,
   jobEventPolicyPort,
   jobMachinePort,
   jobsChanged,
   targetAvailabilityOf,
+  workflowModesPortOf,
 } from "./ports.ts";
 import { insertJobRun, loadJob, noteFired, noteSkipped } from "./store.ts";
 
@@ -162,14 +164,19 @@ export function createEventCommands(): {
               ],
         );
         const availability = targetAvailabilityOf(tx);
+        const modes = workflowModesPortOf(tx);
         let fired = 0;
         let skipped = 0;
         for (const row of rows) {
           const job = loadJob(tx.sql, String(row["id"]), machine.value);
           if (!job.ok) return job;
           if (job.value === null) continue;
-          // 대상 앱·project가 보관됐거나 지워졌으면 enabled를 건드리지 않고 건너뛴다(job_runs 줄을 만들지 않는다).
-          if (isJobTargetUnavailable(job.value, availability)) {
+          // 대상 앱·project가 보관됐거나 지워졌거나 승인 뒤 권한 단계가 full로 올라갔으면
+          // enabled를 건드리지 않고 건너뛴다(job_runs 줄을 만들지 않는다).
+          if (
+            isJobTargetUnavailable(job.value, availability) ||
+            isJobModeEscalated(job.value, modes)
+          ) {
             continue;
           }
           const workspace = job.value.creator.workspace?.id;

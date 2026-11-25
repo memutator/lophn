@@ -11,8 +11,17 @@ import type { Id, JsonValue } from "../../protocol/base/mod.ts";
 import type { Mail } from "../../protocol/lophn-agent/mail.ts";
 import {
   type AgentAddress,
+  type AgentRuntime,
+  agentHandleKey,
   blocksText,
+  CODING_BUILTINS,
+  DEFAULT_PERMISSION_MODE,
+  HARNESS_RUNTIMES,
+  isHarnessRuntime,
   LOPHN_AGENT_HANDLE,
+  minPermissionMode,
+  type PermissionMode,
+  permissionModeSchema,
   type TurnOutcome,
 } from "../../protocol/lophn-agent/mod.ts";
 import type { Input, Output } from "../../protocol/server/mod.ts";
@@ -68,6 +77,7 @@ import type {
   WorkflowFiles,
   WorkflowFlows,
   WorkflowLifecycle,
+  WorkflowPermissionModes,
   WorkflowProjects,
   WorkflowRemote,
   WorkflowSnapshots,
@@ -79,6 +89,7 @@ import { remoteTurnEndedText } from "./remote.ts";
 import { STATUS_LINE_KINDS, type StatusLineKind } from "./store.ts";
 import { autoWorkflowTitle, renameWorkflowTitle } from "./title-schema.ts";
 import {
+  parentPermissionCeiling,
   runSubWorkflowCall,
   type SubWorkflowRequest,
 } from "./workflow-call.ts";
@@ -357,22 +368,24 @@ export type RunHumanStepRequest = {
   signal?: AbortSignal;
 };
 
-export function createWorkflowService(deps: {
-  files: WorkflowFiles;
-  projects: WorkflowProjects;
-  agents?: WorkflowAgents;
-  turns: WorkflowTurns;
-  store: WorkflowStore;
-  flows: WorkflowFlows;
-  remote: WorkflowRemote;
-  snapshots?: WorkflowSnapshots;
-  lifecycle?: WorkflowLifecycle;
-  agentPorts?: AgentPrimitivePorts;
-  onTitleNeeded?: (request: WorkflowTitleRequest) => void;
-  clock?: Clock;
-  ids: IdSource;
-  logger: Logger;
-}) {
+export function createWorkflowService(
+  deps: {
+    files: WorkflowFiles;
+    projects: WorkflowProjects;
+    agents?: WorkflowAgents;
+    turns: WorkflowTurns;
+    store: WorkflowStore;
+    flows: WorkflowFlows;
+    remote: WorkflowRemote;
+    snapshots?: WorkflowSnapshots;
+    lifecycle?: WorkflowLifecycle;
+    agentPorts?: AgentPrimitivePorts;
+    onTitleNeeded?: (request: WorkflowTitleRequest) => void;
+    clock?: Clock;
+    ids: IdSource;
+    logger: Logger;
+  } & WorkflowPermissionModes,
+) {
   const {
     files,
     projects,
@@ -383,6 +396,10 @@ export function createWorkflowService(deps: {
     remote,
     snapshots,
     lifecycle,
+    rememberedModesOf,
+    agentDefaultModeOf,
+    globalDefaultMode,
+    isHarnessAgent,
     onTitleNeeded,
     ids,
     logger,
@@ -648,9 +665,102 @@ export function createWorkflowService(deps: {
     return DEFAULT_FLOW_SDK_INFO;
   }
 
+  function isBuiltinHarnessAgent(agent: string): boolean {
+    const key = agentHandleKey(agent);
+    if ((HARNESS_RUNTIMES as readonly string[]).includes(key)) return true;
+    return CODING_BUILTINS.some(
+      (b) => agentHandleKey(b.harness) === key || agentHandleKey(b.id) === key,
+    );
+  }
+
+  async function resolveParticipantModes(input: {
+    project: Id<"prj">;
+    workflow: string;
+    participants: ReturnType<typeof participantsOf>;
+    explicit: Record<string, PermissionMode> | undefined;
+    by: StartedBy;
+    maxMode: PermissionMode | undefined;
+    callableRuntimeByName: Map<string, string | undefined> | undefined;
+  }): Promise<Result<Record<string, PermissionMode> | undefined>> {
+    if (input.explicit !== undefined) {
+      for (const [key, value] of Object.entries(input.explicit)) {
+        if (!permissionModeSchema.safeParse(value).success) {
+          return fail(
+            "invalid_input",
+            `invalid permission mode for participant '${key}'`,
+          );
+        }
+      }
+    }
+    const entries = Object.entries(input.participants);
+    if (entries.length === 0) return ok(undefined);
+
+    let runtimeByName = input.callableRuntimeByName;
+    if (
+      runtimeByName === undefined &&
+      isHarnessAgent === undefined &&
+      agents !== undefined
+    ) {
+      const callable = await agents.listCallable(input.project);
+      if (callable.ok) {
+        runtimeByName = new Map(
+          callable.value.map((a) => [agentHandleKey(a.name), a.kind]),
+        );
+      }
+    }
+
+    let maxMode = input.maxMode;
+    if (maxMode === undefined && input.by.kind === "workflow") {
+      const parentRead = await store.read(input.by.instance as Id<"wfi">);
+      if (parentRead.ok) {
+        maxMode = parentPermissionCeiling(parentRead.value.instance);
+      }
+    }
+
+    const remembered =
+      rememberedModesOf !== undefined
+        ? await rememberedModesOf(input.project, input.workflow)
+        : undefined;
+    const globalDefault =
+      (globalDefaultMode !== undefined
+        ? await globalDefaultMode()
+        : undefined) ?? DEFAULT_PERMISSION_MODE;
+
+    const resolved: Record<string, PermissionMode> = {};
+    for (const [key, participant] of entries) {
+      if ("kind" in participant) continue;
+      if (isBuiltinHarnessAgent(participant.agent)) continue;
+      if (isHarnessAgent !== undefined) {
+        if (await isHarnessAgent(participant.agent, input.project)) continue;
+      } else if (runtimeByName !== undefined) {
+        const kind = runtimeByName.get(agentHandleKey(participant.agent));
+        if (isHarnessRuntime(kind as AgentRuntime | undefined)) continue;
+      }
+
+      const explicitMode =
+        input.by.kind === "user" ? input.explicit?.[key] : undefined;
+      const rememberedMode = remembered?.[key];
+      const agentDefault =
+        explicitMode === undefined &&
+        rememberedMode === undefined &&
+        agentDefaultModeOf !== undefined
+          ? await agentDefaultModeOf(participant.agent, input.project)
+          : undefined;
+      let mode: PermissionMode =
+        explicitMode ?? rememberedMode ?? agentDefault ?? globalDefault;
+      if (maxMode !== undefined) {
+        mode = minPermissionMode(maxMode, mode);
+      }
+      resolved[key] = mode;
+    }
+
+    return ok(Object.keys(resolved).length > 0 ? resolved : undefined);
+  }
+
   async function start(
     input: z.output<typeof workflowStart.input>,
     by: StartedBy,
+    options?: { maxMode?: PermissionMode },
   ) {
     const [projectRef, name] = input.workflow.split("/") as [string, string];
     const project = await projects.resolve(projectRef);
@@ -671,6 +781,7 @@ export function createWorkflowService(deps: {
       );
     }
     let validatedInputs: Record<string, unknown> | undefined;
+    let callableRuntimeByName: Map<string, string | undefined> | undefined;
     if (parsed.declaration.inputs !== undefined) {
       let callableAgents: ReadonlySet<string> | undefined;
       const needsAgents = Object.values(parsed.declaration.inputs).some(
@@ -680,6 +791,9 @@ export function createWorkflowService(deps: {
         const callable = await agents.listCallable(project.value.id);
         if (!callable.ok) return callable;
         callableAgents = new Set(callable.value.map((a) => a.name));
+        callableRuntimeByName = new Map(
+          callable.value.map((a) => [agentHandleKey(a.name), a.kind]),
+        );
       }
       const checked = validateWorkflowInputs(
         parsed.declaration.inputs,
@@ -709,6 +823,19 @@ export function createWorkflowService(deps: {
       explicitTitle = checkedTitle.value;
     }
 
+    const participants = participantsOf(parsed.declaration);
+    const modesResolved = await resolveParticipantModes({
+      project: project.value.id,
+      workflow: name,
+      participants,
+      explicit: input.participant_modes,
+      by,
+      maxMode: options?.maxMode,
+      callableRuntimeByName,
+    });
+    if (!modesResolved.ok) return modesResolved;
+    const participantModes = modesResolved.value;
+
     // 실행 모드는 오직 flow.ts 파일 유무로 결정한다.
     if (file.flow) {
       if (input.step !== undefined) {
@@ -737,7 +864,10 @@ export function createWorkflowService(deps: {
         ...(validatedInputs !== undefined ? { inputs: validatedInputs } : {}),
         ...(codeSnapshot !== undefined ? { code_snapshot: codeSnapshot } : {}),
         ...(effectiveOpen !== undefined ? { open_mode: effectiveOpen } : {}),
-        participants: participantsOf(parsed.declaration),
+        ...(participantModes !== undefined
+          ? { participant_modes: participantModes }
+          : {}),
+        participants,
         steps: flowSteps,
         started_by: by,
         handoff: null,
@@ -787,7 +917,6 @@ export function createWorkflowService(deps: {
       const override = input.step_open?.[s.name] ?? input.open;
       return override !== undefined ? { ...s, open: override } : s;
     });
-    const participants = participantsOf(parsed.declaration);
     const defaultStep =
       parsed.declaration.default_step !== undefined &&
       steps.some((s) => s.name === parsed.declaration.default_step)
@@ -808,6 +937,9 @@ export function createWorkflowService(deps: {
       input: input.text,
       ...(validatedInputs !== undefined ? { inputs: validatedInputs } : {}),
       ...(input.open !== undefined ? { open_mode: input.open } : {}),
+      ...(participantModes !== undefined
+        ? { participant_modes: participantModes }
+        : {}),
       participants,
       steps,
       started_by: by,
@@ -1082,6 +1214,8 @@ export function createWorkflowService(deps: {
       declaredStepOpen ??
       req.open ??
       participantOpen;
+    const participantMode =
+      state.instance.participant_modes?.[req.participant ?? targetAgent.agent];
 
     try {
       const outcome = await runAgentPrimitive(wrappedPorts, {
@@ -1092,6 +1226,9 @@ export function createWorkflowService(deps: {
         mode: req.mode ?? "turn",
         ...(req.session !== undefined ? { session: req.session } : {}),
         ...(effectiveOpen !== undefined ? { open: effectiveOpen } : {}),
+        ...(participantMode !== undefined
+          ? { permissionMode: participantMode }
+          : {}),
         sameSession,
         origin: {
           project: state.instance.project as Id<"prj">,
@@ -1388,6 +1525,8 @@ export function createWorkflowService(deps: {
     )?.open;
     const effectiveOpen: SessionOpenMode =
       state.instance.open_mode ?? declaredStepOpen ?? req.open ?? "tab";
+    const participantMode =
+      state.instance.participant_modes?.[req.participant ?? targetAgent.agent];
 
     try {
       const outcome = await runAgentPrimitive(wrappedPorts, {
@@ -1397,6 +1536,9 @@ export function createWorkflowService(deps: {
         mode: "report",
         ...(req.session !== undefined ? { session: req.session } : {}),
         open: effectiveOpen,
+        ...(participantMode !== undefined
+          ? { permissionMode: participantMode }
+          : {}),
         sameSession,
         origin: {
           project: state.instance.project as Id<"prj">,

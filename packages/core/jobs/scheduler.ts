@@ -1,7 +1,11 @@
 import { ok, type Result } from "../../base/mod.ts";
 import type { Id } from "../../protocol/base/mod.ts";
 import type { JobTurn } from "../../protocol/jobs/mod.ts";
-import type { JobScheduler, JobSchedulerDeps } from "./ports.ts";
+import {
+  hasModeEscalated,
+  type JobScheduler,
+  type JobSchedulerDeps,
+} from "./ports.ts";
 
 const MAX_SLEEP_MS = 60_000;
 const RETRY_MS = 60_000;
@@ -104,6 +108,30 @@ export function createJobScheduler(deps: JobSchedulerDeps): JobScheduler {
   }
 
   async function launch({ job, job_run }: JobTurn): Promise<void> {
+    if (job.action.kind === "workflow_start") {
+      let escalated = job.approval_paused_reason === "mode_escalated";
+      if (!escalated && deps.workflowModesOf !== undefined) {
+        const currentModes = await deps.workflowModesOf(
+          job.action.project,
+          job.action.workflow,
+        );
+        escalated = hasModeEscalated(
+          job.participant_modes ?? null,
+          currentModes,
+        );
+      }
+      if (escalated) {
+        logUnlessGone(
+          "pausing an escalated job run",
+          await store.ended(
+            job_run.id as Id<"jbr">,
+            "cancelled",
+            "mode_escalated",
+          ),
+        );
+        return;
+      }
+    }
     const found = await starter.start(job, job_run);
     if (!found.ok) {
       logUnlessGone(

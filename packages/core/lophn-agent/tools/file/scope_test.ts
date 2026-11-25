@@ -10,7 +10,12 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
+import { PRODUCT_FLOOR_RULES } from "../../../../protocol/approvals/mod.ts";
+import { evaluatePermission } from "../../../approvals/gate/judge.ts";
+import { createFileTools } from "../bundles/file.ts";
+import type { ToolContext } from "../tool-context.ts";
 import { classifyFilePath, type Mode, resolveInWorkspace } from "./scope.ts";
+import { grepFiles } from "./search.ts";
 
 test("file tool은 workspace 폴더 밖과 밖으로 나가는 symlink를 거절한다", async (t) => {
   const temp = await mkdtemp(join(tmpdir(), "lophn-scope-"));
@@ -328,11 +333,33 @@ test("classifyFilePath는 바깥 경로, 자기 보호 경로, 민감 workspace 
       join(fakeHome, ".gnupg", "secring.gpg"),
       join(fakeDataRoot, "settings.json"),
       join(fakeDataRoot, "secrets.json"),
+      join(fakeDataRoot, "secrets"),
+      join(fakeDataRoot, "secrets.bak"),
       join(fakeDataRoot, "agents", "lophn_home.md"),
     ]) {
       const c = await classifyFilePath(roots, target, "write", opts);
       assert.equal(c.selfProtection, true, target);
       assert.equal(c.sensitive, true, target);
+    }
+
+    // data root 읽기: secrets*만 자기 보호(sensitive)이고 settings.json·agents/*는 바깥 일반 읽기로 분류한다.
+    for (const target of [
+      join(fakeDataRoot, "secrets.json"),
+      join(fakeDataRoot, "secrets"),
+      join(fakeDataRoot, "secrets.bak"),
+    ]) {
+      const c = await classifyFilePath(roots, target, "read", opts);
+      assert.equal(c.selfProtection, true, `read ${target}`);
+      assert.equal(c.sensitive, true, `read ${target}`);
+    }
+    for (const target of [
+      join(fakeDataRoot, "settings.json"),
+      join(fakeDataRoot, "agents", "lophn_home.md"),
+    ]) {
+      const c = await classifyFilePath(roots, target, "read", opts);
+      assert.equal(c.outsideWorkspace, true, `read ${target}`);
+      assert.equal(c.selfProtection, false, `read ${target}`);
+      assert.equal(c.sensitive, false, `read ${target}`);
     }
 
     // onceTarget으로 승인된 바깥 파일은 resolveInWorkspace가 정확히 그 파일만 연다
@@ -357,6 +384,94 @@ test("classifyFilePath는 바깥 경로, 자기 보호 경로, 민감 workspace 
       "read",
     );
     assert.equal(otherDenied.ok, false);
+  } finally {
+    await rm(temp, { recursive: true });
+  }
+});
+
+test("file.grep 디렉터리 탐색은 .env*와 보호 폴더를 건너뛰고 fileReadGate는 workspace 안 읽기도 Gate에 넘겨 file deny 규칙을 적용한다", async () => {
+  const temp = await mkdtemp(join(tmpdir(), "lophn-grep-gate-"));
+  try {
+    const workspace = join(temp, "workspace");
+    await mkdir(join(workspace, ".ssh"), { recursive: true });
+    await writeFile(
+      join(workspace, "app.ts"),
+      "const TOP_SECRET = 'visible';\n",
+    );
+    await writeFile(join(workspace, ".env"), "TOP_SECRET=from-env\n");
+    await writeFile(
+      join(workspace, ".env.local"),
+      "TOP_SECRET=from-env-local\n",
+    );
+    await writeFile(
+      join(workspace, ".env.example"),
+      "TOP_SECRET=example-placeholder\n",
+    );
+    await writeFile(join(workspace, ".ssh", "id_rsa"), "TOP_SECRET=ssh-key\n");
+
+    const ctx = {
+      scope: { read: [workspace], write: [workspace], base: workspace },
+    } as unknown as ToolContext;
+
+    // 1. 디렉터리 전체 grep과 glob: ".env*" 모두 .env·.env.local·.ssh를 건너뛰고 .env.example과 일반 파일만 본다.
+    const allRes = await grepFiles({ pattern: "TOP_SECRET", path: "." }, ctx);
+    assert.ok(allRes.ok);
+    const allMatches = (allRes.value.content as { matches: string[] }).matches;
+    assert.ok(allMatches.some((line) => line.startsWith("app.ts:")));
+    assert.ok(allMatches.some((line) => line.startsWith(".env.example:")));
+    assert.ok(
+      !allMatches.some(
+        (line) =>
+          line.startsWith(".env:") ||
+          line.startsWith(".env.local:") ||
+          line.startsWith(".ssh/"),
+      ),
+      `sensitive files leaked in grep: ${JSON.stringify(allMatches)}`,
+    );
+
+    const envGlobRes = await grepFiles(
+      { pattern: "TOP_SECRET", path: ".", glob: ".env*" },
+      ctx,
+    );
+    assert.ok(envGlobRes.ok);
+    const envMatches = (envGlobRes.value.content as { matches: string[] })
+      .matches;
+    assert.deepStrictEqual(envMatches, [
+      ".env.example:1:TOP_SECRET=example-placeholder",
+    ]);
+
+    // 2. fileReadGate는 workspace 안 일반 파일도 file_read GateCall을 내서 사용자 file deny 규칙이 먹는다.
+    const tools = createFileTools({
+      aroundWrite: (_c, _t, run) => run(),
+    });
+    const fileRead = tools.find((t) => t.name === "file.read")!;
+    const gateCall = await fileRead.gate?.({ path: "app.ts" }, ctx);
+    assert.ok(gateCall !== null && gateCall !== undefined);
+    assert.equal(gateCall.kind, "file_read");
+    assert.equal(gateCall.outside_workspace, false);
+    assert.equal(gateCall.sensitive, false);
+
+    const denied = evaluatePermission(
+      { call: gateCall, tool: "file.read" },
+      {
+        floor: PRODUCT_FLOOR_RULES,
+        global: [
+          {
+            id: "r-deny-app",
+            category: "file",
+            pattern: "*/app.ts",
+            action: "deny",
+            source: "global",
+          },
+        ],
+        project: [],
+      },
+      [],
+      "full",
+      "attended",
+    );
+    assert.equal(denied.kind, "deny");
+    assert.equal(denied.denial.reason_kind, "user_deny");
   } finally {
     await rm(temp, { recursive: true });
   }

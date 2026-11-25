@@ -5,7 +5,7 @@
 // 4. 할당 앱(command별 ask 표시)·MCP 서버(신뢰 여부)·로컬 tool(신뢰 여부 + 해제/신뢰)
 // 5. 최근 거부(이유, 걸린 규칙, 복구 단추)
 import { t } from "@lophn/i18n";
-import { Select } from "@lophn/ui/input";
+import { Field, Select } from "@lophn/ui/input";
 import { Button, IconButton } from "@lophn/ui/primitives";
 import { type ReactElement, useState } from "react";
 import type { RecoveryAction } from "../../../../protocol/approvals/denial.ts";
@@ -119,17 +119,19 @@ export function PermissionsView({
               </span>
               {onChangeMode !== undefined && modeOptions.length > 1 ? (
                 <div className={styles.modeSelect}>
-                  <Select
-                    options={modeOptions}
-                    value={session.mode}
-                    disabled={busyKey === "mode"}
-                    onValueChange={(next) => {
-                      const mode = next as PermissionMode;
-                      if (mode !== session.mode) {
-                        void runBusy("mode", () => onChangeMode(mode));
-                      }
-                    }}
-                  />
+                  <Field label={t("conversation.heading.permissions-mode")}>
+                    <Select
+                      options={modeOptions}
+                      value={session.mode}
+                      disabled={busyKey === "mode"}
+                      onValueChange={(next) => {
+                        const mode = next as PermissionMode;
+                        if (mode !== session.mode) {
+                          void runBusy("mode", () => onChangeMode(mode));
+                        }
+                      }}
+                    />
+                  </Field>
                 </div>
               ) : null}
             </div>

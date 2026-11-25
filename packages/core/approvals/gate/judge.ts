@@ -128,7 +128,7 @@ function evaluateNonShellUserRules(
 export function matchesSessionGrant(
   grants: readonly SessionGrant[],
   call: GateCall,
-  options?: { scan?: ShellScanResult; homeDir?: string },
+  options?: { scan?: ShellScanResult; homeDir?: string; dataRoot?: string },
 ): boolean {
   if (grants.length === 0) return false;
   switch (call.kind) {
@@ -147,21 +147,42 @@ export function matchesSessionGrant(
     case "shell": {
       const scan =
         options?.scan ?? scanShellCommand(call.command, options?.homeDir);
-      if (scan.opaque || scan.elevated) return false;
+      if (
+        scan.opaque ||
+        scan.elevated ||
+        scan.hasOutputRedirection ||
+        scan.hasDangerousEnv ||
+        scan.segments.some(
+          (seg) =>
+            seg.hasCommandSubstitution ||
+            seg.hasDangerousEnv ||
+            seg.viaEvalOrXargs,
+        )
+      ) {
+        return false;
+      }
       const shellGrants = grants.filter((g) => g.category === "shell");
       if (shellGrants.length === 0) return false;
-      if (
-        shellGrants.some((g) => shellRuleMatches(g.pattern, scan.normalized))
-      ) {
-        return true;
-      }
-      const topSegments = scan.segments.filter((s) => !s.unwrapped);
-      if (topSegments.length === 0) return false;
-      return topSegments.every(
-        (seg) =>
-          shellGrants.some((g) => shellRuleMatches(g.pattern, seg.raw)) ||
-          (!scan.hasOutputRedirection && isReadOnlySegment(seg)),
+      const executableSegments = scan.segments.filter(
+        (s) => s.origin !== "wrapper",
       );
+      if (executableSegments.length === 0) return false;
+      const pathOpts = {
+        homeDir: options?.homeDir,
+        dataRoot: options?.dataRoot,
+      };
+      let matchedGrant = false;
+      for (const seg of executableSegments) {
+        if (shellGrants.some((g) => shellRuleMatches(g.pattern, seg.raw))) {
+          matchedGrant = true;
+          continue;
+        }
+        if (isReadOnlySegment(seg, pathOpts)) {
+          continue;
+        }
+        return false;
+      }
+      return matchedGrant;
     }
     case "mcp_tool":
       return grants.some(
@@ -320,7 +341,11 @@ export function evaluatePermission(
     }
 
     // ---------- 2. 사용자 규칙 (shell) ----------
-    const userRule = evaluateShellUserRules(layers, scan);
+    const shellPathOpts = {
+      homeDir: request.homeDir,
+      dataRoot: request.dataRoot,
+    };
+    const userRule = evaluateShellUserRules(layers, scan, shellPathOpts);
     if (userRule.action === "deny") {
       return {
         kind: "deny",
@@ -338,7 +363,12 @@ export function evaluatePermission(
       };
     }
 
-    const patterns = alwaysPatterns(layers, call.command, request.homeDir);
+    const patterns = alwaysPatterns(
+      layers,
+      call.command,
+      request.homeDir,
+      request.dataRoot,
+    );
     const unattendedRecovery: RecoveryAction | null =
       patterns.length > 0
         ? {
@@ -368,23 +398,23 @@ export function evaluatePermission(
       );
     }
 
-    // elevated(sudo 등)와 opaque 명령은 user allow·session grant·읽기 목록으로 통과하지 못한다.
-    if (userRule.action === "allow" && !scan.opaque && !scan.elevated) {
+    // 내장 읽기 명령 목록(opaque·elevated·출력 리다이렉션·위험 env가 없을 때).
+    if (isReadOnlyShellCommand(scan, shellPathOpts)) {
       return { kind: "run" };
     }
 
-    // 내장 읽기 명령 목록(opaque·elevated·출력 리다이렉션이 없을 때).
-    if (isReadOnlyShellCommand(scan)) {
-      return { kind: "run" };
-    }
-
-    // read_only 단계에서는 읽기 목록 밖의 shell 실행을 막는다(낮춘 뒤 session grant도 우회 불가).
+    // read_only 단계에서는 읽기 목록 밖의 shell 실행을 막는다(저장된 allow 규칙·session grant도 우회 불가).
     if (mode === "read_only") {
       return modeDeny(
         request,
         "Non-read-only shell commands are blocked in read-only mode.",
         "shell",
       );
+    }
+
+    // elevated(sudo 등)와 opaque 명령은 user allow·session grant·읽기 목록으로 통과하지 못한다.
+    if (userRule.action === "allow" && !scan.opaque && !scan.elevated) {
+      return { kind: "run" };
     }
 
     // ---------- 5. 이번 대화 허락 (shell) ----------
@@ -394,6 +424,7 @@ export function evaluatePermission(
       matchesSessionGrant(sessionGrants, call, {
         scan,
         homeDir: request.homeDir,
+        dataRoot: request.dataRoot,
       })
     ) {
       return { kind: "run" };
@@ -703,7 +734,9 @@ export function evaluatePermission(
       };
     }
 
-    const trusted = request.localToolTrusted === true && !call.changed;
+    // wiring/approvals.ts가 매 판정마다 라이브 (path, sha256)을 local_tool_trust와 대조한다.
+    // call.changed는 아직 신뢰되지 않았을 때 안내 문구를 고르는 용도로만 쓴다.
+    const trusted = request.localToolTrusted === true;
     if (!trusted) {
       return finalizeContext(
         {

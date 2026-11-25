@@ -108,7 +108,7 @@ function pathSegments(target: string): string[] {
 }
 
 function isSensitiveWorkspacePath(target: string, mode: Mode): boolean {
-  const segments = pathSegments(target);
+  const segments = pathSegments(target).map((part) => part.toLowerCase());
   if (mode === "write") {
     for (let i = 0; i < segments.length - 1; i++) {
       const curr = segments[i];
@@ -127,22 +127,37 @@ function isSensitiveWorkspacePath(target: string, mode: Mode): boolean {
   return /^\.env($|\.)/.test(name);
 }
 
-function isProtectedDataRootPath(dataRoot: string, target: string): boolean {
+// gate/paths.ts와 같은 기준: secrets*는 읽기·쓰기 모두 보호하고, settings·permissions·agents는 쓰기만 자기 보호다.
+function isProtectedDataRootPath(
+  dataRoot: string,
+  target: string,
+  mode: Mode,
+): boolean {
   if (!inside(dataRoot, target)) return false;
-  const rel = relative(dataRoot, target);
+  const rel = relative(dataRoot, target).replace(/\\/g, "/").toLowerCase();
   if (rel === "") return false;
-  const [first] = pathSegments(rel);
-  if (first === undefined) return false;
-  const lower = first.toLowerCase();
-  if (lower === "agents" || lower === "permissions") return true;
-  if (/^settings(\..+)?\.json$/.test(lower)) return true;
-  if (/^secrets(\..+)?\.json$/.test(lower)) return true;
-  if (/^permissions(\..+)?\.json$/.test(lower)) return true;
-  return false;
+  if (
+    rel === "secrets" ||
+    rel.startsWith("secrets.") ||
+    rel.startsWith("secrets/")
+  ) {
+    return true;
+  }
+  if (mode !== "write") return false;
+  return (
+    rel === "settings.json" ||
+    rel.startsWith("settings.") ||
+    rel === "permissions" ||
+    rel.startsWith("permissions.") ||
+    rel.startsWith("permissions/") ||
+    rel === "agents" ||
+    rel.startsWith("agents/")
+  );
 }
 
 async function isSelfProtectionPath(
   target: string,
+  mode: Mode,
   options?: ClassifyOptions,
 ): Promise<boolean> {
   const home = options?.homeDir ?? homedir();
@@ -172,7 +187,7 @@ async function isSelfProtectionPath(
     const realRoot = await real(rawDataRoot);
     if (realRoot !== null) rootVariants.add(realRoot);
     for (const root of rootVariants) {
-      if (isProtectedDataRootPath(root, target)) return true;
+      if (isProtectedDataRootPath(root, target, mode)) return true;
     }
   }
   return false;
@@ -206,10 +221,10 @@ export async function classifyFilePath(
   const resolved = await resolveInWorkspace(roots, path, mode);
   const outsideWorkspace = !resolved.ok;
   const selfProtection =
-    (await isSelfProtectionPath(checkTarget, options)) ||
+    (await isSelfProtectionPath(checkTarget, mode, options)) ||
     (actual !== null &&
       checkTarget !== candidate &&
-      (await isSelfProtectionPath(candidate, options)));
+      (await isSelfProtectionPath(candidate, mode, options)));
   const sensitiveWorkspace =
     isSensitiveWorkspacePath(checkTarget, mode) ||
     isSensitiveWorkspacePath(candidate, mode);

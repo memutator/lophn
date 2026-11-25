@@ -26,13 +26,12 @@ function lineRange(input: { offset?: number; limit?: number }): string {
     : ` (${start}-${start + input.limit - 1})`;
 }
 
-// 바깥 폴더나 민감 경로(.env*, 자기 보호 경로) 읽기는 Gate를 거친다. 일반 등록 폴더 안 읽기는 묻지 않는다.
+// 모든 파일 읽기는 Gate를 거친다(사용자 file deny/ask 규칙·민감 경로·바깥 폴더 판정; 일반 등록 폴더 안 읽기는 묻지 않고 바로 통과).
 async function fileReadGate(
   targetPath: string,
   ctx: ToolContext,
-): Promise<AskedCall | null> {
+): Promise<AskedCall> {
   const classified = await classifyFilePath(ctx.scope, targetPath, "read");
-  if (!classified.outsideWorkspace && !classified.sensitive) return null;
   return {
     kind: "file_read",
     path: classified.path ?? targetPath,

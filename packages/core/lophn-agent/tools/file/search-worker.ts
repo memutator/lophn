@@ -1,6 +1,6 @@
 import type { Dirent } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
-import { join, relative, sep } from "node:path";
+import { basename, join, relative, sep } from "node:path";
 import { parentPort, workerData } from "node:worker_threads";
 import type { WorkspaceScope } from "../ports.ts";
 import { resolveInWorkspace } from "./scope.ts";
@@ -12,7 +12,27 @@ const MAX_FILES = 200;
 const MAX_MATCHES = 100;
 const MAX_SCANNED_BYTES = 2 * 1024 * 1024;
 const MAX_LINE_CHARS = 300;
-const SKIPPED = new Set([".git", "node_modules"]);
+const SKIPPED_DIRS = new Set([
+  ".git",
+  "node_modules",
+  ".ssh",
+  ".aws",
+  ".gnupg",
+]);
+const SAFE_ENV_NAMES = new Set([".env.example", ".env.sample"]);
+
+function isSensitiveWalkFile(name: string): boolean {
+  const lower = name.toLowerCase();
+  if (SAFE_ENV_NAMES.has(lower)) return false;
+  return lower === ".env" || lower.startsWith(".env.");
+}
+
+function hasProtectedDirSegment(targetPath: string): boolean {
+  return targetPath.split(/[\\/]+/).some((part) => {
+    const lower = part.toLowerCase();
+    return lower === ".ssh" || lower === ".aws" || lower === ".gnupg";
+  });
+}
 
 type Roots = Pick<WorkspaceScope, "read" | "write" | "base" | "results">;
 type Base = { dir: string; single: string | null };
@@ -57,7 +77,7 @@ function globMatcher(pattern: string): (path: string) => boolean {
     : (path) => regex.test(path.slice(path.lastIndexOf("/") + 1));
 }
 
-// base 아래 파일을 훑는다. 허용 폴더 밖으로 나가는 symlink와 symlink 폴더는 넣지 않는다.
+// base 아래 파일을 훑는다. 허용 폴더 밖으로 나가는 symlink, symlink 폴더, 민감 파일(.env*)과 보호 폴더는 건너뛴다.
 async function* walk(dir: string): AsyncGenerator<string> {
   let entries: Dirent[];
   try {
@@ -69,12 +89,20 @@ async function* walk(dir: string): AsyncGenerator<string> {
   for (const entry of entries) {
     const path = join(dir, entry.name);
     if (entry.isDirectory()) {
-      if (!SKIPPED.has(entry.name)) yield* walk(path);
+      if (!SKIPPED_DIRS.has(entry.name.toLowerCase())) yield* walk(path);
     } else if (entry.isFile()) {
-      yield path;
+      if (!isSensitiveWalkFile(entry.name)) yield path;
     } else if (entry.isSymbolicLink()) {
+      if (isSensitiveWalkFile(entry.name)) continue;
       const at = await resolveInWorkspace(input.roots, path, "read");
-      if (at.ok && (await stat(at.value.path)).isFile()) yield path;
+      if (
+        at.ok &&
+        !isSensitiveWalkFile(basename(at.value.path)) &&
+        !hasProtectedDirSegment(at.value.path) &&
+        (await stat(at.value.path)).isFile()
+      ) {
+        yield path;
+      }
     }
   }
 }

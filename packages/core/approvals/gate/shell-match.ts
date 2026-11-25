@@ -15,6 +15,8 @@ type ScannedWord = {
   readonly hasCommandSubstitution: boolean;
 };
 
+export type ShellSegmentOrigin = "top" | "subshell" | "wrapper";
+
 export type ShellSegment = {
   readonly raw: string;
   readonly words: readonly string[];
@@ -25,6 +27,7 @@ export type ShellSegment = {
   readonly hasCommandSubstitution: boolean;
   readonly hasDangerousEnv: boolean;
   readonly viaEvalOrXargs: boolean;
+  readonly origin: ShellSegmentOrigin;
   readonly unwrapped: boolean;
 };
 
@@ -34,6 +37,7 @@ export type ShellScanResult = {
   readonly elevated: boolean;
   readonly multiline: boolean;
   readonly hasOutputRedirection: boolean;
+  readonly hasDangerousEnv: boolean;
   readonly redirectionTargets: readonly string[];
   readonly segments: readonly ShellSegment[];
   readonly floorCandidates: readonly string[];
@@ -524,6 +528,7 @@ function tokenizeShell(source: string): TokenizeResult {
     if (ch === ")") {
       opaque = true;
       i++;
+      flushSegment();
       continue;
     }
     // 프로세스 치환 `<(...)`·`>(...)`
@@ -737,7 +742,7 @@ function unwrapCommand(words: readonly ScannedWord[]): UnwrapResult {
   const cmd = baseNameOf(words[0].text);
   const args = words.slice(1);
 
-  // `sh -c` / `bash -c` / `zsh -c` / `dash -c` / `ksh -c` (`-lc`, `-ec` 등 포함)
+  // `sh -c` / `bash -c` / `zsh -c` / `dash -c` / `ksh -c` (`-lc`, `-ec`, `-c --` 등 포함)
   if (
     cmd === "sh" ||
     cmd === "bash" ||
@@ -753,7 +758,24 @@ function unwrapCommand(words: readonly ScannedWord[]): UnwrapResult {
         continue;
       }
       if (arg.startsWith("-") && !arg.startsWith("--") && arg.includes("c")) {
-        const scriptWord = args[idx + 1];
+        let scriptIdx = idx + 1;
+        while (scriptIdx < args.length) {
+          const next = args[scriptIdx].text;
+          if (next === "--" || next === "-") {
+            scriptIdx++;
+            break;
+          }
+          if (next === "-o" || next === "+o") {
+            scriptIdx += 2;
+            continue;
+          }
+          if (next.startsWith("-") || next.startsWith("+")) {
+            scriptIdx++;
+            continue;
+          }
+          break;
+        }
+        const scriptWord = args[scriptIdx];
         if (!scriptWord) return { kind: "none" };
         // `sh -c "$CMD"`처럼 본문 전체가 변수 참조 하나면 opaque다.
         const dynamicOnly =
@@ -800,7 +822,7 @@ function unwrapCommand(words: readonly ScannedWord[]): UnwrapResult {
         idx += 2;
         continue;
       }
-      if (a === "-c" || a === "-l") {
+      if (a === "-c" || a === "-l" || (a.startsWith("-a") && a.length > 2)) {
         idx++;
         continue;
       }
@@ -828,6 +850,10 @@ function unwrapCommand(words: readonly ScannedWord[]): UnwrapResult {
         idx++;
         break;
       }
+      if (a === "-") {
+        idx++;
+        continue;
+      }
       if (a === "-S" || a === "--split-string") {
         const scriptWord = args[idx + 1];
         if (!scriptWord) return { kind: "none" };
@@ -847,6 +873,35 @@ function unwrapCommand(words: readonly ScannedWord[]): UnwrapResult {
           opaque: false,
           viaEvalOrXargs: false,
         };
+      }
+      // `-S"rm -rf ~"` 또는 `-iS"rm -rf ~"` 같은 붙은 short flag 처리
+      if (a.startsWith("-") && !a.startsWith("--") && a.length > 1) {
+        const sPos = a.indexOf("S", 1);
+        if (sPos >= 1 && /^[i0v]*$/.test(a.slice(1, sPos))) {
+          const attached = a.slice(sPos + 1);
+          if (attached.length > 0) {
+            return {
+              kind: "script",
+              script: attached,
+              elevated: false,
+              opaque: false,
+              viaEvalOrXargs: false,
+            };
+          }
+          const scriptWord = args[idx + 1];
+          if (!scriptWord) return { kind: "none" };
+          return {
+            kind: "script",
+            script: scriptWord.text,
+            elevated: false,
+            opaque: false,
+            viaEvalOrXargs: false,
+          };
+        }
+        if ((a.startsWith("-u") || a.startsWith("-C")) && a.length > 2) {
+          idx++;
+          continue;
+        }
       }
       if (a === "-u" || a === "-C") {
         idx += 2;
@@ -941,6 +996,29 @@ function unwrapCommand(words: readonly ScannedWord[]): UnwrapResult {
       : { kind: "none" };
   }
 
+  // `coproc cmd...` 또는 `coproc NAME { cmd...; }` — 백그라운드 코프로세스이므로 최상위 segment는 유지하고 안쪽 명령만 풀어 검사한다.
+  if (cmd === "coproc") {
+    let rest = args;
+    if (
+      rest.length >= 2 &&
+      !rest[1].quoted &&
+      rest[1].text === "{" &&
+      /^[A-Za-z_][A-Za-z0-9_]*$/.test(rest[0].text)
+    ) {
+      rest = rest.slice(1);
+    }
+    return rest.length > 0
+      ? {
+          kind: "tokens",
+          words: rest,
+          elevated: false,
+          opaque: false,
+          viaEvalOrXargs: false,
+          hasDangerousEnv: false,
+        }
+      : { kind: "none" };
+  }
+
   if (cmd === "timeout") {
     let idx = 0;
     while (idx < args.length) {
@@ -949,7 +1027,12 @@ function unwrapCommand(words: readonly ScannedWord[]): UnwrapResult {
         idx++;
         break;
       }
-      if (a === "-s" || a === "-k") {
+      if (
+        a === "-s" ||
+        a === "-k" ||
+        a === "--signal" ||
+        a === "--kill-after"
+      ) {
         idx += 2;
         continue;
       }
@@ -959,7 +1042,8 @@ function unwrapCommand(words: readonly ScannedWord[]): UnwrapResult {
         a === "--foreground" ||
         a === "--preserve-status" ||
         a.startsWith("--signal=") ||
-        a.startsWith("--kill-after=")
+        a.startsWith("--kill-after=") ||
+        ((a.startsWith("-s") || a.startsWith("-k")) && a.length > 2)
       ) {
         idx++;
         continue;
@@ -989,11 +1073,15 @@ function unwrapCommand(words: readonly ScannedWord[]): UnwrapResult {
         idx++;
         break;
       }
-      if (a === "-n") {
+      if (a === "-n" || a === "--adjustment") {
         idx += 2;
         continue;
       }
-      if (a.startsWith("--adjustment=") || /^-\d+$/.test(a)) {
+      if (
+        a.startsWith("--adjustment=") ||
+        (a.startsWith("-n") && a.length > 2) ||
+        /^-\d+$/.test(a)
+      ) {
         idx++;
         continue;
       }
@@ -1147,6 +1235,15 @@ function unwrapCommand(words: readonly ScannedWord[]): UnwrapResult {
           viaEvalOrXargs: false,
         };
       }
+      if (a.startsWith("-c") && a.length > 2) {
+        return {
+          kind: "script",
+          script: a.slice(2),
+          elevated: true,
+          opaque: false,
+          viaEvalOrXargs: false,
+        };
+      }
       if (a.startsWith("--command=")) {
         return {
           kind: "script",
@@ -1163,21 +1260,52 @@ function unwrapCommand(words: readonly ScannedWord[]): UnwrapResult {
   return { kind: "none" };
 }
 
-function stripLeadingEnv(words: readonly ScannedWord[]): {
+const LEADING_SHELL_KEYWORDS = new Set([
+  "{",
+  "!",
+  "if",
+  "then",
+  "elif",
+  "else",
+  "do",
+  "while",
+  "until",
+]);
+
+function stripLeadingKeywordsAndEnv(words: readonly ScannedWord[]): {
   readonly rest: readonly ScannedWord[];
   readonly hasDangerousEnv: boolean;
 } {
-  let idx = 0;
+  let start = 0;
+  let end = words.length;
   let hasDangerousEnv = false;
-  while (idx < words.length) {
-    const w = words[idx];
+  let strippedBrace = false;
+
+  while (start < end) {
+    const w = words[start];
     if (w.quoted) break;
+    if (LEADING_SHELL_KEYWORDS.has(w.text)) {
+      if (w.text === "{") strippedBrace = true;
+      start++;
+      continue;
+    }
     const match = ENV_ASSIGNMENT_RE.exec(w.text);
-    if (!match) break;
-    if (DANGEROUS_ENV_VARS.has(match[1])) hasDangerousEnv = true;
-    idx++;
+    if (match) {
+      if (DANGEROUS_ENV_VARS.has(match[1])) hasDangerousEnv = true;
+      start++;
+      continue;
+    }
+    break;
   }
-  return { rest: words.slice(idx), hasDangerousEnv };
+
+  if (strippedBrace && end > start) {
+    const last = words[end - 1];
+    if (!last.quoted && last.text === "}") {
+      end--;
+    }
+  }
+
+  return { rest: words.slice(start, end), hasDangerousEnv };
 }
 
 const ELEVATED_COMMANDS = new Set(["sudo", "doas", "su"]);
@@ -1199,6 +1327,7 @@ export function scanShellCommand(
       elevated: false,
       multiline,
       hasOutputRedirection: false,
+      hasDangerousEnv: false,
       redirectionTargets: [],
       segments: [],
       floorCandidates: [],
@@ -1208,6 +1337,7 @@ export function scanShellCommand(
   let opaque = false;
   let elevated = false;
   let hasOutputRedirection = false;
+  let anyDangerousEnv = false;
   const redirectionTargets: string[] = [];
   const segments: ShellSegment[] = [];
   const floorCandidates = new Set<string>();
@@ -1222,7 +1352,7 @@ export function scanShellCommand(
       hasCommandSubstitution: boolean;
       hasDangerousEnv: boolean;
       viaEvalOrXargs: boolean;
-      unwrapped: boolean;
+      origin: ShellSegmentOrigin;
     },
     depth: number,
   ): void {
@@ -1230,9 +1360,10 @@ export function scanShellCommand(
       opaque = true;
       return;
     }
-    const stripped = stripLeadingEnv(words);
+    const stripped = stripLeadingKeywordsAndEnv(words);
     const hasDangerousEnv =
       inherited.hasDangerousEnv || stripped.hasDangerousEnv;
+    if (hasDangerousEnv) anyDangerousEnv = true;
     const effective = stripped.rest;
     if (effective.length === 0) return;
 
@@ -1272,7 +1403,8 @@ export function scanShellCommand(
       hasCommandSubstitution: inherited.hasCommandSubstitution,
       hasDangerousEnv,
       viaEvalOrXargs,
-      unwrapped: inherited.unwrapped,
+      origin: inherited.origin,
+      unwrapped: inherited.origin !== "top",
     });
 
     const unwrapped = unwrapCommand(effective);
@@ -1287,11 +1419,13 @@ export function scanShellCommand(
           elevated: isElevated || unwrapped.elevated,
           hasDangerousEnv,
           viaEvalOrXargs: viaEvalOrXargs || unwrapped.viaEvalOrXargs,
-          unwrapped: true,
+          origin: "wrapper",
         },
         depth + 1,
       );
     } else {
+      const nextDangerousEnv = hasDangerousEnv || unwrapped.hasDangerousEnv;
+      if (nextDangerousEnv) anyDangerousEnv = true;
       processWords(
         unwrapped.words,
         {
@@ -1299,9 +1433,9 @@ export function scanShellCommand(
           hasOutputRedirection: inherited.hasOutputRedirection,
           redirectionTargets: inherited.redirectionTargets,
           hasCommandSubstitution: inherited.hasCommandSubstitution,
-          hasDangerousEnv: hasDangerousEnv || unwrapped.hasDangerousEnv,
+          hasDangerousEnv: nextDangerousEnv,
           viaEvalOrXargs: viaEvalOrXargs || unwrapped.viaEvalOrXargs,
-          unwrapped: true,
+          origin: "wrapper",
         },
         depth + 1,
       );
@@ -1314,7 +1448,7 @@ export function scanShellCommand(
       elevated: boolean;
       hasDangerousEnv: boolean;
       viaEvalOrXargs: boolean;
-      unwrapped: boolean;
+      origin: ShellSegmentOrigin;
     },
     depth: number,
   ): void {
@@ -1340,13 +1474,13 @@ export function scanShellCommand(
           hasCommandSubstitution: seg.hasCommandSubstitution,
           hasDangerousEnv: inherited.hasDangerousEnv,
           viaEvalOrXargs: inherited.viaEvalOrXargs,
-          unwrapped: inherited.unwrapped,
+          origin: inherited.origin,
         },
         depth,
       );
 
       // `sh <<EOF ... EOF`처럼 shell에 heredoc으로 넘긴 본문도 벗겨 검사한다.
-      const stripped = stripLeadingEnv(seg.words).rest;
+      const stripped = stripLeadingKeywordsAndEnv(seg.words).rest;
       const headCmd = stripped.length > 0 ? baseNameOf(stripped[0].text) : "";
       if (
         seg.heredocBodies.length > 0 &&
@@ -1363,13 +1497,15 @@ export function scanShellCommand(
               elevated: inherited.elevated,
               hasDangerousEnv: inherited.hasDangerousEnv,
               viaEvalOrXargs: inherited.viaEvalOrXargs,
-              unwrapped: true,
+              origin: "wrapper",
             },
             depth + 1,
           );
         }
       }
 
+      const nestedOrigin: ShellSegmentOrigin =
+        inherited.origin === "wrapper" ? "wrapper" : "subshell";
       for (const nested of seg.nestedScripts) {
         scanScript(
           nested,
@@ -1377,7 +1513,7 @@ export function scanShellCommand(
             elevated: inherited.elevated,
             hasDangerousEnv: inherited.hasDangerousEnv,
             viaEvalOrXargs: inherited.viaEvalOrXargs,
-            unwrapped: true,
+            origin: nestedOrigin,
           },
           depth + 1,
         );
@@ -1391,7 +1527,7 @@ export function scanShellCommand(
       elevated: false,
       hasDangerousEnv: false,
       viaEvalOrXargs: false,
-      unwrapped: false,
+      origin: "top",
     },
     0,
   );
@@ -1402,6 +1538,7 @@ export function scanShellCommand(
     elevated,
     multiline,
     hasOutputRedirection,
+    hasDangerousEnv: anyDangerousEnv,
     redirectionTargets,
     segments,
     floorCandidates: [...floorCandidates],
@@ -1452,7 +1589,6 @@ const SIMPLE_READ_ONLY_COMMANDS = new Set([
   "printf",
   "true",
   "false",
-  "date",
   "uname",
   "whoami",
   "id",
@@ -1460,9 +1596,7 @@ const SIMPLE_READ_ONLY_COMMANDS = new Set([
   "grep",
   "egrep",
   "fgrep",
-  "rg",
   "ag",
-  "fd",
   "tree",
   "du",
   "df",
@@ -1470,7 +1604,6 @@ const SIMPLE_READ_ONLY_COMMANDS = new Set([
   "dirname",
   "basename",
   "readlink",
-  "sort",
   "uniq",
   "cut",
   "tr",
@@ -1541,6 +1674,16 @@ const GIT_TAG_UNSAFE_FLAGS = new Set([
   "--file",
 ]);
 
+function hasUnsafeGitDiffFlags(args: readonly string[]): boolean {
+  return args.some(
+    (a) =>
+      a === "--output" ||
+      a.startsWith("--output=") ||
+      a === "--ext-diff" ||
+      a === "--textconv",
+  );
+}
+
 function isReadOnlyGit(args: readonly string[]): boolean {
   // 안전한 전역 git option만 건너뛴다(`-c`는 임의 명령 실행 hook에 쓰일 수 있어 거부).
   let idx = 0;
@@ -1567,7 +1710,9 @@ function isReadOnlyGit(args: readonly string[]): boolean {
   if (!sub) return false;
   const rest = args.slice(idx + 1);
 
-  if (GIT_READ_ONLY_SIMPLE_SUBCOMMANDS.has(sub)) return true;
+  if (GIT_READ_ONLY_SIMPLE_SUBCOMMANDS.has(sub)) {
+    return !hasUnsafeGitDiffFlags(rest);
+  }
 
   if (sub === "branch") {
     let hasListFlag = false;
@@ -1660,27 +1805,91 @@ function isReadOnlyGit(args: readonly string[]): boolean {
   }
 
   if (sub === "stash") {
-    return rest.length > 0 && (rest[0] === "list" || rest[0] === "show");
+    return (
+      rest.length > 0 &&
+      (rest[0] === "list" ||
+        (rest[0] === "show" && !hasUnsafeGitDiffFlags(rest.slice(1))))
+    );
   }
 
   return false;
 }
+
+export type ShellMatchPathOptions = {
+  readonly homeDir?: string;
+  readonly dataRoot?: string;
+};
 
 const SENSITIVE_ARG_PATTERNS = [
   /(?:^|\/)\.ssh(?:\/|$)/,
   /(?:^|\/)\.aws(?:\/|$)/,
   /(?:^|\/)\.gnupg(?:\/|$)/,
+  /(?:^|\/)\.lophn\/secrets(?:$|[./*?\[])/,
 ];
 
-function referencesHardProtectedSecret(words: readonly string[]): boolean {
-  for (let idx = 1; idx < words.length; idx++) {
-    const arg = words[idx];
-    if (SENSITIVE_ARG_PATTERNS.some((re) => re.test(arg))) return true;
+function isSensitiveArgCandidate(
+  candidate: string,
+  options?: ShellMatchPathOptions,
+): boolean {
+  const lower = candidate.replace(/\\/g, "/").toLowerCase();
+  if (SENSITIVE_ARG_PATTERNS.some((re) => re.test(lower))) return true;
+  const trimmed = lower.replace(/\/+$/, "");
+  const base = trimmed.slice(trimmed.lastIndexOf("/") + 1);
+  if (
+    base !== ".env.example" &&
+    base !== ".env.sample" &&
+    (base === ".env" ||
+      base.startsWith(".env.") ||
+      base.startsWith(".env*") ||
+      base.startsWith(".env?") ||
+      base.startsWith(".env["))
+  ) {
+    return true;
+  }
+  if (/^secrets(?:\.[^/]+)?\.json/.test(base)) {
+    return true;
+  }
+  if (options?.dataRoot) {
+    const normRoot = normalizePathTarget(options.dataRoot, options.homeDir)
+      .replace(/\/+$/, "")
+      .toLowerCase();
+    const normTarget = normalizePathTarget(candidate, options.homeDir)
+      .replace(/\/+$/, "")
+      .toLowerCase();
+    if (normRoot !== "" && normTarget.startsWith(`${normRoot}/`)) {
+      const rel = normTarget.slice(normRoot.length + 1);
+      if (
+        rel === "secrets" ||
+        rel.startsWith("secrets.") ||
+        rel.startsWith("secrets/") ||
+        rel.startsWith("secrets*")
+      ) {
+        return true;
+      }
+    }
   }
   return false;
 }
 
-export function isReadOnlySegment(segment: ShellSegment): boolean {
+function referencesHardProtectedSecret(
+  words: readonly string[],
+  options?: ShellMatchPathOptions,
+): boolean {
+  for (let idx = 1; idx < words.length; idx++) {
+    const arg = words[idx];
+    if (isSensitiveArgCandidate(arg, options)) return true;
+    const eq = arg.indexOf("=");
+    if (eq >= 0 && isSensitiveArgCandidate(arg.slice(eq + 1), options)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function isReadOnlySegment(
+  segment: ShellSegment,
+  options?: ShellMatchPathOptions,
+): boolean {
   if (
     segment.elevated ||
     segment.hasOutputRedirection ||
@@ -1690,7 +1899,7 @@ export function isReadOnlySegment(segment: ShellSegment): boolean {
   ) {
     return false;
   }
-  if (referencesHardProtectedSecret(segment.words)) return false;
+  if (referencesHardProtectedSecret(segment.words, options)) return false;
 
   const cmd = segment.command;
   const args = segment.words.slice(1);
@@ -1709,11 +1918,32 @@ export function isReadOnlySegment(segment: ShellSegment): boolean {
     return true;
   }
 
+  if (cmd === "rg") {
+    if (
+      args.some(
+        (a) =>
+          a === "--pre" ||
+          a.startsWith("--pre=") ||
+          a === "--pre-glob" ||
+          a.startsWith("--pre-glob="),
+      )
+    ) {
+      return false;
+    }
+    return true;
+  }
+
   if (cmd === "fd") {
     if (
       args.some(
         (a) =>
-          a === "-x" || a === "-X" || a === "--exec" || a === "--exec-batch",
+          a === "-x" ||
+          a === "-X" ||
+          a === "--exec" ||
+          a === "--exec-batch" ||
+          a.startsWith("--exec=") ||
+          a.startsWith("--exec-batch=") ||
+          /^-[^-]*[xX]/.test(a),
       )
     ) {
       return false;
@@ -1747,17 +1977,21 @@ export function isReadOnlySegment(segment: ShellSegment): boolean {
   return false;
 }
 
-export function isReadOnlyShellCommand(scan: ShellScanResult): boolean {
+export function isReadOnlyShellCommand(
+  scan: ShellScanResult,
+  options?: ShellMatchPathOptions,
+): boolean {
   if (
     scan.opaque ||
     scan.elevated ||
     scan.hasOutputRedirection ||
+    scan.hasDangerousEnv ||
     scan.segments.length === 0
   ) {
     return false;
   }
   // 래퍼로 감싼 `sh -c "ls"`나 `eval "ls"`는 최상위 segment가 `sh`/`eval`이라 여기서 자동으로 false가 된다.
-  return scan.segments.every((seg) => isReadOnlySegment(seg));
+  return scan.segments.every((seg) => isReadOnlySegment(seg, options));
 }
 
 // ---------- 규칙 평가 (floor > user deny > user ask > user allow) ----------
@@ -1778,6 +2012,7 @@ export function matchFloorRules(
 export function evaluateShellUserRules(
   layers: PermissionRuleLayers,
   scan: ShellScanResult,
+  options?: ShellMatchPathOptions,
 ): ShellRuleEvaluation {
   const userRules = [...layers.global, ...layers.project].filter(
     (r) => r.category === "shell",
@@ -1819,8 +2054,17 @@ export function evaluateShellUserRules(
     }
   }
 
-  // 3. allow: opaque와 elevated(sudo 등) 명령은 절대 allow 규칙에 맞지 않는다.
-  if (scan.opaque || scan.elevated) {
+  // 3. allow: opaque·elevated·출력 리다이렉션·위험 env·명령 치환·eval/xargs가 있으면 자동 허용하지 않는다.
+  if (
+    scan.opaque ||
+    scan.elevated ||
+    scan.hasOutputRedirection ||
+    scan.hasDangerousEnv ||
+    scan.segments.some(
+      (seg) =>
+        seg.hasCommandSubstitution || seg.hasDangerousEnv || seg.viaEvalOrXargs,
+    )
+  ) {
     return { action: null, pattern: null, source: null };
   }
 
@@ -1829,24 +2073,16 @@ export function evaluateShellUserRules(
     return { action: null, pattern: null, source: null };
   }
 
-  // 명령 전체가 allow 규칙에 맞으면 통과.
-  for (const rule of allowRules) {
-    if (shellRuleMatches(rule.pattern, scan.normalized)) {
-      return {
-        action: "allow",
-        pattern: rule.pattern,
-        source: rule.source ?? null,
-      };
-    }
-  }
-
-  // 여러 조각이면 모든 최상위 조각이 allow 규칙이나 내장 읽기 명령으로 덮여야 한다.
-  const topSegments = scan.segments.filter((seg) => !seg.unwrapped);
-  if (topSegments.length === 0) {
+  // 전체 문자열 단축 매칭은 쓰지 않는다(`npm test *`가 `&&`, `;`, `|`, `\n` 뒤까지 먹지 않도록).
+  // 최상위·서브셸의 모든 실행 조각(`origin !== "wrapper"`)이 allow 규칙이나 내장 읽기 명령으로 덮여야 한다.
+  const executableSegments = scan.segments.filter(
+    (seg) => seg.origin !== "wrapper",
+  );
+  if (executableSegments.length === 0) {
     return { action: null, pattern: null, source: null };
   }
   let matchedAllow: PermissionRule | null = null;
-  for (const seg of topSegments) {
+  for (const seg of executableSegments) {
     const hit = allowRules.find((rule) =>
       shellRuleMatches(rule.pattern, seg.raw),
     );
@@ -1854,7 +2090,7 @@ export function evaluateShellUserRules(
       matchedAllow ??= hit;
       continue;
     }
-    if (!scan.hasOutputRedirection && isReadOnlySegment(seg)) {
+    if (isReadOnlySegment(seg, options)) {
       continue;
     }
     return { action: null, pattern: null, source: null };
@@ -2043,42 +2279,27 @@ function buildAlwaysPatternForSegment(segment: ShellSegment): string | null {
   return `${words[0]} *`;
 }
 
-const SENSITIVE_REDIR_RE =
-  /(?:^~(?:\/|$)|(?:^|\/)\.ssh(?:\/|$)|(?:^|\/)\.aws(?:\/|$)|(?:^|\/)\.gnupg(?:\/|$)|^\/etc\/|(?:^|\/)\.git\/(?:hooks|config)(?:\/|$)|(?:^|\/)\.lophn\/tools(?:\/|$)|(?:^|\/)\.bashrc$|(?:^|\/)\.zshrc$|(?:^|\/)\.profile$|(?:^|\/)settings\.json$|(?:^|\/)secrets\.json$)/;
-
-function hasSensitiveOutputRedirection(
-  targets: readonly string[],
-  homeDir?: string,
-): boolean {
-  for (const target of targets) {
-    const norm = normalizePathTarget(target, homeDir);
-    if (SENSITIVE_REDIR_RE.test(norm) || SENSITIVE_REDIR_RE.test(target)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-// 안전한 `always` 패턴을 만든다. opaque·elevated·여러 줄·민감 리다이렉션·금지 접두사는 `[]`를 돌려준다.
+// 안전한 `always` 패턴을 만든다. opaque·elevated·여러 줄·출력 리다이렉션·위험 env·금지 접두사는 `[]`를 돌려준다.
 export function alwaysPatterns(
   layers: PermissionRuleLayers,
   command: string,
   homeDir?: string,
+  dataRoot?: string,
 ): string[] {
   const scan = scanShellCommand(command, homeDir);
   if (
     scan.opaque ||
     scan.elevated ||
     scan.multiline ||
+    scan.hasOutputRedirection ||
+    scan.hasDangerousEnv ||
     scan.segments.length === 0
   ) {
     return [];
   }
-  if (hasSensitiveOutputRedirection(scan.redirectionTargets, homeDir)) {
-    return [];
-  }
   if (matchFloorRules(layers.floor, scan) !== null) return [];
-  const userVerdict = evaluateShellUserRules(layers, scan);
+  const pathOpts: ShellMatchPathOptions = { homeDir, dataRoot };
+  const userVerdict = evaluateShellUserRules(layers, scan, pathOpts);
   if (userVerdict.action === "deny") return [];
 
   // 어느 조각이든 금지 접두사·command substitution·위험 env·eval/xargs면 always를 열지 않는다.
@@ -2093,10 +2314,12 @@ export function alwaysPatterns(
     }
   }
 
-  const topSegments = scan.segments.filter((seg) => !seg.unwrapped);
+  const executableSegments = scan.segments.filter(
+    (seg) => seg.origin !== "wrapper",
+  );
   const out: string[] = [];
-  for (const seg of topSegments) {
-    if (!scan.hasOutputRedirection && isReadOnlySegment(seg)) continue;
+  for (const seg of executableSegments) {
+    if (isReadOnlySegment(seg, pathOpts)) continue;
     // 이미 user allow 규칙에 덮인 조각은 다시 더하지 않는다.
     const alreadyAllowed = [...layers.global, ...layers.project].some(
       (r) =>

@@ -85,6 +85,16 @@
   min-width: calc(var(--space-12) * 3);
 }
 
+/* 섹션 제목이 바로 위에 있어 Select의 Field 라벨은 눈에는 숨기고 화면 읽기용으로만 둔다. */
+.modeSelect label {
+  position: absolute;
+  width: var(--border-width);
+  height: var(--border-width);
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .summaryLine {
   display: flex;
   flex-wrap: wrap;

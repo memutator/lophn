@@ -165,17 +165,17 @@ test("sessions/change-mode는 로컬 user에게 자유롭고 원격 device에게
     assert.equal(refused.error.code, "forbidden");
   }
 
-  // 같은 단계 요청은 멱등 ok다.
-  const same = commands.changeMode.handle(
+  // 원격 기기는 같은 단계 요청도 하향이 아니므로 거절된다(forbidden).
+  const sameReadOnly = commands.changeMode.handle(
     tx,
     phone,
     { session: started.value.id, mode: "read_only" },
     { state_seq: stateSeq },
   );
-  assert.ok(same.ok);
-  assert.equal(same.value.permission_mode, "read_only");
+  assert.ok(!sameReadOnly.ok);
+  assert.equal(sameReadOnly.error.code, "forbidden");
 
-  // 로컬 user는 read_only -> full로 다시 올릴 수 있다.
+  // 로컬 user는 read_only -> full로 다시 올릴 수 있고, 같은 단계 요청도 멱등 ok다.
   const raised = commands.changeMode.handle(
     tx,
     localUser,
@@ -184,6 +184,27 @@ test("sessions/change-mode는 로컬 user에게 자유롭고 원격 device에게
   );
   assert.ok(raised.ok);
   assert.equal(raised.value.permission_mode, "full");
+  stateSeq = raised.value.state_seq;
+
+  const localSame = commands.changeMode.handle(
+    tx,
+    localUser,
+    { session: started.value.id, mode: "full" },
+    { state_seq: stateSeq },
+  );
+  assert.ok(localSame.ok);
+  assert.equal(localSame.value.permission_mode, "full");
+
+  // 원격 기기는 full 세션에 같은 full 요청을 보내도 forbidden이다.
+  const remoteSameFull = commands.changeMode.handle(
+    tx,
+    phone,
+    { session: started.value.id, mode: "full" },
+    { state_seq: stateSeq },
+  );
+  assert.ok(!remoteSameFull.ok);
+  assert.equal(remoteSameFull.error.code, "forbidden");
+
   assert.equal(
     sql.get("select permission_mode from sessions where id = ?", [
       started.value.id,

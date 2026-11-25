@@ -175,6 +175,43 @@ export function toolGateHandler(deps: {
   };
 }
 
+// `turn_requests/decide` 입구다. `local_tool`의 `once` 허락은 곧 신뢰 기록이다: 결정이 확정되면 `(path, sha256)`을
+// `approvals.local_tool_trust`에 저장해 다음 호출은 파일이 바뀌기 전까지 다시 묻지 않는다.
+// 원격 기기(`device:*`)는 로컬 tool 신뢰를 승인하지 못한다(desktop 전용).
+export function turnRequestDecideHandler(deps: {
+  pendingOf(session: string, request: string): TurnRequest | undefined;
+  decide: MemoryHandler;
+  trustLocalTool(path: string, sha256: string): void;
+}): MemoryHandler {
+  return async (who, body) => {
+    const parsed = turnRequestDecide.input.safeParse(body);
+    const pending = parsed.success
+      ? deps.pendingOf(parsed.data.session, parsed.data.request)
+      : undefined;
+    if (
+      isDevicePrincipal(who) &&
+      pending?.subject.kind === "local_tool" &&
+      parsed.success &&
+      parsed.data.choice.kind !== "reject"
+    ) {
+      return err({
+        code: "forbidden",
+        message: "only the local user may approve local tools",
+      });
+    }
+    const decided = await deps.decide(who, body);
+    if (
+      decided.ok &&
+      (decided.value as { outcome?: { outcome?: string } })?.outcome
+        ?.outcome === "allow" &&
+      pending?.subject.kind === "local_tool"
+    ) {
+      deps.trustLocalTool(pending.subject.path, pending.subject.sha256);
+    }
+    return decided;
+  };
+}
+
 // `ask` tool의 기다림 입구다. 사람 없는 turn(unattended)과 팀 자식의 질문을 여기서 한 번에 가른다:
 // 자식이면 mode와 permission_mode에 상관없이 부모에게 가고, 팀 밖이면 unattended turn만 묻지 않고 돌려준다.
 export function askWaitHandler(deps: {
@@ -692,31 +729,20 @@ export const approvalsWiring: WiringFactory = () => {
           : ok(undefined);
       };
 
-      // `local_tool`의 `once` 허락은 곧 신뢰 기록이다: 결정이 확정되면 `(path, sha256)`을 `approvals.local_tool_trust`에 저장해
-      // 다음 호출은 파일이 바뀌기 전까지 다시 묻지 않는다.
-      const decideHandler: MemoryHandler = async (who, body) => {
-        const parsed = turnRequestDecide.input.safeParse(body);
-        const pending = parsed.success
-          ? service
-              .turnRequests(parsed.data.session)
-              .find((req) => req.id === parsed.data.request)
-          : undefined;
-        const decided = await service.decide(who, body);
-        if (
-          decided.ok &&
-          decided.value.outcome.outcome === "allow" &&
-          pending?.subject.kind === "local_tool"
-        ) {
+      const decideHandler = turnRequestDecideHandler({
+        pendingOf: (session, request) =>
+          service.turnRequests(session).find((req) => req.id === request),
+        decide: (who, body) => service.decide(who, body),
+        trustLocalTool: (path, sha256) => {
           const next = withTrustedLocalTool(
             localToolTrustNow(),
-            pending.subject.path,
-            pending.subject.sha256,
+            path,
+            sha256,
             ctx.clock.now(),
           );
           saveLocalToolTrust(next);
-        }
-        return decided;
-      };
+        },
+      });
 
       const readPermissionsHandler: MemoryHandler = async (who, body) => {
         const user = humanOnly(who);

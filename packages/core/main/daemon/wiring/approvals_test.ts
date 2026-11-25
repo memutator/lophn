@@ -6,7 +6,11 @@ import type {
   TurnMode,
 } from "../../../../protocol/lophn-agent/turn-values.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
-import { askWaitHandler, toolGateHandler } from "./approvals.ts";
+import {
+  askWaitHandler,
+  toolGateHandler,
+  turnRequestDecideHandler,
+} from "./approvals.ts";
 
 const SES = "ses_0000000000000000000000000a";
 const OTHER = "ses_0000000000000000000000000b";
@@ -205,5 +209,93 @@ test("toolGateHandler는 팀 자식이면 executionContext를 team_child와 toPa
       executionContext: "team_child",
     },
     { toParent: true, permissionMode: "full", executionContext: "team_child" },
+  ]);
+});
+
+test("원격 device:*는 turn_requests/decide로 local_tool 승인과 신뢰 저장을 하지 못하고 로컬 user만 가능하다", async () => {
+  const trusted: { path: string; sha256: string }[] = [];
+  const decidedBy: string[] = [];
+  const pendingLocalTool = {
+    id: "apr_0000000000000000000000000a",
+    session: SES,
+    turn: TRN,
+    tool_call: "tcl_0000000000000000000000000a",
+    subject: {
+      kind: "local_tool" as const,
+      name: "deploy",
+      path: "/repo/.lophn/tools/deploy.ts",
+      sha256: "abc123",
+      changed: false,
+    },
+    reason: null,
+    outside_rewind: true,
+    choices: ["once", "reject"] as const,
+    always_patterns: [],
+    to_parent: false,
+    opened_at: "2026-11-25T00:00:00.000Z",
+  };
+  const handler = turnRequestDecideHandler({
+    pendingOf: () => pendingLocalTool as never,
+    decide: (who, body) => {
+      decidedBy.push(who.principal);
+      const choice = (body as { choice: { kind: string } }).choice;
+      return Promise.resolve(
+        ok({
+          outcome:
+            choice.kind === "reject"
+              ? { outcome: "reject", reason: null }
+              : { outcome: "allow", scope: "once" },
+        }),
+      );
+    },
+    trustLocalTool: (path, sha256) => {
+      trusted.push({ path, sha256 });
+    },
+  });
+
+  const remoteDevice: AuthenticatedContext = {
+    principal: "device:dev_00000000000000000000000001",
+    actor: "user",
+    scope: { operations: [], targets: {} },
+    conditions: {},
+    credential_ref: "dev",
+  };
+  const localUser: AuthenticatedContext = {
+    principal: "user",
+    actor: "user",
+    scope: { operations: [], targets: {} },
+    conditions: {},
+    credential_ref: "user",
+  };
+
+  // 원격 기기는 local_tool 승인이 forbidden이며 신뢰도 저장되지 않는다.
+  const remoteAllow = await handler(remoteDevice, {
+    session: SES,
+    request: pendingLocalTool.id,
+    choice: { kind: "once" },
+  });
+  assert.equal(remoteAllow.ok, false);
+  assert.equal(!remoteAllow.ok && remoteAllow.error.code, "forbidden");
+  assert.deepStrictEqual(trusted, []);
+  assert.deepStrictEqual(decidedBy, []);
+
+  // 원격 기기의 reject는 허용되지만 신뢰는 저장하지 않는다.
+  const remoteReject = await handler(remoteDevice, {
+    session: SES,
+    request: pendingLocalTool.id,
+    choice: { kind: "reject" },
+  });
+  assert.equal(remoteReject.ok, true);
+  assert.deepStrictEqual(trusted, []);
+
+  // 로컬 user는 승인할 수 있고 신뢰가 저장된다.
+  const localAllow = await handler(localUser, {
+    session: SES,
+    request: pendingLocalTool.id,
+    choice: { kind: "once" },
+  });
+  assert.equal(localAllow.ok, true);
+  assert.deepStrictEqual(trusted, [
+    { path: "/repo/.lophn/tools/deploy.ts", sha256: "abc123" },
   ]);
 });

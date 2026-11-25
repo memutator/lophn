@@ -40,6 +40,9 @@ async function launch(): Promise<number> {
       [
         "--no-sandbox",
         "--disable-gpu",
+        ...(process.platform === "linux" && !env.DISPLAY && !env.WAYLAND_DISPLAY
+          ? ["--ozone-platform=headless"]
+          : []),
         "--log-level=3",
         import.meta.filename,
         dir,

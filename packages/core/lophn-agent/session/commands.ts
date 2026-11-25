@@ -456,13 +456,6 @@ export function createConversationCommands(deps: ConversationDeps): {
         if (session.lifecycle !== "open") {
           return reject("conflict", "the session is archived");
         }
-        if (session.permission_mode === input.mode) {
-          return ok({
-            id: session.id,
-            permission_mode: session.permission_mode,
-            state_seq: session.state_seq,
-          });
-        }
         if (
           ctx.principal?.startsWith("device:") &&
           !isModeDowngrade(session.permission_mode, input.mode)
@@ -470,6 +463,13 @@ export function createConversationCommands(deps: ConversationDeps): {
           return err({
             code: "forbidden",
             message: "a remote device can only lower the permission mode",
+          });
+        }
+        if (session.permission_mode === input.mode) {
+          return ok({
+            id: session.id,
+            permission_mode: session.permission_mode,
+            state_seq: session.state_seq,
           });
         }
         if (session.state_seq !== compare.state_seq) {

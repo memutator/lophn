@@ -44,20 +44,21 @@ function matchesHomeSubdir(
   subdir: string,
   homeDir?: string,
 ): boolean {
-  const posixRaw = toPosix(rawPath.trim());
+  const posixRaw = toPosix(rawPath.trim()).toLowerCase();
+  const sub = subdir.toLowerCase();
   if (
-    posixRaw === `~/${subdir}` ||
-    posixRaw.startsWith(`~/${subdir}/`) ||
-    posixRaw === `$HOME/${subdir}` ||
-    posixRaw.startsWith(`$HOME/${subdir}/`) ||
-    posixRaw === `\${HOME}/${subdir}` ||
-    posixRaw.startsWith(`\${HOME}/${subdir}/`)
+    posixRaw === `~/${sub}` ||
+    posixRaw.startsWith(`~/${sub}/`) ||
+    posixRaw === `$home/${sub}` ||
+    posixRaw.startsWith(`$home/${sub}/`) ||
+    posixRaw === `\${home}/${sub}` ||
+    posixRaw.startsWith(`\${home}/${sub}/`)
   ) {
     return true;
   }
   if (homeDir) {
-    const absTarget = normalizePath(rawPath, homeDir);
-    const absSubdir = normalizePath(`~/${subdir}`, homeDir);
+    const absTarget = normalizePath(rawPath, homeDir).toLowerCase();
+    const absSubdir = normalizePath(`~/${subdir}`, homeDir).toLowerCase();
     if (absTarget === absSubdir || absTarget.startsWith(`${absSubdir}/`)) {
       return true;
     }
@@ -71,8 +72,10 @@ function isDataRootSecretPath(
   homeDir?: string,
 ): boolean {
   if (!dataRoot) return false;
-  const target = normalizePath(rawPath, homeDir);
-  const root = normalizePath(dataRoot, homeDir).replace(/\/+$/, "");
+  const target = normalizePath(rawPath, homeDir).toLowerCase();
+  const root = normalizePath(dataRoot, homeDir)
+    .replace(/\/+$/, "")
+    .toLowerCase();
   if (!target.startsWith(`${root}/`)) return false;
   const rel = target.slice(root.length + 1);
   return (
@@ -88,8 +91,10 @@ function isDataRootSelfProtectedWrite(
   homeDir?: string,
 ): boolean {
   if (!dataRoot) return false;
-  const target = normalizePath(rawPath, homeDir);
-  const root = normalizePath(dataRoot, homeDir).replace(/\/+$/, "");
+  const target = normalizePath(rawPath, homeDir).toLowerCase();
+  const root = normalizePath(dataRoot, homeDir)
+    .replace(/\/+$/, "")
+    .toLowerCase();
   if (!target.startsWith(`${root}/`)) return false;
   const rel = target.slice(root.length + 1);
   return (
@@ -145,15 +150,15 @@ export function isSensitiveWorkspaceFile(
   homeDir?: string,
 ): boolean {
   if (call.sensitive) return true;
-  const norm = normalizePath(call.path, homeDir);
+  const lower = normalizePath(call.path, homeDir).toLowerCase();
   if (call.kind === "file_write") {
     return (
-      /(?:^|\/)\.git\/hooks(?:\/|$)/.test(norm) ||
-      /(?:^|\/)\.git\/config$/.test(norm) ||
-      /(?:^|\/)\.lophn\/tools(?:\/|$)/.test(norm)
+      /(?:^|\/)\.git\/hooks(?:\/|$)/.test(lower) ||
+      /(?:^|\/)\.git\/config$/.test(lower) ||
+      /(?:^|\/)\.lophn\/tools(?:\/|$)/.test(lower)
     );
   }
-  const base = posix.basename(norm);
+  const base = posix.basename(lower);
   if (base === ".env.example" || base === ".env.sample") return false;
   return base === ".env" || base.startsWith(".env.");
 }

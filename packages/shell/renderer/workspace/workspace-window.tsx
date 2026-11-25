@@ -2417,7 +2417,14 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
   // 되묻지 않고, 저장이 안 되는 파일처럼 잃을 것이 남는 질문만 묻는다. 하나라도 거절하면 거기서 멈추고 desk는 남는다.
   const finishDesk = async (key: string) => {
     const target = latestLayout.current.desks[key];
-    if (target === undefined || target.workflow !== undefined) return;
+    if (target === undefined || key === MAIN_DESK) return;
+    const isCustom = target.workflow === undefined;
+    const isFinishedInstance =
+      target.workflowInstance !== undefined &&
+      !runningWorkflowsRef.current.some(
+        (item) => item.id === target.workflowInstance,
+      );
+    if (!isCustom && !isFinishedInstance) return;
     for (const tab of deskTabs(target)) {
       const confirm = tabKindOf(tab.kind)?.beforeClose?.(tab, host, {
         confirmed: true,

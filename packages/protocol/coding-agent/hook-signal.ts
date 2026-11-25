@@ -272,10 +272,13 @@ function turnOutcome(
       if (harness === "grok" && payload.reason !== "end_turn") return null;
       if (harness === "antigravity") {
         if (payload.fullyIdle !== true) return null;
-        return payload.terminationReason === "error" ||
-          (payload.error !== undefined && payload.error !== null)
-          ? "failed"
-          : "completed";
+        const reason = String(
+          payload.terminationReason ?? payload.termination_reason ?? "",
+        ).toLowerCase();
+        // Go의 빈 문자열 `error: ""`는 오류가 아니다.
+        const hasError =
+          typeof payload.error === "string" && payload.error.trim() !== "";
+        return reason === "error" || hasError ? "failed" : "completed";
       }
       return payload.is_interrupt === true ? "interrupted" : "completed";
     default:
@@ -364,6 +367,33 @@ function commandHookSignal(
   }
 }
 
+const ANTIGRAVITY_QUESTION_TOOLS = new Set([
+  "ask_question",
+  "ask_user_question",
+  "AskUserQuestion",
+]);
+
+function antigravityQuestionSummary(
+  payload: Record<string, unknown>,
+): string | null {
+  const input = isRecord(payload.tool_input)
+    ? payload.tool_input
+    : isRecord(payload.toolInput)
+      ? payload.toolInput
+      : undefined;
+  const firstQuestion =
+    input !== undefined && Array.isArray(input.questions)
+      ? input.questions.find(isRecord)?.question
+      : undefined;
+  return (
+    summaryOf(firstQuestion) ??
+    summaryOf(input?.question) ??
+    summaryOf(input?.prompt) ??
+    summaryOf(input?.message) ??
+    summaryOf(payload.message)
+  );
+}
+
 function permissionRequested(
   harness: HarnessId,
   event: string,
@@ -388,6 +418,17 @@ function permissionRequested(
       };
     }
     case "PreToolUse": {
+      if (harness === "antigravity") {
+        // 일반 tool 호출이 터미널을 waiting으로 바꾸지 않게 사람에게 묻는 tool만 통과시킨다.
+        const tool = payload.tool_name ?? payload.toolName;
+        if (typeof tool !== "string" || !ANTIGRAVITY_QUESTION_TOOLS.has(tool)) {
+          return null;
+        }
+        return {
+          type,
+          request: { tool, summary: antigravityQuestionSummary(payload) },
+        };
+      }
       // 사람에게 묻는 tool만 권한 물음이다. 설치도 이 matcher만 건다.
       const ask =
         harness === "codex" ? "request_user_input" : "AskUserQuestion";

@@ -23,7 +23,11 @@ function cmdHookNoop(rows: readonly HookStdoutRow[]): string[] {
       row.event === "*"
         ? `if "%~2"=="${row.harness}"`
         : `if "%~2:%~3"=="${row.harness}:${row.event}"`;
-    lines.push(`${cond} (echo ${cmdEchoText(row.stdout)}& exit /b 0)`);
+    lines.push(
+      row.stdout === ""
+        ? `${cond} exit /b 0`
+        : `${cond} (echo ${cmdEchoText(row.stdout)}& exit /b 0)`,
+    );
   }
   lines.push("exit /b 0");
   return lines;

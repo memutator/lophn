@@ -104,9 +104,10 @@ function hookStdoutCase(rows: readonly HookStdoutRow[]): string[] {
   const quoted = (text: string) => `'${text.replaceAll("'", "'\\''")}'`;
   return [...rows]
     .sort((a, b) => Number(a.event === "*") - Number(b.event === "*"))
-    .map(
-      (row) =>
-        `    ${row.harness}:${row.event}) printf '%s\\n' ${quoted(row.stdout)} ;;`,
+    .map((row) =>
+      row.stdout === ""
+        ? `    ${row.harness}:${row.event}) ;;`
+        : `    ${row.harness}:${row.event}) printf '%s\\n' ${quoted(row.stdout)} ;;`,
     );
 }
 

@@ -458,13 +458,17 @@ export const HARNESS_ADAPTERS: Readonly<Record<HarnessId, HarnessAdapter>> = {
       shape: "named",
       path: ".gemini/config/hooks.json",
       timeout: 10,
+      matchers: { PreToolUse: "*", PostToolUse: "*" },
     },
     events: {
       SessionStart: "SessionStarted",
       PreInvocation: "TurnStarted",
+      PreToolUse: "PermissionRequested",
+      PostToolUse: "PermissionResolved",
       Stop: "TurnEnded",
     },
-    stdout: { Stop: '{"decision":"stop"}', "*": "{}" },
+    // PreToolUse는 빈 stdout이어야 한다(`{}`를 쓰면 agy가 tool을 막거나 덮어쓴다).
+    stdout: { PreToolUse: "", Stop: '{"decision":"stop"}', "*": "{}" },
     session: {
       id: ["conversationId"],
       name: [],
@@ -828,9 +832,10 @@ export function canDeliverMessages(id: HarnessId): boolean {
 
 // hook이 stdout에 써야 하는 것이다. 없는 harness·event는 아무것도 쓰지 않는다.
 export function hookStdout(harness: string, event: string): string | null {
-  if (!(harness in HARNESS_ADAPTERS)) return null;
+  if (!Object.hasOwn(HARNESS_ADAPTERS, harness)) return null;
   const stdout = HARNESS_ADAPTERS[harness as HarnessId].stdout;
-  return stdout[event] ?? stdout["*"] ?? null;
+  if (Object.hasOwn(stdout, event)) return stdout[event];
+  return Object.hasOwn(stdout, "*") ? stdout["*"] : null;
 }
 
 // launcher가 env 없이 일찍 끝날 때도 같은 stdout을 내도록 `hookStdout`이 읽는 표를 행으로 푼 것이다.

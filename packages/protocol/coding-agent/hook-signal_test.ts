@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { HARNESS_ADAPTERS } from "./harness-adapter.ts";
+import {
+  HARNESS_ADAPTERS,
+  hookStdout,
+  hookStdoutRows,
+} from "./harness-adapter.ts";
 import { HARNESS_IDS, type HarnessId } from "./harness-id.ts";
 import {
   launchArgsOfProcess,
@@ -56,14 +60,121 @@ const CASES: [string, HarnessId, string, unknown, HookSignal | null][] = [
     null,
   ],
   [
-    "antigravity: error로 끝난 Stop",
+    "antigravity: Go 빈 error 문자열로 끝난 Stop은 completed다",
     "antigravity",
     "Stop",
     {
       fullyIdle: true,
-      terminationReason: "error",
+      error: "",
+    },
+    { type: "TurnEnded", outcome: "completed" },
+  ],
+  [
+    "antigravity: 공백뿐인 error 문자열로 끝난 Stop도 completed다",
+    "antigravity",
+    "Stop",
+    {
+      fullyIdle: true,
+      error: "   ",
+    },
+    { type: "TurnEnded", outcome: "completed" },
+  ],
+  [
+    "antigravity: 비어 있지 않은 error로 끝난 Stop",
+    "antigravity",
+    "Stop",
+    {
+      fullyIdle: true,
+      error: "boom",
     },
     { type: "TurnEnded", outcome: "failed" },
+  ],
+  [
+    "antigravity: 대문자 terminationReason ERROR로 끝난 Stop",
+    "antigravity",
+    "Stop",
+    {
+      fullyIdle: true,
+      terminationReason: "ERROR",
+    },
+    { type: "TurnEnded", outcome: "failed" },
+  ],
+  [
+    "antigravity: snake_case termination_reason error로 끝난 Stop",
+    "antigravity",
+    "Stop",
+    {
+      fullyIdle: true,
+      termination_reason: "error",
+    },
+    { type: "TurnEnded", outcome: "failed" },
+  ],
+  [
+    "antigravity: PreToolUse 질문 도구는 PermissionRequested다",
+    "antigravity",
+    "PreToolUse",
+    {
+      conversationId: "conv-1",
+      tool_name: "ask_question",
+      tool_input: { questions: [{ question: "Proceed?" }] },
+    },
+    {
+      type: "PermissionRequested",
+      request: { tool: "ask_question", summary: "Proceed?" },
+      external_session: "conv-1",
+    },
+  ],
+  [
+    "antigravity: PreToolUse camelCase toolName ask_user_question",
+    "antigravity",
+    "PreToolUse",
+    {
+      toolName: "ask_user_question",
+    },
+    {
+      type: "PermissionRequested",
+      request: { tool: "ask_user_question", summary: null },
+    },
+  ],
+  [
+    "antigravity: PreToolUse AskUserQuestion",
+    "antigravity",
+    "PreToolUse",
+    {
+      toolName: "AskUserQuestion",
+    },
+    {
+      type: "PermissionRequested",
+      request: { tool: "AskUserQuestion", summary: null },
+    },
+  ],
+  [
+    "antigravity: PreToolUse 일반 도구는 waiting을 만들지 않는다",
+    "antigravity",
+    "PreToolUse",
+    {
+      tool_name: "invoke_subagent",
+    },
+    null,
+  ],
+  [
+    "antigravity: PreToolUse run_command는 null이다",
+    "antigravity",
+    "PreToolUse",
+    {
+      toolName: "run_command",
+    },
+    null,
+  ],
+  [
+    "antigravity: PostToolUse는 PermissionResolved다",
+    "antigravity",
+    "PostToolUse",
+    {
+      conversationId: "conv-1",
+      tool_name: "ask_question",
+    },
+    { type: "PermissionResolved", external_session: "conv-1" },
   ],
   [
     "antigravity: SessionStart의 conversationId",
@@ -396,6 +507,21 @@ test("harness별 hook 신호 판정", () => {
   for (const [name, harness, event, payload, want] of CASES) {
     assert.deepStrictEqual(hookSignalOf(harness, event, payload), want, name);
   }
+});
+
+test("antigravity hookStdout은 PreToolUse가 빈 문자열이고 Stop과 나머지가 맞는다", () => {
+  assert.strictEqual(hookStdout("antigravity", "PreToolUse"), "");
+  assert.strictEqual(hookStdout("antigravity", "Stop"), '{"decision":"stop"}');
+  assert.strictEqual(hookStdout("antigravity", "SessionStart"), "{}");
+  assert.strictEqual(hookStdout("antigravity", "PreInvocation"), "{}");
+  assert.strictEqual(hookStdout("antigravity", "PostToolUse"), "{}");
+  assert.strictEqual(hookStdout("claude", "Stop"), null);
+  assert.deepStrictEqual(
+    hookStdoutRows().find(
+      (row) => row.harness === "antigravity" && row.event === "PreToolUse",
+    ),
+    { harness: "antigravity", event: "PreToolUse", stdout: "" },
+  );
 });
 
 test("harness 항목의 hook·events·session이 서로 맞는다", () => {

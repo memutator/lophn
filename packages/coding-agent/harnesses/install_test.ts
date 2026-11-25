@@ -6,7 +6,7 @@ import {
   HARNESS_IDS,
   type HarnessId,
 } from "../../protocol/coding-agent/mod.ts";
-import { installGlobal, type InstallPorts } from "./install.ts";
+import { type InstallPorts, installGlobal } from "./install.ts";
 import { uninstallGlobal } from "./uninstall.ts";
 
 // file Map 위의 대역이다. 폴더는 file의 path 앞부분이거나 `dirs`에 든 빈 폴더다.
@@ -635,14 +635,85 @@ test("kiro·antigravity·cursor 설치는 사람의 항목을 보존한다", asy
   ] as const;
   for (const one of cases) {
     const files = new Map([[one.path, JSON.stringify(one.seed)]]);
-    await installGlobal(memory(files), {
+    const done = await installGlobal(memory(files), {
       harness: one.harness,
       home,
       dryRun: false,
       now: NOW,
     });
+    assert.equal(done.ok, true, one.harness);
     assert.deepStrictEqual(one.kept(files.get(one.path)!), true, one.harness);
   }
+});
+
+test("antigravity 설치는 PreToolUse·PostToolUse에 matcher '*'를 두고 옛 3-event 설정은 dry_run이 missing이다", async () => {
+  const path = "/home/u/.gemini/config/hooks.json";
+  const agy = { harness: "antigravity", home: "/home/u", now: NOW } as const;
+  const legacy = {
+    mine: { Stop: [{ type: "command", command: "mine" }] },
+    lophn: {
+      SessionStart: [
+        {
+          type: "command",
+          command: "lophn hook antigravity SessionStart",
+          timeout: 10,
+        },
+      ],
+      PreInvocation: [
+        {
+          type: "command",
+          command: "lophn hook antigravity PreInvocation",
+          timeout: 10,
+        },
+      ],
+      Stop: [
+        {
+          type: "command",
+          command: "lophn hook antigravity Stop",
+          timeout: 10,
+        },
+      ],
+    },
+  };
+  const files = new Map([[path, JSON.stringify(legacy)]]);
+  const dry = await installGlobal(memory(files), { ...agy, dryRun: true });
+  assert.deepStrictEqual(dry.ok && dry.value.hook, "missing");
+
+  const upgraded = await installGlobal(memory(files), {
+    ...agy,
+    dryRun: false,
+  });
+  assert.deepStrictEqual(upgraded.ok && upgraded.value.hook, "installed");
+
+  const doc = JSON.parse(files.get(path)!);
+  assert.deepStrictEqual(doc.mine, legacy.mine);
+  assert.deepStrictEqual(doc.lophn.PreToolUse, [
+    {
+      matcher: "*",
+      hooks: [
+        {
+          type: "command",
+          command: "lophn hook antigravity PreToolUse",
+          timeout: 10,
+        },
+      ],
+    },
+  ]);
+  assert.deepStrictEqual(doc.lophn.PostToolUse, [
+    {
+      matcher: "*",
+      hooks: [
+        {
+          type: "command",
+          command: "lophn hook antigravity PostToolUse",
+          timeout: 10,
+        },
+      ],
+    },
+  ]);
+
+  const after = await installGlobal(memory(files), { ...agy, dryRun: true });
+  assert.deepStrictEqual(after.ok && after.value.hook, "unchanged");
 });
 
 // contract: 어떤 harness든 빈 home에 놓고 지우면 lophn 흔적(command, 표시 block, managed 경로, env 이름, Codex trust)이 남지 않고

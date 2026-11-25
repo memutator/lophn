@@ -4,15 +4,16 @@
 // 어떤 실패도 내지 않는다. stdout은 harness가 요구하는 것(`hookStdout`)만 쓰고 나머지는 비운다(harness가 model context로
 // 읽을 수 있다). launcher가 env 없이 일찍 끝날 때도 같은 표를 쓴다.
 import { connect, type Socket } from "node:net";
-import { err, ok, type Result } from "../../base/mod.ts";
+import { z } from "zod";
 import type { LophnError } from "../../base/mod.ts";
+import { err, ok, type Result } from "../../base/mod.ts";
 import {
   type HarnessId,
-  harnessIdSchema,
   HOOK_EVENT_MAX_CHARS,
   HOOK_PAYLOAD_MAX_BYTES,
   HOOK_STDIN_MAX_BYTES,
   HOOK_TEXT_FIELD_MAX_CHARS,
+  harnessIdSchema,
   hookStdout,
   parseGuiLaunchArgs,
   TERMINAL_GUI_EVENT,
@@ -20,7 +21,6 @@ import {
   terminalHookEnvSchema,
   terminalHookLineSchema,
 } from "../../protocol/coding-agent/mod.ts";
-import { z } from "zod";
 import type { LocalCommand, LocalContext } from "./types.ts";
 
 // 느린 shell main이나 닫히지 않는 stdin이 harness를 붙잡지 않게 한다. stdin 읽기와 socket 쓰기가 이 하나를 나눠 쓴다.
@@ -109,8 +109,9 @@ async function runHook(
   input: Record<string, unknown>,
   ctx: LocalContext,
 ): Promise<Result<unknown, LophnError>> {
-  const stdout =
-    hookStdout(String(input.harness), String(input.event)) ?? undefined;
+  const rawStdout = hookStdout(String(input.harness), String(input.event));
+  // 빈 문자열("")은 stdout에 아무것도 쓰지 않아야 하므로 undefined로 넘긴다(CLI output은 ""을 `""\n`으로 찍는다).
+  const stdout = rawStdout === null || rawStdout === "" ? undefined : rawStdout;
   const target = terminalHookOf(ctx.env);
   if (target === null) return ok(stdout);
   const startedAt = Date.parse(ctx.now());

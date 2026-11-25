@@ -13,7 +13,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 
+import {
+  cliLauncher,
+  linuxInstallLayout,
+} from "../../base/install/linux-install.ts";
+import { winCliLauncher } from "../../base/install/win-install.ts";
+import { err } from "../../base/mod.ts";
+import { hookStdoutRows } from "../../protocol/coding-agent/mod.ts";
 import { runHarnessInstall, runHarnessSyncSkills } from "./harness-run.ts";
+import { HOOK_COMMANDS } from "./hook.ts";
+import type { LocalContext } from "./types.ts";
 
 const exists = (path: string) =>
   readFile(path).then(
@@ -70,4 +79,53 @@ test("`.claude/settings.json`이 symlink면 설치 뒤에도 symlink이고 대�
   } finally {
     await rm(home, { recursive: true, force: true });
   }
+});
+
+test("antigravity PreToolUse hook과 launcher는 stdout을 완전히 비우고 Stop·나머지는 JSON을 낸다", async () => {
+  const hookCommand = HOOK_COMMANDS[0]!;
+  const ctx: LocalContext = {
+    env: { get: () => undefined },
+    home: "/tmp",
+    cwd: "/tmp",
+    now: () => "2026-11-25T00:00:00Z",
+    stdin: () => Promise.resolve("{}"),
+    core: () => err({ code: "unavailable", message: "unused" }),
+  };
+
+  const preTool = await hookCommand.run(
+    { harness: "antigravity", event: "PreToolUse" },
+    ctx,
+  );
+  assert.deepStrictEqual(preTool, { ok: true, value: undefined });
+
+  const stop = await hookCommand.run(
+    { harness: "antigravity", event: "Stop" },
+    ctx,
+  );
+  assert.deepStrictEqual(stop, { ok: true, value: '{"decision":"stop"}' });
+
+  const postTool = await hookCommand.run(
+    { harness: "antigravity", event: "PostToolUse" },
+    ctx,
+  );
+  assert.deepStrictEqual(postTool, { ok: true, value: "{}" });
+
+  const rows = hookStdoutRows();
+  const sh = cliLauncher(linuxInstallLayout(), rows);
+  assert.equal(sh.includes("    antigravity:PreToolUse) ;;"), true);
+  assert.equal(sh.includes("antigravity:PreToolUse) printf"), false);
+  assert.ok(
+    sh.indexOf("antigravity:PreToolUse) ;;") < sh.indexOf("antigravity:*)"),
+  );
+
+  const cmd = winCliLauncher(rows);
+  assert.equal(
+    cmd.includes('if "%~2:%~3"=="antigravity:PreToolUse" exit /b 0'),
+    true,
+  );
+  assert.equal(cmd.includes('antigravity:PreToolUse" (echo'), false);
+  assert.ok(
+    cmd.indexOf('if "%~2:%~3"=="antigravity:PreToolUse" exit /b 0') <
+      cmd.indexOf('if "%~2"=="antigravity"'),
+  );
 });

@@ -61,6 +61,12 @@ export type HarnessMembers = {
     cli_session: string;
     taken: ReadonlySet<string>;
   }): Promise<Result<string>>;
+  /** 지정한 custom harness agent의 새 GUI 탭 팀원 session을 연다(`external_session_id: null`). */
+  openForAgent?(input: {
+    harness: HarnessRuntime;
+    project: string;
+    agent: string;
+  }): Promise<Result<string>>;
   /** 묶인 탭이나 background의 CLI session id가 바뀌었다. */
   bind(session: string, cliSession: string): Promise<Result<void>>;
   /** 그 팀원 queue의 맨 앞(꺼내지 않는다). 없거나 그 session이 입력을 받지 않으면 null. */
@@ -852,6 +858,16 @@ export function createGuiMembers(deps: {
         if (left !== null && bySession(session) === undefined) {
           void openFor(session);
         }
+      });
+    },
+
+    /** 사람이 연 custom harness agent 탭이 GUI로 설 때 이 팀원 session에 묶도록 미리 등록한다(자동 닫기 대상이 아니다). */
+    expect(terminalRef: string, session: string, project: string): void {
+      pending.set(terminalRef, {
+        session,
+        project,
+        timedOut: false,
+        cancel: () => {},
       });
     },
 

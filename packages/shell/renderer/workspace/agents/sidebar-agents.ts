@@ -75,6 +75,7 @@ export function useSidebarAgents(
           assignment: row.assignment,
           name: row.name,
           avatar,
+          ...(row.runtime === undefined ? {} : { runtime: row.runtime }),
           // 답을 기다리는 session은 conversation 쪽이 알려 줄 때 켠다.
           waiting: false,
         };

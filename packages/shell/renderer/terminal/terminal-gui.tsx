@@ -549,11 +549,16 @@ export function TerminalGui({
     return followGui(core.events, feed, () => setLoaded(true));
   }, [core, feed]);
   const cwd = coding.cwd ?? "";
+  const agentName = coding.agent_name;
   const source = useMemo(() => {
     if (!loaded) return null;
     const api = core.events.core;
     return guiAgentTabSource({
-      info: { harness, cwd },
+      info: {
+        harness,
+        cwd,
+        ...(agentName === undefined ? {} : { agentName }),
+      },
       feed,
       input: async (input: AcpInput) =>
         (await callRoute(api, acpSend as Route, input)).ok,
@@ -611,7 +616,7 @@ export function TerminalGui({
         }
       },
     });
-  }, [core, feed, loaded, harness, cwd, session]);
+  }, [core, feed, loaded, harness, cwd, agentName, session]);
   // 고른 탭만 mount되므로 탭을 고르거나 TUI에서 GUI로 바꿀 때마다 새로 붙고, 입력칸은 snapshot을 읽은 뒤에야 생긴다.
   // 탭을 고른 다음 frame의 focus는 빈 본문을 보므로 화면이 그려진 이때 옮긴다.
   const shown = source !== null;

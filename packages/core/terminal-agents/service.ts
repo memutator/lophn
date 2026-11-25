@@ -82,6 +82,8 @@ export type TerminalAgentsDeps = {
     harness: GuiHarness,
     session?: string | null,
   ): HarnessLaunchConfig | undefined;
+  // custom harness agent 프로필의 팀원 session이면 그 agent id와 보이는 이름. 내장 coding agent는 null이다.
+  memberAgent?(session: string): { id: string; name: string } | null;
   /** 그 adapter가 agent 정의의 deny 규칙을 지킬 수 있는가(background 실행 시 검사). */
   enforcesDeny?(harness: GuiHarness): boolean;
   /** 열린 GUI 탭이나 background handle이 model 목록을 받았을 때 catalog cache를 공짜로 채운다. */
@@ -337,6 +339,10 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
     publish: deps.publish,
     redact: deps.redact,
     platform: deps.platform,
+    agentOf: (ref) => {
+      const session = members.sessionOf(ref);
+      return session === null ? null : (deps.memberAgent?.(session) ?? null);
+    },
   });
 
   const holds = createTerminalHolds({

@@ -13,10 +13,17 @@ import {
   useSyncExternalStore,
 } from "react";
 import { createPortal } from "react-dom";
-import { HARNESS_ADAPTERS } from "../../../protocol/coding-agent/harness-adapter.ts";
+import {
+  HARNESS_ADAPTER_OF_RUNTIME,
+  HARNESS_ADAPTERS,
+} from "../../../protocol/coding-agent/harness-adapter.ts";
 import type { HarnessId } from "../../../protocol/coding-agent/harness-id.ts";
 import { HOME_TERMINAL_PROJECT } from "../../../protocol/coding-agent/terminals.ts";
-import { LOPHN_AGENT_NAME } from "../../../protocol/lophn-agent/agent-values.ts";
+import {
+  type AgentRuntime,
+  isHarnessRuntime,
+  LOPHN_AGENT_NAME,
+} from "../../../protocol/lophn-agent/agent-values.ts";
 import type {
   ProjectCommand,
   ProjectCommandRun,
@@ -1391,7 +1398,47 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     openFile(host, `${folder.replace(/\/+$/, "")}/${file.path}`);
   };
 
-  // 새 session을 연다: coding agent는 그 명령어의 새 터미널, lophn agent는 새 Agent 탭이다(안 주면 기본 lophn).
+  // 정의된 agent를 새 session으로 연다. project workspace의 harness runtime 프로필은 background AgentTab이 아니라
+  // 그 정의의 harness_config·deny가 실린 harness-gui 터미널 탭으로 연다.
+  const openDefinedAgent = (target: {
+    readonly assignment: string;
+    readonly name: string;
+    readonly runtime?: AgentRuntime;
+  }): boolean => {
+    if (
+      isHarnessRuntime(target.runtime) &&
+      projectId !== null &&
+      terminal?.core?.openCoding !== undefined
+    ) {
+      const harness = HARNESS_ADAPTER_OF_RUNTIME[target.runtime];
+      void terminal.core
+        .openCoding({
+          project: projectId,
+          harness,
+          agent: target.assignment,
+          key: `open-${crypto.randomUUID()}`,
+        })
+        .then((opened) => {
+          if (!opened.ok) return;
+          const ref = `trm_${opened.value.session.slice(4)}`;
+          const existing = allTabs(latestLayout.current).find(
+            (tab) =>
+              tab.kind === "terminal" && terminal.store.refOf(tab.key) === ref,
+          );
+          if (existing !== undefined) {
+            terminal.store.select(existing.key);
+            return;
+          }
+          openTerminalTab(host, { terminal: ref, docked: true });
+        });
+      return true;
+    }
+    if (agentViewSource === undefined) return false;
+    openAgent(host, { agent: target.assignment, name: target.name });
+    return true;
+  };
+
+  // 새 session을 연다: coding agent는 그 명령어의 새 터미널, 정의된 agent는 runtime에 따라 Agent 탭 또는 harness-gui 탭이다(안 주면 기본 lophn).
   // agent 목록이나 터미널을 아직 쓸 수 없으면 열지 않고 false다.
   const openNew = (start: NewSessionStart): boolean => {
     if (start.command !== undefined) {
@@ -1401,9 +1448,8 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     }
     const wanted = start.agent ?? lophnIdAt(workspace);
     const row = sidebarAgents.agents.find((item) => item.assignment === wanted);
-    if (agentViewSource === undefined || row === undefined) return false;
-    openAgent(host, { agent: row.assignment, name: row.name });
-    return true;
+    if (row === undefined) return false;
+    return openDefinedAgent(row);
   };
   const openLophn = (): boolean => openNew({});
   // 이 workspace의 설정 단추가 여는 탭(project는 Project settings, 앱은 App details). Home은 없다.
@@ -1419,8 +1465,12 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
   const onSettingsAt = props.onSettingsAt;
   // + hover 목록과 탭 줄 + menu가 같이 쓰는, 고른 agent로 새 session을 여는 길.
   const startChoice = (choice: AgentChoice) => {
-    if (choice.kind === "lophn") {
-      openAgent(host, { agent: choice.id, name: choice.name });
+    if (choice.kind === "agent") {
+      openDefinedAgent({
+        assignment: choice.id,
+        name: choice.name,
+        ...(choice.runtime === undefined ? {} : { runtime: choice.runtime }),
+      });
       return;
     }
     const command = codingCommand(

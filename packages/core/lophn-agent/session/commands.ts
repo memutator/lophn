@@ -178,7 +178,7 @@ export function createConversationCommands(deps: ConversationDeps): {
         return started.ok ? ok(openedOf(started.value)) : started;
       },
     },
-    // GUI 탭의 팀원 session. 그 harness의 내장 coding agent로 그 탭의 project에 연다.
+    // GUI 탭의 팀원 session. agent를 주지 않으면 그 harness의 내장 coding agent로 그 탭의 project에 연다.
     memberOpen: {
       route: openHarnessMember,
       handle(tx, ctx: RequestContext, input: Input<typeof openHarnessMember>) {
@@ -187,15 +187,32 @@ export function createConversationCommands(deps: ConversationDeps): {
         if (loadSession(tx, input.id) !== undefined) {
           return reject("conflict", "session id already used");
         }
-        const agent = CODING_BUILTINS.find(
-          (builtin) => builtin.runtime === input.harness,
-        );
-        if (agent === undefined) {
-          return reject("invalid_input", "not a harness runtime");
+        const openDeps = deps.open(tx);
+        let agentId: string;
+        if (input.agent !== undefined) {
+          const definition = openDeps.agents.agent(input.agent);
+          if (definition === null) {
+            return reject("not_found", "agent not found");
+          }
+          if (definition.runtime !== input.harness) {
+            return reject(
+              "invalid_input",
+              "agent runtime does not match harness",
+            );
+          }
+          agentId = input.agent;
+        } else {
+          const builtin = CODING_BUILTINS.find(
+            (one) => one.runtime === input.harness,
+          );
+          if (builtin === undefined) {
+            return reject("invalid_input", "not a harness runtime");
+          }
+          agentId = builtin.id;
         }
-        const started = startSession(tx, deps.open(tx), {
+        const started = startSession(tx, openDeps, {
           id: input.id,
-          agent: agent.id,
+          agent: agentId,
           workspace: { kind: "project", id: input.project },
           tab: true,
         });

@@ -786,7 +786,7 @@ export function PageLeftSidebar(props: SidebarProps) {
           choices={() => WIRE_CHOICES}
           onNewSession={() => props.onAgent("lophn")}
           onNewSessionWith={(choice) =>
-            choice.kind === "lophn" && props.onAgent(choice.id)
+            choice.kind === "agent" && props.onAgent(choice.id)
           }
           onOpenSession={() => {}}
           jobs={jobs}

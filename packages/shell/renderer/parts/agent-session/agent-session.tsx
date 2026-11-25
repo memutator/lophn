@@ -3,6 +3,7 @@
 // 그래서 점 규칙이나 아이콘을 고치면 sidebar와 탭이 같이 바뀐다.
 import { Icon } from "@lophn/ui/primitives";
 
+import type { AgentRuntime } from "../../../../protocol/lophn-agent/agent-values.ts";
 import { shellIcons } from "../../icons/mod.ts";
 import { Avatar, type AvatarLook } from "../avatar/avatar.tsx";
 import { type Vendor, VendorIcon } from "../vendor-icon/vendor-icon.tsx";
@@ -13,13 +14,21 @@ export type AgentFace =
   | { readonly kind: "lophn"; readonly avatar: AvatarLook }
   | { readonly kind: "coding"; readonly vendor: Vendor | undefined };
 
-/** 새 session을 열 수 있는 agent 하나. */
-export interface AgentChoice {
-  readonly kind: AgentSessionKind;
-  readonly id: string;
-  readonly name: string;
-  readonly face: AgentFace;
-}
+/** 새 session을 열 수 있는 agent 하나: lophn에 정의된 agent(프로필)이거나 즐겨찾기 coding agent CLI다. */
+export type AgentChoice =
+  | {
+      readonly kind: "agent";
+      readonly id: string;
+      readonly name: string;
+      readonly runtime?: AgentRuntime;
+      readonly face: AgentFace;
+    }
+  | {
+      readonly kind: "coding";
+      readonly id: string;
+      readonly name: string;
+      readonly face: AgentFace;
+    };
 
 // vendor를 모르는 coding agent는 터미널 아이콘이다. 탭 줄은 글자가 작아 vendor 아이콘도 14px이다.
 export function AgentFaceIcon({

@@ -28,7 +28,7 @@ export const leftSidebar = {
     "{unit, select, now {now} minute {{value}m} hour {{value}h} other {{value}d}}",
   "left-sidebar.heading.coding-agents": "Coding agents",
   "left-sidebar.heading.commands": "Commands",
-  "left-sidebar.heading.lophn-agents": "lophn agents",
+  "left-sidebar.heading.agents": "Agents",
   "left-sidebar.heading.workspaces": "Workspaces",
   "left-sidebar.body.end-member":
     "Its session on {computer} is closed too, and any work in progress there stops.",

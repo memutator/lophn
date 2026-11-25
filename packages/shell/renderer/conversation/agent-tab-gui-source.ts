@@ -16,8 +16,12 @@ import type { AgentFace, AgentTabSource } from "./agent-tab-source.ts";
 import { rewindPointsOf } from "./agent-view-model.ts";
 
 interface GuiSourceDeps {
-  /** 탭이 그리는 session의 머리 값. */
-  readonly info: { readonly harness: GuiHarness; readonly cwd: string };
+  /** 탭이 그리는 session의 머리 값. custom harness agent 프로필이면 `agentName`이 보이는 이름이다. */
+  readonly info: {
+    readonly harness: GuiHarness;
+    readonly cwd: string;
+    readonly agentName?: string;
+  };
   /**
    * snapshot에 갱신을 접은 값. `session`은 이 화면이 쓰는 session id(`ses_…`)다. `changed`는 snapshot이 상태를 통째로
    * 갈아 끼웠을 때 부른다.
@@ -47,7 +51,7 @@ const none = () => Promise.resolve(UNAVAILABLE);
 export function guiAgentTabSource(deps: GuiSourceDeps): AgentTabSource {
   const { info, feed } = deps;
   const session = feed.session;
-  const label = HARNESS_ADAPTERS[info.harness].label;
+  const label = info.agentName ?? HARNESS_ADAPTERS[info.harness].label;
   const vendor = harnessVendorOf(info.harness);
   // harness GUI는 lophn session이 아니라 agent id를 쓰는 곳이 없다. 자리표시로 Home lophn을 둔다(자리가 project라 어떤 lophn session과도 겹치지 않는다).
   const face: AgentFace = {

@@ -2,7 +2,7 @@
 // `<harness> gui [--resume <id>]`를 친다. 창이 없어도 열린다(그 project를 보이는 창이 있으면 탭으로 보인다). 되살리기는 ledger의
 // harness agent session에 한한다(그 CLI session id를 ledger가 안다). 한 CLI session에 process 둘을 띄우지 않는다.
 import { err, ok, type Result } from "../../base/mod.ts";
-import { isGuiHarness } from "../../protocol/acp/mod.ts";
+import { type GuiHarness, isGuiHarness } from "../../protocol/acp/mod.ts";
 import { HARNESS_ADAPTERS } from "../../protocol/coding-agent/mod.ts";
 import { guiSessionId } from "../../protocol/lophn-agent/session-tag.ts";
 import type { WorkflowOrigin } from "../../protocol/workflows/values.ts";
@@ -45,6 +45,14 @@ export type CodingOpenDeps = {
   held(terminal: string, session: string): void;
   // 사람이 Settings › Coding agents에 저장한 실행 명령어(flag 포함). GUI 열기 시 그 flag를 함께 적용한다.
   codingCommand?(harness: string): string | undefined;
+  // custom harness agent 프로필로 GUI 탭을 열 때 그 agent의 팀원 session(`harness_gui = 1`)을 미리 만든다.
+  openAgentSession?(input: {
+    project: string;
+    harness: GuiHarness;
+    agent: string;
+  }): Promise<Result<string>>;
+  // 연 터미널이 GUI로 설 때 그 팀원 session에 묶이도록 미리 등록한다.
+  bindTerminal?(terminal: string, session: string, project: string): void;
 };
 
 // 터미널에 치는 줄. 사람이 Settings › Coding agents에 저장한 명령(flag 포함)이 있으면 그것에 `--gui`를 더하고, 이을 CLI session이
@@ -115,6 +123,7 @@ export function createCodingOpen(deps: CodingOpenDeps) {
   async function send(input: {
     project: string;
     harness: string;
+    agent?: string;
     resume?: { session: string };
   }): Promise<Result<{ session: string }>> {
     if (!isGuiHarness(input.harness)) {
@@ -129,6 +138,35 @@ export function createCodingOpen(deps: CodingOpenDeps) {
         message: "Chat view is not ready on this computer yet.",
       });
     }
+    if (input.agent !== undefined && input.resume !== undefined) {
+      return err({
+        code: "invalid_input",
+        message: "Cannot specify both an agent profile and resume.",
+      });
+    }
+    let memberSession: string | undefined;
+    if (input.agent !== undefined) {
+      if (!input.project.startsWith("prj_")) {
+        return err({
+          code: "invalid_input",
+          message:
+            "Opening an agent profile as chat requires a project workspace.",
+        });
+      }
+      if (deps.openAgentSession === undefined) {
+        return err({
+          code: "unavailable",
+          message: "Agent profile sessions are not ready yet.",
+        });
+      }
+      const created = await deps.openAgentSession({
+        project: input.project,
+        harness: input.harness,
+        agent: input.agent,
+      });
+      if (!created.ok) return created;
+      memberSession = created.value;
+    }
     let resume: { session: string; cli_session: string } | undefined;
     if (input.resume !== undefined) {
       const found = resumable({ ...input, resume: input.resume });
@@ -142,6 +180,9 @@ export function createCodingOpen(deps: CodingOpenDeps) {
     );
     const opened = await deps.open(input.project, command);
     if (!opened.ok) return opened;
+    if (memberSession !== undefined) {
+      deps.bindTerminal?.(opened.value, memberSession, input.project);
+    }
     if (resume !== undefined) deps.held(opened.value, resume.session);
     return ok({ session: guiSessionId(opened.value) });
   }
@@ -207,6 +248,7 @@ export function createCodingOpen(deps: CodingOpenDeps) {
     open(input: {
       project: string;
       harness: string;
+      agent?: string;
       resume?: { session: string };
       key: string;
     }): Promise<Result<{ session: string }>> {

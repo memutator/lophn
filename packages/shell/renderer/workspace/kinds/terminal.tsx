@@ -281,7 +281,7 @@ function namingOf(
             // hook만 있고 foreground가 아니면(GUI가 띄운 CLI) 터미널 제목은 shell prompt의 경로다.
             screenTitle:
               agent?.foreground === true ? (agent.screen_title ?? null) : null,
-            label: harnessLabel(harness),
+            label: coding?.agent_name ?? harnessLabel(harness),
             gui: isGuiAgent(agent) || coding?.view === "gui",
           },
     remembered: rememberedOf(tab),

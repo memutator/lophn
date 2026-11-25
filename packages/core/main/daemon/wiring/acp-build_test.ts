@@ -546,6 +546,97 @@ test("draft meta는 같은 agent와 workspace로 연 session의 meta에서 title
   );
 });
 
+// harness runtime agent(background·Home·App)의 draft와 session meta는 lophn provider model을 노출하지 않는다.
+test("harness runtime agent의 draft와 session meta는 model·steer capability와 lophn model을 끈다", async () => {
+  const workspace = { kind: "project", id: "prj_01h455vb4pex5v6nkc6gd5f001" };
+  const agentId = "agt_01h455vb4pex5v6nkc6gd5f001";
+  const found: Record<string, unknown> = {
+    [key(workspaceSessionRead)]: {
+      session: {
+        agent: agentId,
+        workspace,
+        title: null,
+        skip: false,
+        harness: "antigravity",
+        model_selection: null,
+      },
+    },
+    [key(agentRead)]: {
+      definition: {
+        runtime: "antigravity",
+        harness_config: { model: "gemini-4-neon", options: { effort: "high" } },
+      },
+      effective: {
+        model: {
+          value: {
+            provider: "prv_anthropic",
+            model_name: "claude-opus-5-5",
+            option_values: { effort: "high" },
+          },
+          source: "global",
+        },
+      },
+    },
+    [key(sessionStatusRead)]: {
+      context: null,
+      tokens: { input: 0, output: 0, cache_read: null, cache_write: null },
+      turns: 0,
+      costs: [],
+      provider: null,
+    },
+    [key(commandsList)]: {
+      commands: [
+        {
+          name: "new",
+          title: "New session",
+          description: "d",
+          source: "builtin",
+        },
+        {
+          name: "model",
+          title: "Model",
+          description: "d",
+          source: "builtin",
+        },
+        {
+          name: "effort",
+          title: "Effort",
+          description: "d",
+          source: "builtin",
+        },
+      ],
+    },
+  };
+  const read = <T>(route: { resource: string; method: string }) =>
+    Promise.resolve(ok(found[key(route)] as T));
+  const e: AcpEnv = { read, redact: (text) => text };
+
+  const draft = await readDraftMeta(
+    e,
+    { agent: agentId, workspace } as never,
+    read,
+  );
+  const session = await readSessionMeta(e, SES, read);
+  assert.ok(session !== null);
+  acpSessionMetaSchema.parse(draft);
+  acpSessionMetaSchema.parse(session);
+  assert.equal(draft.capabilities.model, false);
+  assert.equal(draft.capabilities.steer, false);
+  assert.equal(draft.model, null);
+  assert.deepStrictEqual(draft.models, []);
+  assert.deepStrictEqual(
+    draft.commands.map((one) => one.name),
+    ["new"],
+  );
+  assert.equal(session.capabilities.model, false);
+  assert.equal(session.model, null);
+  assert.deepStrictEqual(session.models, []);
+  assert.deepStrictEqual(
+    session.commands.map((one) => one.name),
+    ["new"],
+  );
+});
+
 // 새 turn은 ledger head를 state_seq로 받아, 앞 turn이 끝난 뒤 event가 없었으면 끝난 앞 turn과 state_seq가 같다.
 test("state_seq가 같아도 도는 turn이 지금 turn이다", () => {
   const turn = (id: string, state: "running" | "finished", n: number) =>

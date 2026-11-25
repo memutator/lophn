@@ -45,7 +45,7 @@ export function codingCommand(
 }
 
 /**
- * 고를 수 있는 agent: lophn agent 먼저, 그 뒤에 즐겨찾기 coding agent.
+ * 고를 수 있는 agent: 정의된 agent(기본 lophn + custom agent 프로필, runtime 무관) 먼저, 그 뒤에 즐겨찾기 coding agent CLI.
  * 내장 coding agent(`coding_<harness>`)는 lophn이 부르는 coding agent 주소라 뺀다. 사람은 아래 Coding agents 줄로 같은 CLI를 연다.
  */
 export function agentChoices(
@@ -56,9 +56,10 @@ export function agentChoices(
     ...agents
       .filter((agent) => !isCodingBuiltin(agent.assignment))
       .map((agent) => ({
-        kind: "lophn" as const,
+        kind: "agent" as const,
         id: agent.assignment,
         name: agent.name,
+        ...(agent.runtime === undefined ? {} : { runtime: agent.runtime }),
         face: { kind: "lophn" as const, avatar: agent.avatar },
       })),
     ...favorites.map((id) => ({
@@ -87,10 +88,10 @@ export function agentSections(
       }));
   return [
     {
-      id: "lophn",
-      heading: t("left-sidebar.heading.lophn-agents"),
+      id: "agents",
+      heading: t("left-sidebar.heading.agents"),
       keys: newKeys,
-      items: items("lophn"),
+      items: items("agent"),
     },
     {
       id: "coding",

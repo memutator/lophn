@@ -63,7 +63,10 @@ import {
 import type { BusEvent } from "../../../../protocol/events/bus.ts";
 import { agentCallSendable } from "../../../../protocol/lophn-agent/calls.ts";
 import { teamRead } from "../../../../protocol/lophn-agent/team.ts";
-import type { AgentId } from "../../../../protocol/lophn-agent/workspaces.ts";
+import {
+  type AgentId,
+  isCodingBuiltin,
+} from "../../../../protocol/lophn-agent/workspaces.ts";
 import type { Output } from "../../../../protocol/server/mod.ts";
 import { codingAgentsSetting, shellSettings } from "../../../config/mod.ts";
 import { HARNESS_GUI_ADAPTERS } from "../../../harness-gui/index.ts";
@@ -366,6 +369,19 @@ export const terminalAgentsWiring: WiringFactory = () => {
               ?.harnessConfig;
           });
           return config.ok ? config.value : undefined;
+        },
+        memberAgent: (session) => {
+          const found = ledgerSnapshot(ctx.ledgerPath, (lookup) => {
+            const agentId = loadSession(lookup, session)?.agent as
+              | AgentId
+              | undefined;
+            if (agentId === undefined || isCodingBuiltin(agentId)) return null;
+            const { name } = workspaceDepsOf(lookup.sql).names.describe(
+              agentId,
+            );
+            return { id: agentId, name };
+          });
+          return found.ok ? found.value : null;
         },
         enforcesDeny: (harness) => HARNESS_GUI_ADAPTERS[harness].enforcesDeny,
         onCatalog: (harness, cwd, result) =>
@@ -705,6 +721,22 @@ export const terminalAgentsWiring: WiringFactory = () => {
           agents.holds.hold(terminal, session, "gui"),
         codingCommand: (harness) =>
           ctx.settings.get(codingAgentsSetting)?.commands?.[harness],
+        openAgentSession: async ({ project, harness, agent }) => {
+          const members = ctx.peek.harnessMembers;
+          if (members?.openForAgent === undefined) {
+            return err({
+              code: "unavailable",
+              message: "core is still starting",
+            });
+          }
+          return await members.openForAgent({
+            project,
+            harness: RUNTIME_OF_GUI[harness],
+            agent,
+          });
+        },
+        bindTerminal: (terminal, session, project) =>
+          agents.members.expect(terminal, session, project),
       });
       openMember = (input) => opener.member(input);
       // harness wiring(팀원 queue)은 이 wiring보다 먼저 섰다. 탭이 없는 팀원에게 온 입력도 들어야 탭을 연다.
@@ -773,6 +805,7 @@ export const terminalAgentsWiring: WiringFactory = () => {
               const body = input as {
                 project: string;
                 harness: string;
+                agent?: string;
                 resume?: { session: string };
                 key: string;
               };

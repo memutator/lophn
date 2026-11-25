@@ -28,7 +28,10 @@ import {
   type AcpUsage,
   acpRemoteSenderName,
 } from "../../../../protocol/acp/mod.ts";
-import { LOPHN_AGENT_NAME } from "../../../../protocol/lophn-agent/agent-values.ts";
+import {
+  isHarnessRuntime,
+  LOPHN_AGENT_NAME,
+} from "../../../../protocol/lophn-agent/agent-values.ts";
 import { agentCallRead } from "../../../../protocol/lophn-agent/calls.ts";
 import {
   type ContentBlock,
@@ -1125,12 +1128,12 @@ export const AGENT_MODES: AcpChoice[] = [
 
 // lophn agent가 가진 기능은 harness 전용 여덟(subagent 조작, task, background, toggle, goal, role, resume)을 뺀 전부다.
 // `!`(shell)는 모든 workspace(home·project·앱)의 session이 가진다. home은 OS home 폴더에서 돈다.
-// harness session은 도는 turn에 steer를 올리지 못한다(입력이 다음 turn으로 간다).
+// harness session은 도는 turn에 steer를 올리지 못하고(입력이 다음 turn으로 간다), lophn의 provider model picker도 쓰지 않는다.
 const capabilitiesOf = (harness: boolean) =>
   Object.fromEntries(
     ACP_CAPABILITIES.map((name) => [
       name,
-      name === "steer"
+      name === "steer" || name === "model"
         ? !harness
         : ![
             "stop_child",
@@ -1390,12 +1393,14 @@ function commandsOf(
   env: AcpEnv,
   read: Result<Output<typeof commandsList>>,
   hasSession: boolean,
+  harness: boolean,
 ): AcpSessionMeta["commands"] {
   if (!read.ok) return [];
   const out: AcpSessionMeta["commands"] = [];
   for (const one of read.value.commands) {
     const description = env.redact(one.description);
     if (one.source === "builtin") {
+      if (harness && (one.name === "model" || one.name === "effort")) continue;
       const face =
         LOPHN_COMMAND_FACES[one.name as keyof typeof LOPHN_COMMAND_FACES];
       if (!hasSession && face.session) continue;
@@ -1429,41 +1434,52 @@ export async function readSessionMeta(
 ): Promise<AcpSessionMeta | null> {
   const record = await readSessionRecord(env, session);
   if (!record.ok) return null;
+  const harness = record.value.harness !== null;
   const [model, usage, commands] = await Promise.all([
-    readModelPart(env, record.value),
+    harness
+      ? Promise.resolve({ models: [], model: null })
+      : readModelPart(env, record.value),
     readUsage(env, session),
     readAsCaller<Output<typeof commandsList>>(commandsList, { session }),
   ]);
   return metaOf(env, {
-    harness: record.value.harness !== null,
+    harness,
     title: record.value.title,
     skip: record.value.skip,
     model,
     usage,
-    commands: commandsOf(env, commands, true),
+    commands: commandsOf(env, commands, true, harness),
   });
 }
 
 /**
  * 첫 메시지 전 새 session 화면의 meta. 그 agent와 workspace로 지금 session을 열면 받을 값이다: session이 고른 model이
- * 없어 agent 기본값이고, mode는 ask, title·usage는 없다. 명령은 `readSessionMeta`와 같이 부른 사람의 read로 읽는다.
+ * 없어 agent 기본값이고, mode는 ask, title·usage는 없다. harness runtime agent는 lophn model picker를 쓰지 않고
+ * `harness: true`로 맞춘다. 명령은 `readSessionMeta`와 같이 부른 사람의 read로 읽는다.
  */
 export async function readDraftMeta(
   env: AcpEnv,
   draft: { agent: AgentId; workspace: Workspace | null },
   readAsCaller: AcpEnv["read"],
 ): Promise<AcpSessionMeta> {
-  const [model, commands] = await Promise.all([
-    readModelPart(env, { ...draft, model_selection: null }),
+  const [agent, commands] = await Promise.all([
+    env.read<Output<typeof agentRead>>(agentRead, {
+      agent: draft.agent,
+      ...(draft.workspace === null ? {} : { workspace: draft.workspace }),
+    }),
     readAsCaller<Output<typeof commandsList>>(commandsList, draft),
   ]);
+  const harness = agent.ok && isHarnessRuntime(agent.value.definition?.runtime);
+  const model = harness
+    ? { models: [], model: null }
+    : await readModelPart(env, { ...draft, model_selection: null });
   return metaOf(env, {
-    harness: false,
+    harness,
     title: null,
-    skip: false,
+    skip: agent.ok && agent.value.definition?.skip === true,
     model,
     usage: null,
-    commands: commandsOf(env, commands, false),
+    commands: commandsOf(env, commands, false, harness),
   });
 }
 

@@ -23,6 +23,9 @@ export const codingSessionSchema = z.strictObject({
   harness: z.string().min(1),
   // harness의 보이는 이름(`Claude Code`). 모르는 harness면 id 그대로다.
   label: z.string(),
+  // custom harness agent 프로필로 열린 GUI 탭이면 그 agent id와 보이는 이름. 내장 coding agent나 일반 터미널은 없다.
+  agent: idSchema("agt").optional(),
+  agent_name: z.string().min(1).optional(),
   // Home의 터미널은 `home`이다.
   project: terminalProjectSchema,
   cwd: z.string().nullable(),
@@ -121,6 +124,8 @@ export const codingSessionsOpen = defineMemory({
   input: z.strictObject({
     project: terminalProjectSchema,
     harness: z.string().min(1).max(64),
+    // custom harness agent 프로필로 열 때 지정한다(project workspace만, resume과 함께 쓰지 않는다).
+    agent: idSchema("agt").optional(),
     resume: z.strictObject({ session: idSchema("ses") }).optional(),
     key: z.string().min(1).max(200),
   }),

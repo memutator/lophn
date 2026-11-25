@@ -3,7 +3,10 @@
 import type { z } from "zod";
 
 import type { Route } from "../../../protocol/base/route.ts";
-import { codingSessionsForget } from "../../../protocol/coding-agent/relay.ts";
+import {
+  codingSessionsForget,
+  codingSessionsOpen,
+} from "../../../protocol/coding-agent/relay.ts";
 import {
   type TerminalAgentSession,
   type TerminalFailure,
@@ -74,6 +77,13 @@ export interface TerminalCore {
     harness: string;
     cli_session: string;
   }): Promise<void>;
+  /** project에 coding session(custom harness agent 프로필 포함)을 GUI(chat) 탭으로 연다. */
+  openCoding?(input: {
+    project: string;
+    harness: string;
+    agent?: string;
+    key: string;
+  }): Promise<TerminalReply<{ session: string }>>;
   /** `TerminalOutputAppended`·`TerminalRuntimeChanged`와 연결의 ready·끊김. 해지를 돌려준다. */
   subscribe(listener: (message: EventMessage) => void): () => void;
 }
@@ -167,6 +177,8 @@ export function createTerminalCore(
     async forgetSaved(input) {
       await call<{ archived: number }>(codingSessionsForget as Route, input);
     },
+    openCoding: (input) =>
+      call<{ session: string }>(codingSessionsOpen as Route, input),
     subscribe: (listener) =>
       events.subscribe(
         { types: ["TerminalOutputAppended", "TerminalRuntimeChanged"] },

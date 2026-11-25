@@ -1,0 +1,31 @@
+id: harness-profile-gui-open
+version: 0.23.169
+platform_note: none
+title: "custom harness agent 프로필을 project에서 직접 열면 harness-gui 탭으로 열고 background AgentTab의 lophn model 노출을 없앤다"
+modules:
+  - packages/protocol
+  - packages/core/lophn-agent
+  - packages/core/terminal-agents
+  - packages/core/main
+  - packages/design
+  - packages/shell/renderer
+change: |
+  전:
+  - 새 session 메뉴(`agentChoices`)가 내장 coding agent만 뺀 모든 정의된 agent를 `kind: "lophn"`("lophn agents" 묶음)으로 분류해, custom harness agent 프로필(`Builder (Neon)` 등)을 열어도 일반 `AgentTab`(`harness_gui = 0` background 모드)으로 열렸다.
+  - `AgentTab`의 `readDraftMeta`가 `harness: false`로 고정돼 있고 `readModelPart`·`capabilitiesOf`가 harness runtime을 구분하지 않아, composer에 lophn의 기본 모델(`claude-opus-5-5` 등)과 model picker가 잘못 보였다.
+  후:
+  - `openHarnessMember`와 `coding_sessions/open`에 선택 칸 `agent`를 더해 project workspace에서 custom harness agent 프로필을 지정하면 그 agent의 팀원 session(`harness_gui = 1`)을 미리 만들어 연 터미널에 묶고(`members.expect`), `harness_config`·`permissions.deny`가 적용된 대화형 `harness-gui` 탭으로 띄운다(사람이 직접 연 탭이라 자동 닫기 대상이 아니다).
+  - `coding_sessions/list`에 `agent`·`agent_name`을 실어 GUI 채팅 머리와 탭 제목이 generic harness 이름 대신 프로필 이름(`Builder (Neon)`)을 보인다.
+  - `SidebarAgent`가 `runtime`을 들고, `AgentChoice`를 `kind: "agent" | "coding"`으로 바로잡고, 새 session 메뉴 머리글을 `"Agents"` / `"Coding agents"`로 고쳤다.
+  - `readDraftMeta`·`readSessionMeta`·`capabilitiesOf`가 harness runtime agent(Home·App·background session)에서 `harness: true`, `capabilities.model: false`, `model: null`, `models: []`를 내고 `/model`·`/effort` 명령을 빼도록 고쳤다.
+why: |
+  custom harness agent 프로필을 열었을 때 실제 실행은 Antigravity(`agy acp`)로 돌면서 화면은 lophn `AgentTab`과 lophn model picker로 보이고, 승인·질문과 harness 자체 model/mode·TUI 전환을 쓸 수 없는 문제가 있었다.
+decisions:
+  - text: "사람이 project UI에서 custom harness agent 프로필을 직접 새 탭으로 열 때는 정의의 `open` 기본값(`background`)과 무관하게 대화형 `harness-gui` 탭으로 연다. `background` 모드는 승인·질문이 자동 거절되는 무인 실행이라 agent call·workflow 기본값으로 남긴다."
+    by: person
+  - text: "새 session 메뉴는 `kind: \"agent\" | \"coding\"`과 `\"Agents\"` / `\"Coding agents\"` 묶음으로 나눈다. 정의된 agent가 runtime과 무관하게 `\"lophn agents\"` 아래에 들어가던 모순을 없앤다."
+    by: person
+checklist:
+  - "project workspace의 + 메뉴에서 custom harness agent 프로필(예: Builder (Neon))을 열면 Antigravity harness-gui 탭이 열리고 프로필 이름과 설정된 model·effort가 적용되는지 본다"
+  - "+ 메뉴 머리글이 Agents와 Coding agents로 나뉘어 보이는지 본다"
+  - "Home·App이나 기존 background harness session을 열었을 때 composer에 lophn model picker가 뜨지 않는지 본다"

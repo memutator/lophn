@@ -3,6 +3,7 @@ import { idSchema } from "../base/ids.ts";
 import { defineCommand } from "../base/route.ts";
 import { seqSchema } from "../base/values.ts";
 import { HARNESS_RUNTIMES } from "./agent-values.ts";
+import { agentIdSchema } from "./workspaces.ts";
 
 // core 안 harness 실행(터미널 GUI 탭과 background 실행)이 ledger를 고치는 machine command와 기록 모양이다.
 // 모든 route는 runtime이 harness인 session이 아니면 `forbidden`이다.
@@ -37,8 +38,8 @@ export const bindHarnessSession = defineCommand({
   errors: ["invalid_input", "forbidden", "not_found", "conflict"],
 });
 
-// 터미널 GUI 탭(harness-gui)의 팀원 session을 연다. core 안 GUI 연결이 machine 자격으로 부른다. agent는 그 harness의 내장 coding agent이고
-// workspace는 그 탭의 project다.
+// 터미널 GUI 탭(harness-gui)의 팀원 session을 연다. core 안 GUI 연결이 machine 자격으로 부른다. agent를 주지 않으면
+// 그 harness의 내장 coding agent이고 workspace는 그 탭의 project다.
 export const openHarnessMember = defineCommand({
   resource: "harness",
   method: "open_member",
@@ -48,6 +49,8 @@ export const openHarnessMember = defineCommand({
     id: idSchema("ses"),
     harness: harnessRuntimeSchema,
     project: idSchema("prj"),
+    // 생략하면 그 harness의 내장 coding agent다. custom harness agent 프로필로 열 때 지정한다.
+    agent: agentIdSchema.optional(),
     // 그 탭 CLI 자신의 session id. 아직 모르면 null이다.
     external_session_id: z.string().min(1).max(256).nullable(),
   }),

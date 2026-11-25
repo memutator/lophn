@@ -221,3 +221,70 @@ test("a member with workflow_origin keeps PTY in exec project and targets the wo
     },
   ]);
 });
+
+test("coding_sessions/open with a custom harness agent creates its member session, binds the terminal, and rejects non-project or resume", async () => {
+  const AGENT = `agt_${"3".repeat(26)}`;
+  const MEMBER_SES = `ses_${"4".repeat(26)}`;
+  const created: unknown[] = [];
+  const bound: unknown[] = [];
+  const calls: unknown[] = [];
+  const opener = createCodingOpen({
+    guiOn: () => true,
+    open(project, command) {
+      calls.push({ project, command });
+      return Promise.resolve(ok(TERMINAL) as Result<string>);
+    },
+    session: () => undefined,
+    listed: () => [],
+    hold: () => ok({}),
+    held: () => {},
+    openAgentSession: async (input) => {
+      created.push(input);
+      return ok(MEMBER_SES);
+    },
+    bindTerminal: (terminal, session, project) => {
+      bound.push({ terminal, session, project });
+    },
+  });
+
+  assert.ok(
+    codingSessionsOpen.input.safeParse({
+      project: PROJECT,
+      harness: "antigravity",
+      agent: AGENT,
+      key: "k-agent",
+    }).success,
+  );
+
+  const opened = await opener.open({
+    project: PROJECT,
+    harness: "antigravity",
+    agent: AGENT,
+    key: "k-agent",
+  });
+  assert.deepEqual(opened, ok({ session: `ses_${"2".repeat(26)}` }));
+  assert.deepEqual(created, [
+    { project: PROJECT, harness: "antigravity", agent: AGENT },
+  ]);
+  assert.deepEqual(calls, [{ project: PROJECT, command: "agy --gui" }]);
+  assert.deepEqual(bound, [
+    { terminal: TERMINAL, session: MEMBER_SES, project: PROJECT },
+  ]);
+
+  const atHome = await opener.open({
+    project: HOME_TERMINAL_PROJECT,
+    harness: "antigravity",
+    agent: AGENT,
+    key: "k-agent-home",
+  });
+  assert.ok(!atHome.ok && atHome.error.code === "invalid_input");
+
+  const withResume = await opener.open({
+    project: PROJECT,
+    harness: "antigravity",
+    agent: AGENT,
+    resume: { session: LEDGER },
+    key: "k-agent-resume",
+  });
+  assert.ok(!withResume.ok && withResume.error.code === "invalid_input");
+});

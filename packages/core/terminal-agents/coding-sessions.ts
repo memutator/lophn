@@ -55,6 +55,8 @@ export type CodingSessionsDeps = {
   redact<T>(value: T): T | null;
   // core가 도는 OS(`process.platform`). 터미널과 같은 기계다.
   platform: string;
+  // custom harness agent 프로필로 열린 GUI 탭이면 그 agent id와 이름. 내장 coding agent나 일반 터미널은 null이다.
+  agentOf?(terminalRef: string): { id: string; name: string } | null;
 };
 
 // 다시 보내도 한 번만 가야 하는 입력의 key다. key가 없는 입력(decide, answer, 줄 고치기)은 같은 대상에 두 번 가도 adapter가 거른다.
@@ -158,11 +160,13 @@ export function createCodingSessions(deps: CodingSessionsDeps) {
   function row(report: TerminalSessionReport): CodingSession {
     const state = gui.current(report.terminal_ref)?.handle.state();
     const blocked = blockedOf(report);
+    const agent = deps.agentOf?.(report.terminal_ref) ?? null;
     return {
       session: guiSessionId(report.terminal_ref) as CodingSession["session"],
       terminal: report.terminal_ref,
       harness: report.harness,
       label: labelOf(report.harness),
+      ...(agent === null ? {} : { agent: agent.id, agent_name: agent.name }),
       project: report.project,
       cwd: report.cwd,
       title: report.title,

@@ -413,6 +413,20 @@ export const harnessWiring: WiringFactory = () => {
           if (!opened.ok) memberOf.delete(id);
           return opened.ok ? ok(id) : opened;
         },
+        async openForAgent(input) {
+          const id = ids.newId("ses");
+          // SessionStarted가 화면으로 가기 전에 팀원 표시를 먼저 둔다.
+          memberOf.set(id, true);
+          const opened = await command(openHarnessMember.name, {
+            id,
+            harness: input.harness,
+            project: input.project,
+            agent: input.agent,
+            external_session_id: null,
+          });
+          if (!opened.ok) memberOf.delete(id);
+          return opened.ok ? ok(id) : opened;
+        },
         async bind(session, cliSession) {
           const done = await command(bindHarnessSession.name, {
             session,

@@ -3536,7 +3536,6 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     section: "desks",
     workflow: true,
     subtitle: inst.workflow,
-    copyId: inst.id,
     ...(workflowInstanceDeskStatus(inst) ?? {}),
     renameable: true,
     deletable: false,
@@ -3553,9 +3552,6 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
       section: "desks",
       workflow: true,
       ...(item.workflow === undefined ? {} : { subtitle: item.workflow }),
-      ...(item.workflowInstance === undefined
-        ? {}
-        : { copyId: item.workflowInstance }),
       renameable: true,
       deletable: true,
     }));

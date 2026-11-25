@@ -4,8 +4,7 @@
 
 import { t } from "@lophn/i18n";
 import { Popover, Tooltip } from "@lophn/ui/overlay";
-import { CopyButton, Icon } from "@lophn/ui/primitives";
-import { systemClipboard } from "@lophn/ui/shared";
+import { Icon } from "@lophn/ui/primitives";
 import { Fragment, useEffect, useRef, useState } from "react";
 
 import { useKeyLabel } from "../commands/react.tsx";
@@ -27,8 +26,6 @@ export interface DeskOption {
   readonly status?: string;
   /** workflow instance desk의 진행 상태 색/점(working | needs_you | blocked). */
   readonly tone?: DeskStatusTone;
-  /** workflow instance desk에서 복사할 instance ID(`wfi_...`). hover 때 복사 단추를 둔다. */
-  readonly copyId?: string;
   /** 줄 오른쪽에 이름 바꾸기 단추를 둔다(사람이 만든 desk와 workflow instance desk). */
   readonly renameable?: boolean;
   /** 줄 오른쪽에 지우기/닫기 단추를 둔다(사람이 만든 desk와 끝난 workflow instance desk). */
@@ -177,27 +174,8 @@ export function DeskSwitcher({
             )}
           </button>
         )}
-        {desk.key !== renaming &&
-        (desk.copyId !== undefined || canRename || canDelete) ? (
+        {desk.key !== renaming && (canRename || canDelete) ? (
           <span className={styles.actions}>
-            {desk.copyId === undefined ? null : (
-              <span className={styles.copyAction}>
-                <Tooltip
-                  content={t("workflow.label.copy-instance-id", {
-                    id: desk.copyId,
-                  })}
-                  placement="beside"
-                >
-                  <span className={styles.copyWrap}>
-                    <CopyButton
-                      text={desk.copyId}
-                      label={t("common.button.copy-id")}
-                      clipboard={systemClipboard}
-                    />
-                  </span>
-                </Tooltip>
-              </span>
-            )}
             {canRename ? (
               <button
                 type="button"

@@ -49,11 +49,11 @@
   text-overflow: ellipsis;
 }
 
-/* 목록. 행은 menu 행과 같은 높이이고 오른쪽 끝 고정 열에 단추가 있다. */
+/* 목록. 행은 menu 행과 같은 높이이고 편집 단추는 hover·focus 때만 드러나 평소 제목 폭을 넓게 쓴다. */
 .list {
   display: flex;
   flex-direction: column;
-  width: calc(var(--space-12) * 4);
+  width: calc(var(--space-12) * 5 + var(--space-4));
 }
 
 .heading {
@@ -196,21 +196,22 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* 이름 바꾸기·닫기 단추는 hover·focus 때만 보여 평소 제목이 가려지지 않게 한다. */
 .actions {
-  display: inline-flex;
+  display: none;
   flex: none;
   gap: var(--space-1);
   padding-inline: var(--space-2);
 }
 
-/* 진행 상태가 있는 workflow instance 줄은 평소 상태만 보이고 hover·focus 때 편집 단추가 드러난다. */
-.row[data-has-status] .actions {
-  display: none;
+.row:hover .actions,
+.row:focus-within .actions {
+  display: inline-flex;
 }
 
-.row[data-has-status]:hover .actions,
-.row[data-has-status]:focus-within .actions {
-  display: inline-flex;
+.row:has(.actions):hover .status,
+.row:has(.actions):focus-within .status {
+  display: none;
 }
 
 .action {
@@ -232,21 +233,6 @@
   color: var(--color-text-primary);
   background: var(--color-surface-muted);
   outline: none;
-}
-
-.copyAction {
-  display: inline-flex;
-  opacity: 0;
-  transition: opacity var(--motion-duration-short) var(--motion-ease);
-}
-
-.row:hover .copyAction,
-.row:focus-within .copyAction {
-  opacity: 1;
-}
-
-.copyWrap {
-  display: inline-flex;
 }
 
 .rename {

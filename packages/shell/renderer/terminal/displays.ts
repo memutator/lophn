@@ -364,6 +364,13 @@ export class TerminalDisplays {
         this.#store.update(key, {
           restored: (this.#store.get(key)?.restored ?? 0) + 1,
         });
+        // 초기 snapshot을 읽는 사이 화면 사본이 더 앞서갔으면 바로 맞춰 다음 diff의 base_seq가 어긋나지 않게 한다.
+        if (
+          kept.deferredSeq > kept.lastSeq &&
+          kept.view.atBottom?.() !== false
+        ) {
+          this.#catchUp(key, kept, { pauseWhenScrolled: true });
+        }
       });
   }
 

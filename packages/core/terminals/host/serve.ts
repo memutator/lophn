@@ -12,26 +12,45 @@ import type { HostLine, HostRequest } from "./wire.ts";
 // GUI ↔ TUI toggle이 TUI가 끝난 것을 이 훑기로 알아 간격만큼 기다린다. 한 번에 /proc 두 줄이라 짧게 훑는다.
 const FOREGROUND_POLL_MS = 250;
 
-// 작은 PTY write마다 pipe를 깨우지 않고, 큰 출력을 한 JSON 줄에 무제한 쌓지도 않는다.
+// 조용하다가 온 첫 출력(키 echo)은 기다리지 않고 바로 보내고, 그 뒤 16ms 안에 쏟아지는 출력만 묶는다.
 function batchOutput(send: (output: readonly TerminalOutput[]) => void) {
   let output: TerminalOutput[] = [];
   let chars = 0;
-  let timer: ReturnType<typeof setTimeout> | undefined;
+  let cooldown: ReturnType<typeof setTimeout> | undefined;
   function flush(): void {
-    if (timer !== undefined) clearTimeout(timer);
-    timer = undefined;
+    if (cooldown !== undefined) clearTimeout(cooldown);
+    cooldown = undefined;
     if (output.length === 0) return;
     send(output);
     output = [];
     chars = 0;
   }
+  function onCooldown(): void {
+    cooldown = undefined;
+    if (output.length === 0) return;
+    const batch = output;
+    output = [];
+    chars = 0;
+    send(batch);
+    cooldown = setTimeout(onCooldown, 16);
+  }
   return {
     flush,
     write(chunk: TerminalOutput) {
-      if (chars + chunk.chunk.length > 64 * 1024) flush();
+      if (cooldown === undefined && output.length === 0) {
+        send([chunk]);
+        cooldown = setTimeout(onCooldown, 16);
+        return;
+      }
+      if (chars + chunk.chunk.length > 64 * 1024) {
+        const batch = output;
+        output = [];
+        chars = 0;
+        if (batch.length > 0) send(batch);
+      }
       output.push(chunk);
       chars += chunk.chunk.length;
-      timer ??= setTimeout(flush, 16);
+      cooldown ??= setTimeout(onCooldown, 16);
     },
   };
 }

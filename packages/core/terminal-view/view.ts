@@ -20,10 +20,10 @@ export const LEASE_MS = 30_000;
 export const TAIL_DEFAULT = 100;
 // 아무 일 없을 때 화면을 읽는 간격이고, 큰 변화(통째로 다시 그리는 TUI, 쏟아지는 출력) 뒤에 다음 읽기까지 두는 간격이다.
 export const SCREEN_MS = 250;
-// 출력이 난 뒤 화면을 읽기까지: host가 출력을 16ms까지 묶어 보내므로 그 묶음이 화면에 들어간 다음이다.
-export const ECHO_MS = 10;
+// 출력이 난 뒤 화면을 읽기까지: 바로 이어진 짧은 조각을 묶되 echo 지연을 줄인다.
+export const ECHO_MS = 6;
 // 작은 변화(키 입력의 echo) 뒤 다음 읽기까지.
-export const FAST_MS = 30;
+export const FAST_MS = 25;
 
 export type TerminalViewDeps = {
   clock: Clock;
@@ -86,8 +86,22 @@ export function createTerminalView(deps: TerminalViewDeps) {
     const quiet = { gap: 0, idle: SCREEN_MS };
     const tail = wanted(terminal);
     if (tail === null) return ok(quiet);
-    const done = await terminals.screen(terminal, tail);
+    const prev = screens.get(terminal);
+    const known =
+      prev === undefined
+        ? undefined
+        : {
+            afterSeq: prev.seq,
+            generation: prev.generation,
+            columns: prev.columns,
+            rows: prev.rows,
+            ...(prev.scrollback_key === undefined
+              ? {}
+              : { scrollbackKey: prev.scrollback_key }),
+          };
+    const done = await terminals.screen(terminal, tail, known);
     if (!done.ok) return done;
+    if (done.value === null) return ok(quiet);
     if (wanted(terminal) === null) return ok(quiet);
     const before = screens.get(terminal);
     screens.set(terminal, done.value);
@@ -238,7 +252,8 @@ export function createTerminalView(deps: TerminalViewDeps) {
           message: "The terminal screen has not arrived yet.",
         });
       }
-      return ok({ terminal, ...screen, input: deps.mayType(principal) });
+      const { scrollback_key: _key, ...publicScreen } = screen;
+      return ok({ terminal, ...publicScreen, input: deps.mayType(principal) });
     },
 
     // 켜면 lease를 만들거나 갱신하고 화면을 한 번 읽는다. 끄면 거둔다.

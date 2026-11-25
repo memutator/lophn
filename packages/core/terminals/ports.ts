@@ -37,7 +37,18 @@ export type TerminalEnvHook = (open: TerminalOpen) => {
 export type TerminalScreen = Omit<
   z.output<typeof terminalViewSnapshot.output>,
   "terminal" | "input"
->;
+> & {
+  /** 같은 scrollback이면 host가 scrollback을 다시 읽고 넘기지 않도록 맞추는 내부 key다. route 출력에는 싣지 않는다. */
+  readonly scrollback_key?: string;
+};
+
+export type TerminalScreenKnown = {
+  readonly afterSeq: number;
+  readonly generation: number;
+  readonly columns: number;
+  readonly rows: number;
+  readonly scrollbackKey?: string;
+};
 
 // foreground process의 argv가 바뀌었다. shell 자신이 foreground면 null이다.
 export type TerminalForeground = {
@@ -77,7 +88,11 @@ export type Terminals = {
     terminal: string,
     afterSeq?: number,
   ): Promise<Result<{ runtime: TerminalRuntime; output: TerminalOutput[] }>>;
-  screen(terminal: string, tail: number): Promise<Result<TerminalScreen>>;
+  screen(
+    terminal: string,
+    tail: number,
+    known?: TerminalScreenKnown,
+  ): Promise<Result<TerminalScreen | null>>;
   list(project?: TerminalProject): readonly TerminalRuntime[];
   runtime(terminal: string): TerminalRuntime | null;
   // tracker가 정한 agent(null이면 뺀다)와 탭 이름을 runtime에 싣는다. 바뀌면 `onRuntime`이 듣는다.

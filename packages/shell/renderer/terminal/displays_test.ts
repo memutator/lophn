@@ -419,3 +419,23 @@ test("TerminalScreenChanged의 diff는 base_seq가 맞을 때만 덮어쓰고 �
     after_seq: 2,
   });
 });
+
+// 초기 snapshot을 읽는 사이 화면 사본이 앞서가면 직후 바로 맞춰 다음 diff의 base_seq가 어긋나지 않아야 한다.
+test("초기 snapshot 중 온 TerminalScreenChanged는 로드 직후 catch-up으로 맞춘다", async () => {
+  const h = setup();
+  h.store.adopt("tab", {
+    terminalRef: "term_1",
+    generation: 1,
+    folderRef: "folder",
+  });
+  h.displays.acquire("tab", "project", h.create);
+  await h.settle();
+  // snapshot 응답 전에 더 큰 seq의 TerminalScreenChanged가 도착한다.
+  h.screenChanged(2);
+  await h.finish(0, [output(1, "screen-1")]);
+  assert.equal(h.requests.length, 2);
+  assert.deepStrictEqual(h.requests[1]?.input, {
+    terminal: "term_1",
+    after_seq: 1,
+  });
+});

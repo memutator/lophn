@@ -270,15 +270,32 @@ function createHost(deps: HostDeps): Host {
     if (request.type === "screen") {
       const session = sessions.get(request.terminal_ref);
       if (!session) return reject("host_lost", "terminal is gone");
-      return session.screen.screen(request.tail).then((screen) =>
-        screen === null
-          ? reject("host_lost", "terminal is gone")
-          : {
-              ok: true as const,
-              runtime: { ...session.runtime },
-              screen: { ...screen, generation: session.runtime.generation },
-            },
-      );
+      const sameGeneration =
+        request.generation === undefined ||
+        request.generation === session.runtime.generation;
+      const known = sameGeneration
+        ? {
+            afterSeq: request.after_seq,
+            columns: request.columns,
+            rows: request.rows,
+            scrollbackKey: request.scrollback_key,
+          }
+        : undefined;
+      return session.screen.screen(request.tail, known).then((screen) => {
+        if (screen === null) return reject("host_lost", "terminal is gone");
+        if ("unchanged" in screen) {
+          return {
+            ok: true as const,
+            runtime: { ...session.runtime },
+            unchanged: true as const,
+          };
+        }
+        return {
+          ok: true as const,
+          runtime: { ...session.runtime },
+          screen: { ...screen, generation: session.runtime.generation },
+        };
+      });
     }
     if (request.type === "snapshot") {
       const session = sessions.get(request.terminal_ref);
@@ -338,10 +355,16 @@ function createHost(deps: HostDeps): Host {
       if (session.runtime.state !== "running" || !session.handle) {
         return reject("host_lost", "terminal is not running");
       }
-      session.handle.resize(request.columns, request.rows);
-      session.screen.resize(request.columns, request.rows);
-      session.runtime.columns = request.columns;
-      session.runtime.rows = request.rows;
+      // 같은 치수로 PTY를 다시 resize하면 POSIX는 SIGWINCH, Windows ConPTY는 전체 다시 그리기를 낸다.
+      if (
+        session.runtime.columns !== request.columns ||
+        session.runtime.rows !== request.rows
+      ) {
+        session.handle.resize(request.columns, request.rows);
+        session.screen.resize(request.columns, request.rows);
+        session.runtime.columns = request.columns;
+        session.runtime.rows = request.rows;
+      }
       if (request.remote) session.runtime.remote_size = true;
       else delete session.runtime.remote_size;
       return { ok: true, runtime: { ...session.runtime } };

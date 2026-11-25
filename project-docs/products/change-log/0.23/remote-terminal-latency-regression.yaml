@@ -1,0 +1,13 @@
+id: remote-terminal-latency-regression
+version: 0.23.176
+title: 원격 터미널 키 입력마다 resize·fit이 돌고 idle·scrollback 읽기가 과부하를 내던 지연을 고친다
+modules: [packages/core/terminals, packages/core/terminal-view, packages/core/remote, packages/remote-client, packages/shell/renderer]
+change: |
+  - `TerminalTab.reclaim`: 원격 터미널 탭에서 `ptyDims`가 비어 있거나 같은 크기 `resize` 뒤 `TerminalRuntimeChanged`가 오지 않아 키 입력마다 `fit()`과 `terminal_view/resize`·`terminals/list` 왕복을 보내던 문제를 고쳤다. 이미 크기를 쥔 상태의 `onKeyDown`은 바로 빠지고, `resize` 응답으로 `ptyDims`를 갱신하며 실패 시 `restored` 뒤 다시 잡는다.
+  - `terminals/host/main.ts`·`screen.ts`·`service.ts`·`terminal-view/view.ts`: 같은 치수 `resize`는 PTY에 다시 보내지 않는다. `screen()`은 seq·크기가 같으면 직렬화 없이 `unchanged`로 답하고, scrollback이 바뀌지 않았으면 `scrollback_key`로 scrollback 직렬화·전송·diff 비교를 건너뛴다. `serve.ts` `batchOutput`은 idle 뒤 첫 출력을 16ms 기다리지 않고 바로 보내고, `ECHO_MS=6`, `FAST_MS=25`, `SMALL_DIFF_CHARS=8000`, `MAX_DIFF_CHARS=24000`으로 조정했다.
+  - `displays.ts`·`screen-copy.ts`: 초기 `#sync` 중 도착한 `TerminalScreenChanged`를 놓치지 않도록 로드 직후 catch-up을 수행하고, catch-up `snapshot`은 cache된 runtime을 써 `terminals/list` 중복 호출을 줄인다.
+  - `remote-client/connection.ts`·`links.ts`·`machine-routes.ts`: `terminals/input`을 전용 `interactive` lane(4자리)으로 보내 파일 동기화·원격 읽기가 `screen` lane(8자리)을 채워도 키 입력이 대기하지 않게 했다.
+why: 원격 터미널 입력 지연이 다시 커졌고, 원격 core와 PTY host가 idle 상태에서도 모든 열린 터미널의 200줄 scrollback을 초당 4회씩 직렬화해 CPU를 크게 점유하고 있었다.
+decisions:
+  - text: "원격 터미널 화면 사본 구조를 유지하면서 idle `unchanged` 단축, `scrollback_key` 캐시, `interactive` lane 분리로 지연과 CPU를 함께 줄인다."
+    by: agent

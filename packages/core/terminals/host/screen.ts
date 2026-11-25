@@ -19,15 +19,28 @@ const SCROLLBACK = 10_000;
 // 못 받는다. 커서 숨김(?25l)도 빠뜨려 TUI 위에 커서가 남는다. 둘은 출력에서 직접 따라간다.
 const MOUSE_ENCODINGS = [1005, 1006, 1015, 1016];
 
+export type ScreenRead =
+  | { unchanged: true }
+  | (Omit<TerminalScreen, "generation" | "scrollback"> & {
+      scrollback?: TerminalLine[];
+      scrollback_key: string;
+    });
+
 export class Screen {
   readonly #term: headless.Terminal;
   readonly #serializer: serialize.SerializeAddon;
   #seq = 0;
+  #cols: number;
+  #rows: number;
+  #scrollSeq = 0;
+  #scrollCache: { key: string; lines: TerminalLine[] } | null = null;
   #disposed = false;
   #mouseEncoding: number | null = null;
   #cursorHidden = false;
 
   constructor(columns: number, rows: number) {
+    this.#cols = columns;
+    this.#rows = rows;
     this.#term = new headless.Terminal({
       cols: columns,
       rows,
@@ -39,6 +52,9 @@ export class Screen {
     // 글자 폭은 renderer xterm과 같아야 다시 붙은 화면의 칸이 맞는다.
     this.#term.loadAddon(new unicode11.Unicode11Addon());
     this.#term.unicode.activeVersion = "11";
+    this.#term.onScroll(() => {
+      this.#scrollSeq += 1;
+    });
     const track = (set: boolean) => (params: (number | number[])[]) => {
       for (const param of params) {
         if (typeof param !== "number") continue;
@@ -58,9 +74,15 @@ export class Screen {
       { prefix: "?", final: "l" },
       track(false),
     );
+    // CSI 3 J는 scrollback을 비운다. scrollback cache를 무효화한다.
+    this.#term.parser.registerCsiHandler({ final: "J" }, (params) => {
+      if (params.includes(3)) this.#scrollSeq += 1;
+      return false;
+    });
     this.#term.parser.registerEscHandler({ final: "c" }, () => {
       this.#mouseEncoding = null;
       this.#cursorHidden = false;
+      this.#scrollSeq += 1;
       return false;
     });
   }
@@ -81,8 +103,15 @@ export class Screen {
   /** 앞서 쓴 출력은 옛 크기로 파싱한 뒤에 바꾼다. 그 뒤 출력이 새 크기로 그려졌기 때문이다. */
   resize(columns: number, rows: number): void {
     if (this.#disposed) return;
+    if (this.#cols === columns && this.#rows === rows) return;
+    this.#cols = columns;
+    this.#rows = rows;
     this.#term.write("", () => {
-      if (!this.#disposed) this.#term.resize(columns, rows);
+      if (!this.#disposed) {
+        this.#term.resize(columns, rows);
+        this.#scrollSeq += 1;
+        this.#scrollCache = null;
+      }
     });
   }
 
@@ -118,10 +147,27 @@ export class Screen {
   /**
    * 지금까지 push한 출력을 모두 파싱한 화면을 서식 run의 줄로 준다(폰의 터미널 보기). viewport 전체와 그 위
    * scrollback의 마지막 tail줄이다. seq를 맞추는 방법은 `snapshot()`과 같다. 닫힌 화면이면 null이다.
+   * `known`과 seq·크기가 같으면 파싱이나 직렬화 없이 `unchanged`를 돌려주고, `scrollbackKey`가 같으면 scrollback을 생략한다.
    */
-  screen(tail: number): Promise<Omit<TerminalScreen, "generation"> | null> {
+  screen(
+    tail: number,
+    known?: {
+      afterSeq?: number;
+      columns?: number;
+      rows?: number;
+      scrollbackKey?: string;
+    },
+  ): Promise<ScreenRead | null> {
     const seq = this.#seq;
     if (this.#disposed) return Promise.resolve(null);
+    if (
+      known?.afterSeq !== undefined &&
+      known.afterSeq === seq &&
+      known.columns === this.#cols &&
+      known.rows === this.#rows
+    ) {
+      return Promise.resolve({ unchanged: true });
+    }
     return new Promise((resolve) => {
       this.#term.write("", () => {
         if (this.#disposed) return resolve(null);
@@ -141,6 +187,16 @@ export class Screen {
           return lines;
         };
         const base = buffer.baseY;
+        const scrollKey = `${buffer.type}:${base}:${tail}:${term.cols}:${this.#scrollSeq}`;
+        let scrollback: TerminalLine[] | undefined;
+        if (known?.scrollbackKey !== scrollKey) {
+          if (this.#scrollCache?.key === scrollKey) {
+            scrollback = this.#scrollCache.lines;
+          } else {
+            scrollback = read(Math.max(0, base - tail), base);
+            this.#scrollCache = { key: scrollKey, lines: scrollback };
+          }
+        }
         resolve({
           seq,
           columns: term.cols,
@@ -151,7 +207,8 @@ export class Screen {
             y: buffer.cursorY,
             hidden: this.#cursorHidden,
           },
-          scrollback: read(Math.max(0, base - tail), base),
+          scrollback_key: scrollKey,
+          ...(scrollback === undefined ? {} : { scrollback }),
           lines: read(base, base + term.rows),
         });
       });

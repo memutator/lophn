@@ -78,6 +78,9 @@ export function createMachineRoutes(deps: {
         method,
         body,
         by,
+        ...(resource === "terminals" && method === "input"
+          ? { lane: "interactive" as const }
+          : {}),
       });
     },
     watch(

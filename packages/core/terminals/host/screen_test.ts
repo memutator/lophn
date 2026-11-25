@@ -58,7 +58,7 @@ test("폰에 주는 화면은 서식이 같은 칸을 run으로 묶고 폭 2 글
   screen.push("\x1b[1;31mERR\x1b[0m ok \x1b[38;2;16;32;48m한글\x1b[0m\r\n");
   const last = screen.push("abcdefghijklm\r\n\x1b[44m  \x1b[0m");
   const dump = await screen.screen(1);
-  assert.ok(dump);
+  assert.ok(dump && !("unchanged" in dump));
   assert.equal(dump.seq, last);
   assert.deepEqual([dump.columns, dump.rows], [12, 3]);
   // viewport 위 scrollback의 마지막 한 줄만 온다.
@@ -78,6 +78,39 @@ test("폰에 주는 화면은 서식이 같은 칸을 run으로 묶고 폭 2 글
     { runs: [{ text: "  ", bg: "p4" }], wrapped: false },
   ]);
   assert.deepEqual(dump.cursor, { x: 2, y: 2, hidden: false });
+
+  // seq·크기가 같으면 unchanged로 바로 답하고, 출력이 나도 scrollback이 그대로면 scrollback을 생략한다.
+  const same = await screen.screen(1, {
+    afterSeq: dump.seq,
+    columns: 12,
+    rows: 3,
+    scrollbackKey: dump.scrollback_key,
+  });
+  assert.deepEqual(same, { unchanged: true });
+  const typed = screen.push("!");
+  const afterType = await screen.screen(1, {
+    afterSeq: dump.seq,
+    columns: 12,
+    rows: 3,
+    scrollbackKey: dump.scrollback_key,
+  });
+  assert.ok(afterType && !("unchanged" in afterType));
+  assert.equal(afterType.seq, typed);
+  assert.equal(afterType.scrollback, undefined);
+  assert.equal(afterType.scrollback_key, dump.scrollback_key);
+
+  // 줄이 scrollback으로 밀려 올라가면 새 scrollback을 실어 보낸다.
+  screen.push("\r\nnext");
+  const scrolled = await screen.screen(1, {
+    afterSeq: typed,
+    columns: 12,
+    rows: 3,
+    scrollbackKey: afterType.scrollback_key,
+  });
+  assert.ok(scrolled && !("unchanged" in scrolled));
+  assert.notEqual(scrolled.scrollback_key, afterType.scrollback_key);
+  assert.ok(scrolled.scrollback !== undefined);
+
   screen.dispose();
   assert.equal(await screen.screen(0), null);
 });

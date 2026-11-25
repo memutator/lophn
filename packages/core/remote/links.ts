@@ -569,7 +569,7 @@ export function createLinks(deps: LinksDeps) {
       method: string;
       body: unknown;
       by?: Requester;
-      lane?: "command";
+      lane?: "command" | "interactive";
       deadlineMs?: number;
     },
   ): Promise<Result<unknown>> {
@@ -669,7 +669,7 @@ export function createLinks(deps: LinksDeps) {
         method: string;
         body: unknown;
         by: Requester;
-        lane?: "command";
+        lane?: "command" | "interactive";
         deadlineMs?: number;
       },
     ): Promise<Result<unknown>> {

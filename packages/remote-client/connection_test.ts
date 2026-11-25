@@ -762,5 +762,14 @@ test("app commands wait in their own lane, so a full command lane leaves the scr
   assert.equal(sentCalls(), 12);
   assert.equal(waits.filter((one) => one.ms === 600_000).length, 4);
   assert.equal(waits.filter((one) => one.ms === 120_000).length, 8);
+
+  // Even when all 8 screen slots are full, terminals/input leaves immediately on the interactive lane.
+  void connection.call({
+    resource: "terminals",
+    method: "input",
+    body: { terminal: "trm_1", text: "a" },
+  });
+  await settle();
+  assert.equal(sentCalls(), 13);
   connection.close();
 });

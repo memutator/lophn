@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { applyScreenDiff } from "../../protocol/coding-agent/terminal-view.ts";
 import type { TerminalScreen } from "../terminals/ports.ts";
-import { diffScreen } from "./diff.ts";
+import { diffScreen, MAX_DIFF_CHARS } from "./diff.ts";
 
 const line = (text: string) => ({ runs: [{ text }], wrapped: false });
 const screen = (seq: number, rows: string[], scrollback: string[] = []) =>
@@ -42,6 +42,6 @@ test("diff를 적용하면 지금 화면이 되고, scrollback·크기·generati
   assert.equal(diffScreen(before, screen(2, ["$ ls", "x"])), null);
   assert.equal(diffScreen(before, { ...after, generation: 2 }), null);
   assert.equal(diffScreen(undefined, after), null);
-  const big = screen(2, ["a".repeat(13_000), "", ""]);
+  const big = screen(2, ["a".repeat(MAX_DIFF_CHARS + 1_000), "", ""]);
   assert.equal(diffScreen(before, big), null);
 });

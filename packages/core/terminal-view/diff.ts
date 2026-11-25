@@ -3,9 +3,9 @@ import type { TerminalScreenDiff } from "../../protocol/coding-agent/terminal-vi
 import type { TerminalScreen } from "../terminals/ports.ts";
 
 // diff 하나의 JSON 길이 상한. 넘으면 diff를 싣지 않고 보는 쪽이 snapshot을 읽는다(화면 한 번 통째로 다시 그리는 TUI가 연결을 채우지 않게).
-export const MAX_DIFF_CHARS = 12_000;
-// 이 안이면 키 입력의 echo 같은 작은 변화라 곧 이어질 출력을 빠르게 읽는다.
-export const SMALL_DIFF_CHARS = 3_000;
+export const MAX_DIFF_CHARS = 24_000;
+// 이 안이면 키 입력의 echo나 색이 많은 TUI 입력 줄 갱신 같은 작은 변화라 곧 이어질 출력을 빠르게 읽는다.
+export const SMALL_DIFF_CHARS = 8_000;
 
 const same = (a: unknown, b: unknown) =>
   JSON.stringify(a) === JSON.stringify(b);
@@ -26,8 +26,10 @@ export function diffScreen(
   ) {
     return null;
   }
-  for (let at = 0; at < after.scrollback.length; at += 1) {
-    if (!same(before.scrollback[at], after.scrollback[at])) return null;
+  if (before.scrollback !== after.scrollback) {
+    for (let at = 0; at < after.scrollback.length; at += 1) {
+      if (!same(before.scrollback[at], after.scrollback[at])) return null;
+    }
   }
   const lines: TerminalScreenDiff["lines"] = [];
   let chars = 0;

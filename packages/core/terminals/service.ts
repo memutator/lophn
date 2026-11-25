@@ -5,6 +5,7 @@ import { dirname } from "node:path";
 import { type ErrorCode, err, ok, type Result } from "../../base/mod.ts";
 import { prependPath } from "../../base/os/mod.ts";
 import { HARNESS_ADAPTERS } from "../../protocol/coding-agent/mod.ts";
+import type { TerminalLine } from "../../protocol/coding-agent/terminal-view.ts";
 import {
   HOME_TERMINAL_PROJECT,
   type TerminalAgent,
@@ -122,6 +123,11 @@ export function createTerminals(deps: {
     string,
     { agent?: TerminalAgent; tab_name?: string }
   >();
+  // 같은 scrollback을 PTY host가 생략했을 때 이어 붙일 마지막 scrollback 사본.
+  const scrollbacks = new Map<
+    string,
+    { generation: number; key: string; lines: TerminalLine[] }
+  >();
   const shapes = new Map<string, string>();
   const runtimeListeners = new Set<(runtime: TerminalRuntime) => void>();
   const outputListeners = new Set<
@@ -162,6 +168,7 @@ export function createTerminals(deps: {
       for (const listener of foregroundListeners) listener(change);
     },
     hostLost(exit) {
+      scrollbacks.clear();
       if (exit !== undefined) deps.hostExited(exit);
       for (const runtime of supervisor.runtimes()) changed(runtime);
     },
@@ -367,17 +374,69 @@ export function createTerminals(deps: {
       });
     },
 
-    async screen(terminal, tail) {
+    async screen(terminal, tail, known) {
       const found = target(terminal);
       if (!found.ok) return found;
+      const cached = scrollbacks.get(terminal);
+      const scrollbackKey =
+        known?.scrollbackKey !== undefined &&
+        cached !== undefined &&
+        cached.generation === found.value.generation &&
+        cached.key === known.scrollbackKey
+          ? known.scrollbackKey
+          : undefined;
       const reply = (await supervisor.request({
         type: "screen",
         terminal_ref: terminal,
         tail,
+        ...(known === undefined
+          ? {}
+          : {
+              after_seq: known.afterSeq,
+              generation: known.generation,
+              columns: known.columns,
+              rows: known.rows,
+            }),
+        ...(scrollbackKey === undefined
+          ? {}
+          : { scrollback_key: scrollbackKey }),
       })) as HostScreenReply | HostReply;
       if (!reply.ok) return failed(reply.reason, reply.message);
+      if ("unchanged" in reply) return ok(null);
       if (!("screen" in reply)) return failed("host_lost", "terminal is gone");
-      return ok(reply.screen);
+      const raw = reply.screen;
+      if (raw.scrollback !== undefined) {
+        scrollbacks.set(terminal, {
+          generation: raw.generation,
+          key: raw.scrollback_key,
+          lines: raw.scrollback,
+        });
+        return ok({ ...raw, scrollback: raw.scrollback });
+      }
+      const reused = scrollbacks.get(terminal);
+      if (
+        reused === undefined ||
+        reused.generation !== raw.generation ||
+        reused.key !== raw.scrollback_key
+      ) {
+        // cache가 어긋났으면 scrollback까지 포함해 한 번 다시 읽는다.
+        const fresh = (await supervisor.request({
+          type: "screen",
+          terminal_ref: terminal,
+          tail,
+        })) as HostScreenReply | HostReply;
+        if (!fresh.ok) return failed(fresh.reason, fresh.message);
+        if (!("screen" in fresh) || fresh.screen.scrollback === undefined) {
+          return failed("host_lost", "terminal is gone");
+        }
+        scrollbacks.set(terminal, {
+          generation: fresh.screen.generation,
+          key: fresh.screen.scrollback_key,
+          lines: fresh.screen.scrollback,
+        });
+        return ok({ ...fresh.screen, scrollback: fresh.screen.scrollback });
+      }
+      return ok({ ...raw, scrollback: reused.lines });
     },
 
     list(project) {

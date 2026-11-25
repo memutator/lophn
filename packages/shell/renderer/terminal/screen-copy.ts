@@ -77,12 +77,22 @@ export function createScreenCopyCore(
 ): TerminalCore {
   const call = terminalCaller(core);
   const base = createTerminalCore(core, events);
+  // 최근에 본 runtime을 기억해 catch-up snapshot마다 `terminals/list`를 한 번 더 부르지 않는다.
+  const runtimes = new Map<string, TerminalRuntime>();
+  const note = (runtime: TerminalRuntime) => {
+    runtimes.set(runtime.terminal_ref, runtime);
+    return runtime;
+  };
   const runtimeOf = async (
     terminal: string,
   ): Promise<TerminalReply<TerminalRuntime>> => {
     const list = await base.list();
+    if (list !== null) {
+      for (const one of list) note(one);
+    }
     const runtime = list?.find((one) => one.terminal_ref === terminal);
     if (runtime !== undefined) return { ok: true, value: runtime };
+    runtimes.delete(terminal);
     return {
       ok: false,
       code: list === null ? "unavailable" : "not_found",
@@ -91,6 +101,18 @@ export function createScreenCopyCore(
   };
   return {
     ...base,
+    async open(input) {
+      const reply = await base.open(input);
+      if (reply.ok) note(reply.value.runtime);
+      return reply;
+    },
+    async list() {
+      const list = await base.list();
+      if (list !== null) {
+        for (const one of list) note(one);
+      }
+      return list;
+    },
     async resize(terminal, _generation, columns, rows) {
       const sized = await call(terminalViewResize as Route, {
         terminal,
@@ -100,6 +122,43 @@ export function createScreenCopyCore(
       return sized.ok ? runtimeOf(terminal) : sized;
     },
     async snapshot(terminal, afterSeq) {
+      const cached = afterSeq > 0 ? runtimes.get(terminal) : undefined;
+      if (cached !== undefined) {
+        const screen = await call<Screen>(terminalViewSnapshot as Route, {
+          terminal,
+        });
+        if (!screen.ok) {
+          return screen.code === "not_found"
+            ? screen
+            : { ok: true, value: { runtime: cached, output: [] } };
+        }
+        if (screen.value.generation === cached.generation) {
+          const updated: TerminalRuntime = {
+            ...cached,
+            columns: screen.value.columns,
+            rows: screen.value.rows,
+          };
+          note(updated);
+          if (screen.value.seq <= afterSeq) {
+            return { ok: true, value: { runtime: updated, output: [] } };
+          }
+          return {
+            ok: true,
+            value: {
+              runtime: updated,
+              output: [
+                {
+                  terminal_ref: terminal,
+                  generation: screen.value.generation,
+                  seq: screen.value.seq,
+                  chunk: screenText(screen.value),
+                  dropped_output: false,
+                },
+              ],
+            },
+          };
+        }
+      }
       const [runtime, screen] = await Promise.all([
         runtimeOf(terminal),
         call<Screen>(terminalViewSnapshot as Route, { terminal }),
@@ -113,6 +172,12 @@ export function createScreenCopyCore(
       ) {
         return { ok: true, value: { runtime: runtime.value, output: [] } };
       }
+      const updated: TerminalRuntime = {
+        ...runtime.value,
+        columns: screen.value.columns,
+        rows: screen.value.rows,
+      };
+      note(updated);
       const output: TerminalOutput = {
         terminal_ref: terminal,
         generation: screen.value.generation,
@@ -123,11 +188,7 @@ export function createScreenCopyCore(
       return {
         ok: true,
         value: {
-          runtime: {
-            ...runtime.value,
-            columns: screen.value.columns,
-            rows: screen.value.rows,
-          },
+          runtime: updated,
           output: [output],
         },
       };
@@ -141,7 +202,15 @@ export function createScreenCopyCore(
     subscribe: (listener) =>
       events.subscribe(
         { types: ["TerminalScreenChanged", "TerminalRuntimeChanged"] },
-        listener,
+        (message) => {
+          if (
+            message.kind === "event" &&
+            message.event.type === "TerminalRuntimeChanged"
+          ) {
+            note(message.event.payload.runtime);
+          }
+          listener(message);
+        },
       ),
   };
 }

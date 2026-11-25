@@ -374,18 +374,48 @@ export function TerminalTab({
   const grabbedDims = useRef("");
   // 그 기계가 마지막으로 알린 PTY 크기.
   const ptyDims = useRef("");
+  if (copy && liveRuntime !== null && ptyDims.current === "") {
+    ptyDims.current = `${liveRuntime.columns}x${liveRuntime.rows}`;
+  }
   const [elsewhere, setElsewhere] = useState(false);
-  const reclaim = () => {
+  const reclaim = (fromKey = false) => {
     if (!(remote || copy) || !core || boundRef === null) return;
+    // 이미 이 탭이 PTY 크기를 쥐고 있으면 키를 칠 때마다 fit(강제 layout·getComputedStyle)과 resize를 부르지 않는다.
+    if (
+      fromKey &&
+      copy &&
+      !elsewhere &&
+      grabbedDims.current !== "" &&
+      ptyDims.current === grabbedDims.current &&
+      grabbed.current ===
+        `${boundRef}:${boundGeneration}:${grabbedDims.current}`
+    ) {
+      return;
+    }
     const dims = viewRef.current?.fit();
     if (!dims) return;
-    // 다른 기계의 탭은 치는 key마다 부른다. 이 탭이 잡은 크기를 다른 기기가 놓게 하지 않았으면(같은 치수) 보내지 않는다.
-    const size = `${boundRef}:${boundGeneration}:${dims.columns}x${dims.rows}`;
-    const held = ptyDims.current === `${dims.columns}x${dims.rows}`;
+    // 다른 기계의 탭은 이 탭이 잡은 크기를 다른 기기가 놓게 하지 않았으면(같은 치수) 보내지 않는다.
+    const dimText = `${dims.columns}x${dims.rows}`;
+    const size = `${boundRef}:${boundGeneration}:${dimText}`;
+    const held = ptyDims.current === dimText;
     if (copy && !elsewhere && held && size === grabbed.current) return;
     grabbed.current = size;
-    grabbedDims.current = `${dims.columns}x${dims.rows}`;
-    void core.resize(boundRef, boundGeneration, dims.columns, dims.rows);
+    grabbedDims.current = dimText;
+    const ref = boundRef;
+    void core
+      .resize(ref, boundGeneration, dims.columns, dims.rows)
+      .then((reply) => {
+        if (reply.ok) {
+          // 같은 치수면 원격 core가 TerminalRuntimeChanged를 다시 내지 않으므로 답에서 PTY 크기를 맞춘다.
+          ptyDims.current = `${reply.value.columns}x${reply.value.rows}`;
+          store.noteRuntime(reply.value);
+          const mine = grabbedDims.current === ptyDims.current;
+          setElsewhere(reply.value.remote_size === true && !mine);
+        } else if (grabbed.current === size) {
+          // watch lease 전 conflict 등으로 실패했으면 잡은 표시를 비워 다음 restored·입력에서 다시 잡는다.
+          grabbed.current = "";
+        }
+      });
   };
   useEffect(() => {
     if (!copy) return;
@@ -429,9 +459,10 @@ export function TerminalTab({
     if (!liveKey || !core || boundRef === null) return;
     if (remote || copy) {
       lastSize.current = "";
-      // 이 탭이 잡은 크기를 쥔 채 칸이 바뀌면(창 크기) 칸에 다시 맞춘다. 다른 기기가 잡았으면 사람이 누를 때까지 둔다.
-      if (!copy || !active || elsewhere || grabbedDims.current === "") return;
-      const timer = setTimeout(reclaim, 150);
+      // watch 직후 처음 snapshot이 끝나고 아직 크기를 못 잡았거나(열기 직후 watch 전 conflict), 이 탭이 잡은 크기를 쥔 채 칸이 바뀌면 다시 맞춘다.
+      if (!copy || !active || elsewhere) return;
+      if (grabbedDims.current === "" && restored === 0) return;
+      const timer = setTimeout(() => reclaim(), 150);
       return () => clearTimeout(timer);
     }
     const dims = viewRef.current?.fit();
@@ -521,8 +552,8 @@ export function TerminalTab({
         aria-label={t("terminal.label.output")}
         data-key-context="terminal"
         onFocus={bindFocus}
-        onPointerDown={reclaim}
-        onKeyDown={reclaim}
+        onPointerDown={() => reclaim()}
+        onKeyDown={() => reclaim(true)}
       >
         <div ref={hostRef} className={styles.screenHost} />
         {(copy ? elsewhere : remote) && showScreen ? (

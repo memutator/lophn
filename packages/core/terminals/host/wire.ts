@@ -56,7 +56,18 @@ export type HostRequest =
   | { type: "restart"; terminal_ref: string; generation: number }
   | { type: "snapshot"; terminal_ref: string; after_seq?: number }
   /** 지금 화면을 서식 run의 줄로 읽는다(폰의 터미널 보기). tail은 viewport 위 scrollback 줄 수다. */
-  | { type: "screen"; terminal_ref: string; tail: number };
+  | {
+      type: "screen";
+      terminal_ref: string;
+      tail: number;
+      /** 이전에 읽은 화면의 기준. 같으면 host가 화면을 다시 직렬화하지 않고 `unchanged: true`만 답한다. */
+      after_seq?: number;
+      generation?: number;
+      columns?: number;
+      rows?: number;
+      /** 이전에 받은 scrollback key. 같으면 host가 scrollback 줄을 생략한다. */
+      scrollback_key?: string;
+    };
 
 export type HostReject = {
   ok: false;
@@ -75,11 +86,22 @@ export type HostSnapshotReply = {
   output: TerminalOutput[];
 };
 
-export type HostScreenReply = {
-  ok: true;
-  runtime: TerminalRuntime;
-  screen: TerminalScreen;
+export type HostScreenPayload = Omit<TerminalScreen, "scrollback"> & {
+  scrollback?: TerminalScreen["scrollback"];
+  scrollback_key: string;
 };
+
+export type HostScreenReply =
+  | {
+      ok: true;
+      runtime: TerminalRuntime;
+      unchanged: true;
+    }
+  | {
+      ok: true;
+      runtime: TerminalRuntime;
+      screen: HostScreenPayload;
+    };
 
 export type ForegroundChange = {
   terminal_ref: string;

@@ -38,9 +38,9 @@ export type CoreCall = {
   body: unknown;
   // Who asked, for a computer's core to say to the other computer. A phone sends none.
   by?: Requester;
-  // `command` is an app command sent for an agent or an app. It has its own places so a slow one does not hold the
-  // screen's reads and the folder carry on the same link.
-  lane?: "command";
+  // `command` is an app command sent for an agent or an app. `interactive` is terminal input so slow reads or file
+  // carries on the screen lane never hold typing.
+  lane?: "command" | "interactive";
   // Overrides CALL_DEADLINE_MS for this call.
   deadlineMs?: number;
 };
@@ -81,6 +81,9 @@ const IN_FLIGHT = 8;
 const CALL_DEADLINE_MS = 120_000;
 // Places of the `command` lane. Fewer than IN_FLIGHT: the receiving core runs these as app calls, not reads.
 const COMMAND_IN_FLIGHT = 4;
+// Places of the `interactive` lane (terminal input). Together with screen (8) + command (4) this stays within the
+// receiving core's per-principal HTTP concurrency limit (16).
+const INTERACTIVE_IN_FLIGHT = 4;
 
 // Which way the open channel goes: straight to one of the computer's addresses, or through its relay.
 export type ConnectionPath = "direct" | "relay";
@@ -295,8 +298,18 @@ export function createConnection(
   };
   const screen: Lane = { limit: IN_FLIGHT, open: 0, queued: [] };
   const command: Lane = { limit: COMMAND_IN_FLIGHT, open: 0, queued: [] };
+  const interactive: Lane = {
+    limit: INTERACTIVE_IN_FLIGHT,
+    open: 0,
+    queued: [],
+  };
   const laneOf = (input: CoreCall) =>
-    input.lane === "command" ? command : screen;
+    input.lane === "command"
+      ? command
+      : input.lane === "interactive" ||
+          (input.resource === "terminals" && input.method === "input")
+        ? interactive
+        : screen;
   const laneById = new Map<string, Lane>();
   const stateListeners = new Set<(state: ConnectionState) => void>();
   const eventListeners = new Set<(message: CoreEventMessage) => void>();
@@ -397,9 +410,11 @@ export function createConnection(
     }
     screen.open = 0;
     command.open = 0;
+    interactive.open = 0;
     for (const { resolve } of [
       ...screen.queued.splice(0),
       ...command.queued.splice(0),
+      ...interactive.queued.splice(0),
     ]) {
       resolve({
         ok: false,

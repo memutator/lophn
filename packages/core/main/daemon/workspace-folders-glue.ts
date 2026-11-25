@@ -11,12 +11,17 @@ import {
   workspaceScope,
 } from "../../agent-workspaces/workspace/workspace-folders.ts";
 import {
+  globalSkillsFolder,
   memoryFileOf,
   workspaceDataFolder,
   workspaceDataSkillsFolder,
+  workspaceDataToolsFolder,
 } from "../../agent-workspaces/workspace/data-folder.ts";
 import { appFolderPaths, appSourcePath } from "../../apps/lookups.ts";
-import { projectFolderPaths } from "../../projects/lookups.ts";
+import {
+  activeProjectFolderPaths,
+  projectFolderPaths,
+} from "../../projects/lookups.ts";
 
 type Lookup = { sql: Pick<Sql, "get" | "all"> };
 
@@ -24,9 +29,12 @@ function scopeOf(
   lookup: Lookup,
   dataRoot: string,
   session: string,
+  includeRead = false,
 ): FolderScope | undefined {
   const found = lookup.sql.get(
-    "select workspace_kind, workspace_id from sessions where id = ?",
+    includeRead
+      ? "select workspace_kind, workspace_id, called_from_kind from sessions where id = ?"
+      : "select workspace_kind, workspace_id from sessions where id = ?",
     [session],
   );
   if (found === undefined) return undefined;
@@ -35,6 +43,10 @@ function scopeOf(
   const id = String(found["workspace_id"]);
   const workspace: WorkspaceFacts["workspace"] =
     kind === "project" || kind === "app" ? { kind, id } : null;
+  const calledFromWorkspace =
+    includeRead &&
+    found["called_from_kind"] !== null &&
+    found["called_from_kind"] !== undefined;
   const facts: WorkspaceFacts = {
     workspace,
     projectFolders:
@@ -49,18 +61,32 @@ function scopeOf(
       workspace === null
         ? null
         : workspaceDataFolder(dataRoot, { kind: workspace.kind, id } as never),
-    allProjectFolders: [],
-    // 쓰기 폴더만 쓰므로 읽기 범위를 좁히는 값은 보지 않는다.
-    calledFromWorkspace: false,
+    allProjectFolders:
+      includeRead && workspace === null && !calledFromWorkspace
+        ? activeProjectFolderPaths(sql)
+        : [],
+    calledFromWorkspace,
     workflowsFolder:
       workspace?.kind === "project"
         ? workflowsFolder(dataRoot, workspace.id)
         : null,
     skillsFolder: workspaceDataSkillsFolder(dataRoot, workspace as never),
+    globalSkillsFolder:
+      workspace === null ? globalSkillsFolder(dataRoot) : null,
+    toolsFolder: workspaceDataToolsFolder(dataRoot, workspace as never),
     artifactsFolder:
       workspace === null ? null : artifactsFolder(dataRoot, workspace),
   };
   return workspaceScope(facts);
+}
+
+// 그 session의 file 읽기 범위(절대 경로)다. `lophn skill check`의 agent 범위 검사에 쓴다.
+export function workspaceReadScopeOf(
+  lookup: Lookup,
+  dataRoot: string,
+  session: string,
+): FolderScope | undefined {
+  return scopeOf(lookup, dataRoot, session, true);
 }
 
 // 그 session의 agent.memory가 쓰는 파일의 폴더다. file tool 범위(workspaceScope)에는 넣지 않는다: memory 파일은

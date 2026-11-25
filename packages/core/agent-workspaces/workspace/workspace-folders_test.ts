@@ -19,23 +19,33 @@ const skills = "/data/projects/prj_a/skills";
 const artifacts = "/data/projects/prj_a/artifacts";
 const appSkills = "/data/apps/app_a/skills";
 const homeSkills = "/data/home/skills";
+const homeTools = "/data/home/tools";
+const globalSkills = "/data/skills";
 const appArtifacts = "/data/apps/app_a/artifacts";
 const project = { kind: "project", id: "prj_a" } as const;
 const app = { kind: "app", id: "app_a" } as const;
 
-// 이 규칙이 넓어지면 project workspace session이 앱 source를, app workspace session이 사람의 project 폴더나
-// workflows/를, home session이 아무 폴더나 쓴다.
+// 이 규칙이 넓어지면 project workspace session이 앱 source나 전역 skill 폴더를, app workspace session이 사람의 project 폴더나
+// workflows/·전역 skill 폴더를, home session이 아무 폴더나 쓴다.
 test("workspace 종류마다 쓰기 폴더는 그 그릇의 폴더뿐이다", () => {
-  const projectWorkspace = workspaceScope({ ...base, workspace: project });
+  const projectWorkspace = workspaceScope({
+    ...base,
+    workspace: project,
+    globalSkillsFolder: globalSkills,
+  });
   assert.deepStrictEqual(projectWorkspace, {
     read: ["/p1", "/p2", workflows, skills, artifacts],
     write: ["/p1", "/p2", workflows, skills, artifacts],
     base: "/p1",
   });
+  // project·app workspace는 전역 개인 skill 폴더를 읽지도 쓰지도 못한다
+  assert.ok(!projectWorkspace.read.includes(globalSkills));
+  assert.ok(!projectWorkspace.write.includes(globalSkills));
   const appWorkspace = workspaceScope({
     ...base,
     workspace: app,
     skillsFolder: appSkills,
+    globalSkillsFolder: globalSkills,
     artifactsFolder: appArtifacts,
   });
   // 앱 source 다음에 사람이 더 이은 폴더가 오고, 상대 경로 기준은 source다
@@ -44,6 +54,8 @@ test("workspace 종류마다 쓰기 폴더는 그 그릇의 폴더뿐이다", ()
     write: ["/app", "/shared", appSkills, appArtifacts],
     base: "/app",
   });
+  assert.ok(!appWorkspace.read.includes(globalSkills));
+  assert.ok(!appWorkspace.write.includes(globalSkills));
   // project workspace는 앱에 더한 폴더를 받지 않는다
   assert.ok(!projectWorkspace.write.includes("/shared"));
   // 폴더 없는 project는 workflows/, skills/, artifacts/만 열고 상대 경로 기준은 data 폴더다
@@ -55,10 +67,19 @@ test("workspace 종류마다 쓰기 폴더는 그 그릇의 폴더뿐이다", ()
       base: "/data/projects/prj_a",
     },
   );
-  // home은 모든 project 폴더를 읽기만 하고 자기 skills/만 쓴다
+  // home은 모든 project 폴더를 읽기만 하고 자기 skills/, tools/, 전역 개인 skill 보관소만 쓴다
   assert.deepStrictEqual(
-    workspaceScope({ ...base, workspace: null, skillsFolder: homeSkills }),
-    { read: ["/p1", "/p2", "/q", homeSkills], write: [homeSkills] },
+    workspaceScope({
+      ...base,
+      workspace: null,
+      skillsFolder: homeSkills,
+      toolsFolder: homeTools,
+      globalSkillsFolder: globalSkills,
+    }),
+    {
+      read: ["/p1", "/p2", "/q", homeSkills, homeTools, globalSkills],
+      write: [homeSkills, homeTools, globalSkills],
+    },
   );
 });
 
@@ -70,7 +91,8 @@ test("다른 workspace의 session이 불러 열린 home session은 project 폴�
       workspace: null,
       calledFromWorkspace: true,
       skillsFolder: homeSkills,
+      globalSkillsFolder: globalSkills,
     }),
-    { read: [homeSkills], write: [homeSkills] },
+    { read: [homeSkills, globalSkills], write: [homeSkills, globalSkills] },
   );
 });

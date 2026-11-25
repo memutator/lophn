@@ -47,6 +47,8 @@ import {
   recordRewindWrite,
   requestRewindSummary,
   SESSION_LIFECYCLE_ROUTES,
+  skillsCheck,
+  skillsList,
   stageRewindFile,
   takeRewindSummaryRequest,
   type Workspace,
@@ -969,6 +971,9 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       mcpToolsList,
       mcpToolsRequestTake,
       mcpToolsRequestDone,
+      // `lophn skill list|check`. handler는 wiring/lophn-agent-extensions.ts가 붙인다.
+      skillsList,
+      skillsCheck,
       // ask 대기와 사람의 답. handler는 wiring/approvals.ts가 붙인다.
       askWait,
       askRead,
@@ -1063,5 +1068,6 @@ export function createLophnAgent(ports: LophnAgentPorts) {
     createReaderRegistration,
     openAgents,
     agentMcpServers,
+    agentSkillAccess: ownOf,
   };
 }

@@ -912,6 +912,81 @@ flows:
     crosses_process: false
     docs: [architecture/agent-definition.md]
 
+  - id: skills-list
+    title: agent나 사람이 현재 workspace의 skill 목록과 제외된(skipped) 꾸러미를 읽는다
+    actor: agent
+    entries: [route:skills/list]
+    boundary: [agent-workspaces, lophn-agent, core-api]
+    code:
+      - packages/core/lophn-agent/extensions/skill-commands.ts
+      - packages/core/lophn-agent/extensions/skills.ts
+      - packages/core/main/daemon/wiring/lophn-agent-extensions.ts
+      - packages/protocol/lophn-agent/skill-settings.ts
+    steps:
+      - agent 자격은 자기 session의 workspace(project·app 인자가 있으면 같은 workspace인지 대조)를 쓰고, 사람 자격은 --project/--app 또는 Home을 쓴다
+      - 런타임 발견기(discoverSkills)와 같은 층(내장·공유·전역·workspace·workspace-data)과 상한으로 skill 목록(경로 포함)과 skipped(경로·이유)를 돌려준다
+      - agent 자격이면 그 agent 정의의 skills_off와 할당 앱의 공유 skill도 반영한다
+    outcomes:
+      - id: ok
+        observe: [response]
+      - id: invalid-input
+        code: invalid_input
+        when: project와 app을 둘 다 줬거나 입력 schema가 틀렸다
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: agent 자격이 다른 workspace를 지정했거나 session 조건이 없거나 actor 종류가 user·agent가 아니다
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: 지정한 project·app이나 agent session을 찾지 못했다
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: ledger snapshot을 열지 못했거나 skill 폴더를 읽지 못했다
+        observe: [response]
+    crosses_process: false
+    declared_only: [unauthorized]
+    docs: [architecture/agent-definition.md]
+
+  - id: skills-check
+    title: agent나 사람이 skill 폴더 하나를 런타임 규칙과 작성 경고로 검증한다
+    actor: agent
+    entries: [route:skills/check]
+    boundary: [agent-workspaces, lophn-agent, core-api]
+    code:
+      - packages/core/lophn-agent/extensions/skill-check.ts
+      - packages/core/lophn-agent/extensions/skill-commands.ts
+      - packages/core/main/daemon/wiring/lophn-agent-extensions.ts
+      - packages/protocol/lophn-agent/skill-settings.ts
+    steps:
+      - agent 자격은 path가 그 session의 읽기 범위 안인지 검사한다(범위 밖이면 forbidden, 범위 안의 symlink 폴더는 따라가지 않고 symlink_forbidden으로 답한다). 사람 자격은 절대 경로를 받는다
+      - 런타임과 같은 parseSkillFrontmatter·24 KiB 상한·BUILTIN_SKILLS로 오류 11종과 경고 6종(하위 층 덮어쓰기 shadows_existing 포함), manifest·부속 .md 바이트 크기를 돌려준다
+    outcomes:
+      - id: ok
+        observe: [response]
+        when: 검사를 마쳤다(errors가 비면 ok true, 있으면 ok false와 오류·경고 코드 목록)
+      - id: invalid-input
+        code: invalid_input
+        when: project와 app을 둘 다 줬거나 사람 자격에서 상대 경로를 줬거나 입력 schema가 틀렸다
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: agent 자격에서 path가 session 읽기 범위 밖이거나 다른 workspace를 지정했거나 actor 종류가 user·agent가 아니다
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: 지정한 project·app이나 agent session을 찾지 못했다
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: ledger snapshot을 열지 못했거나 검사 중 파일 시스템 오류가 났다
+        observe: [response]
+    crosses_process: false
+    risk: [sandbox]
+    declared_only: [unauthorized]
+    docs: [architecture/agent-definition.md]
+
   - id: instruction-read
     title: agent runtime이 session의 지침 file을 읽는다
     actor: system
@@ -1246,6 +1321,38 @@ flows:
         observe: [response]
     crosses_process: false
     refs: [A17]
+    docs: [architecture/agent-definition.md]
+
+  - id: skill-write-skill
+    title: 사람이나 agent가 /write-skill 또는 skill.read로 skill 작성·수정·정리 안내 skill을 읽는다
+    actor: person
+    entries: [skill:write-skill]
+    uses: [route:messages/send, tool:skill.read, route:skills/list, route:skills/check]
+    boundary: [agent-workspaces, agent-tools]
+    code:
+      - packages/core/agent-workspaces/skills/write-skill/
+      - packages/core/lophn-agent/extensions/skill-read.ts
+      - packages/core/lophn-agent/tools/bundles/skill.ts
+      - packages/protocol/lophn-agent/skill-settings.ts
+    steps:
+      - 사람이 composer에 /write-skill과 글을 치거나 말로 요청하면 agent가 skill.read로 write-skill 본문을 읽는다(home, project, app 모두 menu true)
+      - 본문(만들기·고치기·정리하기 모드, 그릇 판단표, 저장 위치, 검증, 제안 규칙)을 tool 결과로 주고, 작성·정리 규율은 design.md, 결함 진단·시나리오 평가는 evaluation.md를 skill.read path로 읽는다
+    outcomes:
+      - id: loaded
+        observe: [response]
+      - id: not-available
+        code: forbidden
+        when: 선언되지 않은 workspace 종류이거나 turn의 skill 목록에 없다
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: turn 목록에는 있었지만 판에 그 이름이 없다(첫 읽기 전에 사라졌다), 또는 path가 가리키는 딸린 file이 없다
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: 본문이나 딸린 .md를 온전히 읽지 못했다
+        observe: [response]
+    crosses_process: false
     docs: [architecture/agent-definition.md]
 
   - id: custom-call-reply

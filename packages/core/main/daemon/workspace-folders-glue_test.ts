@@ -40,6 +40,7 @@ test("project·app session의 rewind 쓰기 폴더는 자기 그릇의 폴더와
     "/work/a",
     `/data/projects/${PRJ}/workflows`,
     `/data/projects/${PRJ}/skills`,
+    `/data/projects/${PRJ}/tools`,
     `/data/projects/${PRJ}/artifacts`,
     `/data/projects/${PRJ}`,
   ]);
@@ -48,12 +49,15 @@ test("project·app session의 rewind 쓰기 폴더는 자기 그릇의 폴더와
     "/src/a",
     "/shared/a",
     `/data/apps/${APP}/skills`,
+    `/data/apps/${APP}/tools`,
     `/data/apps/${APP}/artifacts`,
     "/data/agent-memory",
   ]);
-  // home은 자기 skills/와 Home memory 폴더만 쓴다
+  // home은 자기 skills/, tools/, 전역 개인 skill 보관소와 Home memory 폴더만 쓴다
   assert.deepStrictEqual(workspaceFoldersOf({ sql }, "/data", "ses_home"), [
     "/data/home/skills",
+    "/data/home/tools",
+    "/data/skills",
     "/data/home",
   ]);
   assert.deepStrictEqual(

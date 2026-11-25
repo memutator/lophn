@@ -59,6 +59,11 @@ export function workspaceDataSkillsFolder(
   return `${workspaceDataFolder(root, workspace)}/${WORKSPACE_DATA_SKILLS}`;
 }
 
+// 전역 개인 skill 보관소(`<data>/skills`). Home session이 file tool로 쓰고 모든 workspace가 전역 층으로 읽는다.
+export function globalSkillsFolder(root: string): string {
+  return `${root.replace(/[\\/]+$/, "")}/${WORKSPACE_DATA_SKILLS}`;
+}
+
 // workspace 그릇 자리의 로컬 tool 폴더. 이 자리의 `.ts`/`.js`/`.mjs` 파일이 workspace-data 층 tool이다.
 export const WORKSPACE_DATA_TOOLS = "tools";
 export function workspaceDataToolsFolder(

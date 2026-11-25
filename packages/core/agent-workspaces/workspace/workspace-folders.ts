@@ -16,6 +16,8 @@ export type WorkspaceFacts = {
   workflowsFolder: string | null;
   // workspace의 `skills/` 절대 경로. Home·project·앱 workspace의 session이 쓴다(아래 workspaceScope)
   skillsFolder: string | null;
+  // 전역 개인 skill 보관소(`<data>/skills`) 절대 경로. Home session만 쓴다(아래 workspaceScope)
+  globalSkillsFolder?: string | null;
   // workspace의 `tools/` 절대 경로. Home·project·앱 workspace의 session이 쓴다(아래 workspaceScope)
   toolsFolder?: string | null;
   // workspace의 `artifacts/` 절대 경로. project·앱 workspace의 session이 쓴다(아래 workspaceScope)
@@ -36,10 +38,11 @@ export type FolderScope = {
 export function workspaceScope(facts: WorkspaceFacts): FolderScope {
   const { workspace } = facts;
   if (workspace === null) {
-    // home은 project 폴더를 읽기만 하고 자기 `skills/`와 `tools/`만 쓴다.
+    // home은 project 폴더를 읽기만 하고 자기 `skills/`, `tools/`, 전역 개인 skill 보관소만 쓴다.
     const writable = [
       ...(facts.skillsFolder === null ? [] : [facts.skillsFolder]),
       ...(facts.toolsFolder ? [facts.toolsFolder] : []),
+      ...(facts.globalSkillsFolder ? [facts.globalSkillsFolder] : []),
     ];
     return {
       read: [

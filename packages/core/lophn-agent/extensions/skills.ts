@@ -268,7 +268,7 @@ export type SharedSkill = SharedSkillHead & {
 };
 
 // 앱 bundle 안에서 skill 폴더들이 있는 자리다.
-const SHARED_ROOT_DIR = ".lophn";
+export const SHARED_ROOT_DIR = ".lophn";
 export const SHARED_SKILLS_DIR = `${SHARED_ROOT_DIR}/skills`;
 
 // 선언에서 다른 agent에게 주는 skill의 이름이다. 선언에 없는 폴더는 열지 않는다.

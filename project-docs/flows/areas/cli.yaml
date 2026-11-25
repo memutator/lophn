@@ -533,6 +533,8 @@ links:
   - {entry: "cli:run.cancel", flow: run-cancel}
   - {entry: "cli:session.list", flow: call-sendable-list}
   - {entry: "cli:settings.get", flow: settings-read}
+  - {entry: "cli:skill.list", flow: skills-list}
+  - {entry: "cli:skill.check", flow: skills-check}
   - {entry: "cli:tab.open", flow: host-tab-open}
   - {entry: "cli:tab.close", flow: host-tab-close}
   - {entry: "cli:tab.show", flow: host-tab-show}

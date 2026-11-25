@@ -15,6 +15,7 @@ export {
   isSharedCompanion,
   publicSkillNames,
   readSharedHeads,
+  SHARED_ROOT_DIR,
   SHARED_SKILLS_DIR,
   type SharedFolder,
   sharedFor,
@@ -28,6 +29,17 @@ export {
   type SkillSkipped,
   type SkillSources,
 } from "./skills.ts";
+export {
+  checkSkill,
+  type SkillCheckExisting,
+  type SkillCheckFiles,
+} from "./skill-check.ts";
+export {
+  createSkillCommandHandlers,
+  readSkillFolderSnapshot,
+  readSkillSourcesSnapshot,
+  type SkillCommandDeps,
+} from "./skill-commands.ts";
 export { createSkillsRead } from "./skills-handler.ts";
 export { createSkillSnapshot, type SkillSnapshotDeps } from "./skill-read.ts";
 export {

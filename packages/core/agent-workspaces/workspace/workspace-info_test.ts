@@ -26,6 +26,7 @@ const app = {
 
 const files: WorkspaceFiles = {
   skillsFolder: (workspace) => `/data/${workspace?.id ?? "home"}/skills`,
+  globalSkillsFolder: () => "/data/skills",
   dataFolder: (workspace) => `/data/${workspace.id}`,
   workflowsFolder: (project) => `/data/${project}/workflows`,
   artifactsFolder: (workspace) => `/data/${workspace.id}/artifacts`,
@@ -128,6 +129,11 @@ test("home의 앱 목록에는 공개 command와 쓰는 곳이 실리고 package
   assert.ok(read.ok);
   const text = read.value.workspace.text;
   assert.ok(text.includes("Skills folder: /data/home/skills\n"));
+  assert.ok(text.includes("Global skills folder: /data/skills\n"));
+  assert.deepStrictEqual(read.value.scope.write, [
+    "/data/home/skills",
+    "/data/skills",
+  ]);
   assert.ok(
     text.includes("`lophn ledger <command>`): show (read) show does it"),
   );

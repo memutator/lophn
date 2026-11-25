@@ -75,6 +75,8 @@ export type WorkspaceData = {
   workflowsFolder: string | null;
   // workspace(Home, project, 앱)의 `skills/` 폴더 절대 path다. 폴더를 만들지 못했으면 null
   skillsFolder: string | null;
+  // Home만. 전역 개인 skill 보관소(`<LOPHN_HOME>/skills`) 절대 path다. project·앱 workspace는 null
+  globalSkillsFolder?: string | null;
   // project·앱 workspace의 artifacts 폴더와 목록. 폴더를 만들지 못했거나 home이면 null
   artifacts: { folder: string; items: readonly ArtifactEntry[] } | null;
 };
@@ -145,6 +147,9 @@ function workspaceLines(data: WorkspaceData): string[] {
     ...(data.skillsFolder === null
       ? []
       : [`  Skills folder: ${data.skillsFolder}`]),
+    ...(data.globalSkillsFolder
+      ? [`  Global skills folder: ${data.globalSkillsFolder}`]
+      : []),
   ];
 }
 

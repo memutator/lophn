@@ -178,8 +178,8 @@ test("workspace 종류의 tool 목록과 명령 정의의 wire 이름이 겹치�
   }
 });
 
-// custom은 `lophn` tool(그 workspace 종류의 명령 전부)을 늘 받고 내장 tool은 고른 것만 받는다. 목록 밖(home의 file.write), 고르지 않은
-// 내장 tool, 고르지 않은 MCP, 목록 밖 명령(project의 app.create)은 tools[]에도 실행 목록에도 없고, credential 상한은 workspace 종류 그대로다.
+// custom은 `lophn` tool(그 workspace 종류의 명령 전부)을 늘 받고 내장 tool은 고른 것만 받는다. 목록 밖 이름(notes.add), 고르지 않은
+// 내장 tool(shell.run), 고르지 않은 MCP, 목록 밖 명령(project의 app.create)은 tools[]에도 실행 목록에도 없고, credential 상한은 workspace 종류 그대로다.
 test("custom은 lophn tool과 고른 내장 tool만 보고 workspace 종류 목록 밖은 보지도 부르지도 못한다", async () => {
   const definitions = agentTools({ file: FILE_HOOKS });
   const picks = ["file.read", "file.write", "notes.add"];
@@ -194,12 +194,10 @@ test("custom은 lophn tool과 고른 내장 tool만 보고 workspace 종류 목�
       external: [],
     });
     const names = visible.map((tool) => tool.name);
-    // project는 file.write가 목록 안이라 보인다. home은 밖이라 안 보인다. 고르지 않은 shell.run, web.fetch 등도 없다.
+    // home과 project 모두 file.write가 목록 안이라 보인다. 목록 밖 notes.add와 고르지 않은 shell.run·web.fetch는 없다.
     assert.deepStrictEqual(
       [...names].sort(),
-      kind === "home"
-        ? ["file.read", "lophn"]
-        : ["file.read", "file.write", "lophn"],
+      ["file.read", "file.write", "lophn"],
       kind,
     );
     // 설명이 싣는 명령은 lophn runtime이 보는 것과 같다.
@@ -239,7 +237,7 @@ test("custom은 lophn tool과 고른 내장 tool만 보고 workspace 종류 목�
     if (kind === "project") {
       tries.push(["lophn", { args: ["app", "create", "x", "y"] }]);
     } else {
-      tries.push(["file_write", { path: "a.txt", content: "x" }]);
+      tries.push(["shell_run", { command: "echo hi" }]);
     }
     for (const [name, input] of tries) {
       const target = dispatchTarget(name, input);

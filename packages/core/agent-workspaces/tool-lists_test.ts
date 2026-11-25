@@ -27,14 +27,10 @@ test("workspace kind tool wire names fit the provider rule and never collide", (
   }
 });
 
-// `lophn`·`shell.run`은 셋 다 받고, 파일 쓰기 tool은 project와 app만 받는다.
+// `lophn`·`shell.run`과 파일 쓰기 tool(`file.write`·`file.edit`)은 세 workspace 종류가 모두 받는다(home 쓰기 범위는 workspaceScope가 가둔다).
 test("each tool appears only in the workspace kinds that do its work", () => {
   const table: [string[], readonly WorkspaceKind[]][] = [
-    [["lophn", "shell.run"], WORKSPACE_KINDS],
-    [
-      ["file.write", "file.edit"],
-      ["project", "app"],
-    ],
+    [["lophn", "shell.run", "file.write", "file.edit"], WORKSPACE_KINDS],
   ];
   for (const [names, kinds] of table) {
     for (const kind of WORKSPACE_KINDS) {

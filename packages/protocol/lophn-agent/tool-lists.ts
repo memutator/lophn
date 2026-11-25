@@ -25,7 +25,7 @@ export const MEMORY_MAX_BYTES = 8192;
 // core를 새로 띄우려 하면 안 되므로, CLI는 이 표시를 보면 바로 멈추고 `lophn` tool을 쓰라고 알린다.
 export const AGENT_SHELL_ENV = "LOPHN_AGENT_SHELL";
 
-// 파일 쓰기 tool은 home이 빼고 project·app이 갖는다.
+// 파일 쓰기 tool은 세 workspace 종류가 모두 갖는다. home은 workspaceScope가 skills/·tools/·전역 개인 skill 폴더로 쓰기 범위를 가둔다.
 export const WORK_TOOLS = ["file.write", "file.edit"] as const;
 
 // 읽기 tool은 세 workspace 종류가 모두 갖는다.
@@ -33,7 +33,7 @@ export const READ_TOOLS = ["visual.show"] as const;
 
 // workspace 종류가 더하는 tool이다.
 const WORKSPACE_TOOLS = {
-  home: [],
+  home: [...WORK_TOOLS],
   project: [...WORK_TOOLS],
   app: [...WORK_TOOLS],
 } as const satisfies Record<WorkspaceKind, readonly string[]>;

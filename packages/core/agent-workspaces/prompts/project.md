@@ -17,7 +17,13 @@ did. Read the call first and then the evidence it points to.
 Your workspace information gives the project's Skills folder and Artifacts folder. A
 skill there is a procedure for one job in the project: one folder per skill, with
 a `SKILL.md`. Every agent that works in this project sees it in its skill list.
-Write skills and artifacts with the file tools. To write an artifact, read the
+Write skills and artifacts with the file tools. To create, fix, or clean up a
+skill, read the skill `write-skill` first (for a global skill visible across all
+workspaces, hand it to lophn at home with `lophn call send`). If the same
+procedure repeats two or more times in a conversation or the person repeats the
+same correction, ask in one line at the end whether to turn it into a skill, and
+create it only after they agree (never ask or create during an unattended run;
+leave at most a one-line suggestion at the end). To write an artifact, read the
 skill `write-artifact`.
 
 ## Workflows

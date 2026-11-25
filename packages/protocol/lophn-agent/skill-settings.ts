@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { withReadCommon } from "../base/envelope.ts";
 import { idSchema } from "../base/ids.ts";
-import { defineRead } from "../base/route.ts";
+import { defineMemory, defineRead } from "../base/route.ts";
 import type { WorkspaceKind } from "./workspaces.ts";
 
 // 끈 skill의 정확한 이름이다(전역 설정, project `extensions.json`, agent 정의의 `skills_off`가 같은 규칙을 쓴다).
@@ -88,6 +88,12 @@ export const BUILTIN_SKILLS: readonly {
     can_disable: false,
     menu: false,
   },
+  {
+    name: "write-skill",
+    workspaces: ["home", "project", "app"],
+    can_disable: false,
+    menu: true,
+  },
 ];
 
 const skillEntrySchema = z.object({
@@ -122,6 +128,106 @@ export const skillsRead = defineRead({
   ),
   reads: ["settings"],
   actors: ["user", "machine"],
+  errors: [
+    "invalid_input",
+    "unauthorized",
+    "forbidden",
+    "not_found",
+    "unavailable",
+  ],
+});
+
+const skillListEntrySchema = skillEntrySchema.extend({
+  path: z.string().min(1),
+});
+export type SkillListEntry = z.infer<typeof skillListEntrySchema>;
+
+const skillSkippedSchema = z.object({
+  path: z.string().min(1),
+  reason: z.string().min(1),
+});
+export type SkillSkippedEntry = z.infer<typeof skillSkippedSchema>;
+
+// `lophn skill list`가 부르는 읽기 전용 route다. session workspace(사람 자격이면 --project/--app 또는 Home)에서
+// 보이는 skill(경로 포함)과 발견에서 빠진 skipped 목록을 함께 돌려준다.
+export const skillsList = defineMemory({
+  resource: "skills",
+  method: "list",
+  name: "ListSkills",
+  input: z.strictObject({
+    project: z.string().min(1).optional(),
+    app: z.string().min(1).optional(),
+  }),
+  output: z.object({
+    skills: z.array(skillListEntrySchema),
+    skipped: z.array(skillSkippedSchema),
+  }),
+  actors: ["user", "agent"],
+  errors: [
+    "invalid_input",
+    "unauthorized",
+    "forbidden",
+    "not_found",
+    "unavailable",
+  ],
+});
+
+export const SKILL_CHECK_ERROR_CODES = [
+  "missing_manifest",
+  "symlink_forbidden",
+  "size_exceeded",
+  "invalid_frontmatter",
+  "name_dir_mismatch",
+  "builtin_name_collision",
+  "empty_body",
+  "angle_brackets_in_description",
+  "unfinished_todo",
+  "unclosed_code_fence",
+  "missing_companion",
+] as const;
+export type SkillCheckErrorCode = (typeof SKILL_CHECK_ERROR_CODES)[number];
+
+export const SKILL_CHECK_WARNING_CODES = [
+  "description_long",
+  "body_long",
+  "nested_subdirs_ignored",
+  "auxiliary_file",
+  "non_md_companion",
+  "shadows_existing",
+] as const;
+export type SkillCheckWarningCode = (typeof SKILL_CHECK_WARNING_CODES)[number];
+
+const skillCheckIssueSchema = z.object({
+  code: z.string().min(1),
+  file: z.string().min(1),
+  message: z.string().min(1),
+});
+export type SkillCheckIssue = z.infer<typeof skillCheckIssueSchema>;
+
+const skillCheckResultSchema = z.object({
+  ok: z.boolean(),
+  name: z.string().nullable(),
+  bytes: z.object({
+    manifest: z.number().int().nonnegative(),
+    companions: z.record(z.string(), z.number().int().nonnegative()),
+  }),
+  errors: z.array(skillCheckIssueSchema),
+  warnings: z.array(skillCheckIssueSchema),
+});
+export type SkillCheckResult = z.infer<typeof skillCheckResultSchema>;
+
+// `lophn skill check <path>`가 부르는 읽기 전용 검사 route다. agent 자격은 그 session의 읽기 범위 안 폴더만 검사한다.
+export const skillsCheck = defineMemory({
+  resource: "skills",
+  method: "check",
+  name: "CheckSkill",
+  input: z.strictObject({
+    path: z.string().min(1),
+    project: z.string().min(1).optional(),
+    app: z.string().min(1).optional(),
+  }),
+  output: skillCheckResultSchema,
+  actors: ["user", "agent"],
   errors: [
     "invalid_input",
     "unauthorized",

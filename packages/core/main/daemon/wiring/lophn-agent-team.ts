@@ -43,3 +43,4 @@ export const lophnAgentDefinitions = agent.lophnAgentDefinitions;
 export const createReaderRegistration = agent.createReaderRegistration;
 export const agentDirectory = createAgentDirectory(agent.openAgents);
 export const agentMcpServers = agent.agentMcpServers;
+export const agentSkillAccess = agent.agentSkillAccess;

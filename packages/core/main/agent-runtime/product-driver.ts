@@ -31,6 +31,7 @@ import { workspacePrompt } from "../../agent-workspaces/prompts/prompts.ts";
 import { BUNDLED_SKILLS_ROOT } from "../../agent-workspaces/skills/root.ts";
 import { listArtifactEntries } from "../../agent-workspaces/workspace/artifact-list.ts";
 import {
+  globalSkillsFolder,
   workspaceDataFolder,
   workspaceDataSkillsFolder,
   workspaceDataToolsFolder,
@@ -129,6 +130,7 @@ function workspaceFiles(): WorkspaceFiles {
       root === null
         ? null
         : workspaceDataSkillsFolder(root, workspace as never),
+    globalSkillsFolder: () => (root === null ? null : globalSkillsFolder(root)),
     toolsFolder: (workspace) =>
       root === null ? null : workspaceDataToolsFolder(root, workspace as never),
     dataFolder: (workspace) =>

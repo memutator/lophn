@@ -1,0 +1,24 @@
+id: skill-creator
+version: 0.23.170
+platform_note: none
+title: "내장 write-skill, Home skill·전역 skill 파일 쓰기, lophn skill list/check 명령을 더한다"
+modules:
+  - packages/protocol
+  - packages/core/lophn-agent
+  - packages/core/agent-workspaces
+  - packages/core/main
+  - packages/cli
+change: |
+  - 내장 skill `write-skill`(home·project·app, `can_disable: false`, `menu: true`)과 평탄 부속 `design.md`·`evaluation.md`를 추가해 `/` 메뉴와 말로 skill 만들기·고치기·정리하기를 안내한다.
+  - Home tool 목록(`WORKSPACE_TOOLS.home`)에 `file.write`·`file.edit`를 더하고, `workspaceScope`·`workspace-folders-glue`·`workspace-info`에 전역 개인 skill 보관소(`<LOPHN_HOME>/skills`)를 Home 전용 쓰기 범위와 `Global skills folder` 줄로 연결했다(rewind root 포함). project·app session은 전역 폴더를 읽고 쓰지 못한다.
+  - 읽기 전용 CLI 명령 `lophn skill list`·`lophn skill check <path>`와 core memory route `skills/list`·`skills/check`를 추가했다. 런타임 발견기(`discoverSkills`, `parseSkillFrontmatter`, `SKILL_BODY_MAX_BYTES`, `BUILTIN_SKILLS`)를 그대로 재사용해 `skipped` 노출, 오류 11종·경고 6종 검사, agent 읽기 범위 제한을 제공한다.
+  - home·project·app 지침의 Skills 문단에 `write-skill` 안내와 되풀이 절차 제안 규칙(동의 후 생성, unattended에서는 묻지도 만들지도 않음)을 넣었다.
+why: |
+  agent가 skill을 쓸 때 24 KiB 초과·frontmatter 오류로 다음 turn에 조용히 빠지거나 하위 폴더 부속 문서·긴 설명으로 오동작하는 문제를 막고, Home에서도 Home 전용 skill과 전역 개인 skill을 안전하게 만들고 검증·정리할 수 있게 하기 위해서다.
+decisions:
+  - text: "내장 skill `write-skill`을 `/` 메뉴에 띄우고(`menu: true`), Home에도 `file.write`·`file.edit`를 주되 쓰기 범위를 Home `skills/`·`tools/`·전역 `<LOPHN_HOME>/skills`로만 가둔다. 버린 길: 전용 `skill_manage` tool(일의 흐름을 tool로 만들지 않는 원칙과 `file.write` rewind 재사용)."
+    by: person
+  - text: "반복 절차 skill화는 대화 안에서 제안하고 사람 동의 후에만 만들며(지침으로만), turn 뒤 자동 학습·자동 합치기와 프롬프트 skill 설명 런타임 절단은 들이지 않는다."
+    by: person
+  - text: "기본 저장 위치는 workspace Skills folder, 전역 skill 쓰기는 Home에서만(project·app은 Home lophn에 `call.send`), 검증 명령 `lophn skill list|check`를 런타임 파서 재사용으로 함께 둔다."
+    by: agent

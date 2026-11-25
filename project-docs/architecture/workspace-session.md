@@ -39,7 +39,7 @@ session의 경계가 흐리면 사람이 대화에서 잃는 것이 생긴다. �
 - file 범위(file tool이 읽고 쓸 수 있는 폴더)는 workspace 종류가 정한다.
   - project: 그 project의 폴더들(사람이 이은 것. 없을 수도 있다)과 그 project의 `workflows/`·`artifacts/`·`skills/`(`<data>/projects/<project>/…`)를 읽고 쓴다.
   - 앱: 앱 source 폴더, 사람이 앱에 더 이은 폴더(`app.edit_folders`, App details의 Folders), 그 앱의 `artifacts/`·`skills/`(`<data>/apps/<app>/…`)를 읽고 쓴다.
-  - home: 등록된 모든 project 폴더를 읽기만 하고, 자기 `skills/`(`<data>/home/skills/`)를 읽고 쓴다.
+  - home: 등록된 모든 project 폴더를 읽기만 하고, 자기 `skills/`(`<data>/home/skills/`)·`tools/`(`<data>/home/tools/`)와 전역 개인 skill 보관소(`<data>/skills/`)를 읽고 쓴다. workspace info는 Home에 `Skills folder`와 `Global skills folder`를 보인다.
   - 범위는 상대 경로를 푸는 기준 `base`를 싣는다. 그릇의 첫 폴더(project의 첫 폴더, 앱은 source가 있으면 source, 없으면 첫 더한 폴더)이고, 없으면 workspace의 data 폴더(`<data>/projects/<project>`, `<data>/apps/<app>`)다. `base`는 상대 경로를 푸는 기준일 뿐 허락을 넓히지 않는다.
 
 ## 지키는 것
@@ -75,7 +75,7 @@ session의 경계가 흐리면 사람이 대화에서 잃는 것이 생긴다. �
 15. home의 session은 기획하고 call로 맡기며 project·앱을 직접 쓰지 않는다.
 16. 앱의 data와 release 사본(`<data>/apps/<app>/` 아래 `data/`, `bundles/`, `staging/`, `preview/`)은 어느 workspace 종류의 범위에도 없다. 앱 data는 앱 tool로만 다루고 release 사본은 봉인된 것이다. agent 정의(`<data>/agents/`)도 열지 않는다.
     - 앱 source는 기본 자리(`<data>/apps/<app>/source`)이거나 사람이 이은 폴더다. 앱에 더 이은 폴더는 project 연결 폴더와 같은 모양(`{path, description}`)이고, 서로나 source와 겹치면 `invalid_input`이다. release에는 source만 봉인되고 더한 폴더는 들어가지 않는다.
-17. 지침 file 중 file 범위 밖인 것이 있다. 사람의 폴더가 없는 project의 `LOPHN.md`(`<data>/projects/<project>/LOPHN.md`), Home의 `LOPHN.md`와 `extensions.json`(`<data>/home/`)은 사람이 editor로 고친다(Home 그릇 자리에서 열리는 것은 `skills/`뿐). 앱 workspace의 지침은 source의 `AGENTS.md`이고 source 폴더가 범위라 agent가 직접 고칠 수 있다.
+17. 지침 file 중 file 범위 밖인 것이 있다. 사람의 폴더가 없는 project의 `LOPHN.md`(`<data>/projects/<project>/LOPHN.md`), Home의 `LOPHN.md`와 `extensions.json`(`<data>/home/`)은 사람이 editor로 고친다(Home에서 file tool 쓰기가 열리는 것은 `home/skills/`, `home/tools/`, 전역 개인 skill 보관소 `<data>/skills/`뿐). 앱 workspace의 지침은 source의 `AGENTS.md`이고 source 폴더가 범위라 agent가 직접 고칠 수 있다.
 18. agent runtime child(kind `lophn-agent/runtime`)는 권한 flag 없이 뜬다. launch spec에는 권한 칸이 없다(kind, entry, policy, memory limit뿐). child 하나가 여러 session을 돌리므로 session마다 띄우지 않고, 폴더·provider·MCP·skill 목록이 바뀌어도 다시 띄우지 않는다. session마다의 file 범위는 file tool 쪽 검사가 지킨다.
 19. 사람이 메시지에 붙인 이미지는 메시지 content의 image block이다(`architecture/agent-call.md`의 content block).
     - 화면이 먼저 `message-images/upload`로 올려 blob hash를 받고 `SendMessage.content`에 `{type: "image", mimeType, blob}`을 싣는다. 올림과 `SendMessage`는 같은 자격이어야 한다. 참조되지 않은 올림은 blob 준비의 수명(10분)이 지나면 사라진다.

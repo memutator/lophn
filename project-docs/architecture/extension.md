@@ -13,7 +13,7 @@ System Extension(manifest·CJS bundle·Settings › System › Extensions)은 �
 
 1. **전역**: `<data root>/tools/` (`~/.lophn/tools/`)
 2. **workspace 저장소**: `<workspace folder>/.lophn/tools/` (project 첫 폴더 또는 app source)
-3. **workspace 데이터(그릇)**: `<data root>/{home,projects/<prj>,apps/<app>}/tools/` (agent의 `file.write` 허용 범위에 포함)
+3. **workspace 데이터(그릇)**: `<data root>/{home,projects/<prj>,apps/<app>}/tools/` (세 workspace 종류 모두 `file.write`·`file.edit` 허용 범위와 rewind 대상에 포함 — Home agent도 자기 `tools/`를 직접 쓰고 rewind로 되돌릴 수 있다)
 
 - 파일 형식: TypeScript·JavaScript 단일 파일(`_`·`.`로 시작하는 파일, test 파일, 타입 선언 파일 제외). 파일 이름(확장자 제외)이 tool 이름(`[a-z][a-z0-9_]*`, `__` 금지)이 된다.
 - model에 보이는 이름: `local__<name>` (전체 64자 이하). 내장 tool과 `mcp__`와 충돌하지 않는다.

@@ -40,6 +40,8 @@ export type WorkspaceFiles = {
   skillsFolder(
     workspace: { kind: "project" | "app"; id: string } | null,
   ): string | null;
+  // 전역 개인 skill 보관소(`<LOPHN_HOME>/skills`). Home만 쓴다. data root를 모르면 null.
+  globalSkillsFolder?(): string | null;
   // workspace의 `tools/` 폴더. null은 Home이다. data root를 모르면 null.
   toolsFolder?(
     workspace: { kind: "project" | "app"; id: string } | null,
@@ -343,6 +345,20 @@ async function readWorkspaceData(
     }
   }
 
+  // Home workspace의 turn 시작에 전역 개인 skill 폴더를 만든다(skills와 같다).
+  let globalSkillsFolder: string | null = null;
+  if (workspace === null) {
+    const folder = files.globalSkillsFolder?.() ?? null;
+    if (folder !== null) {
+      try {
+        await files.ensureDir(folder);
+        globalSkillsFolder = folder;
+      } catch {
+        /* 폴더가 없으면 범위에서 빠진다 */
+      }
+    }
+  }
+
   // Home·project·앱 workspace의 turn 시작에 tools 폴더를 만든다(skills와 같다).
   let toolsFolder: string | null = null;
   {
@@ -384,6 +400,7 @@ async function readWorkspaceData(
     calledFromWorkspace: agent.called_from !== null,
     workflowsFolder,
     skillsFolder,
+    globalSkillsFolder,
     toolsFolder,
     artifactsFolder: artifacts?.folder ?? null,
   });
@@ -398,6 +415,7 @@ async function readWorkspaceData(
       release,
       workflowsFolder,
       skillsFolder,
+      globalSkillsFolder,
       artifacts,
     },
     scope,

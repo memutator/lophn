@@ -1,5 +1,5 @@
 id: workflow-stall-pending-followup
-version: 0.23.170
+version: 0.23.171
 platform_note: none
 title: Avoid false workflow step_stalled when worker reply is queued or follow-up turn started
 modules:

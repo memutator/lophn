@@ -1,5 +1,5 @@
 id: allowlist-coding-sessions-open
-version: 0.23.174
+version: 0.23.175
 platform_note: none
 title: "shell main renderer allowlist에 memory:coding_sessions/open을 추가한다"
 modules:

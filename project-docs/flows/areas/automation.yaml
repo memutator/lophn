@@ -13,7 +13,7 @@ flows:
       - "project 이름과 workflow 이름으로 project id와 선언(workflow.yaml)을 푼다. 선언이 틀리면(invalid_inputs 포함) conflict로 거절한다. workflows 폴더를 못 읽으면 unavailable"
       - "선언에 inputs가 있으면 validateWorkflowInputs로 검증하고(type이 agent인 필드가 있으면 project에서 호출 가능한 agent 목록으로 검사, when 조건으로 숨겨진 필드는 건너뜀) 실패하면 invalid_input으로 거절한다"
       - "step을 고르지 않으면 선언의 첫 step, 골랐으면 그 step을 찾는다. 없으면 not_found"
-      - "선언의 참가자에서 읽는 칸(agent, workspace, on, kind)을 instance로 옮긴다. 참가자 담당을 풀어(plan.ts) 받을 session과 step 메시지 본문을 command 앞에서 정한다. 검증된 inputs가 비어 있지 않으면 첫 step 본문에 Inputs: 섹션을 주입한다. on이 있으면 명단의 그 컴퓨터로 넘길 step call이다"
+      - "선언의 참가자에서 읽는 칸(agent, workspace, on, kind)과 StartWorkflow의 선택 `participant_modes`(없으면 `approvals.workflow_modes` 기억 값)를 instance(`participant_modes_json`)로 옮긴다. sub-workflow는 부모 instance 단계와 `min`으로 상한을 둔다. 참가자 담당을 풀어(plan.ts) 받을 session(해당 participant 권한 단계 반영)과 step 메시지 본문을 command 앞에서 정한다. 검증된 inputs가 비어 있지 않으면 첫 step 본문에 Inputs: 섹션을 주입한다. on이 있으면 명단의 그 컴퓨터로 넘길 step call이다"
       - "CreateWorkflowInstance 전에 시작 입력 글, inputs 안 모든 문자열(재귀), handoff 본문을 redaction한 뒤 instance 행(inputs_json 포함)과 started 줄을 쓰고 Router에 step 메시지를 넣는다"
       - "담당을 못 풀면 넘기지 않고 not_handed 줄만 남긴다. instance는 running 그대로다"
     outcomes:
@@ -1207,26 +1207,29 @@ flows:
       - "job 기록(job_runs) 삭제를 data-loss로 달았다. 사용자 data로 볼지 사람이 확인할 것"
 
   - id: job-approve
-    title: "사람이 agent가 만든 job 등록을 한 번 승인하거나 거절한다"
+    title: "사람이 agent가 만든 job 등록(또는 mode_escalated 재승인)을 승인하거나 거절한다"
     actor: person
     entries: [route:jobs/approve]
     risk: [permission]
     boundary: [core-api, jobs]
     code: [packages/core/jobs/commands.ts, packages/core/jobs/schedule.ts]
     steps:
-      - "approved_at이 이미 있으면 conflict로 거절한다(승인도 거절도 한 번뿐)"
-      - "approve면 approved_at을 적고, 켜져 있으면 지금부터 센 첫 차례를 next_due_at에 잡는다. 기다린 동안은 놓친 것으로 치지 않는다"
+      - "이미 승인된 job은 conflict로 거절한다(단 `workflow_start` job의 기억된 participant 권한 단계가 승인 이후 `full`로 올라가 `mode_escalated`로 일시정지된 경우 재승인은 허용한다)"
+      - "approve면 approved_at을 적고(`workflow_start`면 현재 해석된 participant별 권한 단계를 `approved_modes_json`에 스냅샷한다), 켜져 있으면 지금부터 센 첫 차례를 next_due_at에 잡는다. 기다린 동안은 놓친 것으로 치지 않는다"
       - "reject면 job을 지운다. 응답의 job은 null이다"
       - "StateChanged(jobs)를 낸다"
     outcomes:
       - id: approved
+        observe: [ledger:jobs, event:StateChanged, response]
+      - id: reapproved-escalated
+        when: "`mode_escalated`로 일시정지된 workflow_start job을 새 participant 단계 스냅샷으로 재승인함"
         observe: [ledger:jobs, event:StateChanged, response]
       - id: rejected
         when: "choice가 reject. job을 지운다"
         observe: [ledger:jobs, event:StateChanged, response]
       - id: conflict
         code: conflict
-        when: "이미 승인된 job"
+        when: "이미 승인되었고 mode_escalated 상태도 아닌 job"
         observe: [response]
       - id: not_found
         code: not_found
@@ -1317,7 +1320,7 @@ flows:
     boundary: [core-api, jobs]
     code: [packages/core/jobs/reads.ts, packages/core/jobs/store.ts]
     steps:
-      - "job.pending은 이 기계의 job 가운데 approved_at이 없는 것을 오래된 것부터 준다"
+      - "job.pending은 이 기계의 job 가운데 approved_at이 없는 것과, 승인 이후 기억된 workflow 권한 단계가 `full`로 올라가 `approval_paused_reason: mode_escalated`가 된 `workflow_start` job을 함께 준다(`participant_modes` 포함)"
       - "job.holds는 이 기계의 job의 held 줄을 그 job과 함께 준다(주인이 다른 job은 대기 목록에 올리지 않는다)"
       - "화면은 둘을 같이 읽어 맞추고 StateChanged(jobs)를 받으면 다시 읽는다"
     outcomes:
@@ -1429,7 +1432,7 @@ flows:
         when: "queued 줄이 생기면서 기다리던 held 줄을 닫음"
         observe: [ledger:job_runs, event:StateChanged, response]
       - id: not-due
-        when: "차례가 아직 안 왔거나, job이 꺼져 있거나, 승인 전이거나, 주인이 이 기계가 아니라 줄을 만들지 않음"
+        when: "차례가 아직 안 왔거나, job이 꺼져 있거나, 승인 전이거나, `mode_escalated`로 일시정지됐거나, 주인이 이 기계가 아니라 줄을 만들지 않음"
         observe: [response]
       - id: forbidden
         code: forbidden

@@ -55,6 +55,11 @@ files:
       - turn-request-decide:forbidden
       - turn-request-decide:not-found
       - turn-request-decide:once
+      - turn-request-decide:session
+      - permissions-read:ok
+      - permissions-revoke-grant:revoked
+      - permissions-trust-local-tool:trusted
+      - permissions-untrust-local-tool:untrusted
       - team-child-approval-to-parent:parent-allowed
       - team-child-approval-to-parent:parent-ended
 
@@ -68,8 +73,22 @@ files:
       - tool-gate-check:denied-not-assigned
       - tool-gate-check:denied-removed
       - tool-gate-check:denied-no-person
+      - tool-gate-check:denied-mode
+      - tool-gate-check:denied-scope
+      - tool-gate-check:denied-user-rule
       - app-call-assignment-judge:gate-blocked
-    note: judge 순수 함수의 판정표. ask 판정은 outcome이 없어 covers에 없다
+    note: evaluatePermission 순수 함수의 4단계·범주·실행 맥락 판정표(floor, 자기 보호, 사용자 규칙 deny>ask>allow, 사람 전용 등급, 민감 파일, session grant, unattended no_person)
+
+  - path: packages/core/approvals/gate/shell-match_test.ts
+    covers:
+      - tool-gate-check:denied-shell-rule
+      - tool-gate-check:run
+      - turn-request-decide:always-without-pattern
+    note: "상태 기계 shell 스캐너: 래퍼(sh -c, env, sudo 등) 해제·rm flag·home 경로 정규화 floor, opaque·elevated 비대칭 차단, 내장 읽기 명령 allowlist, 안전한 alwaysPatterns 및 넓은 기존 규칙 경고(isBroadRulePattern)"
+
+  - path: packages/core/approvals/permission-rules/migrate_test.ts
+    covers: [data-steps-apply:applied]
+    note: "옛 approvals.shell_rules를 통합 approvals.permission_rules(category: shell)로 보존 이전하고 옛 키를 지우며 멱등하게 합치는 data step"
 
   - path: packages/core/approvals/share-requests/commands_test.ts
     covers:
@@ -241,6 +260,10 @@ files:
       - job-update:not_found
       - job-delete:deleted
       - job-delete:not_found
+      - job-approve:approved
+      - job-approve:reapproved-escalated
+      - job-waiting-read:ok
+    note: "job 생성·수정·삭제와 workflow_start 승인 스냅샷(approved_modes_json), 기억된 권한 단계가 full로 올라갔을 때 mode_escalated 자동 일시정지 및 pending 재노출·재승인"
 
   - path: packages/core/jobs/events_test.ts
     covers:

@@ -89,8 +89,8 @@ run 기록 한 행(`runs` 표)이 정본이다. 화면과 CLI는 읽고, 쓰는 
 
 unattended
 
-13. run 입력은 `SendMessage`에 `unattended: true`를 실은 사람 메시지다. 이 메시지가 연 turn은 unattended라 묻지 않고, 그 turn이 보낸 call 사슬도 unattended다(`architecture/approval.md` "turn mode", `architecture/agent-call.md`).
-14. 표시는 `messages.unattended` 열에 남지만 받은 봉투에는 실리지 않는다. agent에게는 5의 `<lophn-run>`이 알린다. 화면의 메시지는 이 표시를 싣지 않고 run만 싣는다. CLI가 여는 run은 별도 flag 없이 처음부터 unattended다. 사람 메시지가 아닌 unattended 입력은 workflow의 step 입력이다(`architecture/workflow.md`).
+13. run 입력은 `SendMessage`에 `unattended: true`를 실은 사람 메시지다. 이 메시지가 연 turn은 `unattended` 실행 맥락이고 그 turn이 보낸 call 사슬도 `unattended`다(`architecture/approval.md` "권한 4단계와 실행 맥락", `architecture/agent-call.md`). **`unattended` turn에서 판정이 `ask`면 실행하지 않고 `deny`(`no_person`)로 막으며 이유를 tool 결과와 `PermissionDenied` event에 남긴다.** 미리 둔 사용자 `allow` 규칙이나 해당 session의 권한 단계가 ④(`full`)인 것만 무인으로 통과한다(floor·사용자 deny·자기 보호·사람 전용 등급·민감 workspace 파일은 ④에서도 막힌다).
+14. 표시는 `messages.unattended` 열에 남지만 받은 봉투에는 실리지 않는다. agent에게는 5의 `<lophn-run>`이 알린다. 화면의 메시지는 이 표시를 싣지 않고 run만 싣는다. CLI가 여는 run은 별도 flag 없이 처음부터 unattended다. 사람 메시지가 아닌 unattended 입력은 workflow의 non-human step 입력이다(`architecture/workflow.md`).
 
 취소
 
@@ -159,7 +159,7 @@ tool run
 
 - 끝은 짐작하지 않고 turn에서 안다. 이유: 1초 조용하면 끝으로 보면 session에 먼저 있던 입력의 답을 돌려줄 수 있다. 입력 메시지 → 그 메시지의 turn → `TurnEnded`는 core가 정확히 아는 길이다.
 - 정본은 표이고 event는 표를 다시 보게 하는 신호다. 이유: Bus는 구독이 죽으면 놓친다. 같은 run을 둘이 `SettleRun`해도 compare가 하나만 받는다.
-- run의 turn은 unattended다. CLI에 `--dangerously-skip-permissions` 같은 flag는 없다. 이유: run은 사람이 곁에 없는 일이고 묻는 길이 없다. (사람, 2026-10-20)
+- run의 turn은 `unattended`다. CLI에 `--dangerously-skip-permissions` 같은 flag는 없다. 2026-11-25 권한 체계 개편으로 `unattended`에서 `ask` 판정은 실행이 아니라 `deny`(`no_person`)가 되며, 무인으로 통과시키려면 미리 allow 규칙을 두거나 해당 agent 정의의 `permission_mode`를 `full`로 명시적으로 설정한다(사람, 2026-10-20 CLI flag 배제; 사람, 2026-11-25 unattended `ask`→`deny`).
 - 호출마다 새 session이고 이어 쓰려면 `--session`을 준다. 자동 재시도는 없다. (사람, 2026-10-20)
 - 자격은 가장 단순한 길이다. 같은 OS 사용자로 도는 agent가 control socket에 붙어 사람 자격을 받을 수 있다는 위험은 신경 쓰지 않는다. 사람 결정 handle만은 shell capability로 따로 지킨다(`architecture/approval.md`). (사람, 2026-10-20)
 - CLI도 ensure로 core를 띄운다. 이유: 화면 없는 머신에서 CLI만으로 core를 켤 길이 있어야 한다. (사람이 추천을 받음, 2026-11-08)

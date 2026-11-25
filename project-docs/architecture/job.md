@@ -139,9 +139,13 @@ job은 정해진 때 저절로 도는 일 하나다. 때는 주기(`every`, 선�
 9. 앱을 지우면 그 앱 workspace가 만든 job과 그 앱을 부르는 job(앱 tool, 앱 workspace의 agent 호출)을 같은 tx에서 지운다. 도는 run은 끝까지 돈다.
 
 승인
-10. agent가 만든 job은 승인 대기다. 종류(agent_run, tool_run, workflow_start)와 상관없다. 승인(`job.approve`)은 user만 하고 job마다 한 번이다. 이미 승인한 job에 다시 오면 `conflict`다.
-11. [Approve]는 `approved_at`을 적고, 켜져 있으면 그 순간부터 센 첫 차례를 `next_due_at`에 잡는다. 기다린 동안은 놓친 것으로 치지 않는다. [Reject]는 job을 지운다.
+10. agent가 만든 job은 승인 대기다. 종류(agent_run, tool_run, workflow_start)와 상관없다. 승인(`job.approve`)은 user만 하고 job마다 한 번이다. 이미 승인한 job에 다시 오면 `conflict`다(단 아래 12a의 `mode_escalated`로 일시 정지된 `workflow_start` job의 재승인은 허용한다).
+11. [Approve]는 `approved_at`을 적고(`workflow_start` job이면 현재 해석된 participant별 권한 단계를 `jobs.approved_modes_json`에 함께 스냅샷한다), 켜져 있으면 그 순간부터 센 첫 차례를 `next_due_at`에 잡는다. 기다린 동안은 놓친 것으로 치지 않는다. [Reject]는 job을 지운다.
 12. scheduler는 승인한 job만 본다. 차례를 뽑는 질의와 차례를 만드는 쪽이 둘 다 거른다. 승인 전 job의 `held` 줄도 [Start now]가 `conflict`다. 위험 test가 있다(권한 경계).
+12a. **`workflow_start` job의 권한 단계 표시와 상향 일시정지(`mode_escalated`)**:
+    - `job.pending`·`job.list`는 `workflow_start` job에 현재 해석된 `participant_modes`(기억된 `approvals.workflow_modes` → agent 정의 `permission_mode` → 전역 기본 `approvals.default_mode`)를 붙여 승인 카드가 쓰일 권한 단계를 보이게 한다.
+    - 승인 시점의 participant 단계 스냅샷(`jobs.approved_modes_json`, schema step `jobs.approved-modes`)과 현재 기억된 workflow 단계를 비교해, 승인 당시 `full`이 아니었던 participant가 나중 `full`로 올라갔으면 해당 job은 `approval_paused_reason: "mode_escalated"` 상태가 되어 자동 일시정지한다.
+    - 일시정지된 job은 `job.claim_due`·`job.fire_event`·scheduler 실행에서 건너뛰고 `job.pending` 대기 목록에 다시 나타나 사람이 새 `full` 단계를 보고 다시 승인(`job.approve`)하기 전까지 돌지 않는다("승인 뒤 할 일의 권한이 몰래 넓어지지 않는다").
 13. 승인 칸이 생기기 전의 job은 migration이 승인 대기로 옮겼다.
 
 언제 도나
@@ -189,7 +193,7 @@ hold
 권한
 39. scheduler 쪽 route(`job.claim_due`, `job_run.open`, `job_run.started`, `job_run.ended`, `job.activity`)는 machine 자격만 받는다. 쓰는 command 셋은 handler도 한 번 더 본다. 사람 쪽 route(`job.pending`, `job.approve`, `job.holds`, `job.decide_hold`, `job_run.list`, `job.take_over`)는 user만 받는다. `job.take_over`는 handler도 한 번 더 본다.
 40. tool_run은 사람이 없는 호출이고 허락은 사람의 등록 승인이다. 앱 호출 경로는 program caller를 막지 않는다. 만든 agent의 할당과 비공개 규칙은 보지 않는다(`architecture/app-call.md`, `architecture/approval.md`).
-41. agent_run이 연 turn은 unattended다. 묻지 않고 deny만 막힌다. 받은 agent는 자기 할당으로 일한다.
+41. agent_run과 workflow_start의 non-human step이 연 turn은 `unattended`다. `unattended`에서 `ask` 판정은 실행되지 않고 `deny`(`no_person`)로 막히며 이유를 남긴다. 미리 둔 allow 규칙이나 해당 agent·participant의 권한 단계가 ④(`full`)인 것만 무인으로 통과한다(`architecture/approval.md`). 받은 agent는 자기 할당으로 일한다.
 42. job이 연 agent run의 agent도 job 명령을 받아 job을 만들 수 있다. 막지 않는다. 고치기는 만든 agent만 하고 사람은 모든 job을 등록 때 보고 승인하며 화면에서 보고 끌 수 있다.
 
 주인 기계
@@ -224,7 +228,7 @@ hold
 
 ### 저장
 
-- `jobs` 표: 한 행에 `title`, `creator_agent`, `creator_workspace`, `every`, `at`, `trigger`(JSON, event job만. every와 trigger는 정확히 하나), `action`(JSON), `missed_policy`, `enabled`, `next_due_at`, `approved_at`, `machine`(주인 기계 id, 찍기 전 null. ledger step `jobs.machine`), event job의 기록(`fired_count`, `skipped_count`, `last_fired_at`, `last_skipped_at`, `last_skip_reason`), 시각.
+- `jobs` 표: 한 행에 `title`, `creator_agent`, `creator_workspace`, `every`, `at`, `trigger`(JSON, event job만. every와 trigger는 정확히 하나), `action`(JSON), `missed_policy`, `enabled`, `next_due_at`, `approved_at`, `approved_modes_json`(`workflow_start` job 승인 시점의 participant 권한 단계 스냅샷, nullable, ledger step `jobs.approved-modes`), `machine`(주인 기계 id, 찍기 전 null. ledger step `jobs.machine`), event job의 기록(`fired_count`, `skipped_count`, `last_fired_at`, `last_skipped_at`, `last_skip_reason`), 시각.
 - `job_runs` 표: 한 행에 `job`, `due_at`, `missed_count`, `state`, `reason`, `run`, `instance`, `session`, `event`(event job의 차례를 연 event), 넘긴 때, 시작·끝 시각. 넘긴 때는 scheduler에 넘긴 시각이고 record에는 없다. 두 표에 FK는 없고 지우기는 command가 한다.
 - unique index: 도는 줄(`queued`, `running`) job마다 하나, `held` 줄 job마다 하나.
 
@@ -286,6 +290,7 @@ hold
 - 다른 기계 job의 화면 글은 "Belongs to another computer"이고 이름은 선택 함수가 알 때만 보인다. 이유: 기계 기록을 다른 기계에 알리는 일은 이 계획 밖(폴더 sync)이라 그쪽에 기대지 않는다. (agent)
 - event job의 trigger는 다른 컴퓨터의 앱 event를 적을 수 있고, 그 job은 여전히 주인 기계에서만 돈다. 이유: 내 PC의 job이 VM의 monitoring 앱 event로 돌아야 하는데 job을 기계 사이에 옮기거나 두 기계에서 돌리면 같은 바깥 효과가 두 번 난다(위 "주인 기계"). 그러므로 trigger의 컴퓨터(event가 오는 곳)와 주인 기계(차례를 여는 곳)는 다른 개념이다. 컴퓨터는 만들 때 `mch_`로 풀어 저장해 이름 바꾸기에 흔들리지 않는다. 버린 안: 컴퓨터를 이름으로 저장하기(승인한 때와 다른 컴퓨터를 따라갈 수 있다). (사람 "구독하는 주체가 있을 거 아니야", agent)
 - 다른 컴퓨터의 event job도 한 번 승인하면 돈다. 승인 card는 어느 컴퓨터의 event인지 말한다. 이유: 같은 `app_…` id가 이 컴퓨터에도 있을 수 있어 컴퓨터를 말하지 않으면 사람이 이 컴퓨터의 앱 event로 읽고 승인한다. (agent, 독립 review의 지적)
+- **`workflow_start` job 승인 카드의 participant 단계 표시와 `full` 상향 시 자동 일시정지(`mode_escalated`)**: workflow의 기억된 권한 단계(`approvals.workflow_modes`)가 승인 시점에는 `workspace` 이하였는데 나중에 `full`로 올라가면, 사람이 승인하지 않은 무인 자율 범위로 job이 돌게 된다. 승인 시점의 단계를 `jobs.approved_modes_json`에 스냅샷해 두고, 어느 participant든 `full`로 올라가면 job을 자동 일시정지(`approval_paused_reason: "mode_escalated"`)해 대기 목록에서 재승인을 받게 한다("승인 뒤 할 일은 바뀌지 않는다" 원칙의 연장). (사람 2026-11-25 방향, 기술 결정 agent)
 
 ## 열린 것
 

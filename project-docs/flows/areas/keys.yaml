@@ -291,7 +291,7 @@ links:
   - {entry: "key:agent.queue", flow: session-send}
   - {entry: "key:agent.send-now", flow: queued-steer-now}
   - {entry: "key:agent.interrupt", flow: turn-stop}
-  - {entry: "key:agent.cycle-mode", flow: session-change-skip}
+  - {entry: "key:agent.cycle-mode", flow: session-change-mode}
   - {entry: "key:agent.rewind", flow: session-rewind-preview}
   - {entry: "key:agent.background", flow: harness-gui-input}
 

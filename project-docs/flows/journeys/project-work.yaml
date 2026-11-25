@@ -806,7 +806,7 @@ journeys:
     steps:
       - {do: "composer의 model을 고르면 ACP 입력이 그 route로 넘어간다", flow: acp-send:ok}
       - {do: "composer의 model을 고른다", screen: new-agent-model-picker, flow: session-change-model:ok}
-      - {do: "권한 단추를 Skip permissions로 바꾼다. 다음 turn부터 닿는다", screen: new-agent-skip, flow: session-change-skip:ok}
+      - {do: "권한 단추를 다 맡기기(full)로 바꾼다", screen: new-agent-skip, flow: session-change-mode:ok}
       - {do: "/status로 model, 창 점유, 사용량을 본다", screen: new-agent-status, flow: session-status-read:ok}
 
   - id: session-compact

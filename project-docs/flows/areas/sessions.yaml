@@ -282,24 +282,25 @@ flows:
     docs: [architecture/agent-chat.md]
     unclear: []
 
-  - id: session-change-skip
-    title: "session의 skip(허락을 묻지 않는 표시)을 켜거나 끈다"
+  - id: session-change-mode
+    title: "session의 권한 단계(permission_mode)를 바꾼다"
     actor: person
-    entries: [route:sessions/change-skip]
-    boundary: [agent-sessions]
+    entries: [route:sessions/change-mode]
+    boundary: [agent-sessions, approvals]
     code:
       - packages/core/lophn-agent/session/commands.ts
     steps:
-      - "사람이 아니면 forbidden이다(requireUser). session이 없으면 not_found다. archive된 session이면 conflict다. 같은 값이면 이전 결과다."
-      - "state_seq가 낡았으면 conflict다. 아니면 sessions.skip과 state_seq를 한 tx에서 고친다."
-      - "판정은 approvals 쪽이 한다. 이 flow는 표시만 바꾸고, 도는 turn은 시작할 때 정한 mode를 쓰므로 바뀐 값은 다음 turn부터 닿는다."
+      - "사람이 아니면 forbidden이다(requireUser). session이 없으면 not_found다. archive된 session이면 conflict다. 같은 단계면 이전 결과다."
+      - "폰·다른 기기(principal `device:`)는 현재 단계보다 낮추는 것만 허용한다. 단계를 올리거나 `full`로 설정하려 하면 forbidden이다."
+      - "state_seq가 낡았으면 conflict다. 아니면 sessions.permission_mode와 state_seq를 한 tx에서 고친다."
+      - "단계를 낮추면 진행 중인 turn의 다음 tool 호출부터 바로 닿는다."
     outcomes:
       - id: ok
         observe: [ledger:sessions, response]
-        when: "skip 값을 바꿨거나 같은 값이라 이전 결과다"
+        when: "permission_mode를 바꿨거나 같은 값이라 이전 결과다"
       - id: forbidden
         code: forbidden
-        when: "사람이 아닌 호출자다(requireUser)"
+        when: "사람이 아닌 호출자다(requireUser), 또는 원격 기기(`device:`)가 권한 단계를 올리거나 `full`로 설정하려 했다"
         observe: [response]
       - id: conflict
         code: conflict
@@ -310,6 +311,7 @@ flows:
         when: "session이 없다"
         observe: [response]
     crosses_process: false
+    risk: [permission]
     docs: [architecture/approval.md, architecture/workspace-session.md]
     unclear: []
 
@@ -1139,7 +1141,7 @@ flows:
       - route:session_inputs/edit
       - route:session_inputs/move
       - route:sessions/change-model
-      - route:sessions/change-skip
+      - route:sessions/change-mode
       - route:sessions/request-compact
       - route:sessions/rename
       - route:sessions/fork
@@ -1166,7 +1168,7 @@ flows:
         when: "가는 route가 성공했다(fork는 새 session id를 싣는다)"
       - id: invalid_input
         code: invalid_input
-        when: "입력 schema가 틀렸다, 내장 명령을 run_command로 보냈다, model id에 provider가 없다, mode가 ask·skip이 아니다, 제목이 비었다, decide가 session이나 mode 범위를 싣는다, retry할 본문이 비었다, 또는 가는 route가 입력을 거절했다"
+        when: "입력 schema가 틀렸다, 내장 명령을 run_command로 보냈다, model id에 provider가 없다, mode가 4단계(read_only·ask·workspace·full) 밖이다, 제목이 비었다, decide가 허용되지 않은 선택지를 싣는다, retry할 본문이 비었다, 또는 가는 route가 입력을 거절했다"
         observe: [response]
       - id: unavailable
         code: unavailable

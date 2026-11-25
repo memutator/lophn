@@ -1,0 +1,74 @@
+id: permission-architecture
+version: 0.23.175
+platform_note: none
+title: "4단계 권한 체계, 통합 결정적 판정 엔진, 상태 기계 shell 스캐너, 거부 언마스킹, workflow·job 권한 관리를 도입한다"
+modules:
+  - packages/protocol
+  - packages/cli
+  - packages/design
+  - packages/core/agent-workspaces
+  - packages/core/approvals
+  - packages/core/apps
+  - packages/core/config
+  - packages/core/follow-ups
+  - packages/core/jobs
+  - packages/core/lophn-agent
+  - packages/core/main
+  - packages/core/remote
+  - packages/core/router
+  - packages/core/workflows
+  - packages/shell/main
+  - packages/shell/renderer
+  - packages/mobile
+  - tools
+change: |
+  - **권한 4단계(`permission_mode`)와 실행 맥락 분리**:
+    - 옛 2단계 `skip`을 4단계 `read_only`(보기만) · `ask`(다 묻기) · `workspace`(고치기는 알아서, 초기 기본값) · `full`(다 맡기기)로 교체하고, 실행 맥락(`attended | unattended | team_child`)과 분리했다.
+    - 전역 기본 설정 `approvals.default_mode`(기본 `workspace`, `locked: true`), agent 정의 `permission_mode`(data step `agents.permission-mode`: `skip: true` → `full`, `skip: false` → 삭제), session 열 `sessions.permission_mode`와 `turns.mode` 정리(schema step `lophn-agent.session-permission-mode`)를 도입했다.
+    - route `sessions/change-skip`을 `sessions/change-mode`로 교체했다. 원격 기기(`device:`)는 하향 전용(downgrade-only)이며 상향·`full` 시도는 `forbidden`이다. fork는 단계를 잇지 않고 기본값으로 시작하며, 팀 자식은 `min(부모 단계, 정의/전역 기본값)`으로 상한을 둔다.
+  - **통합 결정적 판정 엔진(`evaluatePermission`)과 통합 권한 규칙(`approvals.permission_rules`)**:
+    - shell·file·app_tool·mcp_tool·local_tool·setting·project_command·project_command_definition을 하나의 순수 함수 `evaluatePermission(request, layers, sessionGrants, mode, context)`로 통합하고 격리 슬롯 `IsolationBackend = "none"`을 두었다.
+    - 사용자 규칙 우선순위를 `deny > ask > allow`로 고정하고, 옛 `approvals.shell_rules`를 data step `approvals.permission-rules-migrate`로 `approvals.permission_rules`(`category: "shell"`)에 보존 이전했다.
+    - 사람이 없는 실행(`unattended`)에서 `ask` 판정은 실행 대신 `deny`(`no_person`)로 막는다. 미리 둔 allow 규칙이나 `full` 모드만 무인으로 통과한다.
+  - **상태 기계 shell 스캐너와 안전한 `always`**:
+    - TypeScript 순수 상태 기계 스캐너로 따옴표·heredoc·서브셸·명령 치환·리다이렉션·래퍼(최대 깊이 8)·`rm` flag·home 경로를 정규화해 floor(`sh -c "rm -rf ~"`, `env rm -rf ~`, `rm -r --force ~` 등)를 검사한다.
+    - `opaque`·`elevated`(`sudo`/`doas`/`su`) 명령은 allow 규칙·session grant·내장 읽기 목록으로 통과하지 못하고 `once | reject`로만 묻는다. 내장 읽기 명령 allowlist 외 shell 명령은 ③(`workspace`) 이하에서 기본 `ask`다.
+    - 안전한 CLI subcommand 표로 `always` 패턴을 만들고 금지 접두사·`opaque`·`elevated`·여러 줄에는 `always`를 제공하지 않는다. 기존 넓은 규칙은 지우지 않고 Settings › Permissions에서 경고 배지를 보인다.
+  - **`session` 선택지, `SessionGrantStore`, 바깥 폴더와 민감·자기 보호 경로**:
+    - `turn_requests/decide`에 `session` 선택지와 `allowed_choices` 검증을 더하고 core 메모리 `SessionGrantStore`를 도입했다(session 종료·재시작 시 비워지고 fork 미복사, `/permissions`에서 개별 해제 `permissions/revoke-grant`).
+    - 등록 폴더 밖 `file.*` 접근은 `forbidden` 대신 `ask`(`once | session | reject`)로 묻고, `session`으로 연 폴더 안 쓰기도 rewind 기록에 포함한다. `~/.ssh`, `~/.aws`, `~/.gnupg`와 `<data root>` 설정·권한·agent 정의·secret은 자기 보호 경로로 차단하고, `.git/hooks/*`·`.git/config`·`.lophn/tools/*` 쓰기와 `.env*` 읽기(`.env.example`·`.env.sample` 제외)는 모든 단계에서 묻는다.
+    - 이유 없는 거절은 같은 응답 배치의 남은 쓰기·외부 호출을 멈추고 읽기만 계속하며, 이유 있는 거절은 이유를 전달하고 계속한다. 승인 카드(desktop·폰)는 이유·저장 패턴·"되돌리기 밖" 여부를 보이고 마운트 후 300~500ms Enter 가드를 둔다.
+  - **앱 `ask_tools`, MCP `trust`, 로컬 tool `(realpath, sha256)` fail-closed 신뢰**:
+    - 앱 할당에 command별 `ask_tools`(`permissions.ask`)를 추가하고 `ASK_EXTERNAL_WHEN_ATTENDED` 상수를 제거했다.
+    - MCP 서버 설정에 `trust: "trusted" | "untrusted"`(기본 `untrusted`)를 추가해 비신뢰 서버의 `readOnlyHint !== true` tool은 `full` 미만에서 묻는다.
+    - 로컬 tool(`<data root>/tools/`, `<workspace>/.lophn/tools/`, workspace 데이터 `tools/`)은 `approvals.local_tool_trust`의 `(realpath, sha256)`과 일치할 때만 `inspect`·실행하며, 미신뢰·변경 스크립트는 사람 전용 등급 `ask`(`once`가 곧 신뢰 기록)로 묻는다.
+  - **거부 언마스킹(`PermissionDenial`), `PermissionDenied` event, 5칸 `/permissions`, 복구 버튼**:
+    - `tool_gate/check`가 전체 `PermissionDenial`을 반환하고, `tools/work`가 gate 거부와 handler `forbidden` 원문·규칙·복구 힌트 + 우회 금지 지침을 model에 그대로 전달한다(존재 숨김만 `not_found` 유지). workspace 상한 밖 agent credential 요청도 `forbidden` 거부를 돌려준다.
+    - 거부 시 `PermissionDenied` event(`REMOTE_ALLOWED_EVENTS` 포함)를 발행하고 대화 타임라인에 "막힘" 표시와 복구 버튼을 보인다. 새 memory route `permissions/read`, `permissions/revoke-grant`, `permissions/trust-local-tool`, `permissions/untrust-local-tool`과 5칸 `/permissions` 화면(desktop·폰)을 추가했다.
+  - **workflow participant 권한 단계와 job 상향 일시정지(`mode_escalated`)**:
+    - `StartWorkflow.participant_modes`와 `workflow_instances.participant_modes_json`(schema step `workflows.instances-participant-modes`), 사람 전용 설정 `approvals.workflow_modes`(`locked: true`)를 추가했다. StartBox에서 `lophn`·`custom` participant마다 단계를 고르고 기억시킬 수 있으며 sub-workflow는 `min`으로 상한을 둔다.
+    - `workflow_start` job 승인 카드에 해석된 `participant_modes`를 보이고 승인 시 `jobs.approved_modes_json`(schema step `jobs.approved-modes`)에 스냅샷한다. 이후 기억된 단계가 `full`로 올라가면 job이 `approval_paused_reason: "mode_escalated"`로 자동 일시정지되어 재승인 전까지 돌지 않는다.
+why: |
+  기존 권한 체계는 `forbidden`과 gate 거부를 "tool target is not available" 같은 모호한 문장으로 덮어 agent가 이유를 모르고 우회를 시도하게 만들었고, 사람 화면에도 거부 이력·복구 길이 없었다. 동시에 `shell.run` 기본 allow, 단순 정규식 분리, 지나치게 넓은 `always` 패턴, unattended `ask`→`run`, 미검증 로컬 tool·비신뢰 MCP 자동 실행 등 물어야 할 것을 묻지 않는 구멍이 있었다.
+decisions:
+  - text: "권한 4단계(① 보기만 / ② 다 묻기 / ③ 고치기는 알아서 / ④ 다 맡기기)를 두고 전역 기본 단계는 사람이 설정하되 초기 기본값은 ③(`workspace`)으로 둔다. `session`(이 대화 동안) 선택지를 되살린다. 2026-10-20의 `skip` 2단계·shell 기본 allow·`session` 폐지 결정을 대체한다."
+    by: person
+  - text: "사람이 없는 실행(job, workflow non-human step, CLI run)에서 `ask` 판정은 실행하지 않고 `deny`(`no_person`)로 막고 이유를 남긴다. 미리 둔 allow 규칙과 명시적 ④(`full`) 단계만 무인으로 통과한다. 2026-10-20의 unattended 자동 통과 결정을 뒤집는다. 버린 길: 폰으로 묻고 멈춰 두기(이번 범위 밖)."
+    by: person
+  - text: "등록 폴더 밖 파일은 일괄 `forbidden` 대신 `ask`(`once | session | reject`)로 열고, `session`으로 연 폴더 안 쓰기도 rewind 기록에 포함한다. `~/.ssh`, `~/.aws`, `~/.gnupg`, lophn data root 설정·권한·agent 정의·secret은 계속 차단한다."
+    by: person
+  - text: "할당한 내 앱은 기본 통과하되 command별 `ask_tools`를 켤 수 있게 하고, 외부 MCP는 `trust: trusted | untrusted`(기본 `untrusted`)로 비읽기 tool을 물으며, 로컬 tool 스크립트는 처음과 내용 변경 시 `(realpath, sha256)`으로 사람 전용 등급 1회 승인을 받는다."
+    by: person
+  - text: "workflow participant별 권한 단계는 agent가 쓰는 `workflow.yaml`·flow code에 두지 않고 사람 전용 `StartWorkflow.participant_modes`와 `approvals.workflow_modes`(`locked: true`)에 둔다. `workflow_start` job은 승인 시 단계를 스냅샷하고 이후 기억된 단계가 `full`로 올라가면 `mode_escalated`로 자동 일시정지한다."
+    by: agent
+  - text: "통합 순수 판정 엔진 `evaluatePermission`과 고정 우선순위 `deny > ask > allow`, TypeScript 순수 상태 기계 shell 스캐너(native tree-sitter 없음), 안전한 `always` 패턴(기존 넓은 규칙은 보존하고 경고만 표시), 격리 슬롯 `IsolationBackend = 'none'`을 사용한다. OS sandbox와 LLM 판정(guardian)은 두지 않는다."
+    by: agent
+  - text: "거부는 `PermissionDenial`과 handler `forbidden` 원문 + 우회 금지 지침으로 model에 공개하고 `PermissionDenied` event로 타임라인·`/permissions`에 복구 버튼과 함께 보인다. 존재 숨김 대상은 `not_found`로 유지한다. 원격 기기의 `sessions/change-mode`는 하향 전용, 로컬 tool 신뢰는 desktop 전용으로 제한한다."
+    by: agent
+checklist:
+  - "Settings › General에서 기본 권한 단계가 ③(고치기는 알아서)로 보이고 변경 후 새 대화에 반영되는지 본다"
+  - "③ 단계 대화에서 `ls`·`git status`는 묻지 않고, `npm test` 같은 명령은 처음 묻고 `이 대화 동안` 선택 후 같은 대화에서 다시 묻지 않는지 본다"
+  - "`sh -c \"rm -rf ~\"`, `env rm -rf ~`, `rm -r --force ~`가 모든 단계에서 막히고 타임라인과 `/permissions` 최근 거부에 이유가 보이는지 본다"
+  - "등록 폴더 밖 파일을 요청하면 승인 카드가 뜨고 허락 후 읽히며, 거절 시 model에 이유가 전달되는지 본다"
+  - "workflow StartBox에서 `lophn`·`custom` participant별 단계를 고르고 기억시킬 수 있으며, 기억된 단계를 `full`로 올리면 기존 승인된 `workflow_start` job이 대기 목록에 재승인으로 멈추는지 본다"
+  - "폰 앱에서 권한 단계를 낮출 수는 있지만 올리거나 `full`로 설정할 수 없는지 본다"

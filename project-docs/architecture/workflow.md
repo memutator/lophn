@@ -106,7 +106,7 @@ workflow는 사람, agent, 앱 tool, 앱 event를 비결정적 함수처럼 조�
 4. `inputs` 필드 타입은 `string`, `text`, `number`(`min?`, `max?`), `boolean`, `select`(`options`), `multiselect`(`options`), `agent`, `path`(`kind?: file | dir | any`), `project` 아홉이고, 조건부 표시·검증 규칙 `when`을 가질 수 있다. `when`은 `{ field, equals }`, `{ field, in: [...] }`, `{ field, truthy: true | false }` 단일 조건 또는 AND 배열이다. 조건이 거짓인 숨겨진 필드는 required 검사에서 제외되고 검증 결과에서 생략된다. 알 수 없는 대상·자기 참조·의존 cycle·잘못된 기본값은 선언 검증(`invalid_inputs`)에서 거절된다. `agent` 필드는 시작 시점의 workspace에서 호출 가능한 agent 목록(`ListWorkflows`의 `callable_agents`)으로 채운다. 필드의 선택 칸 `steps`(step 이름 목록)는 그 입력을 쓰는 step을 적는다. 시작 화면이 그 step 자리에 칸을 둘 뿐이고 값의 검증·전달과는 상관없다(이름이 선언의 step인지 검증하지 않는다).
 5. YAML 축약형에서 입력된 `inputs` 값은 첫 step 입력 본문의 `Inputs:` 절에 구조화된 key-value로 주입된다. 시작 입력·`inputs`·step 본문·report/`hand_now` 글·`refs`·`data`·checkpoint `output`/`error`·`step_stalled` 오류·`retried` 본문은 저장·전달 전에 redaction을 거친다.
 6. 틀린 선언은 그 workflow만 목록에서 빼고 `ListWorkflows`의 `problem`(`no_declaration | invalid_yaml | invalid_declaration | invalid_inputs | no_flow_file | broken_flow`)에 첫 이유 하나를 싣는다.
-7. 목록의 step에는 `prompt`·`in`·`out`을 싣지 않는다(캡슐화 유지). step 메시지는 `<lophn-step instance="…" step="…">본문</lophn-step>`과 고정 영어 안내 줄(`lophn team spawn` 권장·`lophn workflow report` 안내)로 전달되며 rewind 시점(checkpoint)이 된다. non-human step은 `unattended` turn을 열고, 사람 step(`human_turn: true`, `by: me`·`human()`)은 첫 turn부터 `ask`와 사람 승인이 동작하도록 `attended` turn을 연다.
+7. 목록의 step에는 `prompt`·`in`·`out`을 싣지 않는다(캡슐화 유지). step 메시지는 `<lophn-step instance="…" step="…">본문</lophn-step>`과 고정 영어 안내 줄(`lophn team spawn` 권장·`lophn workflow report` 안내)로 전달되며 rewind 시점(checkpoint)이 된다. non-human step은 `unattended` turn을 열고(`ask` 판정은 실행하지 않고 `deny no_person`, 미리 둔 allow 규칙이나 해당 participant 단계가 `full`인 것만 통과, `architecture/approval.md`), 사람 step(`human_turn: true`, `by: me`·`human()`)은 첫 turn부터 `ask`와 사람 승인이 동작하도록 `attended` turn을 연다.
 
 ### instance, 상태, 줄, checkpoint
 8. 정본은 `workflow_instances`, `workflow_lines`, `workflow_checkpoints` 세 표다. 쓰기는 core 안 machine 자격 command(`CreateWorkflowInstance`, `ApplyWorkflowChange`, `UpsertWorkflowCheckpoint`)만 수행한다. 한 command는 instance 행을 한 번 고치고(`state_seq` 비교·재시도 최대 3회) commit 뒤 `StateChanged(workflow_instances)`를 한 번 낸다.
@@ -144,6 +144,13 @@ workflow는 사람, agent, 앱 tool, 앱 event를 비결정적 함수처럼 조�
 29. `workflow()` 호출은 **같은 project 안의 workflow만** 허용한다(다른 project 지정은 `forbidden`).
 30. 조상 instance chain에 같은 `(project, workflow)`가 있으면 cycle로 `conflict` 거절한다. 최대 중첩 깊이는 5단계다(root 0, child 1..5 허용, 초과 시 `conflict`).
 31. sub-workflow 안의 앱 `tool()` 호출은 그 sub-workflow 선언의 creator `agent` 할당을 그대로 사용한다(교집합 제한을 두지 않는다). flow의 앱 tool 호출은 선언의 `agent`(없으면 lophn)의 지금 할당과 비공개 규칙(앱의 비공개 command는 그 앱 workspace만) 안에서만 된다(`architecture/app-call.md`).
+31a. **participant별 권한 단계 (`participant_modes`)**:
+    - `workflow.yaml`과 flow code는 agent가 쓸 수 있으므로 권한 단계 칸을 파일에 두지 않는다.
+    - 사람이 `StartWorkflow`(user 전용)에 선택 `participant_modes`(`Record<participantKey, PermissionMode>`)를 실어 보내면 `workflow_instances.participant_modes_json` 열(schema step `workflows.instances-participant-modes`)에 고정 저장한다.
+    - StartBox 폼은 `lophn`·`custom` runtime participant마다 권한 단계 고르기를 보인다(기본값은 `approvals.workflow_modes`의 기억된 값 → agent 정의 `permission_mode` → 전역 기본 `approvals.default_mode` 순; `harness` participant는 이번 범위 밖으로 고르기를 두지 않는다). "이 workflow 기본으로 기억"을 켜면 사람 전용 core 설정 `approvals.workflow_modes`(key: project + workflow 이름 + participant, `locked: true`)에 저장한다.
+    - 해당 instance가 step을 넘겨 새 session을 열 때, 그 participant에 기록된 단계가 있으면 그 단계로 session을 연다.
+    - sub-workflow를 호출할 때 자식의 participant 단계는 부모 instance의 상한(같은 participant 또는 부모 instance의 가장 넓은/지정 단계)과 `min`으로 클램프해 부모보다 넓어지지 않는다.
+    - job이 시작하는 `workflow_start` instance는 기억된 `approvals.workflow_modes`를 해석해 전달하며, 승인 후 기억된 단계가 `full`로 올라가면 그 job은 재승인 전까지 자동으로 멈춘다(`architecture/job.md`).
 
 ### `onEvent`와 `job` 정합성
 32. flow의 `onEvent({ source, event, workspace? }, handler)`는 비영속 메모리 구독이다. process가 꺼진 사이의 event는 저장·재전송하지 않으며 이 기계에서 발생한 event만 전달한다. 재시작 replay 시 handler가 변경했던 메모리 변수는 복원되지 않으므로, 현재 상태가 필요한 값은 `tool()`로 다시 조회한다.
@@ -165,7 +172,7 @@ workflow는 사람, agent, 앱 tool, 앱 event를 비결정적 함수처럼 조�
 
 - **boundary**: `workflows`, `jobs`, `lophn-agent`(세션 `workflow_origin`), `coding-agent`(GUI 탭 배치·실패 사유 보존), `attention`(unseen·알림). `workflows` module은 다른 feature module을 직접 import하지 않고 port와 공용 바닥 module로만 닿는다(`architecture/layers.md`).
 - **route (memory / read)**:
-  - `ListWorkflows`(user·agent, `callable_agents` 포함), `StartWorkflow`(user만, `inputs` 객체 추가), `ReportWorkflow`(user·agent, `refs`·`data` 선택 칸 추가), `EditWorkflow`(user·agent, YAML 축약형 전용), `RetryWorkflowStep`(user만, 같은 session 이어가기), `ResumeWorkflow`(user만, `use_latest_code?`), `StopWorkflow`(user만, 자식 연쇄 중지), `CheckWorkflow`(agent, project workspace 전용), `ExportWorkflow`(user, workflow 폴더의 파일 묶음 내보내기), `ImportWorkflow`(user, 대상 project의 workflows 폴더에 묶음 쓰기·선택적 덮어쓰기).
+  - `ListWorkflows`(user·agent, `callable_agents` 포함), `StartWorkflow`(user만, `inputs` 객체 및 `participant_modes` 추가), `ReportWorkflow`(user·agent, `refs`·`data` 선택 칸 추가), `EditWorkflow`(user·agent, YAML 축약형 전용), `RetryWorkflowStep`(user만, 같은 session 이어가기), `ResumeWorkflow`(user만, `use_latest_code?`), `StopWorkflow`(user만, 자식 연쇄 중지), `CheckWorkflow`(agent, project workspace 전용), `ExportWorkflow`(user, workflow 폴더의 파일 묶음 내보내기), `ImportWorkflow`(user, 대상 project의 workflows 폴더에 묶음 쓰기·선택적 덮어쓰기).
   - 읽기 route: `ReadWorkflowInstance`(user·agent·machine, `instance`, `derived_status`, `last_reports`, `lines`, `checkpoints`, `sessions`, `refs`, `children`, `remote_steps`), `ListWorkflowInstances`(user·agent, `derived_status` 요약 포함), `WorkflowInstanceActivity`(machine, idle-exit용).
   - 모든 경계 route·command 오류는 공통 오류 코드 일곱(`invalid_input`, `not_found`, `forbidden`, `unauthorized`, `conflict`, `unavailable`, `internal`)만 사용한다.
 - **agent tool / CLI**:
@@ -176,7 +183,7 @@ workflow는 사람, agent, 앱 tool, 앱 event를 비결정적 함수처럼 조�
   - `StateChanged(workflow_instances)`: instance·줄·checkpoint·연결 세션의 주요 상태 전이 시 발행. Run 화면, `DeskSwitcher`, artifact view가 다시 읽는다.
   - `TurnEnded`(commit 뒤) 및 router의 outgoing `agent_calls` 정산 알림: 로컬 step stall 감지와 통합 `agent()` primitive가 구독한다.
 - **저장 (ledger migration & blob)**:
-  - `workflow_instances`: `inputs_json`, `code_snapshot`, `open_mode`, `title` 열 포함(기존 행은 null). `workflow_instance.code_snapshot` permanent blob field 등록(`workflow_snapshot` purpose). `StartWorkflow`에 선택 `title`을 넘기면 그 값을 그대로 저장하고 AI 제목 생성을 건너뛴다. 비워 시작하면 입력 첫 60자(또는 첫 문자열 input)로 초기 `title`을 적고, `agent-runtime`이 전역 기본 model(`model-default`)로 2~6단어 AI 제목을 생성해 `SetWorkflowInstanceAiTitle`로 반영한다(그 사이 사람이 `RenameWorkflowInstance`로 이름을 바꿨으면 덮어쓰지 않는다).
+  - `workflow_instances`: `inputs_json`, `code_snapshot`, `open_mode`, `title`, `participant_modes_json`(schema step `workflows.instances-participant-modes`) 열 포함(기존 행은 null). `workflow_instance.code_snapshot` permanent blob field 등록(`workflow_snapshot` purpose). `StartWorkflow`에 선택 `title`을 넘기면 그 값을 그대로 저장하고 AI 제목 생성을 건너뛴다. 비워 시작하면 입력 첫 60자(또는 첫 문자열 input)로 초기 `title`을 적고, `agent-runtime`이 전역 기본 model(`model-default`)로 2~6단어 AI 제목을 생성해 `SetWorkflowInstanceAiTitle`로 반영한다(그 사이 사람이 `RenameWorkflowInstance`로 이름을 바꿨으면 덮어쓰지 않는다).
   - `workflow_lines`: `kind` 13종(`started`, `report`, `edit`, `handed`, `not_handed`, `ended`, `stopped`, `lophn_restarted`, `program_exited`, `step_stalled`, `retried`, `escalated`, `code_updated`), 고치기와 지우기를 막는 append-only trigger 유지.
   - `workflow_checkpoints`: `(instance, key)` PK, `kind`, `state`, `handle_ref`, `output_json`, `error_json`, `started_at`, `finished_at`, `workflow_checkpoints_instance` 인덱스. 저장 데이터이므로 이후 모양 변경 시 ledger migration 필수.
   - `sessions`: `workflow_origin` JSON 열(`{ project, workflow, instance, step }`, nullable) + `(workflow_origin ->> '$.instance')` partial 인덱스. step 입력의 `messages` 열(`step_instance`, `step_name`).
@@ -220,6 +227,7 @@ workflow는 사람, agent, 앱 tool, 앱 event를 비결정적 함수처럼 조�
 - **`onEvent`는 비영속 + `job`과 공용 바닥 정책 공유**: event 저장소를 두지 않는 `job` 원칙과 일관되게, 재시작을 넘는 대기는 `tool()` 조회나 외부 event `job`에 맡긴다. 도달·고리 정책은 바닥 core module에 두어 feature module 간 cross-import 없이 공유한다. (agent, 2026-11-23)
 - **원격 참가자(`on`)는 `call`·`reply` mail에 칸(`step`, `report`)을 더해 재사용**: 받는 쪽 규칙(한 번 적용, 기계 확인, 대기, 만료, 취소, private, 재시작)이 모두 call mail과 call 행에 걸려 있어 새 mail 종류를 두지 않는다. 가져간 turn이 report 없이 끝나면 step을 닫지 않고 `remote_lophn` 진행 줄만 보낸다(이슈 `workflow-remote-step-turn-end-no-line`). (사람·agent, 2026-11-21)
 - **기존 `stack`과 비분할 `tab group`을 단일 탭 묶음 개념으로 통합**: layout migration 비용이 들더라도 사람이 배울 개념을 split + 단일 탭 묶음 둘로 유지한다(`architecture/workspace-layout.md`). (사람, 2026-11-23)
+- **workflow participant별 권한 단계는 `workflow.yaml`·flow code 밖(사람 전용 `approvals.workflow_modes`와 `StartWorkflow.participant_modes`)에 둔다**: workflow 폴더는 agent가 `EditWorkflow`·file tool로 쓰므로 파일 안에 권한 단계를 두면 agent가 스스로 단계를 올리는 구멍이 된다. StartBox에서 `lophn`·`custom` participant마다 단계를 고르고 원하면 `approvals.workflow_modes`(`locked: true`)에 기억시키며, sub-workflow는 `min`으로 부모 단계를 넘지 못하게 한다. harness participant는 harness 자신의 권한 체계를 따르므로 범위 밖이다. (사람 2026-11-25 방향, 기술 결정 agent)
 
 ## 열린 것
 

@@ -4,14 +4,14 @@ kind: bug
 status: kept
 topic: workspace-session
 modules: [packages/core/lophn-agent, packages/core/agent-workspaces]
-now: 모든 workspace 종류(home·project·app)의 tool 목록에 `shell.run`이 있다(`packages/protocol/lophn-agent/tool-lists.ts`의 `COMMON_TOOLS`). `packages/core/lophn-agent/tools/shell/run.ts`의 `runShell`은 범위의 base 폴더(home은 OS home 폴더)에서 `/bin/sh`를 띄운다. 자식 process에는 아무 권한 제한이 없다. OS sandbox는 없다. 판정은 shell 규칙(제품 floor·ask, Settings의 전역·project 층, `architecture/approval.md`)이 하고 effect는 `external`이다. 규칙에 걸리지 않는 명령은 묻지 않고 돈다. rewind 기록은 `file.write`·`file.edit`만 남긴다(`packages/core/agent-workspaces/hooks.ts`의 `FILE_HOOKS`).
-impact: agent가 shell로 file 범위 밖 파일을 읽고 쓰거나 지워도 막는 것이 없다. 그렇게 바꾼 사람의 파일은 session rewind로 되돌아오지 않는다. AGENTS.md "속도"가 막으라는 agent 실수(데이터 잃기, 폴더 밖 쓰기)다. workspace 종류의 file 범위(project는 project 폴더, 받은 domain 폴더, `workflows/`, app은 앱 source와 받은 domain 폴더)도 shell로는 지켜지지 않는다.
+now: 모든 workspace 종류(home·project·app)의 tool 목록에 `shell.run`이 있다(`packages/protocol/lophn-agent/tool-lists.ts`의 `COMMON_TOOLS`). `packages/core/lophn-agent/tools/shell/run.ts`의 `runShell`은 범위의 base 폴더(home은 OS home 폴더)에서 `/bin/sh`를 띄운다. 자식 process에는 OS sandbox가 아직 없다. 2026-11-25 권한 체계 개편(`architecture/approval.md`)으로 `shell.run`은 내장 읽기 명령 allowlist를 제외하면 기본 `ask`(③ `workspace` 이하; `read_only`는 `mode` 거부, `unattended`는 `deny no_person`)로 바뀌었고, TypeScript 순수 상태 기계 shell 스캐너 + 최대 깊이 8 래퍼 해제(`sh -c`, `env`, `sudo` 등) + `rm` flag·home 경로 정규화 floor + `opaque`/`elevated` 비대칭 검사 + 안전한 `always` 패턴으로 가드한다. 통합 판정 엔진 `evaluatePermission`에 격리 슬롯 `IsolationBackend = "none"`을 열어 두었다. 다만 한 번 허락한 명령이나 스크립트 내부 동작은 OS 수준에서 가두지 못하며, rewind 기록은 `file.write`·`file.edit`(이번 대화에 연 바깥 폴더 포함)만 남긴다(`packages/core/agent-workspaces/hooks.ts`의 `FILE_HOOKS`).
+impact: OS sandbox가 없어 한 번 허락한 shell 명령(또는 `full` 모드·allow 규칙 통과 명령)이 내부적으로 file 범위 밖 파일을 읽고 쓰거나 지워도 OS 경계로 막지 못한다. 그렇게 바꾼 사람의 파일은 session rewind로 되돌아오지 않는다. 다만 기본 `ask` 전환과 상태 기계 스캐너·정규화 floor·unattended `deny no_person`으로 무인·우회 실행 위험은 크게 줄었다.
 fix: |
   - project workspace 종류의 목록에서 `shell.run`을 뺀다. 작음. 계산이나 변환이 필요한 일은 내장 tool과 앱 command로 한다. app workspace는 앱 test와 type 검사(A6)에 shell이 필요해 남는다.
-  - `shell.run`을 OS sandbox(bubblewrap 등)로 범위 폴더만 보이게 띄우고, 쓰기는 rewind 기록을 위해 막는다(읽기 전용). 중간~큼. 플랫폼마다 다르다.
+  - 판정 엔진의 `IsolationBackend` 슬롯에 OS sandbox(Linux bubblewrap/landlock, macOS Seatbelt 등)를 구현해 범위 폴더만 보이게 띄운다. 중간~큼. 플랫폼마다 다르다.
 
-  추천: 첫째. project workspace에서 shell이 필요한 경우를 아직 보지 못했다.
-decided: '(사람, 2026-10-19): 일단 그대로 둔다.'
+  추천: 당분간 현재 앱 계층 가드(기본 `ask` + 상태 기계 스캐너 + 정규화 floor)를 유지하고, 필요해지면 `IsolationBackend` 슬롯에 OS sandbox를 붙인다.
+decided: '(사람, 2026-10-19): 일단 그대로 둔다. (사람·agent, 2026-11-25): OS sandbox는 이번에 넣지 않고 `IsolationBackend = "none"` 슬롯만 두며, shell 기본 `ask` + 상태 기계 스캐너 + 래퍼 해제 + 정규화 floor로 앱 계층 가드를 강화한다.'
 closed: |
-  사람이 그대로 두기로 정했다(`decided`). shell 규칙은 경계가 아니고 `shell.run`은 file 범위와 rewind 밖이라는 것을 `architecture/approval.md`가 말한다. agent가 shell로 범위 밖 file을 망가뜨린 일이 생기면 `regressed`로 되살리고 project workspace에서 `shell.run`을 빼거나 OS sandbox를 둔다.
-guard: 없음
+  사람이 OS sandbox 없이 유지하되 앱 계층 가드를 강화하기로 정했다(`decided`). 2026-11-25 개편으로 내장 읽기 명령 외 기본 `ask`, 상태 기계 스캐너·래퍼 해제·정규화 floor, `unattended` 시 `deny no_person`, `IsolationBackend = "none"` 슬롯을 도입했다. OS sandbox와 shell rewind 부재는 `architecture/approval.md`와 `architecture/workspace-session.md`에 명시한다. 실제 OS 경계가 필요해지면 `IsolationBackend` 슬롯을 채운다.
+guard: 'packages/core/approvals/gate/shell-match_test.ts, packages/core/approvals/gate/judge_test.ts (상태 기계 스캐너, 래퍼 해제, 정규화 floor, 기본 ask, unattended deny no_person 검증; OS sandbox 자체는 없음)'

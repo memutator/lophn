@@ -4,7 +4,7 @@ agent와 하는 대화가 session이고, session은 workspace(없음=Home, proje
 
 ## 문제
 
-session의 경계가 흐리면 사람이 대화에서 잃는 것이 생긴다. 끝난 session이 call을 붙잡아 보낸 쪽이 영원히 기다리고, 한 session에 켠 skip이 다른 session으로 새고, 되돌린 대화에 낡은 요청이 남는다. 열린 session의 agent나 workspace가 바뀌면 이미 쌓인 대화가 다른 agent의 것이 된다. file 범위가 새면 agent가 엉뚱한 project나 앱의 폴더를 읽고 쓴다.
+session의 경계가 흐리면 사람이 대화에서 잃는 것이 생긴다. 끝난 session이 call을 붙잡아 보낸 쪽이 영원히 기다리고, 한 session에 올린 권한 단계가 다른 session으로 새고, 되돌린 대화에 낡은 요청이 남는다. 열린 session의 agent나 workspace가 바뀌면 이미 쌓인 대화가 다른 agent의 것이 된다. file 범위가 새면 agent가 엉뚱한 project나 앱의 폴더를 읽고 쓴다.
 
 ## 목표와 비목표
 
@@ -58,19 +58,20 @@ session의 경계가 흐리면 사람이 대화에서 잃는 것이 생긴다. �
 7. lophn이 꺼졌다 켜져도 열린 session은 열린 채다. 메모리에 있던 것은 사라진다.
    - 돌던 turn은 interrupted, queue에 있던 call과 부모가 가져간 ask call은 `lophn_restarted`로 닫히고, 대기 request와 질문은 cancelled다.
    - queue에 있던 step 메시지는 다시 넣지 않고 workflow가 `lophn_restarted` 줄로 남긴다.
-   - session의 skip 표시는 표(`sessions.skip`)에 남는다.
+   - session의 권한 단계는 표(`sessions.permission_mode`)에 남는다(옛 `sessions.skip = 1`은 schema step `lophn-agent.session-permission-mode`가 `'full'`로, 기본은 `'workspace'`로 옮겼다). `SessionGrantStore`의 이번 대화 허락은 메모리에만 있어 재시작하면 비워진다.
 8. 사람 메시지는 버리지 않는다. 켤 때 아직 turn이 가져가지 않은 사람 메시지를 받은 순서대로 queue에 다시 넣어 turn을 연다. 뺀다: fork 사본, rewind가 숨긴 구간, 보관한 session과 workspace의 것, run 입력(`messages.unattended`가 1인 사람 메시지). 그 run은 켤 때 `lophn_restarted`로 닫히는데, 다시 돌면 닫힌 run 뒤에 attended turn이 생겨 바깥 효과가 두 번 난다(`architecture/run.md`).
 9. agent runtime child가 죽으면 그 child가 돌리던 turn은 interrupted(`restarted`)로 닫고 queue 표시와 기다리던 request를 푼다. 닫지 않으면 session이 새 입력을 모두 `conflict`로 막는다.
 10. fork는 이력만 복사한다. 같은 agent, 같은 workspace의 새 session이고 고른 지점(`through_seq`)까지의 확정 메시지를 가져가며, rewind가 숨긴 구간은 복사하지 않는다.
-    - 대기 request와 질문, 열린 call, rewind 기록은 원래 session의 turn에 묶여 있어 가져가지 않는다. 같은 파일을 두 session이 되돌리면 부딪친다.
-    - skip도 가져가지 않는다. 새 session은 agent 정의의 `skip` 기본값으로 시작한다.
+    - 대기 request와 질문, 열린 call, rewind 기록, `SessionGrantStore`의 이번 대화 허락은 원래 session의 turn·메모리에 묶여 있어 가져가지 않는다. 같은 파일을 두 session이 되돌리면 부딪친다.
+    - 권한 단계(`permission_mode`)도 가져가지 않는다. 새 session은 agent 정의의 `permission_mode`(비면 전역 기본 `approvals.default_mode`)로 시작한다.
     - 제목과 model 선택은 잇는다. 이미지 blob 참조는 복사본마다 새로 건다. 부른 workspace(`called_from_*`)는 옮긴다.
+    - 팀 자식(`spawned_by`)으로 열리는 session의 권한 단계는 `min(부모 단계, 정의/전역 기본값)`으로 상한을 두어 부모보다 넓어지지 않는다.
 11. checkpoint는 turn을 시작하는 입력(사람 메시지, call, 답, step)마다 생긴다. steer로 도는 turn에 들어간 메시지, fork 복사본, reaction, 알림은 아니다. 다음 turn으로 접수했다가 [Send now]로 올린 메시지는 model 요청에 실려 turn이 정해지는 같은 tx에서 checkpoint를 잃는다. 기록의 `delivery`는 접수 때 값이라 화면은 "turn을 연 입력이 아닌데 turn이 정해진 사람 메시지"를 steer로 본다.
 12. session rewind는 도는 turn이 없을 때만 시작한다. 앱 data는 file까지 함께 되돌리는 선택(`restore_all`)에서, 사람이 고른 앱만 되돌린다. 안 고르면 그대로다(`messages_only`는 대화만).
     - 앱 rewind는 시점 단위라 그 사이 다른 쪽의 변경도 함께 사라진다. 그래서 session rewind가 저절로 하지 않고 사람에게 함께 되돌아갈 목록을 먼저 보인다.
     - 앱 rewind는 그 session의 첫 write invocation부터 요청한다. 앱 rewind가 거절되거나 취소돼도 대화와 파일은 되돌리지 않고 결과만 기록에 남긴다. 앱 쪽 순서와 충돌 판단은 앱이 정한다.
     - 숨기는 구간은 되돌린 지점부터 결과를 확정한 때의 session 마지막 메시지까지다. 그 뒤에 접수한 메시지는 숨기지 않는다. 숨김에 끝이 없으면 rewind 뒤의 대화가 모두 사라진다.
-13. file tool은 허용 폴더 안에서만 읽고 쓴다. 범위 밖은 realpath를 보고 `forbidden`("path is outside the workspace")으로 거절한다. 쓰기 직전 파일 내용은 core가 허용 폴더 안에서 직접 읽어 rewind용으로 둔다. agent runtime이 보낸 내용을 믿지 않는다(되돌릴 때 틀린 내용으로 사람 파일을 덮지 않게).
+13. file tool은 허용 폴더 안에서 기본으로 읽고 쓴다. 등록 폴더 밖 경로는 `file_outside`로 Gate(`tool_gate/check`)에 `ask`(`once | session | reject`)를 묻고, 허락하면 그 호출 한 번(`once`) 또는 이번 대화 동안(`session`, `SessionGrantStore`) 해당 폴더를 연다. 이번 대화에 연 바깥 폴더 안 쓰기도 core가 직접 읽어 rewind 기록에 포함한다. 민감·자기 보호 경로(`~/.ssh`, `~/.aws`, `~/.gnupg`, `<data root>` 설정·권한·agent 정의·secret)는 계속 `scope`로 차단한다(`architecture/approval.md`). 쓰기 직전 파일 내용은 core가 직접 읽어 rewind용으로 둔다. agent runtime이 보낸 내용을 믿지 않는다(되돌릴 때 틀린 내용으로 사람 파일을 덮지 않게).
 14. 다른 workspace(project, 앱)의 session이 부른 call로 열린 home session은 project 폴더를 읽지 않고 call에 실려 온 것만 본다. 열 때 부른 workspace를 `sessions.called_from_kind`·`called_from_id`에 남기고(바뀌지 않는다) 읽기 범위를 비운다. 이미 열린 home session에 닿은 call과 사람이 연 home session은 좁히지 않는다. home의 전역 agent(예: 이미지 생성)가 부른 쪽과 상관없는 project를 보지 않게 한다.
 15. home의 session은 기획하고 call로 맡기며 project·앱을 직접 쓰지 않는다.
 16. 앱의 data와 release 사본(`<data>/apps/<app>/` 아래 `data/`, `bundles/`, `staging/`, `preview/`)은 어느 workspace 종류의 범위에도 없다. 앱 data는 앱 tool로만 다루고 release 사본은 봉인된 것이다. agent 정의(`<data>/agents/`)도 열지 않는다.
@@ -85,14 +86,14 @@ session의 경계가 흐리면 사람이 대화에서 잃는 것이 생긴다. �
 
 ## 경계와 계약
 
-- boundary ID는 `agent-sessions`(열기·제목·archive·지움·fork·model·skip), `run-loop`(turn), `agents`(정의), `storage`(지움)이다.
-- route(사람만 부른다. 아니면 `forbidden`): `sessions/open`, `sessions/rename`, `sessions/archive`, `sessions/delete`, `sessions/fork`, `sessions/change-model`, `sessions/change-skip`, `rewind/preview`와 rewind 시작, `message-images/upload`·`path`·`read`. 같은 id를 같은 내용으로 다시 부르면 처음 결과를 돌려주고(replay), 다른 내용이면 `conflict`다. 낡은 `state_seq`도 `conflict`다.
+- boundary ID는 `agent-sessions`(열기·제목·archive·지움·fork·model·권한 단계), `run-loop`(turn), `agents`(정의), `storage`(지움)이다.
+- route(사람만 부른다. 아니면 `forbidden`): `sessions/open`, `sessions/rename`, `sessions/archive`, `sessions/delete`, `sessions/fork`, `sessions/change-model`, `sessions/change-mode`(원격 기기 `device:`는 단계 하향만 허용, 상향·`full` 시도는 `forbidden`), `rewind/preview`와 rewind 시작, `message-images/upload`·`path`·`read`. 같은 id를 같은 내용으로 다시 부르면 처음 결과를 돌려주고(replay), 다른 내용이면 `conflict`다. 낡은 `state_seq`도 `conflict`다.
 - 열 때의 오류: agent 정의 없음 또는 그 agent의 범위 밖 workspace는 `not_found`, workspace 없음·보관은 `conflict`, harness agent인데 harness 설정이 꺼져 있으면 `unavailable`이다.
 - archive·지움은 receiver_ended 알림 글을 blob으로 미리 준비해야 한다(못 하면 `unavailable`). `sessions/archive`는 지금 도는 turn이 있으면 `stop_turn: true` 없이 `conflict`(`turn_running`)로 거절해 다른 기기에서 방금 시작한 turn이 확인 없이 끊기지 않게 한다. 받은 열린 call을 닫을 때 보낸 쪽이 살아 있는 agent session이면 그 queue에 그 call을 가리키는 program 알림 하나를 같은 tx로 넣는다(ask call이면 알림 대신 main thread에 알린다). 기다리던 request와 질문은 `SessionEnded`를 듣는 approvals 쪽이 cancelled(`session_closed`)로 푼다. 지움은 메시지 본문의 blob 영구 참조, rewind 기록과 checkpoint, 메시지와 turn·model call 기록, session 행을 지우고 되돌릴 수 없다. 응답에는 지운 내용을 싣지 않고 지운 시각만 돌려준다. archive한 session은 기록을 그대로 두고 읽기는 된다.
 - fork 입력은 `through_seq`(고른 메시지의 `created_seq`까지 복사. agent 답에서 갈라도 그 답까지 들어간다)다. 출처의 확정 메시지가 아니면 `invalid_input`이다.
 - event: `SessionStarted`, `SessionEnded`(reason `archived` | `deleted`). turn 끝은 `TurnEnded`. 이 agent event와 turn·요청·질문 event를 core가 `session.started|running|waiting|idle|ended`(발행자 `lophn`)로 바꿔 앱에 준다(아래 "session lifecycle"). supervision의 `turn_stop`(reason `user_stopped` | `session_ended`)이 agent runtime child에 간다.
-- 저장: `sessions` 표(`agent`, `workspace_kind`, `workspace_id`, `skip`, `called_from_kind`, `called_from_id`, `opened_by_machine`(다른 컴퓨터의 mail이 연 session의 보낸 기계, 바뀌지 않는다. `architecture/machine-a2a.md`), `state_seq`, model 선택). 이미지는 blob 참조(메시지의 `image`)와 옛 `<data>/message-images/<session>/`.
-- 설정·표시: `app.edit_folders`(앱에 더 이은 폴더), agent 정의의 `skip`(새 session의 skip 기본값).
+- 저장: `sessions` 표(`agent`, `workspace_kind`, `workspace_id`, `permission_mode`, `called_from_kind`, `called_from_id`, `opened_by_machine`(다른 컴퓨터의 mail이 연 session의 보낸 기계, 바뀌지 않는다. `architecture/machine-a2a.md`), `state_seq`, model 선택). 이미지는 blob 참조(메시지의 `image`)와 옛 `<data>/message-images/<session>/`.
+- 설정·표시: `app.edit_folders`(앱에 더 이은 폴더), agent 정의의 `permission_mode`(비면 전역 기본 `approvals.default_mode`).
 - 앱 rewind와의 이음: session rewind가 사람이 고른 앱의 rewind를 요청한다(`architecture/app-call.md`).
 
 ### session lifecycle
@@ -115,10 +116,10 @@ session의 경계가 흐리면 사람이 대화에서 잃는 것이 생긴다. �
 - agent는 전역이고 workspace는 session이 갖는다. 이유: role(lophn, Project Manager, App Engineer, Operator)이 agent를 workspace에 묶었지만 workspace가 하는 일(file 범위, credential 조건, prompt, 주소)은 모두 "session이 어디서 일하나"의 일이다. Claude Code, Codex, OpenCode도 agent 설정은 전역이고 작업 폴더는 session마다다. 버린 안: 옛 assignment 상태 machine(누가 무엇을 맡았나). agent와 할당으로 대체했다. 맡기는 것은 call이고 허락은 할당이다. (사람, 2026-10-28)
 - 앱 일은 그 앱 workspace의 session이 한다. 이유: 앱은 project에 묶이지 않는 그릇이라 앱 코드의 일(설계, 선언, 구현, release)은 그 앱 workspace에서 한다. 앱은 사람이 Home의 Workspaces panel에서 New app으로 직접 만들거나(그 앱 workspace의 lophn 새 session으로 시작한다), home의 lophn이 등록하고 그 앱 workspace의 lophn session에 call로 맡긴다. (agent)
 - 앱 workspace에는 project 지침이 없고 앱 지침이 있다. 이유: 앱은 project에 묶이지 않는다. (agent)
-- "이 session 동안" 허락은 없다. 이유: 할당했으면 허락한 것이고 shell 규칙의 `ask`는 `always`로 규칙 줄을 더한다(`architecture/approval.md`). skip은 사람이 그 session에 켠 표시라 표에 남긴다. (agent)
+- "이 대화 동안(`session`)" 허락은 core 메모리의 `SessionGrantStore`에 두고 session이 끝나거나 재시작하면 비워지며 fork로 복사하지 않는다(`architecture/approval.md`). session의 권한 단계(`permission_mode`)는 표(`sessions.permission_mode`)에 남기고, fork는 출처의 단계를 가져가지 않고 agent/전역 기본값으로 시작한다. 팀 자식은 `min(부모 단계, 정의/전역 기본값)`으로 상한을 둔다. (사람 2026-11-25 결정으로 2026-10-20의 `session` 허락 폐지 및 `skip` 2단계 결정을 대체)
 - agent runtime child 하나가 여러 session을 돈다. 이유: 폴더·provider·MCP·skill 목록이 바뀌어도 다시 띄우지 않으려는 것이다. 권한 flag를 두지 않는 것은 사람이 정했다. 좁힌 권한은 경계가 아니었다(`shell.run`이 `/bin/sh`로 우회하고, 폴더 목록이 어긋나면 file tool만 `NotCapable`로 막혔다). file tool의 폴더 범위는 코드가 지킨다. 버린 안: Deno 권한 flag로 폴더 좁히기. 비교(2026-11-10, harness 여덟을 조사했다): session마다 process를 두는 쪽은 Claude Code·pi·omp(CLI가 먼저인 제품)이고, Codex·OpenCode·dsh·mixdog·Hermes는 server가 먼저라 session이 process 안의 task다(N:1). lophn은 뒤쪽이다. 어느 쪽도 process를 권한 경계로 쓰지 않고 sandbox는 명령마다 씌운다. session마다 process를 나눠 얻는 것(crash 격리, session별 kill)보다 치르는 것(기동 시간, memory, session마다 MCP)이 커서 나누지 않는다. session별 kill은 turn을 끊는 `turn_stop`(model 요청과 도는 `shell.run`을 process group째)이 하고 session별 pid는 없다. 여덟 곳 가운데 shell tool을 가진 곳은 child env에 session id를 넣는다(`CODEX_THREAD_ID`, `OPENCODE_SESSION_ID`, `CLAUDE_CODE_SESSION_ID` 등). lophn도 `shell.run`과 harness CLI의 env에 `LOPHN_SESSION_ID`를 넣는다. (사람, 2026-10-24. 비교와 `LOPHN_SESSION_ID`: 사람, 2026-11-10)
 - 다른 workspace의 session이 부른 call로 열린 home session은 project 폴더를 읽지 않는다. 이유: home의 전역 agent가 부른 쪽과 상관없는 project를 읽는 것을 막는다. (사람, 2026-11-04)
-- fork는 있는 그대로 복사하되 묶인 것은 놓고 간다. 이유: skip을 가져가면 한 번의 사람 결정이 두 session에 쓰이고, call을 가져가면 한 call에 받는 session이 둘이다. (agent)
+- fork는 있는 그대로 복사하되 묶인 것은 놓고 간다. 이유: 권한 단계나 `SessionGrantStore` 허락을 가져가면 한 번의 사람 결정이 두 session에 쓰이고, call을 가져가면 한 call에 받는 session이 둘이다. (agent)
 - checkpoint는 turn을 시작한 입력에만 둔다. 이유: steer로 도는 turn에 끼어든 메시지는 turn의 경계가 아니라서 돌아갈 시점이 아니다. Claude Code checkpointing도 turn 중 보낸 메시지는 checkpoint로 치지 않는다. (agent)
 - session rewind와 앱 rewind를 묶지 않고 잇기만 한다. 이유: 하나로 합치면 대화를 되돌리다 다른 사람의 앱 변경까지 말없이 지운다. 고르게 하는 쪽이 Claude Code의 rewind 메뉴(코드와 대화를 따로 고름)와 같다. (agent)
 - 쓰기 직전 파일 내용을 core가 직접 읽어 두고 허용 폴더 root별로 기록하는 무거운 장치를 남긴다. 이유: 데이터 보호 장치라 단순화 이득이 작다. agent runtime이 보낸 내용을 믿으면 되돌릴 때 틀린 내용으로 사람 파일을 덮을 수 있다. 한 단위에 허용 폴더가 둘 이상이거나 앞 기록의 after와 뒤 기록의 before가 어긋나면 그 쓰기는 되돌리지 않고 건너뛴다. (agent)
@@ -135,6 +136,6 @@ session의 경계가 흐리면 사람이 대화에서 잃는 것이 생긴다. �
 
 ## 열린 것
 
-- `shell.run`이 file 범위와 rewind를 거치지 않는다. home·project·app workspace의 tool 목록에 있고 `/bin/sh`를 범위 폴더(home은 OS home 폴더)에서 띄우지만 OS sandbox가 없다. 규칙에 걸리지 않는 명령은 묻지 않고 돈다. rewind 기록은 file tool의 쓰기만 남긴다. agent가 shell로 범위 밖 파일을 읽고 쓰거나 지워도 막는 것이 없고, 그렇게 바뀐 파일은 session rewind로 돌아오지 않는다. 추천은 project workspace의 목록에서 `shell.run`을 빼는 것이고(app은 앱 test와 type 검사에 필요해 남긴다) 대안은 OS sandbox다. 일단 그대로 두기로 했다(사람, 2026-10-19). 이슈 `shell-run-bypasses-file-scope`.
+- `shell.run`이 OS sandbox와 rewind를 거치지 않는다. home·project·app workspace의 tool 목록에 있고 `/bin/sh`를 범위 폴더(home은 OS home 폴더)에서 띄운다. 2026-11-25 개편으로 내장 읽기 명령 외에는 기본 `ask`와 상태 기계 shell 스캐너·래퍼 해제·정규화 floor로 가드하고 판정 엔진에 `IsolationBackend = "none"` 슬롯을 두었지만, OS sandbox는 아직 없어 한 번 허락한 명령 안에서 일어나는 일은 OS 경계로 막지 못하며 rewind 기록은 `file.write`·`file.edit` 쓰기만 남긴다(이슈 `shell-run-bypasses-file-scope`).
 - turn 끝 기록(FinishTurn)이 거절되면(예: 결과 blob이 한도 초과, ledger 오류) turn을 failed(`internal`)로 닫고 다음 turn이 시작된다. 그 닫는 기록마저 실패하면 core를 다시 켜 interrupted(`restarted`)로 닫을 때까지 turn이 running으로 남아 session이 멈춘 것으로 보인다.
 - session을 지워도 이미지 blob과 옛 이미지 파일은 지우지 않는다(알려진 빈틈).

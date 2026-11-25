@@ -574,16 +574,16 @@ journeys:
       - {do: "agent가 막힌 결과를 tool 결과로 받는다", flow: tool-call-execute:gate-denied}
 
   - id: shell-ask-skip-mode
-    title: "Skip permissions를 켠 session은 ask를 묻지 않는다"
+    title: "권한 단계를 다 맡기기(full)로 바꾼 session은 일반 ask를 묻지 않는다"
     actor: person
-    goal: "사람이 session의 skip을 켜면 다음 turn의 shell 규칙 ask는 묻지 않고 실행된다"
+    goal: "사람이 session의 권한 단계를 full(다 맡기기)로 바꾸면 floor·deny·사람 전용 등급 밖의 shell 명령은 묻지 않고 실행된다"
     refs: [H4, T4]
     steps:
-      - {do: "Skip permissions를 켠다", screen: new-agent-skip, flow: session-change-skip:ok}
+      - {do: "권한 단계를 다 맡기기(full)로 바꾼다", screen: new-agent-skip, flow: session-change-mode:ok}
       - {do: "agent에게 명령이 필요한 일을 메시지로 맡긴다", screen: new-agent-conversation, flow: session-send:ok}
-      - {do: "turn의 mode가 skip으로 정해진다", flow: turn-mode-decide:skip}
+      - {do: "turn의 실행 맥락을 attended로 정한다", flow: turn-mode-decide:attended}
       - {do: "입력을 turn으로 연다", flow: turn-pump-start:started}
-      - {do: "gate가 묻지 않고 명령을 실행한다", flow: tool-gate-check:run}
+      - {do: "gate가 full 단계라 묻지 않고 명령을 실행한다", flow: tool-gate-check:run}
       - {do: "명령이 끝나 결과를 돌려준다", flow: tool-shell-run:finished}
 
   - id: shell-ask-stopped-while-waiting

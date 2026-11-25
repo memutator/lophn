@@ -1,5 +1,5 @@
 id: harness-profile-gui-open
-version: 0.23.169
+version: 0.23.170
 platform_note: none
 title: "custom harness agent 프로필을 project에서 직접 열면 harness-gui 탭으로 열고 background AgentTab의 lophn model 노출을 없앤다"
 modules:

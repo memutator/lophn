@@ -271,27 +271,29 @@ export function buildAgyModelGroups(
     {
       id: "antigravity",
       label: "Antigravity",
-      models: model.options.map((one) => {
-        const levels = effortsOf(configs, legacy, one.value);
-        return {
-          id: one.value,
-          label: one.name,
-          axes:
-            levels.length === 0
-              ? []
-              : [
-                  {
-                    id: "effort",
-                    label: "Thinking",
-                    kind: "choice" as const,
-                    values: levels.map((level) => ({
-                      value: level.value,
-                      label: level.name,
-                    })),
-                  },
-                ],
-        };
-      }),
+      models: model.options
+        .filter((one) => one.value !== "")
+        .map((one) => {
+          const levels = effortsOf(configs, legacy, one.value);
+          return {
+            id: one.value,
+            label: one.name,
+            axes:
+              levels.length === 0
+                ? []
+                : [
+                    {
+                      id: "effort",
+                      label: "Thinking",
+                      kind: "choice" as const,
+                      values: levels.map((level) => ({
+                        value: level.value,
+                        label: level.name,
+                      })),
+                    },
+                  ],
+          };
+        }),
     },
   ];
 }
@@ -531,15 +533,17 @@ export function createAntigravityDialect(
         .map(rec)
         .find((one) => one.type === "diff");
       if (diff !== undefined) {
-        const path = str(diff.path);
-        const document = isAbsolute(path) ? path : join(cwd, path);
-        diffDetail = {
-          kind: "edit",
-          document,
-          path: relativePath(cwd, document),
-          added: countLines(str(diff.newText)),
-          removed: countLines(str(diff.oldText)),
-        };
+        const path = str(diff.path).trim();
+        if (path !== "") {
+          const document = isAbsolute(path) ? path : join(cwd, path);
+          diffDetail = {
+            kind: "edit",
+            document,
+            path: relativePath(cwd, document),
+            added: countLines(str(diff.newText)),
+            removed: countLines(str(diff.oldText)),
+          };
+        }
       }
       return { output, diffDetail };
     },

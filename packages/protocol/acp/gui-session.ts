@@ -1,14 +1,15 @@
 // CLI session 하나를 ACP로 내고 그 화면의 입력을 받는 계약이다. 터미널 탭 하나가 handle 하나다.
 // shell main tsc도 읽는 file이라 schema(zod)는 두지 않고 type만 import한다.
-import type { AcpInput } from "./input.ts";
-import type { AcpModelGroup } from "./session.ts";
-import type { AcpUpdate } from "./state.ts";
+
 import type {
   AcpCliSession,
   AcpRewindPreview,
   GuiHarness,
   HarnessLaunchConfig,
 } from "../coding-agent/gui-harness.ts";
+import type { AcpInput } from "./input.ts";
+import type { AcpModelGroup } from "./session.ts";
+import type { AcpUpdate } from "./state.ts";
 
 export {
   type AcpCliSession,
@@ -49,6 +50,11 @@ export type AcpSessionHandle = {
   readonly id: string;
   /** 창으로 보낸다. 창이 아직 없거나 늦게 열려도 쌓아 두었다가 처음부터 보여 준다. */
   publish(update: AcpUpdate): void;
+  /**
+   * 과거 대화 리플레이처럼 한꺼번에 접을 update들을 개별 live 알림 없이 상태에 접고,
+   * 붙어 있는 모든 listener에 단일 `snapshot`으로 알린다.
+   */
+  commit?(updates: readonly AcpUpdate[]): void;
   /** 창의 입력. */
   onInput(listener: (input: AcpInput) => void): void;
   /** 창이 닫히거나 `close()`가 불리면 한 번 불린다. */

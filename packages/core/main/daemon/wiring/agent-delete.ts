@@ -3,6 +3,8 @@
 // MCP secret(`mcp.<agt_id>.*`, `mcp-oauth.<agt_id>.*`), `callPolicy`의 agent 쌍 규칙을 치운다(agentDeleteWiring).
 import { ok, type Result } from "../../../../base/mod.ts";
 import type { ErasedJobSpec, Id } from "../../../../protocol/base/mod.ts";
+import { HARNESS_ADAPTER_OF_RUNTIME } from "../../../../protocol/coding-agent/harness-adapter.ts";
+import { HOME_TERMINAL_PROJECT } from "../../../../protocol/coding-agent/terminals.ts";
 import {
   type AgentId,
   agentDelete,
@@ -19,6 +21,7 @@ import {
   type AgentSessionRow,
   SESSION_COLUMNS,
   sessionRowOf,
+  workspaceOf,
 } from "../../../lophn-agent/session/model.ts";
 import {
   deleteSessionReverts,
@@ -35,9 +38,16 @@ import type { WiringFactory } from "./context.ts";
 
 export const AGENT_DELETED_CLEANUP_TOPIC = "agents.deleted-cleanup";
 
+type DeletedHarnessSession = {
+  project: string;
+  harness: string;
+  external_session: string;
+};
+
 type CleanupPayload = {
   agent: string;
   sessions: string[];
+  harness_sessions?: DeletedHarnessSession[];
 };
 
 function hasTable(tx: Tx, name: string): boolean {
@@ -180,7 +190,28 @@ export function eraseAgentRemnants(
   agent: { id: AgentId; handle: string; workspace: Workspace | null },
 ): Result<{ sessions: string[]; erased_jobs: ErasedJobSpec[] }> {
   const sessions: string[] = [];
+  const harnessSessions: DeletedHarnessSession[] = [];
   for (const session of agentSessions(tx, agent.id)) {
+    if (session.harness !== null && session.harness_session !== null) {
+      const where = workspaceOf(session);
+      const project =
+        where === null
+          ? HOME_TERMINAL_PROJECT
+          : where.kind === "project"
+            ? where.id
+            : null;
+      const adapter =
+        HARNESS_ADAPTER_OF_RUNTIME[
+          session.harness as keyof typeof HARNESS_ADAPTER_OF_RUNTIME
+        ];
+      if (project !== null && adapter !== undefined) {
+        harnessSessions.push({
+          project,
+          harness: adapter,
+          external_session: session.harness_session,
+        });
+      }
+    }
     const deleted = tx.call(
       deleteSession,
       { session: session.id },
@@ -194,7 +225,11 @@ export function eraseAgentRemnants(
     sessions.push(session.id);
   }
   const erasedJobs = eraseJobsOfAgent(tx, agent.id);
-  pushCleanupAfterCommit(tx, { agent: agent.id, sessions });
+  pushCleanupAfterCommit(tx, {
+    agent: agent.id,
+    sessions,
+    harness_sessions: harnessSessions,
+  });
   return ok({ sessions, erased_jobs: erasedJobs });
 }
 
@@ -257,6 +292,18 @@ export const agentDeleteWiring: WiringFactory = () => ({
       for (const session of payload.sessions) {
         await eraseToolResults(ctx.root.path, session);
         await ctx.rewindFiles.store.removeSession(session).catch(() => {});
+      }
+      if (
+        payload.harness_sessions !== undefined &&
+        payload.harness_sessions.length > 0
+      ) {
+        try {
+          await ctx.peek?.terminalAgents?.forgetHarnessSessions(
+            payload.harness_sessions,
+          );
+        } catch (thrown) {
+          log("harness_sessions_not_cleaned", thrown);
+        }
       }
       try {
         await cleanSecrets(payload.agent);

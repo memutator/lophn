@@ -90,8 +90,8 @@ export function createCodingSessions(deps: CodingSessionsDeps) {
   const listeners = new Set<() => void>();
   let listed = "";
 
-  // 터미널마다 지금 도는 coding agent. GUI view에서는 handle이 진실이다. GUI가 띄운 CLI는 foreground TUI가 아니고 hook이 안 닿을
-  // 수 있어 tracker가 모를 수 있다. TUI view(shared 대화의 handle이 남은 때)는 foreground TUI를 tracker가 안다.
+  // 터미널마다 지금 도는 coding agent. service가 runtime.agent에 통합 상태(`source: "gui" | "pty"`)를 싣는다.
+  // standalone unit test처럼 runtime.agent에 source가 없을 때만 GUI handle(`gui.tabSessions()`)을 보조로 읽는다.
   function reports(): TerminalSessionReport[] {
     const tabs = new Map(
       gui.tabSessions().map((tab) => [tab.terminal_ref, tab]),
@@ -100,8 +100,11 @@ export function createCodingSessions(deps: CodingSessionsDeps) {
       if (runtime.dedicated) return [];
       const { agent } = runtime;
       const tab = tabs.get(runtime.terminal_ref);
+      const unifiedGui = agent?.source === "gui";
       const guided =
-        tab !== undefined && (tab.view === "gui" || agent === undefined);
+        !unifiedGui &&
+        tab !== undefined &&
+        (tab.view === "gui" || agent === undefined);
       if (
         (agent === undefined && !guided) ||
         runtime.state === "exited" ||
@@ -110,24 +113,27 @@ export function createCodingSessions(deps: CodingSessionsDeps) {
         return [];
       }
       const foreground = agent?.foreground === true;
+      const harness = guided ? tab.harness : (agent?.harness ?? "");
       return [
         {
           terminal_ref: runtime.terminal_ref,
           project: runtime.project,
-          harness: guided ? tab.harness : (agent?.harness ?? ""),
+          harness,
           state: guided ? tab.state : (agent?.state ?? "unknown"),
-          cli_session:
-            (guided ? tab.cli_session : null) ?? agent?.session ?? null,
-          title:
-            (guided ? tab.title : null) ?? agent?.name ?? agent?.title ?? null,
+          cli_session: guided
+            ? (tab.cli_session ?? agent?.session ?? null)
+            : (agent?.session ?? tab?.cli_session ?? null),
+          title: guided
+            ? (tab.title ?? agent?.name ?? agent?.title ?? null)
+            : (agent?.name ?? agent?.title ?? tab?.title ?? null),
           cwd: runtime.cwd_at_start,
           shell_pid: runtime.shell_pid ?? null,
-          view: tab?.view ?? "tui",
+          view: unifiedGui ? "gui" : (tab?.view ?? "tui"),
           // handle이 있으면 그 adapter의 것, 없으면 foreground TUI를 GUI로 넘길 때의 것이다.
           handoff:
             tab?.handoff ??
-            (foreground && isGuiHarness(agent?.harness)
-              ? GUI_HANDOFF[agent.harness]
+            ((unifiedGui || foreground) && isGuiHarness(harness)
+              ? GUI_HANDOFF[harness]
               : null),
           foreground,
         },

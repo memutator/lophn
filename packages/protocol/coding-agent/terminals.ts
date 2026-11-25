@@ -44,21 +44,23 @@ export const terminalFailureSchema = z.enum([
 ]);
 export type TerminalFailure = z.infer<typeof terminalFailureSchema>;
 
-// 터미널 안에서 도는 coding agent(harness). 무엇이 도는지는 foreground process나 hook이, 상태는 hook만 정한다.
+// 터미널 안에서 도는 coding agent(harness). GUI view면 ACP handle(`source: "gui"`)이, 아니면 foreground process와 hook(`source: "pty"`)이 정한다.
 export const terminalAgentSchema = z.strictObject({
   // harness id(`claude`, `codex`, …). 탭 icon을 고른다.
   harness: z.string().min(1),
+  // 이 상태의 출처. GUI handle이면 "gui"(hook 불필요), PTY tracker면 "pty"다.
+  source: z.enum(["gui", "pty"]).optional(),
   // 첫 hook 전이거나 사람이 Esc·Ctrl-C로 끊은 뒤는 unknown이다.
   state: z.enum(["running", "waiting", "idle", "unknown"]),
   // 이 harness의 hook을 한 번이라도 들었다. 끊어서 unknown이 돼도 남는다.
   hooked: z.boolean(),
   // 이 harness의 TUI가 PTY foreground에서 돈다. GUI가 띄운 CLI의 hook만 들었으면 없다.
   foreground: z.literal(true).optional(),
-  // hook이 알려 준 harness의 session id. 저장한 session과 이 터미널을 잇는다.
+  // hook이나 GUI handle이 알려 준 harness의 session id. 저장한 session과 이 터미널을 잇는다.
   session: z.string().optional(),
   // 그 session의 첫 prompt 한 줄.
   title: z.string().optional(),
-  // hook이 알려 준 harness의 session 이름.
+  // 사람 고정 이름이나 harness/ACP가 알려 준 session 이름.
   name: z.string().optional(),
   // program이 OSC로 낸 마지막 제목(상태 글리프를 뗀 것). foreground가 harness TUI가 아니면 shell prompt의 제목이다.
   screen_title: z.string().optional(),

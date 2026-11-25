@@ -29,6 +29,7 @@ import {
   terminalSessionId,
 } from "../../protocol/lophn-agent/session-tag.ts";
 import type { AcpHandle } from "./acp.ts";
+import { cleanAgentTitle } from "./agent-state.ts";
 import type { RoutedHook } from "./ingress.ts";
 
 // 한 handle의 update를 모아 한 번에 내는 간격. resume 재생처럼 한꺼번에 오는 update가 한 번에 그려지고, 글 delta도 프레임 하나에
@@ -91,8 +92,8 @@ export type TabGuiDeps = {
     launch?: HarnessLaunchConfig;
   } | null;
   log(message: string): void;
-  /** handle이 열리거나 닫히거나, view나 그 session의 상태(title, turn phase)가 바뀌었다. coding session 목록을 다시 만든다. */
-  changed?(): void;
+  /** handle이 열리거나 닫히거나, view나 그 session의 상태(title, turn phase)가 바뀌었다. coding session 목록과 통합 agent 상태를 다시 만든다. */
+  changed?(terminalRef?: string): void;
   /** restart adapter가 GUI → TUI로 돌아가며 그 session id로 TUI를 다시 띄운다. */
   resumingTui?(terminalRef: string, harness: GuiHarness, session: string): void;
 };
@@ -104,6 +105,8 @@ type Tab = {
   view: "gui" | "tui";
   /** adapter가 실패한 turn으로 보인 마지막 오류. view 바꾸기가 시작하지 못했을 때 답에 싣는다. */
   failure: string | null;
+  /** 같은 cli_session의 session_reset·빈 제목 갱신에서도 마지막 확정 제목을 보존한다. */
+  stickyTitle: { cli_session: string | null; title: string } | null;
 };
 
 /** GUI 탭의 CLI session. 상태는 ACP 상태에서 읽는다: 도는 turn은 running, 사람이 답할 것이 있으면 waiting. */
@@ -180,6 +183,8 @@ export type TabGui = {
     generation: number;
     state: string;
   }): void;
+  /** 그 harness·CLI session을 열고 있는 GUI handle을 모두 닫는다(`agent.delete` 연쇄 정리). */
+  closeMatching(harness: string, cliSession: string): void;
   stop(): void;
 };
 
@@ -247,7 +252,7 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
     const tab = byTerminal.get(terminalRef);
     if (tab === undefined || tab.view === view) return;
     tab.view = view;
-    deps.changed?.();
+    deps.changed?.(terminalRef);
   };
 
   function terminalOf(
@@ -378,25 +383,33 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
         generation: runtime.generation,
         view: "gui",
         failure: null,
+        stickyTitle: null,
       };
       byTerminal.set(handle.terminal, tab);
-      deps.changed?.();
+      deps.changed?.(handle.terminal);
       // 닫힘은 어디서 시작했든(extension, 터미널 끝) 한 곳에서 알린다.
+      // commit()이 후속 snapshot을 낼 때도 목록·통합 agent 상태를 갱신한다.
+      let attached = false;
       handle.attach({
-        snapshot: () => {},
+        snapshot: () => {
+          if (attached) deps.changed?.(handle.terminal);
+        },
         update: (update) => {
           if (update.type === "turn_ended" && update.error !== null) {
             tab.failure = update.error.message;
           }
-          if (SESSION_CHANGING.has(update.type)) deps.changed?.();
+          if (SESSION_CHANGING.has(update.type)) {
+            deps.changed?.(handle.terminal);
+          }
         },
         closed() {
           if (byTerminal.get(handle.terminal) === tab) {
             byTerminal.delete(handle.terminal);
           }
-          deps.changed?.();
+          deps.changed?.(handle.terminal);
         },
       });
+      attached = true;
       for (const listener of handleListeners) listener(handle);
     },
 
@@ -481,21 +494,50 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
       return [...byTerminal.values()].map((tab) => {
         const state = tab.handle.state();
         const phase = state.turn?.phase;
+        const waiting =
+          phase === "waiting" ||
+          state.pending.approval !== null ||
+          state.pending.question !== null;
+        const cliSession = state.session?.cli_session ?? null;
+        const freshTitle = cleanAgentTitle(
+          state.session?.title,
+          tab.handle.harness,
+        );
+        let title: string | null;
+        if (freshTitle !== null) {
+          tab.stickyTitle = { cli_session: cliSession, title: freshTitle };
+          title = freshTitle;
+        } else if (
+          tab.stickyTitle !== null &&
+          (cliSession === null ||
+            tab.stickyTitle.cli_session === null ||
+            tab.stickyTitle.cli_session === cliSession)
+        ) {
+          if (cliSession !== null && tab.stickyTitle.cli_session === null) {
+            tab.stickyTitle = {
+              cli_session: cliSession,
+              title: tab.stickyTitle.title,
+            };
+          }
+          title = tab.stickyTitle.title;
+        } else {
+          tab.stickyTitle = null;
+          title = null;
+        }
         return {
           terminal_ref: tab.handle.terminal,
           harness: tab.handle.harness,
           view: tab.view,
           handoff: tab.handle.handoff,
-          title: state.session?.title ?? null,
-          cli_session: state.session?.cli_session ?? null,
-          state:
-            phase === "working"
+          title,
+          cli_session: cliSession,
+          state: waiting
+            ? "waiting"
+            : phase === "working"
               ? "running"
-              : phase === "waiting"
-                ? "waiting"
-                : state.session === null && state.turn === null
-                  ? "unknown"
-                  : "idle",
+              : state.session === null && state.turn === null
+                ? "unknown"
+                : "idle",
         };
       });
     },
@@ -539,6 +581,17 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
       }
     },
 
+    closeMatching(harness, cliSession) {
+      for (const tab of [...byTerminal.values()]) {
+        if (
+          tab.handle.harness === harness &&
+          tab.handle.state().session?.cli_session === cliSession
+        ) {
+          tab.handle.close();
+        }
+      }
+    },
+
     stop() {
       for (const tab of [...byTerminal.values()]) tab.handle.close();
     },
@@ -547,8 +600,8 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
 
 /**
  * handle에 붙어 snapshot은 붙는 즉시 따로 넘기고, 이어지는 update는 `UPDATE_BATCH_MS` 동안 모아 배열 하나로 넘긴다. 그래서
- * snapshot이 늘 먼저 닿는다. 닫히면 모으던 update는 버린다. tool 본문은 빼고 넘긴다: 긴 대화의 snapshot은 대부분이 본문이고,
- * 화면은 줄을 펼칠 때 `toolBody`로 그 하나만 읽는다.
+ * snapshot이 늘 먼저 닿는다. 후속 snapshot(replay commit)이 오면 모아 두던 update를 버리고 새 snapshot을 넘긴다. 닫히면 모으던
+ * update는 버린다. tool 본문은 빼고 넘긴다: 긴 대화의 snapshot은 대부분이 본문이고, 화면은 줄을 펼칠 때 `toolBody`로 그 하나만 읽는다.
  */
 export function attachBatched(
   handle: TabHandle,
@@ -573,7 +626,10 @@ export function attachBatched(
     sink.updates(updates);
   };
   const stop = handle.attach({
-    snapshot: (state) => sink.snapshot(withoutToolBodies(state)),
+    snapshot(state) {
+      drop();
+      sink.snapshot(withoutToolBodies(state));
+    },
     update(update) {
       pending.push(updateWithoutToolBodies(update));
       cancelFlush ??= after(UPDATE_BATCH_MS, flush);

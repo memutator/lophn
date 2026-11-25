@@ -7,6 +7,7 @@ import type {
   TerminalAgent,
   TerminalRuntime,
 } from "../../protocol/coding-agent/terminals.ts";
+import { cleanAgentTitle } from "./agent-state.ts";
 import { stripStatusGlyphs } from "./osc-title.ts";
 
 /** protocol `HookSignal` 가운데 이 module이 읽는 칸. */
@@ -94,6 +95,8 @@ export type AgentTrackerDeps = {
     session: string;
     title: string | null;
     name: string | null;
+    /** 새 턴 시작(TurnStarted)이면 true다. 삭제 tombstone 해제는 새 턴 시작에만 허용한다. */
+    reopen?: boolean;
   }): void;
   /** session id를 처음 알게 됐다(foreground resume이나 hook). 저장본이 있으면 비어 있는 title·name을 채운다. */
   lookupSession?(info: {
@@ -130,6 +133,8 @@ type Entry = {
   title: string | null;
   /** harness가 hook으로 알려 준 session 이름. */
   name: string | null;
+  /** 사람이 직접 이름을 고정했다. 이후 자동 이름·hook 이름이 덮어쓰지 않는다. */
+  pinned: boolean;
   /** hook payload가 알려 준 harness의 작업 폴더. 탭의 TUI를 GUI로 넘길 때 쓴다. */
   cwd: string | null;
   running: boolean;
@@ -147,6 +152,12 @@ type Entry = {
   sweepTimer: (() => void) | null;
   /** idle이 된 뒤 FINISH_DELAY_MS를 기다리는 알림 timer. */
   finishTimer: (() => void) | null;
+  /** agy TurnEnded 뒤 summary DB의 늦은 쓰기를 한 번 더 읽는 timer. */
+  titleTimer: (() => void) | null;
+  /** agy에서 subagent/swarm 도구를 호출한 부모 conversationId. 이 터미널의 subagent hook을 걸러낸다. */
+  subagentParent: string | null;
+  /** agy idle Stop 뒤 부기용 PostToolUse를 다음 PreInvocation까지 무시한다. */
+  ignorePostToolUntilTurn: boolean;
   /** 사람이 친 끊기 key로 내렸다. 끝 신호가 아니라 짐작이라, 뒤에 tool이 끝났다는 hook이 오면 되돌린다. */
   guessed: boolean;
   /** 이 터미널의 program이 마지막으로 낸 제목(상태 글리프를 뗀 것). agent가 오가도 터미널의 것이라 남는다. */
@@ -168,11 +179,14 @@ const fresh = (
   | "session"
   | "title"
   | "name"
+  | "pinned"
   | "cwd"
   | "running"
   | "waiting"
   | "startedAt"
   | "waited"
+  | "subagentParent"
+  | "ignorePostToolUntilTurn"
   | "guessed"
 > => ({
   argv: null,
@@ -183,11 +197,14 @@ const fresh = (
   session: null,
   title: null,
   name: null,
+  pinned: false,
   cwd: null,
   running: false,
   waiting: 0,
   startedAt: null,
   waited: 0,
+  subagentParent: null,
+  ignorePostToolUntilTurn: false,
   guessed: false,
 });
 
@@ -244,6 +261,8 @@ export type AgentTracker = {
   renameSession(harness: string, session: string, name: string | null): void;
   /** foreground의 harness TUI가 떠났다(shell prompt나 다른 process). 돌려받은 함수로 그만 듣는다. */
   onForegroundExit(terminalRef: string, listener: () => void): () => void;
+  /** tracker가 지금 아는 그 터미널의 PTY agent. 없으면 undefined다. */
+  agentOf(terminalRef: string): TerminalAgent | undefined;
   /** runtime에 지금의 agent를 싣는다. harness가 없으면 agent 칸이 없다. */
   decorate(runtime: TerminalRuntime): TerminalRuntime;
 };
@@ -252,6 +271,27 @@ export type AgentTracker = {
 const CHILD_TIMEOUT_MS = 10 * 60 * 1000;
 // 잠깐 idle이 됐다 바로 다시 running이 되는 turn(child 사이의 틈)에 finished를 울리지 않으려는 지연이다.
 const FINISH_DELAY_MS = 1500;
+// agy TurnEnded 뒤 conversation_summaries.db가 비동기로 쓰일 수 있어 잠시 뒤 한 번 더 읽는다.
+const ANTIGRAVITY_TITLE_RECHECK_MS = 2000;
+const ANTIGRAVITY_SUBAGENT_TOOLS: ReadonlySet<string> = new Set([
+  "invoke_subagent",
+  "send_message",
+  "swarm",
+]);
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function nonEmptyString(value: unknown): string | null {
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function trimmedNonEmptyString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
 
 // Claude Code처럼 끊어도 Stop hook을 안 보내는 harness가 있어 사람이 친 key로 끊김을 본다.
 const KEY_TEXT = { escape: "\x1b", "ctrl-c": "\x03" } as const;
@@ -281,18 +321,31 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
         }
         let changed = false;
         let nameChanged = false;
-        if (current.title === null && saved.title !== null) {
-          current.title = saved.title;
+        const savedTitle = cleanAgentTitle(saved.title, harness);
+        if (current.title === null && savedTitle !== null) {
+          current.title = savedTitle;
           changed = true;
         }
-        if (
-          saved.name !== null &&
-          (saved.pinned === true || current.name === null) &&
-          current.name !== saved.name
-        ) {
-          current.name = saved.name;
-          changed = true;
-          nameChanged = true;
+        if (saved.pinned === true) {
+          current.pinned = true;
+          const pinnedName = cleanAgentTitle(saved.name);
+          if (pinnedName !== null && current.name !== pinnedName) {
+            current.name = pinnedName;
+            changed = true;
+            nameChanged = true;
+          }
+        } else {
+          const savedName = cleanAgentTitle(saved.name, harness);
+          if (
+            !current.pinned &&
+            savedName !== null &&
+            (current.name === null || saved.persist === true) &&
+            current.name !== savedName
+          ) {
+            current.name = savedName;
+            changed = true;
+            nameChanged = true;
+          }
         }
         if (changed) push(ref, current);
         if (nameChanged && saved.persist === true && current.session !== null) {
@@ -328,12 +381,41 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
         pending: null,
         sweepTimer: null,
         finishTimer: null,
+        titleTimer: null,
         screenTitle: null,
         pushed: "null",
       };
       entries.set(ref, entry);
     }
     return entry;
+  }
+
+  function cancelTitleTimer(entry: Entry): void {
+    entry.titleTimer?.();
+    entry.titleTimer = null;
+  }
+
+  function scheduleAntigravityTitleRecheck(
+    ref: string,
+    entry: Entry,
+    session: string,
+  ): void {
+    if (deps.lookupSession === undefined || entry.pinned) return;
+    cancelTitleTimer(entry);
+    entry.titleTimer = deps.after(ANTIGRAVITY_TITLE_RECHECK_MS, () => {
+      entry.titleTimer = null;
+      const current = entries.get(ref);
+      if (
+        current === undefined ||
+        current.harness !== "antigravity" ||
+        current.session !== session ||
+        current.pinned ||
+        !alive(ref)
+      ) {
+        return;
+      }
+      hydrate(ref, "antigravity", session);
+    });
   }
 
   // 끝났거나 모르는 터미널의 늦은 신호로 entry가 되살아나지 않게 한다.
@@ -367,6 +449,7 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
     entry.sweepTimer = null;
     entry.finishTimer?.();
     entry.finishTimer = null;
+    cancelTitleTimer(entry);
   }
 
   // child 집합이 바뀌거나 main이 running이 아니게 된 뒤마다 부른다. 보이는 상태가 idle로 정해지면 알림을
@@ -428,7 +511,7 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
     deps.signal({
       terminal_ref: ref,
       harness: entry.harness,
-      title: entry.title ?? entry.name,
+      title: entry.name ?? entry.title,
       kind: kind === "permission" ? "waiting" : kind,
       active_ms,
     });
@@ -462,9 +545,12 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
             ? (expectedResumes.delete(ref), fromArgv ?? expected.session)
             : fromArgv;
         if (seeded !== null && seeded !== entry.session) {
+          cancelTitleTimer(entry);
           entry.session = seeded;
           entry.title = null;
           entry.name = null;
+          entry.pinned = false;
+          entry.subagentParent = null;
           hydrate(ref, harness, seeded);
         }
       } else if (entry.harness !== null) {
@@ -480,8 +566,94 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
       push(ref, entry);
     },
     hook(ref, harness, event, payload) {
+      if (!alive(ref)) return;
+      if (harness === "antigravity") {
+        const record = isRecord(payload) ? payload : null;
+        const conversationId =
+          nonEmptyString(record?.conversationId) ??
+          nonEmptyString(record?.conversation_id) ??
+          nonEmptyString(record?.session_id);
+        const toolName =
+          nonEmptyString(record?.tool_name) ?? nonEmptyString(record?.toolName);
+        const lastUserInput =
+          trimmedNonEmptyString(record?.lastUserInput) ??
+          trimmedNonEmptyString(record?.last_user_input);
+        const existing = entries.get(ref);
+        if (
+          existing !== undefined &&
+          existing.fixed &&
+          existing.harness !== harness
+        ) {
+          return;
+        }
+        // 규칙 ③: lastUserInput이 있는 새 conversationId는 사람이 새 대화를 연 것이므로 subagent 추적을 초기화한다.
+        if (
+          existing !== undefined &&
+          existing.harness === harness &&
+          existing.subagentParent !== null &&
+          conversationId !== null &&
+          conversationId !== existing.subagentParent &&
+          lastUserInput !== null
+        ) {
+          existing.subagentParent = null;
+          existing.children.clear();
+        }
+        // 규칙 ②: 같은 터미널에서 부모와 다른 conversationId이고 lastUserInput이 비어 있으면 subagent/swarm 워커 hook이다.
+        // 부모의 자식 활동으로만 집계하고 메인 session·title·name·Recent(sessionSeen)는 절대 건드리지 않는다.
+        if (
+          existing !== undefined &&
+          existing.harness === harness &&
+          existing.subagentParent !== null &&
+          conversationId !== null &&
+          conversationId !== existing.subagentParent &&
+          lastUserInput === null
+        ) {
+          if (
+            event === "SessionStart" ||
+            event === "PreInvocation" ||
+            event === "PreToolUse" ||
+            event === "PostToolUse"
+          ) {
+            existing.children.set(conversationId, deps.now());
+            existing.heard = true;
+            existing.hooked = true;
+          } else if (event === "Stop" && record?.fullyIdle === true) {
+            existing.children.delete(conversationId);
+          }
+          reconcile(ref, existing);
+          push(ref, existing);
+          return;
+        }
+        // idle Stop 확정 뒤 부기용 PostToolUse가 상태를 되살리거나 sessionSeen을 다시 부르지 못하게 다음 PreInvocation까지 무시한다.
+        if (
+          event === "PostToolUse" &&
+          existing !== undefined &&
+          existing.harness === harness &&
+          existing.ignorePostToolUntilTurn
+        ) {
+          return;
+        }
+        // 규칙 ①: 부모가 subagent/swarm 도구를 부르면 현재 conversationId를 subagentParent로 고정한다.
+        if (
+          (event === "PreToolUse" || event === "PostToolUse") &&
+          toolName !== null &&
+          ANTIGRAVITY_SUBAGENT_TOOLS.has(toolName)
+        ) {
+          const entry = entryOf(ref);
+          if (entry.harness !== harness) {
+            drop(entry);
+            Object.assign(entry, fresh(harness, false));
+          }
+          const parentId = conversationId ?? entry.session;
+          if (parentId !== null) {
+            entry.subagentParent = parentId;
+          }
+          // 질문 도구가 아닌 PreToolUse는 waiting으로 올리지 않는다.
+          if (event === "PreToolUse") return;
+        }
+      }
       const signal = deps.signalOf(harness, event, payload);
-      if (signal === null || !alive(ref)) return;
+      if (signal === null) return;
       const entry = entryOf(ref);
       // grok·devin·cursor는 ~/.claude/settings.json의 hook을 기본으로 같이 읽어 그 탭이 `lophn hook claude`를
       // 받는다. process가 정한 harness를 다른 harness의 hook이 뒤집지 못한다.
@@ -504,12 +676,18 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
         if (expectedResumes.get(ref)?.harness === harness) {
           expectedResumes.delete(ref);
         }
+        cancelTitleTimer(entry);
         entry.session = signal.external_session;
         entry.title = null;
         entry.name = null;
+        entry.pinned = false;
+        entry.subagentParent = null;
         acquiredSession = signal.external_session;
       }
-      if (signal.name !== undefined) entry.name = signal.name;
+      if (signal.name !== undefined && !entry.pinned) {
+        const cleanName = cleanAgentTitle(signal.name, harness);
+        if (cleanName !== null) entry.name = cleanName;
+      }
       const cwd = (payload as { cwd?: unknown } | null)?.cwd;
       if (typeof cwd === "string" && isAbsolute(cwd)) entry.cwd = cwd;
       switch (signal.type) {
@@ -517,11 +695,14 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
           drop(entry);
           entry.startedAt = null;
           entry.waited = 0;
+          entry.ignorePostToolUntilTurn = false;
           break;
-        case "TurnStarted":
+        case "TurnStarted": {
           entry.pending = null;
-          if (entry.title === null && signal.prompt !== undefined) {
-            entry.title = signal.prompt;
+          entry.ignorePostToolUntilTurn = false;
+          const cleanPrompt = cleanAgentTitle(signal.prompt, harness);
+          if (entry.title === null && cleanPrompt !== null) {
+            entry.title = cleanPrompt;
           }
           entry.running = true;
           // 끝 알림을 기다리던 중(child 사이의 틈)이면 같은 turn이 이어진다. 새 turn이면 앞 turn의 못 본 끝을 지운다.
@@ -531,10 +712,14 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
           }
           entry.guessed = false;
           break;
+        }
         case "TurnEnded":
           entry.running = false;
           setWaiting(entry, 0);
           entry.guessed = false;
+          if (harness === "antigravity") {
+            entry.ignorePostToolUntilTurn = true;
+          }
           // 목록은 전체 snapshot이다. 먼저 끝난 child의 id를 늦게 온 Stop이 되살려도 다음 Stop이 바로잡는다.
           if (signal.children !== undefined) {
             entry.children = new Map(
@@ -587,6 +772,7 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
           entry.waited = 0;
           entry.guessed = false;
           entry.heard = false;
+          entry.ignorePostToolUntilTurn = false;
           break;
         case "SessionNamed":
           // 이름만 알리는 신호라 상태를 바꾸지 않는다.
@@ -603,6 +789,13 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
       ) {
         hydrate(ref, harness, entry.session);
       }
+      if (
+        harness === "antigravity" &&
+        signal.type === "TurnEnded" &&
+        entry.session !== null
+      ) {
+        scheduleAntigravityTitleRecheck(ref, entry, entry.session);
+      }
       if (entry.session !== null) {
         deps.sessionSeen?.({
           terminal_ref: ref,
@@ -610,6 +803,7 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
           session: entry.session,
           title: entry.title,
           name: entry.name,
+          ...(signal.type === "TurnStarted" ? { reopen: true } : {}),
         });
       }
     },
@@ -660,6 +854,10 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
       const runtime = deps.runtimeOf(ref);
       if (runtime !== undefined) deps.publish(decorate(runtime));
     },
+    agentOf(ref) {
+      const entry = entries.get(ref);
+      return entry === undefined ? undefined : agentOf(entry);
+    },
     decorate(runtime) {
       return decorate(runtime);
     },
@@ -687,8 +885,10 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
     renameSession(harness, session, name) {
       for (const [ref, entry] of entries) {
         if (entry.harness !== harness || entry.session !== session) continue;
-        if (entry.name === name) continue;
+        const nextPinned = name !== null;
+        if (entry.name === name && entry.pinned === nextPinned) continue;
         entry.name = name;
+        entry.pinned = nextPinned;
         push(ref, entry);
       }
     },

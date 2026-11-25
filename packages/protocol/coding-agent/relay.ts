@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
 import { defineMemory, defineRead } from "../base/route.ts";
-import { terminalProjectSchema } from "./terminals.ts";
 import type { AcpCliSession, AcpRewindPreview } from "./gui-harness.ts";
+import { terminalProjectSchema } from "./terminals.ts";
 
 // coding session: 사람 터미널에서 도는 coding agent CLI 하나다. core가 터미널과 tracker, GUI handle과 그 ACP 상태를 원본으로
 // 메모리에 둔다. ledger에는 행이 없다. session id는 desktop GUI 화면과 같은 `ses_<터미널 ULID>`(`guiSessionId`)이고 대화는 기존
@@ -173,15 +173,18 @@ export const codingSessionsRewindPreview = defineRead({
   errors: ["invalid_input", "unauthorized", "forbidden", "not_found"],
 });
 
-// 사람이 사이드바 Recent에서 터미널 coding session 줄을 지웠다. 그 project·harness·CLI session의 lophn 팀원 session(GUI 탭이 팀원이었다)을
-// 보관해 더는 부를 수 없게 한다. 팀원이 없으면 `archived: 0`이다. 터미널과 그 CLI의 대화는 그대로다.
+// 사람이 사이드바 Recent에서 터미널 coding session 줄을 지웠다. 저장한 session 목록에서 지우고 tombstone을 남기며,
+// 그 project·harness·CLI session의 lophn 팀원 session(GUI 탭이 팀원이었다)이 있으면 함께 보관한다. 터미널과 그 CLI의 대화는 그대로다.
 export const codingSessionsForget = defineMemory({
   resource: "coding_sessions",
   method: "forget",
   name: "CodingSessionsForget",
-  changes: ["sessions"],
+  changes: [
+    "sessions",
+    { name: "terminal_saved_sessions", id: (input) => input.project },
+  ],
   input: z.strictObject({
-    project: idSchema("prj"),
+    project: terminalProjectSchema,
     harness: z.string().min(1).max(64),
     cli_session: z.string().min(1).max(256),
   }),

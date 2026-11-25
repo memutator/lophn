@@ -67,6 +67,13 @@ export function createAcp(
           state = reduceAcp(state, update);
           for (const listener of attached) listener.update(update);
         },
+        commit(updates) {
+          if (closed) return;
+          for (const update of updates) {
+            state = reduceAcp(state, update);
+          }
+          for (const listener of [...attached]) listener.snapshot(state);
+        },
         onInput: (listener) => void inputs.push(listener),
         onClose: (listener) => void closers.push(listener),
         close,

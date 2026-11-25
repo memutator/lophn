@@ -22,6 +22,7 @@ import {
 import { terminalHookLineSchema } from "../../protocol/coding-agent/terminal-hook.ts";
 import type { TerminalRuntime } from "../../protocol/coding-agent/terminals.ts";
 import type { Terminals } from "../terminals/ports.ts";
+import { createAcp } from "./acp.ts";
 import { createCodingSessions } from "./coding-sessions.ts";
 import {
   attachBatched,
@@ -599,6 +600,7 @@ test("coding_sessions/switch rejects with conflict when stops changed since swit
       uploadImage: async () => null,
       readImage: async () => null,
       terminalChanged: () => {},
+      closeMatching: () => {},
       stop: () => {},
     },
     after: () => () => {},
@@ -890,6 +892,7 @@ test("createCodingSessions.list includes Home (project: home) terminals and filt
       uploadImage: async () => null,
       readImage: async () => null,
       terminalChanged: () => {},
+      closeMatching: () => {},
       stop: () => {},
     },
     after: () => () => {},
@@ -904,4 +907,272 @@ test("createCodingSessions.list includes Home (project: home) terminals and filt
   assert.equal(all[0]?.terminal, terminalRef);
   assert.equal(coding.list("home").length, 1);
   assert.equal(coding.list(`prj_${"0".repeat(26)}`).length, 0);
+});
+
+test("AcpSessionHandle.commit folds updates silently and fires snapshot once, dropping buffered updates in attachBatched", () => {
+  let seq = 0;
+  let openedHandle: TabHandle | null = null;
+  const { acp } = createAcp(
+    { newId: (prefix) => `${prefix}_${++seq}` },
+    (handle) => {
+      openedHandle = handle;
+    },
+  );
+  const sessionHandle = acp.open({
+    terminal: {
+      id: "trm_commit",
+      cwd: "/work",
+      harness: "antigravity",
+      env: {},
+      state: () => "shell",
+      sessionId: () => null,
+      type: () => {},
+      signal: () => {},
+      onForegroundExit: () => () => {},
+      writeImage: async () => null,
+    },
+    harness: "antigravity",
+    title: "Antigravity",
+    handoff: "restart",
+  });
+  assert.ok(openedHandle !== null);
+  const handle = openedHandle as TabHandle;
+
+  const changedRefs: (string | undefined)[] = [];
+  const gui = createTabGui({
+    handlers: () => null,
+    ids: { request: () => "req_1" },
+    terminals: {
+      runtime: () => ({ cwd: "/work", generation: 1 }),
+      hookEnv: () => ({}),
+      tui: () => null,
+      type: async () => {},
+      signal: async () => {},
+      onForegroundExit: () => () => {},
+    },
+    images: NO_IMAGES,
+    log: () => {},
+    changed: (ref) => changedRefs.push(ref),
+  });
+  gui.opened(handle);
+  assert.deepEqual(changedRefs, ["trm_commit"]);
+
+  const snapshots: AcpState[] = [];
+  const batches: AcpUpdate[][] = [];
+  const timers: { fn: () => void; cancelled: boolean }[] = [];
+  attachBatched(
+    handle,
+    (_ms, run) => {
+      const t = { fn: run, cancelled: false };
+      timers.push(t);
+      return () => {
+        t.cancelled = true;
+      };
+    },
+    {
+      snapshot: (s) => snapshots.push(s),
+      updates: (u) => batches.push(u),
+      closed: () => {},
+    },
+  );
+  assert.equal(snapshots.length, 1);
+
+  // Buffer a live update, then commit a replay batch: buffered update must be dropped and snapshot fired once.
+  sessionHandle.publish({
+    type: "tool_started",
+    item: tool("t-live", bodyOf("live")),
+  });
+  assert.equal(timers.length, 1);
+
+  sessionHandle.commit!([
+    {
+      type: "session_changed",
+      session: {
+        capabilities: {} as never,
+        cli_session: "agy-conv-1",
+        title: "Replayed Chat",
+        models: [],
+        model: null,
+        commands: [],
+        modes: [],
+        mode: null,
+        usage: null,
+      } as never,
+    },
+    {
+      type: "tool_started",
+      item: tool("t-replayed", bodyOf("secret-body")),
+    },
+  ]);
+
+  assert.equal(timers[0]?.cancelled, true);
+  assert.equal(batches.length, 0);
+  assert.equal(snapshots.length, 2);
+  assert.equal(snapshots[1]?.session?.cli_session, "agy-conv-1");
+  assert.equal(snapshots[1]?.session?.title, "Replayed Chat");
+  assert.equal(
+    JSON.stringify(snapshots[1]).includes("secret-body"),
+    false,
+    "attachBatched strips tool bodies on commit snapshot",
+  );
+  // Subsequent snapshot from commit also notified gui.deps.changed.
+  assert.deepEqual(changedRefs, ["trm_commit", "trm_commit"]);
+});
+
+test("unified terminal-agent state: agy --gui registers with source: gui without hooks, preserves titles, and cascades forgetHarnessSessions", async () => {
+  const root = await mkdtemp(join(tmpdir(), "lophn-unified-agent-"));
+  const prj = "prj_01BBBBBBBBBBBBBBBBBBBBBBBB";
+  const terminalRef = "trm_01BBBBBBBBBBBBBBBBBBBBBBBB";
+  try {
+    const store = createAgentSessionStore({
+      dataRoot: root,
+      now: () => 2000,
+      resumable: () => true,
+    });
+    let rt: TerminalRuntime = {
+      terminal_ref: terminalRef,
+      project: prj,
+      folder_ref: `${prj}_0`,
+      cwd_at_start: "/work",
+      state: "running",
+      generation: 1,
+    } as TerminalRuntime;
+    const events: { type: string; payload?: unknown }[] = [];
+    const terminals: Terminals = {
+      open: async () => ({ ok: true, value: rt }),
+      close: async () => ({ ok: true, value: rt }),
+      restart: async () => ({ ok: true, value: rt }),
+      write: async () => ({ ok: true, value: undefined }),
+      signal: async () => ({ ok: true, value: undefined }),
+      resize: async () => ({ ok: true, value: rt }),
+      snapshot: async () => ({ ok: true, value: { runtime: rt, output: [] } }),
+      screen: async () => ({ ok: true, value: {} as never }),
+      list: () => [rt],
+      runtime: (ref) => (ref === terminalRef ? rt : null),
+      patch: (ref, patch) => {
+        if (ref !== terminalRef) return;
+        if (patch.agent === null) {
+          const { agent: _removed, ...rest } = rt;
+          rt = rest as TerminalRuntime;
+        } else if (patch.agent !== undefined) {
+          rt = { ...rt, agent: patch.agent };
+        }
+      },
+      onRuntime: () => () => {},
+      onOutput: () => () => {},
+      onForeground: () => () => {},
+      onHumanInput: () => () => {},
+      useEnv: () => () => {},
+      anyOpen: () => true,
+      stop: async () => {},
+    };
+    const agents = createTerminalAgents({
+      terminals,
+      clock: manualClock(2000),
+      after: () => () => {},
+      publish: (event) =>
+        events.push(event as { type: string; payload?: unknown }),
+      attention: () => ({ signal: () => {}, dismiss: () => {} }),
+      handlers: () => null,
+      redact: (value) => value,
+      platform: "linux",
+      store,
+      images: NO_IMAGES,
+      ids: { request: () => "req_1" },
+      hookEnv: () => ({}),
+      identified: () => {},
+      beat: () => {},
+      log: () => {},
+    });
+
+    let seq = 0;
+    let openedHandle: TabHandle | null = null;
+    const { acp } = createAcp(
+      { newId: (prefix) => `${prefix}_${++seq}` },
+      (h) => {
+        openedHandle = h;
+      },
+    );
+    const sessionHandle = acp.open({
+      terminal: {
+        id: terminalRef,
+        cwd: "/work",
+        harness: "antigravity",
+        env: {},
+        state: () => "shell",
+        sessionId: () => null,
+        type: () => {},
+        signal: () => {},
+        onForegroundExit: () => () => {},
+        writeImage: async () => null,
+      },
+      harness: "antigravity",
+      title: "Antigravity",
+      handoff: "restart",
+    });
+    let closedCount = 0;
+    sessionHandle.onClose(() => {
+      closedCount += 1;
+    });
+
+    // Opening agy --gui immediately patches runtime.agent with source: "gui" without any hook.
+    agents.opened(openedHandle!);
+    assert.equal(rt.agent?.source, "gui");
+    assert.equal(rt.agent?.harness, "antigravity");
+    assert.equal(rt.agent?.hooked, false);
+    assert.equal(agents.coding.list(prj).length, 1);
+    assert.equal(agents.coding.list(prj)[0]?.view, "gui");
+
+    // Commit session info with real title, then try overwriting with default label / null / session_reset.
+    sessionHandle.commit!([
+      {
+        type: "session_changed",
+        session: {
+          capabilities: {} as never,
+          cli_session: "agy-conv-99",
+          title: "Real Agy Title",
+          models: [],
+          model: null,
+          commands: [],
+          modes: [],
+          mode: null,
+          usage: null,
+        } as never,
+      },
+    ]);
+    assert.equal(rt.agent?.session, "agy-conv-99");
+    assert.equal(rt.agent?.name, "Real Agy Title");
+
+    sessionHandle.publish({
+      type: "session_changed",
+      session: { title: "Antigravity" },
+    });
+    sessionHandle.publish({ type: "session_reset" });
+    assert.equal(rt.agent?.name, "Real Agy Title");
+
+    // Wait for store note, then cascade forgetHarnessSessions -> removes saved session + closes GUI handle.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    assert.equal((await store.list(prj)).length, 1);
+
+    await agents.forgetHarnessSessions([
+      {
+        project: prj,
+        harness: "antigravity",
+        external_session: "agy-conv-99",
+      },
+    ]);
+    assert.equal(closedCount, 1);
+    assert.equal(rt.agent, undefined);
+    assert.deepEqual(await store.list(prj), []);
+    assert.ok(
+      events.some(
+        (e) =>
+          e.type === "StateChanged" &&
+          JSON.stringify(e.payload).includes("terminal_saved_sessions"),
+      ),
+    );
+    agents.stop();
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });

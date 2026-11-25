@@ -24,6 +24,11 @@ import type { BusEvent } from "../../protocol/events/bus.ts";
 import { publishStateChanged } from "../../protocol/events/changes.ts";
 import { terminalSessionId } from "../../protocol/lophn-agent/session-tag.ts";
 import type { Terminals } from "../terminals/ports.ts";
+import {
+  cleanAgentTitle,
+  resolveTerminalAgent,
+  type SavedAgentTitle,
+} from "./agent-state.ts";
 import { createBackgroundMembers } from "./background.ts";
 import { createCodingSessions } from "./coding-sessions.ts";
 import type { CredentialFiles } from "./credential-file.ts";
@@ -105,6 +110,27 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
     publishStateChanged(deps, deps.clock.now(), [
       { name: "terminal_saved_sessions", id },
     ]);
+  // 터미널별 마지막으로 terminals.patch한 통합 agent 직렬화 값과 GUI 탭의 저장된/고정된 제목 캐시.
+  const lastPatched = new Map<string, string>();
+  const guiSaved = new Map<string, SavedAgentTitle>();
+
+  function syncTerminalAgent(ref: string): void {
+    const runtime = terminals.runtime(ref);
+    if (runtime === null) {
+      lastPatched.delete(ref);
+      return;
+    }
+    const tab = gui.tabSessions().find((item) => item.terminal_ref === ref);
+    const resolved = resolveTerminalAgent({
+      tab,
+      trackerAgent: tracker.agentOf(ref),
+      saved: guiSaved.get(ref),
+    });
+    const serialized = JSON.stringify(resolved);
+    if (lastPatched.get(ref) === serialized) return;
+    lastPatched.set(ref, serialized);
+    terminals.patch(ref, { agent: resolved });
+  }
 
   const tracker = createAgentTracker({
     harnessOfProcess,
@@ -122,8 +148,7 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
         ? hookSignalOf(harness as HarnessId, event, payload)
         : null,
     runtimeOf: (ref) => terminals.runtime(ref) ?? undefined,
-    publish: (runtime) =>
-      terminals.patch(runtime.terminal_ref, { agent: runtime.agent ?? null }),
+    publish: (runtime) => syncTerminalAgent(runtime.terminal_ref),
     now,
     after: deps.after,
     notify(notice) {
@@ -151,14 +176,12 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
         },
       } as BusEvent);
     },
-    // 제목은 coding session 목록과 같다: GUI view의 탭은 handle의 제목이 먼저고, 아니면 tracker의 제목·이름이다.
+    // 제목은 단일 통합 agent 상태(`runtime.agent`)에서 읽는다.
     signal(info) {
-      const tab = gui
-        .tabSessions()
-        .find((item) => item.terminal_ref === info.terminal_ref);
+      const agent = terminals.runtime(info.terminal_ref)?.agent;
       deps.attention().signal({
         ...info,
-        title: (tab?.view === "gui" ? tab.title : null) ?? info.title,
+        title: agent?.name ?? agent?.title ?? info.title,
       });
     },
     dismiss: (ref) => void deps.attention().dismiss(terminalSessionId(ref)),
@@ -175,6 +198,7 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
           external_session: info.session,
           title: info.title,
           name: info.name,
+          ...(info.reopen === true ? { reopen: true } : {}),
         })
         .then(() => changedSaved(runtime.project))
         .catch((cause) =>
@@ -257,7 +281,10 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
       };
     },
     log: deps.log,
-    changed: () => coding.changed(),
+    changed(ref) {
+      if (ref !== undefined) syncTerminalAgent(ref);
+      coding.changed();
+    },
     resumingTui: (ref, harness, session) =>
       tracker.expectResume(ref, harness, session),
   });
@@ -340,6 +367,12 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
       let lastNoted = "";
       let lastModels: unknown = null;
       let lastModel: unknown = null;
+      let hydratedSession: string | null = null;
+      let titleTimer: (() => void) | null = null;
+      const cancelTitleTimer = () => {
+        titleTimer?.();
+        titleTimer = null;
+      };
       const observeCatalog = () => {
         const session = handle.state().session;
         if (
@@ -362,16 +395,71 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
           },
         });
       };
-      const noteFromState = () => {
+      const hydrateSaved = (cliSession: string) => {
+        const runtime = terminals.runtime(handle.terminal);
+        if (runtime === null) return;
+        const projectRef = runtime.project;
+        void deps.store
+          .list(projectRef)
+          .then((savedList) => {
+            if (closed) return;
+            if (handle.state().session?.cli_session !== cliSession) return;
+            const found = savedList.find(
+              (item) =>
+                item.harness === handle.harness &&
+                item.external_session === cliSession,
+            );
+            const externalName =
+              !found?.pinned && handle.harness === "antigravity"
+                ? (deps.readAntigravityTitle?.(cliSession) ?? null)
+                : null;
+            if (found !== undefined || externalName !== null) {
+              guiSaved.set(handle.terminal, {
+                harness: handle.harness,
+                session: cliSession,
+                title: found?.title ?? null,
+                name: found?.pinned
+                  ? found.name
+                  : (externalName ?? found?.name ?? null),
+                pinned: found?.pinned ?? false,
+              });
+              syncTerminalAgent(handle.terminal);
+              coding.changed();
+            }
+            if (
+              externalName !== null &&
+              !found?.pinned &&
+              externalName !== (found?.name ?? null)
+            ) {
+              void deps.store
+                .note({
+                  project: projectRef,
+                  folder_ref: runtime.folder_ref,
+                  cwd: runtime.cwd_at_start,
+                  harness: handle.harness,
+                  external_session: cliSession,
+                  title: found?.title ?? null,
+                  name: externalName,
+                })
+                .then(() => changedSaved(projectRef))
+                .catch(() => {});
+            }
+          })
+          .catch(() => {});
+      };
+      const noteFromState = (reopen = false) => {
         observeCatalog();
         const session = handle.state().session;
         const cliSession = session?.cli_session ?? null;
         if (cliSession === null) return;
-        const rawTitle = session?.title?.trim() || null;
-        const label = adapterOf(handle.harness)?.label;
-        const title = rawTitle === label ? null : rawTitle;
+        if (cliSession !== hydratedSession) {
+          cancelTitleTimer();
+          hydratedSession = cliSession;
+          hydrateSaved(cliSession);
+        }
+        const title = cleanAgentTitle(session?.title, handle.harness);
         const key = `${cliSession}\0${title ?? ""}`;
-        if (key === lastNoted) return;
+        if (!reopen && key === lastNoted) return;
         lastNoted = key;
         const runtime = terminals.runtime(handle.terminal);
         if (runtime === null) return;
@@ -384,6 +472,7 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
             external_session: cliSession,
             title,
             name: title,
+            ...(reopen ? { reopen: true } : {}),
           })
           .then(() => changedSaved(runtime.project))
           .catch((cause) =>
@@ -393,17 +482,38 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
       let detach: (() => void) | undefined;
       let closed = false;
       detach = handle.attach({
-        snapshot: () => noteFromState(),
+        snapshot: () => {
+          noteFromState();
+          syncTerminalAgent(handle.terminal);
+          coding.changed();
+        },
         update(update) {
           if (
             update.type === "session_changed" ||
             update.type === "session_reset"
           ) {
             noteFromState();
+            syncTerminalAgent(handle.terminal);
+          } else if (update.type === "turn_started") {
+            noteFromState(true);
+          } else if (
+            update.type === "turn_ended" &&
+            handle.harness === "antigravity"
+          ) {
+            const cliSession = handle.state().session?.cli_session ?? null;
+            if (cliSession !== null) {
+              cancelTitleTimer();
+              titleTimer = deps.after(2000, () => {
+                titleTimer = null;
+                if (!closed) hydrateSaved(cliSession);
+              });
+            }
           }
         },
         closed() {
           closed = true;
+          cancelTitleTimer();
+          guiSaved.delete(handle.terminal);
           if (detach !== undefined) guiNotes.delete(detach);
         },
       });
@@ -439,9 +549,12 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
       gui.terminalChanged(runtime);
       if (runtime.state === "exited" || runtime.state === "unknown") {
         titleScanners.delete(runtime.terminal_ref);
+        guiSaved.delete(runtime.terminal_ref);
         members.terminalEnded(runtime.terminal_ref);
         tracker.gone(runtime.terminal_ref);
         holds.release(runtime.terminal_ref);
+        syncTerminalAgent(runtime.terminal_ref);
+        lastPatched.delete(runtime.terminal_ref);
       }
       coding.changed();
     }),
@@ -495,6 +608,27 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
           input.external_session,
           input.name,
         );
+        const updated = sessions.find(
+          (one) =>
+            one.harness === input.harness &&
+            one.external_session === input.external_session,
+        );
+        for (const tab of gui.tabSessions()) {
+          if (
+            tab.harness === input.harness &&
+            tab.cli_session === input.external_session
+          ) {
+            guiSaved.set(tab.terminal_ref, {
+              harness: input.harness,
+              session: input.external_session,
+              title: updated?.title ?? null,
+              name: updated?.name ?? null,
+              pinned: updated?.pinned ?? false,
+            });
+            syncTerminalAgent(tab.terminal_ref);
+          }
+        }
+        coding.changed();
         changedSaved(input.project);
         return ok({ sessions });
       } catch (cause) {
@@ -503,6 +637,47 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
           message: `the saved session could not be written: ${String(cause)}`,
         });
       }
+    },
+
+    async forgetSaved(input: {
+      project: string;
+      harness: string;
+      external_session: string;
+    }): Promise<void> {
+      await deps.store.remove(input);
+      for (const [ref, cached] of [...guiSaved.entries()]) {
+        if (
+          cached.harness === input.harness &&
+          cached.session === input.external_session
+        ) {
+          guiSaved.delete(ref);
+        }
+      }
+      changedSaved(input.project);
+    },
+
+    async forgetHarnessSessions(
+      items: readonly {
+        project: string;
+        harness: string;
+        external_session: string;
+      }[],
+    ): Promise<void> {
+      const projects = new Set<string>();
+      for (const item of items) {
+        await deps.store.remove(item);
+        for (const [ref, cached] of [...guiSaved.entries()]) {
+          if (
+            cached.harness === item.harness &&
+            cached.session === item.external_session
+          ) {
+            guiSaved.delete(ref);
+          }
+        }
+        gui.closeMatching(item.harness, item.external_session);
+        projects.add(item.project);
+      }
+      for (const projectRef of projects) changedSaved(projectRef);
     },
 
     // 앱이 멈춘 터미널 session의 coding agent를 그 harness의 끊기 key로 끊는다. 사람이 같은 key를 친 것과 같아서 tracker가 다음

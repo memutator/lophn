@@ -521,3 +521,204 @@ test("readAntigravityTitle reads non-empty titles from conversation_summaries.db
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("antigravity subagent filter ①②③ isolates child hooks from main session/title/Recent and ghost PostToolUse is ignored after idle Stop", () => {
+  const clock = fakeClock();
+  const runtime = { terminal_ref: "t", state: "running" } as TerminalRuntime;
+  let latest: TerminalRuntime = runtime;
+  const seenSessions: Array<{
+    session: string;
+    title: string | null;
+    name: string | null;
+    reopen?: boolean;
+  }> = [];
+  const tracker = createAgentTracker({
+    harnessOfProcess: (argv) => (argv[0] === "agy" ? "antigravity" : null),
+    interruptKeys: () => ["escape", "ctrl-c"],
+    signalOf: (_harness, event, payload) => {
+      const p = payload as Record<string, unknown>;
+      const external_session =
+        typeof p.conversationId === "string" ? p.conversationId : undefined;
+      if (event === "SessionStart") {
+        return { type: "SessionStarted", external_session };
+      }
+      if (event === "PreInvocation") {
+        const prompt =
+          typeof p.lastUserInput === "string" ? p.lastUserInput : undefined;
+        return { type: "TurnStarted", external_session, prompt };
+      }
+      if (event === "PreToolUse") {
+        return p.tool_name === "ask_question"
+          ? { type: "PermissionRequested", external_session }
+          : null;
+      }
+      if (event === "PostToolUse") {
+        return { type: "PermissionResolved", external_session };
+      }
+      if (event === "Stop") {
+        return p.fullyIdle === true
+          ? { type: "TurnEnded", outcome: "completed", external_session }
+          : null;
+      }
+      return null;
+    },
+    runtimeOf: () => runtime,
+    publish: (rt) => {
+      latest = rt;
+    },
+    notify: () => {},
+    signal: () => {},
+    dismiss: () => {},
+    sessionSeen: (info) =>
+      seenSessions.push({
+        session: info.session,
+        title: info.title,
+        name: info.name,
+        reopen: info.reopen,
+      }),
+    ...clock,
+  });
+
+  tracker.foreground("t", ["agy"]);
+  tracker.hook("t", "antigravity", "PreInvocation", {
+    conversationId: "parent-1",
+    lastUserInput: "launch a swarm",
+  });
+  assert.equal(latest.agent?.session, "parent-1");
+  assert.equal(latest.agent?.title, "launch a swarm");
+  assert.equal(latest.agent?.state, "running");
+
+  // 규칙 ①: invoke_subagent / swarm PreToolUse는 subagentParent를 기록하고 waiting으로 올리지 않는다.
+  tracker.hook("t", "antigravity", "PreToolUse", {
+    conversationId: "parent-1",
+    tool_name: "invoke_subagent",
+  });
+  assert.equal(latest.agent?.state, "running");
+
+  // 부모가 일단 idle Stop을 보내도, subagent hook(규칙 ②)이 자식 활동을 유지하고 메인 세션·제목을 덮지 않으며 Recent에도 안 쌓인다.
+  const seenBeforeSubagent = seenSessions.length;
+  tracker.hook("t", "antigravity", "SessionStart", {
+    conversationId: "child-1",
+    lastUserInput: "",
+  });
+  tracker.hook("t", "antigravity", "PreInvocation", {
+    conversationId: "child-1",
+  });
+  // 중첩 subagent가 send_message를 불러도 subagentParent를 덮어쓰지 않는다.
+  tracker.hook("t", "antigravity", "PreToolUse", {
+    conversationId: "child-1",
+    tool_name: "send_message",
+  });
+  assert.equal(latest.agent?.session, "parent-1");
+  assert.equal(latest.agent?.title, "launch a swarm");
+  assert.equal(latest.agent?.state, "running");
+  assert.equal(seenSessions.length, seenBeforeSubagent);
+
+  // 부모 idle Stop 뒤 child가 살아 있으면 계속 running이고, child가 idle Stop으로 끝나면 비로소 idle이다.
+  tracker.hook("t", "antigravity", "Stop", {
+    conversationId: "parent-1",
+    fullyIdle: true,
+  });
+  assert.equal(latest.agent?.state, "running");
+
+  tracker.hook("t", "antigravity", "Stop", {
+    conversationId: "child-1",
+    fullyIdle: true,
+  });
+  assert.equal(latest.agent?.state, "idle");
+  assert.equal(
+    seenSessions.some((s) => s.session === "child-1"),
+    false,
+  );
+
+  // 유령 PostToolUse 차단: idle Stop 뒤 늦게 온 PostToolUse는 sessionSeen이나 상태를 건드리지 않는다.
+  const seenBeforeGhost = seenSessions.length;
+  tracker.hook("t", "antigravity", "PostToolUse", {
+    conversationId: "parent-1",
+    tool_name: "run_command",
+  });
+  assert.equal(latest.agent?.state, "idle");
+  assert.equal(seenSessions.length, seenBeforeGhost);
+
+  // 규칙 ③: lastUserInput이 있는 새 conversationId는 정상 세션 전환한다.
+  tracker.hook("t", "antigravity", "PreInvocation", {
+    conversationId: "user-new-2",
+    lastUserInput: "new user conversation",
+  });
+  assert.equal(latest.agent?.session, "user-new-2");
+  assert.equal(latest.agent?.title, "new user conversation");
+  assert.equal(latest.agent?.state, "running");
+  assert.equal(seenSessions.at(-1)?.session, "user-new-2");
+  assert.equal(seenSessions.at(-1)?.reopen, true);
+});
+
+test("antigravity TurnEnded schedules a delayed summary DB re-read (~2000ms) and cancels it on gone()", async () => {
+  const clock = fakeClock();
+  const runtime = { terminal_ref: "t", state: "running" } as TerminalRuntime;
+  let latest: TerminalRuntime = runtime;
+  let lookups = 0;
+  let delayedTitle: string | null = null;
+  const tracker = createAgentTracker({
+    harnessOfProcess: (argv) => (argv[0] === "agy" ? "antigravity" : null),
+    interruptKeys: () => ["escape", "ctrl-c"],
+    signalOf: (_harness, event, payload) => {
+      const p = payload as { conversationId?: string; prompt?: string };
+      if (event === "PreInvocation") {
+        return {
+          type: "TurnStarted",
+          external_session: p.conversationId,
+          prompt: p.prompt,
+        };
+      }
+      if (event === "Stop") {
+        return {
+          type: "TurnEnded",
+          outcome: "completed",
+          external_session: p.conversationId,
+        };
+      }
+      return null;
+    },
+    runtimeOf: () => runtime,
+    publish: (rt) => {
+      latest = rt;
+    },
+    notify: () => {},
+    signal: () => {},
+    dismiss: () => {},
+    lookupSession: async () => {
+      lookups += 1;
+      return delayedTitle === null
+        ? null
+        : { title: null, name: delayedTitle, pinned: false, persist: true };
+    },
+    ...clock,
+  });
+
+  tracker.foreground("t", ["agy"]);
+  tracker.hook("t", "antigravity", "PreInvocation", {
+    conversationId: "conv-delay",
+    prompt: "fix title",
+  });
+  tracker.hook("t", "antigravity", "Stop", { conversationId: "conv-delay" });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(latest.agent?.name, undefined);
+
+  // 2초 뒤 summary DB에 제목이 쓰였으면 delayed re-read가 읽어 반영한다.
+  delayedTitle = "Delayed Summary Title";
+  clock.advance(2000);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(latest.agent?.name, "Delayed Summary Title");
+
+  // 다음 Stop 뒤 gone()하면 예약된 타이머가 취소되어 추가 lookup을 하지 않는다.
+  tracker.hook("t", "antigravity", "PreInvocation", {
+    conversationId: "conv-delay",
+    prompt: "next",
+  });
+  tracker.hook("t", "antigravity", "Stop", { conversationId: "conv-delay" });
+  const lookupsBeforeGone = lookups;
+  tracker.gone("t");
+  clock.advance(5000);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(lookups, lookupsBeforeGone);
+});

@@ -1,0 +1,17 @@
+id: harness-gui-usage-panel
+version: 0.23.176
+platform_note: none
+title: "harness GUI `/usage` 구독 한도 조회 및 Usage 패널 분리"
+modules:
+  - packages/protocol
+  - packages/core/harness-gui
+  - packages/core/main
+  - packages/design
+  - packages/shell/renderer
+change: |
+  - **ACP `refresh_usage` 입력 추가(`packages/protocol/acp/input.ts`)**: `/usage` 등 화면이 열릴 때 harness adapter가 구독 사용 한도와 사용량을 최신 값으로 다시 읽게 한다.
+  - **Claude Code 구독 한도 조회(`packages/core/harness-gui/claude.ts`)**: 시작·turn 종료·`refresh_usage`에서 Agent SDK `get_usage`(`usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET({ skipBehaviors: true })`)로 5h·7d·모델별·Extra usage 한도를 읽어 `usage.limits`에 채운다. `utilization`이 비어 있는 `rate_limit_event`가 와도 기존 사용률을 지우지 않는다.
+  - **Codex 구독 한도 조회 보강(`packages/core/harness-gui/codex.ts`)**: `rateLimitsByLimitId`가 빈 객체(`{}`)일 때 `rateLimits`로 fallback하고, `refresh_usage`와 초기 조회 실패 뒤 turn 종료 시 `account/rateLimits/read`를 다시 호출한다. 다중 bucket의 `limitName`, `credits`, `windowDurationMins` 누락을 안전하게 처리한다. OpenCode(`refreshUsage`)와 omp(`refresh`)도 `refresh_usage`를 연결한다.
+  - **Usage / Context / Status 패널 구분(`status-view.tsx`, `agent-view.tsx`)**: `/usage`는 제목이 "Usage"이고 Limits를 맨 위에 둔 패널을 열며 harness session에 `refresh_usage`를 보낸다(`usage`가 아직 비어 있어도 패널을 열고 조회 중/한도 없음 안내를 보인다). `/context`는 "Context" 패널로 context 분해를 보이고, `/status`와 하단 푸터는 기존 "Status" 패널을 유지한다.
+why: |
+  Claude Code는 `rate_limit_event`를 받기 전이나 `utilization`이 빠진 event 뒤에 `usage.limits`가 비어 있었고, Codex는 초기 `account/rateLimits/read` 실패나 빈 `rateLimitsByLimitId` 응답 뒤 다시 읽는 길이 없었으며, UI도 `/usage`와 `/status`가 같은 "Status" 패널을 그대로 열어 구독 사용량 대신 일반 status처럼 보였다.

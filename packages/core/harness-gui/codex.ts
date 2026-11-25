@@ -691,12 +691,26 @@ function subState(status: string): SubDetail["state"] {
 const taskState = (state: SubDetail["state"]): AcpTask["state"] =>
   state === "cancelled" ? "stopped" : state;
 
-function windowLabel(mins: number | null): string {
-  if (mins === null) return "limit";
+function windowLabel(mins: number | null | undefined): string {
+  if (mins == null) return "limit";
   if (mins === 10080) return "weekly";
   if (mins % 1440 === 0) return `${mins / 1440}d`;
   if (mins % 60 === 0) return `${mins / 60}h`;
   return `${mins}m`;
+}
+
+function formatCreditsLeft(credits: J): string | null {
+  if (credits?.unlimited === true) return "Unlimited";
+  const balance = credits?.balance;
+  if (balance == null || balance === "") return null;
+  const numeric = Number(balance);
+  if (Number.isFinite(numeric)) {
+    return `${new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+    }).format(numeric)} left`;
+  }
+  return String(balance);
 }
 
 function goalOf(goal: J | null): AcpGoal | null {
@@ -2452,27 +2466,91 @@ export function createCodexAdapter(io: CodexIo): CodexAdapter {
       }
 
       function applyLimits() {
-        limits = [...snapshots].flatMap(([limitId, snapshot]) =>
-          (["primary", "secondary"] as const).flatMap((slot) => {
+        const multi = snapshots.size > 1;
+        limits = [...snapshots].flatMap(([limitId, snapshot]) => {
+          const name =
+            typeof snapshot?.limitName === "string" &&
+            snapshot.limitName.trim() !== ""
+              ? snapshot.limitName.trim()
+              : null;
+          const prefix =
+            name !== null && (multi || limitId !== "codex") ? `${name} · ` : "";
+          const rows: AcpUsageLimit[] = (
+            ["primary", "secondary"] as const
+          ).flatMap((slot) => {
             const window = snapshot?.[slot];
-            return window == null
-              ? []
-              : [
-                  {
-                    id: `${limitId}.${slot}`,
-                    label: windowLabel(window.windowDurationMins),
-                    used_percent: Math.min(100, window.usedPercent),
-                    left: null,
-                    // resetsAt은 초 단위 epoch다(녹화 rate_limits).
-                    resets_at:
-                      window.resetsAt == null
-                        ? null
-                        : new Date(window.resetsAt * 1000).toISOString(),
-                  },
-                ];
-          }),
-        );
+            if (window == null) return [];
+            const used_percent =
+              typeof window.usedPercent === "number" &&
+              Number.isFinite(window.usedPercent)
+                ? Math.max(0, Math.min(100, window.usedPercent))
+                : null;
+            // resetsAt은 초 단위 epoch다(녹화 rate_limits).
+            const resets_at =
+              typeof window.resetsAt === "number" &&
+              Number.isFinite(window.resetsAt)
+                ? new Date(window.resetsAt * 1000).toISOString()
+                : null;
+            if (used_percent === null && resets_at === null) return [];
+            return [
+              {
+                id: `${limitId}.${slot}`,
+                label: `${prefix}${windowLabel(window.windowDurationMins)}`,
+                used_percent,
+                left: null,
+                resets_at,
+              },
+            ];
+          });
+          if (
+            snapshot?.credits != null &&
+            (snapshot.credits.hasCredits === true ||
+              snapshot.credits.unlimited === true)
+          ) {
+            const left = formatCreditsLeft(snapshot.credits);
+            if (left !== null) {
+              rows.push({
+                id: `${limitId}.credits`,
+                label: `${prefix}Credits`,
+                used_percent: null,
+                left,
+                resets_at: null,
+              });
+            }
+          }
+          return rows;
+        });
         change({ usage: usageNow() });
+      }
+
+      let rateLimitRead: Promise<void> | null = null;
+      function readRateLimits(): Promise<void> {
+        if (rateLimitRead !== null) return rateLimitRead;
+        const pending = request("account/rateLimits/read", {})
+          .then(
+            (rates) => {
+              const byId = rates?.rateLimitsByLimitId;
+              const entries: [string, J][] =
+                byId != null && Object.keys(byId).length > 0
+                  ? Object.entries(byId)
+                  : rates?.rateLimits != null
+                    ? [[rates.rateLimits.limitId ?? "codex", rates.rateLimits]]
+                    : [];
+              if (entries.length > 0) {
+                snapshots.clear();
+                for (const [limitId, snapshot] of entries) {
+                  snapshots.set(limitId, snapshot);
+                }
+              }
+              applyLimits();
+            },
+            () => {},
+          )
+          .finally(() => {
+            if (rateLimitRead === pending) rateLimitRead = null;
+          });
+        rateLimitRead = pending;
+        return pending;
       }
 
       function onNotification(method: string, params: Json) {
@@ -2541,6 +2619,7 @@ export function createCodexAdapter(io: CodexIo): CodexAdapter {
               return;
             }
             void attempt("Terminal list", readShells);
+            if (snapshots.size === 0) void readRateLimits();
             if (
               plan !== null &&
               root.turn === null &&
@@ -2998,17 +3077,7 @@ export function createCodexAdapter(io: CodexIo): CodexAdapter {
           request("skills/list", { cwds: [cwd] }).catch(() => ({ data: [] })),
           attempt("Goal", readGoal),
         ]);
-        void request("account/rateLimits/read", {}).then(
-          (rates) => {
-            for (const [limitId, snapshot] of Object.entries(
-              rates?.rateLimitsByLimitId ??
-                (rates?.rateLimits ? { codex: rates.rateLimits } : {}),
-            ))
-              snapshots.set(limitId, snapshot);
-            applyLimits();
-          },
-          () => {},
-        );
+        void readRateLimits();
         const [modelList, modeList, listed] = await reads;
         models = (modelList.data ?? []).filter((one: J) => !one.hidden);
         canPlan = (modeList.data ?? []).some((one: J) => one.mode === "plan");
@@ -3567,6 +3636,9 @@ export function createCodexAdapter(io: CodexIo): CodexAdapter {
             return;
           case "open_session":
             void attempt("Request", () => openSession(message.cli_session));
+            return;
+          case "refresh_usage":
+            void readRateLimits();
             return;
         }
       }

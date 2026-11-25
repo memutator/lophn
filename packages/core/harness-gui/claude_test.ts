@@ -124,6 +124,8 @@ async function setup(
       firstPrompt?: string;
       summary: string;
     };
+    /** get_usage(구독 사용 한도) 응답. */
+    usageReport?: () => Promise<unknown>;
   } = {},
 ) {
   const sdkMessages: unknown[] = [];
@@ -193,6 +195,12 @@ async function setup(
             model: options.contextModel ?? "m",
             categories: [],
           }),
+        ...(options.usageReport === undefined
+          ? {}
+          : {
+              usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET: () =>
+                options.usageReport!(),
+            }),
         cancelAsyncMessage: () => Promise.resolve(true),
         backgroundTasks: (id?: string) => {
           backgrounded.push(id ?? "");
@@ -1321,6 +1329,118 @@ test("사용 한도 warning은 TUI처럼 70%부터, 창마다 단계가 바뀔 �
   assert.equal(warnings.length, 2);
   assert.match(warnings[0] ?? "", /^You've used 71% of your weekly limit\./);
   assert.match(warnings[1] ?? "", /^You've hit your weekly limit\./);
+});
+
+test("시작과 refresh_usage에서 SDK get_usage로 구독 한도를 채우고 utilization 없는 rate_limit_event에도 유지한다", async () => {
+  let reads = 0;
+  const t = await setup({
+    usageReport: async () => {
+      reads += 1;
+      return {
+        session: {
+          total_cost_usd: 0,
+          total_api_duration_ms: 0,
+          total_duration_ms: 0,
+          total_lines_added: 0,
+          total_lines_removed: 0,
+          model_usage: {},
+        },
+        subscription_type: "max",
+        rate_limits_available: true,
+        rate_limits: {
+          five_hour: {
+            utilization: reads === 1 ? 32.4 : 45.6,
+            resets_at: "2026-11-25T20:00:00+00:00",
+          },
+          seven_day: {
+            utilization: 18,
+            resets_at: "2026-12-01T00:00:00.000Z",
+          },
+          model_scoped: [
+            {
+              display_name: "Sonnet",
+              utilization: 12,
+              resets_at: "2026-12-01T00:00:00Z",
+            },
+          ],
+          extra_usage: {
+            is_enabled: true,
+            monthly_limit: 5000,
+            used_credits: 1250,
+            utilization: 25,
+            currency: "USD",
+          },
+        },
+        behaviors: null,
+      };
+    },
+  });
+  await flush();
+  assert.equal(reads, 1);
+  assert.deepEqual(
+    t.state.session?.usage?.limits.map((one) => ({
+      id: one.id,
+      label: one.label,
+      used_percent: one.used_percent,
+      left: one.left,
+      resets_at: one.resets_at,
+    })),
+    [
+      {
+        id: "five_hour",
+        label: "5h",
+        used_percent: 32.4,
+        left: null,
+        resets_at: "2026-11-25T20:00:00.000Z",
+      },
+      {
+        id: "seven_day",
+        label: "7d",
+        used_percent: 18,
+        left: null,
+        resets_at: "2026-12-01T00:00:00.000Z",
+      },
+      {
+        id: "model_scoped:Sonnet",
+        label: "7d Sonnet",
+        used_percent: 12,
+        left: null,
+        resets_at: "2026-12-01T00:00:00.000Z",
+      },
+      {
+        id: "overage",
+        label: "Extra usage",
+        used_percent: 25,
+        left: "$12.50 / $50.00",
+        resets_at: null,
+      },
+    ],
+  );
+
+  // utilization이 빠진 allowed event가 와도 기존 %를 지우지 않는다.
+  await t.feed({
+    type: "rate_limit_event",
+    rate_limit_info: {
+      status: "allowed",
+      rateLimitType: "five_hour",
+      resetsAt: 1795636800,
+    },
+  });
+  assert.equal(
+    t.state.session?.usage?.limits.find((one) => one.id === "five_hour")
+      ?.used_percent,
+    32.4,
+  );
+
+  // refresh_usage는 새 plan usage를 다시 읽는다.
+  await t.input({ type: "refresh_usage", key: "usage-1" });
+  await flush();
+  assert.equal(reads, 2);
+  assert.equal(
+    t.state.session?.usage?.limits.find((one) => one.id === "five_hour")
+      ?.used_percent,
+    45.6,
+  );
 });
 
 // 두 번 고친 것: `/compact` 출력이 색 code와 hook 글을 단 채 명령 출력으로 그려졌다.

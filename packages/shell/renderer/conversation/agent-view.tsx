@@ -112,7 +112,10 @@ import type { SlashEntryView } from "./slash-menu/types.ts";
 import { slashScreenOf } from "./slash-rule.ts";
 import { StatusFooter } from "./status-view/status-footer.tsx";
 import type { StatusData } from "./status-view/status-summary.ts";
-import { StatusView } from "./status-view/status-view.tsx";
+import {
+  type StatusPanelKind,
+  StatusView,
+} from "./status-view/status-view.tsx";
 import {
   providerKeyFix,
   providerOfModel,
@@ -176,9 +179,23 @@ interface AgentViewProps {
 type Layer =
   | { readonly kind: "rewind"; readonly message: string }
   | { readonly kind: "permissions" }
-  | { readonly kind: "status" }
+  | { readonly kind: "status"; readonly view: StatusPanelKind }
   /** 자식 대화. `path`는 연 순서의 자식 id이고 마지막이 보이는 것이다(자식의 자식도 연다). */
   | { readonly kind: "child"; readonly path: readonly string[] };
+
+const EMPTY_USAGE = {
+  context: null,
+  limits: [],
+  input_tokens: null,
+  output_tokens: null,
+  cache_read_tokens: null,
+  cache_write_tokens: null,
+  turns: null,
+  costs: [],
+  provider: null,
+} as const;
+
+const USAGE_REFRESH_SETTLE_MS = 3000;
 
 type Problem =
   | "open-failed"
@@ -895,9 +912,54 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
     if (await loadPermissions()) setLayer({ kind: "permissions" });
   };
 
-  const showStatus = () => {
-    if (status === null) return fail();
-    setLayer({ kind: "status" });
+  const [usageRefreshing, setUsageRefreshing] = useState(false);
+  const usageRefreshRef = useRef<{
+    timer: ReturnType<typeof setTimeout> | null;
+    baseline: unknown;
+  }>({ timer: null, baseline: undefined });
+
+  const stopUsageRefresh = useCallback(() => {
+    if (usageRefreshRef.current.timer !== null) {
+      clearTimeout(usageRefreshRef.current.timer);
+      usageRefreshRef.current.timer = null;
+    }
+    setUsageRefreshing(false);
+  }, []);
+
+  // `refresh_usage` 뒤 새 usage가 도착하거나 panel이 닫히면 대기 표시를 푼다.
+  useEffect(() => {
+    if (!usageRefreshing) return;
+    if (
+      layer?.kind !== "status" ||
+      meta?.usage !== usageRefreshRef.current.baseline ||
+      (meta?.usage?.limits.length ?? 0) > 0
+    ) {
+      stopUsageRefresh();
+    }
+  }, [usageRefreshing, layer, meta?.usage, stopUsageRefresh]);
+
+  useEffect(() => () => stopUsageRefresh(), [stopUsageRefresh]);
+
+  const showStatus = (view: StatusPanelKind = "status") => {
+    if (session === null || !caps.usage) return fail();
+    if (view === "status" && status === null) return fail();
+    setLayer({ kind: "status", view });
+    if (harness !== null) {
+      stopUsageRefresh();
+      if (view === "usage" && (meta?.usage?.limits.length ?? 0) === 0) {
+        usageRefreshRef.current.baseline = meta?.usage;
+        setUsageRefreshing(true);
+        usageRefreshRef.current.timer = setTimeout(
+          stopUsageRefresh,
+          USAGE_REFRESH_SETTLE_MS,
+        );
+      }
+      void source.act(session, {
+        type: "refresh_usage",
+        session,
+        key: actKey("usage"),
+      });
+    }
   };
 
   // 화면 동작은 `slashScreenOf`가 고른다. model·effort·mode는 composer가 먼저 열어 보았다.
@@ -951,15 +1013,15 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
         },
         status: () => {
           clear();
-          showStatus();
+          showStatus("status");
         },
         usage: () => {
           clear();
-          showStatus();
+          showStatus("usage");
         },
         context: () => {
           clear();
-          showStatus();
+          showStatus("context");
         },
         mcp: () => {
           clear();
@@ -1690,13 +1752,26 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
           }}
         />
         <div className={styles.composerAnchor}>
-          {layer?.kind === "status" && status !== null ? (
+          {layer?.kind === "status" &&
+          (status !== null || (session !== null && caps.usage)) ? (
             <div
               className={styles.statusOverlay}
               data-panel-layer="status"
               data-key-context="modal"
             >
-              <StatusView status={status} onClose={() => setLayer(null)} />
+              <StatusView
+                status={
+                  status ?? {
+                    session: meta?.cli_session ?? session!,
+                    model: meta?.model ?? null,
+                    usage: { ...EMPTY_USAGE, limits: [], costs: [] },
+                  }
+                }
+                kind={layer.view}
+                refreshing={usageRefreshing}
+                showEmptyLimits={harness !== null}
+                onClose={() => setLayer(null)}
+              />
             </div>
           ) : null}
           <AgentComposer
@@ -1816,7 +1891,9 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
                 <StatusFooter
                   status={status}
                   onOpen={() =>
-                    layer?.kind === "status" ? setLayer(null) : showStatus()
+                    layer?.kind === "status" && layer.view === "status"
+                      ? setLayer(null)
+                      : showStatus("status")
                   }
                 />
               )

@@ -2894,6 +2894,9 @@ export function createOpencodeAdapter(deps: OpencodeDeps): OpencodeAdapter {
           if (input.id === AUTO_ACCEPT)
             await attempt("Auto-accept", () => setAutoAccept(input.on));
           return;
+        case "refresh_usage":
+          refreshUsage();
+          return;
       }
     }
 

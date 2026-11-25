@@ -16,8 +16,14 @@ import {
 } from "./status-summary.ts";
 import styles from "./status-view.module.css";
 
+export type StatusPanelKind = "status" | "usage" | "context";
+
 interface StatusViewProps {
   status: StatusData;
+  kind?: StatusPanelKind;
+  refreshing?: boolean;
+  /** `/usage`에서 plan 한도가 비었을 때 안내 줄을 보일지 여부(harness session). */
+  showEmptyLimits?: boolean;
   onClose: () => void;
 }
 
@@ -179,7 +185,25 @@ function LimitLine({
   );
 }
 
-export function StatusView({ status, onClose }: StatusViewProps): ReactElement {
+const PANEL_TITLE = {
+  status: "conversation.title.status",
+  usage: "conversation.title.usage",
+  context: "conversation.title.context",
+} as const;
+
+const PANEL_ARIA = {
+  status: "conversation.label.status-of",
+  usage: "conversation.label.usage-of",
+  context: "conversation.label.context-of",
+} as const;
+
+export function StatusView({
+  status,
+  kind = "status",
+  refreshing = false,
+  showEmptyLimits = false,
+  onClose,
+}: StatusViewProps): ReactElement {
   const { model, usage } = status;
   const { context } = usage;
   const percent = context === null ? 0 : contextPercent(context);
@@ -196,15 +220,113 @@ export function StatusView({ status, onClose }: StatusViewProps): ReactElement {
     document.addEventListener("pointerdown", outside);
     return () => document.removeEventListener("pointerdown", outside);
   }, [onClose]);
+
+  const limitsRow =
+    usage.limits.length > 0 ? (
+      <Row name={t("conversation.label.status-limits")}>
+        <>
+          {usage.limits.map((limit) => (
+            <LimitLine key={limit.id} limit={limit} />
+          ))}
+        </>
+      </Row>
+    ) : kind === "usage" && (refreshing || showEmptyLimits) ? (
+      <Row name={t("conversation.label.status-limits")}>
+        <span className={styles.limitEmpty}>
+          {t(
+            refreshing
+              ? "conversation.label.usage-loading"
+              : "conversation.label.usage-no-limits",
+          )}
+        </span>
+      </Row>
+    ) : null;
+
+  const contextRow =
+    context !== null ? (
+      <Row name={t("conversation.label.status-context")}>
+        <>
+          <span>
+            {t("conversation.label.status-context-value", {
+              used: context.tokens,
+              limit: context.limit,
+              percent,
+            })}
+          </span>
+          <div className={styles.bar} aria-hidden="true">
+            <div
+              className={styles.fill}
+              data-level={level}
+              style={{ width: `${Math.min(100, percent)}%` }}
+            />
+          </div>
+          <ContextParts context={context} />
+        </>
+      </Row>
+    ) : kind === "context" ? (
+      <Row name={t("conversation.label.status-context")}>
+        <span className={styles.limitEmpty}>
+          {t(
+            refreshing
+              ? "conversation.label.usage-loading"
+              : "conversation.label.context-unavailable",
+          )}
+        </span>
+      </Row>
+    ) : null;
+
+  const providerRows = (
+    <>
+      {usage.provider === null ? null : (
+        <Row name={t("conversation.label.status-provider")}>
+          {providerText(usage.provider)}
+        </Row>
+      )}
+      {usage.provider?.account == null ? null : (
+        <Row name={t("conversation.label.status-account")}>
+          {usage.provider.account}
+        </Row>
+      )}
+    </>
+  );
+
+  const sessionStatsRows = (
+    <>
+      {usage.turns === null ? null : (
+        <Row name={t("conversation.label.status-turns")}>
+          {t("conversation.label.status-turns-value", {
+            turns: usage.turns,
+          })}
+        </Row>
+      )}
+      {usage.input_tokens === null || usage.output_tokens === null ? null : (
+        <Row name={t("conversation.label.status-tokens")}>
+          <TokenBreakdown
+            segments={tokenSegments(
+              usage.input_tokens + (usage.cache_write_tokens ?? 0),
+              usage.cache_read_tokens,
+              usage.output_tokens,
+            )}
+          />
+        </Row>
+      )}
+      {usage.costs.length === 0 ? null : (
+        <Row name={t("conversation.label.status-cost")}>
+          {usage.costs.map(costText).join(" · ")}
+        </Row>
+      )}
+    </>
+  );
+
   return (
     <section
       ref={panel}
       className={styles.panel}
-      aria-label={t("conversation.label.status-of")}
-      data-status-view=""
+      aria-label={t(PANEL_ARIA[kind])}
+      data-status-view={kind}
     >
       <header className={styles.head}>
-        <span className={styles.title}>{t("conversation.title.status")}</span>
+        <span className={styles.title}>{t(PANEL_TITLE[kind])}</span>
         <IconButton
           icon={workspaceIcons.close}
           label={t("common.button.close")}
@@ -213,83 +335,55 @@ export function StatusView({ status, onClose }: StatusViewProps): ReactElement {
         />
       </header>
       <dl className={styles.body}>
-        <Row name={t("conversation.label.status-session")}>
-          <span className={styles.session}>
-            <span className={styles.mono}>{status.session}</span>
-            <CopyButton
-              text={status.session}
-              label={t("common.button.copy-id")}
-              clipboard={systemClipboard}
-            />
-          </span>
-        </Row>
-        {model === null ? null : (
-          <Row name={t("conversation.label.status-model")}>
-            {[model.label, ...Object.values(model.options)].join(" · ")}
-          </Row>
-        )}
-        {usage.provider === null ? null : (
-          <Row name={t("conversation.label.status-provider")}>
-            {providerText(usage.provider)}
-          </Row>
-        )}
-        {usage.provider?.account == null ? null : (
-          <Row name={t("conversation.label.status-account")}>
-            {usage.provider.account}
-          </Row>
-        )}
-        {context === null ? null : (
-          <Row name={t("conversation.label.status-context")}>
-            <>
-              <span>
-                {t("conversation.label.status-context-value", {
-                  used: context.tokens,
-                  limit: context.limit,
-                  percent,
-                })}
-              </span>
-              <div className={styles.bar} aria-hidden="true">
-                <div
-                  className={styles.fill}
-                  data-level={level}
-                  style={{ width: `${Math.min(100, percent)}%` }}
+        {kind === "usage" ? (
+          <>
+            {limitsRow}
+            {providerRows}
+            {sessionStatsRows}
+          </>
+        ) : kind === "context" ? (
+          <>
+            {model === null ? null : (
+              <Row name={t("conversation.label.status-model")}>
+                {[model.label, ...Object.values(model.options)].join(" · ")}
+              </Row>
+            )}
+            {contextRow}
+            {usage.input_tokens === null ||
+            usage.output_tokens === null ? null : (
+              <Row name={t("conversation.label.status-tokens")}>
+                <TokenBreakdown
+                  segments={tokenSegments(
+                    usage.input_tokens + (usage.cache_write_tokens ?? 0),
+                    usage.cache_read_tokens,
+                    usage.output_tokens,
+                  )}
                 />
-              </div>
-              <ContextParts context={context} />
-            </>
-          </Row>
-        )}
-        {usage.limits.length === 0 ? null : (
-          <Row name={t("conversation.label.status-limits")}>
-            <>
-              {usage.limits.map((limit) => (
-                <LimitLine key={limit.id} limit={limit} />
-              ))}
-            </>
-          </Row>
-        )}
-        {usage.turns === null ? null : (
-          <Row name={t("conversation.label.status-turns")}>
-            {t("conversation.label.status-turns-value", {
-              turns: usage.turns,
-            })}
-          </Row>
-        )}
-        {usage.input_tokens === null || usage.output_tokens === null ? null : (
-          <Row name={t("conversation.label.status-tokens")}>
-            <TokenBreakdown
-              segments={tokenSegments(
-                usage.input_tokens + (usage.cache_write_tokens ?? 0),
-                usage.cache_read_tokens,
-                usage.output_tokens,
-              )}
-            />
-          </Row>
-        )}
-        {usage.costs.length === 0 ? null : (
-          <Row name={t("conversation.label.status-cost")}>
-            {usage.costs.map(costText).join(" · ")}
-          </Row>
+              </Row>
+            )}
+          </>
+        ) : (
+          <>
+            <Row name={t("conversation.label.status-session")}>
+              <span className={styles.session}>
+                <span className={styles.mono}>{status.session}</span>
+                <CopyButton
+                  text={status.session}
+                  label={t("common.button.copy-id")}
+                  clipboard={systemClipboard}
+                />
+              </span>
+            </Row>
+            {model === null ? null : (
+              <Row name={t("conversation.label.status-model")}>
+                {[model.label, ...Object.values(model.options)].join(" · ")}
+              </Row>
+            )}
+            {providerRows}
+            {contextRow}
+            {limitsRow}
+            {sessionStatsRows}
+          </>
         )}
       </dl>
     </section>

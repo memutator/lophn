@@ -186,6 +186,10 @@
   color: var(--color-text-muted);
 }
 
+.limitEmpty {
+  color: var(--color-text-muted);
+}
+
 .session {
   display: flex;
   align-items: center;

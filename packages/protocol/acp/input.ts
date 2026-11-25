@@ -190,5 +190,11 @@ export const acpInputSchema = z.discriminatedUnion("type", [
     key: z.string().min(1),
     role: z.string().min(1),
   }),
+  /** 최신 사용량·구독 한도를 다시 읽는다(`/usage` 등). */
+  z.strictObject({
+    type: z.literal("refresh_usage"),
+    session,
+    key: z.string().min(1),
+  }),
 ]);
 export type AcpInput = z.infer<typeof acpInputSchema>;

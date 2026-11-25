@@ -572,6 +572,8 @@ export function createAcpSend(deps: AcpSendDeps) {
         if (!result.ok) shellRuns.delete(same);
         return result;
       }
+      case "refresh_usage":
+        return ok({});
       case "stop_child":
       case "steer_child":
       case "stop_task":

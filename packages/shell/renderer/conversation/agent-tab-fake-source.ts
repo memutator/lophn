@@ -2711,6 +2711,7 @@ export function createFakeAgentTabSource(
         return { ok: true, value: {} };
       // gallery에는 도는 tool이 없어 background로 옮길 것이 없다.
       case "background_tool":
+      case "refresh_usage":
         return { ok: true, value: {} };
       default:
         return { ok: false, code: "invalid_input" };

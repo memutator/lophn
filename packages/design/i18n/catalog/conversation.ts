@@ -390,6 +390,13 @@ export const conversation = {
   "conversation.label.status-turns-value":
     "{turns, plural, one {# turn} other {# turns}}",
   "conversation.label.status-of": "Status of this session",
+  "conversation.label.usage-of": "Usage of this session",
+  "conversation.label.context-of": "Context of this session",
+  "conversation.label.usage-loading": "Checking plan usage…",
+  "conversation.label.usage-no-limits":
+    "No plan usage limits available for this session.",
+  "conversation.label.context-unavailable":
+    "Context usage is not available yet.",
   "conversation.label.status-slow":
     "Taking longer than usual · a large turn or a busy machine takes time",
   "conversation.label.status-still-working":
@@ -618,6 +625,8 @@ export const conversation = {
   "project-workspace.notice.agent-not-ready":
     "Conversations aren't ready yet. Try again in a moment.",
   "conversation.title.status": "Status",
+  "conversation.title.usage": "Usage",
+  "conversation.title.context": "Context",
   "conversation.title.sender-details": "Sender details",
   "conversation.label.approval-key-session": "Shift+Enter",
   "conversation.label.approval-reason-why": "Why",

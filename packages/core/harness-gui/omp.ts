@@ -3071,6 +3071,9 @@ const start: (io: OmpIo) => Start =
           await refresh();
           return;
         }
+        case "refresh_usage":
+          await refresh();
+          return;
       }
     }
     session.onInput(

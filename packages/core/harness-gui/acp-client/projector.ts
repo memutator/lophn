@@ -2491,6 +2491,8 @@ export function createAcpSessionProjector(
           return unavailable("Shell mode");
         case "use_role":
           return unavailable("Roles");
+        case "refresh_usage":
+          return;
       }
     },
     async applyInitialConfigs(entries) {

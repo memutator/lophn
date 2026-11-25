@@ -26,6 +26,7 @@ import {
   type Query,
   query,
   renameSession,
+  type SDKControlGetUsageResponse,
   type SDKUserMessage,
   type SessionStoreEntry,
   type SlashCommand,
@@ -233,6 +234,9 @@ type Question = {
 };
 type Cancelable = Query & {
   cancelAsyncMessage(uuid: string): Promise<boolean>;
+  usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET?: (opts?: {
+    skipBehaviors?: boolean;
+  }) => Promise<SDKControlGetUsageResponse>;
 };
 
 // CLI가 control 요청에 답하지 않으면 입력 줄이 멈춘다. 기한을 넘기면 실패로 알린다.
@@ -306,9 +310,36 @@ const LIMIT_LABELS: Record<string, string> = {
   seven_day: "7d",
   seven_day_opus: "7d Opus",
   seven_day_sonnet: "7d Sonnet",
+  seven_day_oauth_apps: "7d OAuth",
   seven_day_overage_included: "7d",
-  overage: "Overage",
+  overage: "Extra usage",
 };
+function clampPercent(value: number | null | undefined): number | null {
+  return typeof value === "number" && Number.isFinite(value)
+    ? Math.max(0, Math.min(100, Math.round(value * 10) / 10))
+    : null;
+}
+function isoAt(value: string | null | undefined): string | null {
+  if (typeof value !== "string" || value === "") return null;
+  const ms = Date.parse(value);
+  return Number.isNaN(ms) ? null : new Date(ms).toISOString();
+}
+function formatMinorCurrency(
+  minor: number,
+  currency: string | null | undefined,
+): string {
+  const code =
+    currency && currency.length === 3 ? currency.toUpperCase() : "USD";
+  const value = minor / 100;
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: code,
+    }).format(value);
+  } catch {
+    return `${value.toFixed(2)} ${code}`;
+  }
+}
 // 이 사용률(0-1)부터 allowed_warning을 알린다(CLI TUI와 같다).
 const WARN_FROM = 0.7;
 // biome-ignore lint/suspicious/noControlCharactersInRegex: 터미널 색 escape를 지운다.
@@ -1301,6 +1332,90 @@ const start: (sdk: ClaudeSdk) => HarnessGuiAdapter["start"] =
         provider: null,
       };
     }
+    function applyUsageLimits(report: SDKControlGetUsageResponse) {
+      if (!report.rate_limits_available || report.rate_limits === null) return;
+      const raw = report.rate_limits;
+      const next = new Map<string, AcpUsageLimit>();
+      const fixed = [
+        "five_hour",
+        "seven_day",
+        "seven_day_opus",
+        "seven_day_sonnet",
+        "seven_day_oauth_apps",
+      ] as const;
+      for (const key of fixed) {
+        const entry = raw[key];
+        if (entry == null) continue;
+        const used_percent = clampPercent(entry.utilization);
+        const resets_at = isoAt(entry.resets_at);
+        if (used_percent === null && resets_at === null) continue;
+        next.set(key, {
+          id: key,
+          label: LIMIT_LABELS[key] ?? key,
+          used_percent,
+          left: null,
+          resets_at,
+        });
+      }
+      for (const scoped of raw.model_scoped ?? []) {
+        const used_percent = clampPercent(scoped.utilization);
+        const resets_at = isoAt(scoped.resets_at);
+        if (used_percent === null && resets_at === null) continue;
+        const id = `model_scoped:${scoped.display_name}`;
+        next.set(id, {
+          id,
+          label: `7d ${scoped.display_name}`,
+          used_percent,
+          left: null,
+          resets_at,
+        });
+      }
+      const extra = raw.extra_usage;
+      if (extra?.is_enabled === true) {
+        const used_percent = clampPercent(extra.utilization);
+        const left =
+          typeof extra.used_credits === "number" &&
+          typeof extra.monthly_limit === "number"
+            ? `${formatMinorCurrency(extra.used_credits, extra.currency)} / ${formatMinorCurrency(extra.monthly_limit, extra.currency)}`
+            : null;
+        if (used_percent !== null || left !== null) {
+          next.set("overage", {
+            id: "overage",
+            label: LIMIT_LABELS.overage ?? "Extra usage",
+            used_percent,
+            left,
+            resets_at: null,
+          });
+        }
+      }
+      limits.clear();
+      for (const [id, one] of next) limits.set(id, one);
+      changed({ usage: usageNow() });
+    }
+    let usageRefresh: Promise<void> | null = null;
+    function refreshUsage(): Promise<void> {
+      if (usageRefresh !== null) return usageRefresh;
+      const read =
+        live.q.usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET;
+      if (typeof read !== "function") return Promise.resolve();
+      const pending = bounded(
+        read.call(live.q, { skipBehaviors: true }),
+        "plan usage",
+      )
+        .then(
+          (report) => {
+            if (!closed) applyUsageLimits(report);
+          },
+          () => {
+            // 사용 한도를 못 읽어도 대화는 이어진다.
+          },
+        )
+        .finally(() => {
+          if (usageRefresh === pending) usageRefresh = null;
+        });
+      usageRefresh = pending;
+      return pending;
+    }
     async function refreshContext() {
       try {
         const usage = await bounded(
@@ -2064,6 +2179,7 @@ const start: (sdk: ClaudeSdk) => HarnessGuiAdapter["start"] =
         );
       }
       void refreshContext();
+      void refreshUsage();
       void refreshTitle();
     }
 
@@ -2261,25 +2377,30 @@ const start: (sdk: ClaudeSdk) => HarnessGuiAdapter["start"] =
     function onRateLimit(message: SdkMessage) {
       const info_ = message.rate_limit_info;
       if (info_ === undefined) return;
+      let missingPercent = false;
       const set = (
         type: string,
         utilization: number | undefined,
         resetsAt: number | undefined,
-      ) =>
+      ) => {
+        const previous = limits.get(type);
+        const used_percent =
+          utilization === undefined
+            ? (previous?.used_percent ?? null)
+            : Math.max(0, Math.min(100, Math.round(utilization * 1000) / 10));
+        if (used_percent === null) missingPercent = true;
         limits.set(type, {
           id: type,
           label: LIMIT_LABELS[type] ?? type,
           // utilization은 0-1, resetsAt은 초다(녹화).
-          used_percent:
-            utilization === undefined
-              ? null
-              : Math.min(100, Math.round(utilization * 1000) / 10),
-          left: null,
+          used_percent,
+          left: previous?.left ?? null,
           resets_at:
             resetsAt === undefined
-              ? null
+              ? (previous?.resets_at ?? null)
               : new Date(resetsAt * 1000).toISOString(),
         });
+      };
       const warn = (
         type: string,
         status: string | undefined,
@@ -2318,6 +2439,7 @@ const start: (sdk: ClaudeSdk) => HarnessGuiAdapter["start"] =
       const type = info_.rateLimitType ?? "default";
       if (windows.length === 0) set(type, info_.utilization, info_.resetsAt);
       changed({ usage: usageNow() });
+      if (missingPercent) void refreshUsage();
       // 창마다 실린 status를 쓰고, 맨 위 status는 rateLimitType 창의 것이다.
       const statuses = new Map(
         windows.map(([one, window]) => [one, window.status]),
@@ -2973,7 +3095,7 @@ const start: (sdk: ClaudeSdk) => HarnessGuiAdapter["start"] =
       } catch {
         // 목록을 못 읽어도 대화는 이어진다.
       }
-      await refreshContext();
+      await Promise.all([refreshContext(), refreshUsage()]);
     })();
 
     const ready = resumable ? replay(resume) : Promise.resolve();
@@ -3717,6 +3839,9 @@ const start: (sdk: ClaudeSdk) => HarnessGuiAdapter["start"] =
           await sdk.renameSession(cliSession, message.title, { dir: cwd });
           changed({ title: message.title });
           return;
+        case "refresh_usage":
+          await Promise.all([refreshUsage(), refreshContext()]);
+          return;
       }
     }
     const run = (message: AcpInput) =>
@@ -3727,13 +3852,14 @@ const start: (sdk: ClaudeSdk) => HarnessGuiAdapter["start"] =
         ),
       );
     // 입력은 앞 입력이 끝난 뒤에 처리한다(rewind·fork가 query를 바꾸는 동안 다음 입력이 옛 query에 가지 않게).
-    // Stop과 승인·질문 답은 query를 바꾸지 않으니 줄 밖에서 바로 처리한다. 앞 입력이 답 없는 CLI를 기다려도 닿아야 한다.
+    // Stop과 승인·질문 답, 사용량 다시 읽기는 query를 바꾸지 않으니 줄 밖에서 바로 처리한다. 앞 입력이 답 없는 CLI를 기다려도 닿아야 한다.
     let chain: Promise<void> = ready;
     session.onInput((message) => {
       if (
         message.type === "stop" ||
         message.type === "decide" ||
-        message.type === "answer"
+        message.type === "answer" ||
+        message.type === "refresh_usage"
       ) {
         void run(message);
         return;

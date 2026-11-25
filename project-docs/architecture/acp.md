@@ -142,7 +142,7 @@ secret
 ### 입력 `AcpInput`
 
 대화 조작: `send`(content block, 앱 context는 `resource` block), `stop`, `retry`, `answer`, `decide`(core 결정에 `session` 범위와 plan 승인 `mode`를 더한 ACP 쪽 선택), 다음 turn 줄 고치기 넷(`send_queued`, `remove_queued`, `edit_queued`, `move_queued`).
-session 조작: `set_model`, `set_mode`, `run_command`, `rewind`, `fork`, `compact`, `rename`, `stop_child`, `steer_child`, `stop_task`, `background_tool`(도는 root tool을 background로, capability `background`), `set_toggle`, `set_goal`, `use_role`, `open_session`, `run_shell`, `stop_shell`.
+session 조작: `set_model`, `set_mode`, `run_command`, `rewind`, `fork`, `compact`, `rename`, `stop_child`, `steer_child`, `stop_task`, `background_tool`(도는 root tool을 background로, capability `background`), `set_toggle`, `set_goal`, `use_role`, `open_session`, `refresh_usage`(구독 사용 한도·사용량 다시 읽기), `run_shell`, `stop_shell`.
 session 조작은 모두 `key`를 싣는다(`stop_shell`은 `item`).
 
 `send`는 `seen`을 싣는다: 그 화면이 아는 마지막 사람 메시지의 id이고 null은 하나도 못 봤다는 뜻이다(새 session의 첫 말). 한 session에 여러 기기(이 컴퓨터의 창, 폰, 이 session의 컴퓨터를 보는 다른 컴퓨터의 창)가 쓸 수 있어서다. core는 메시지를 넣는 같은 transaction에서 `seen` 뒤에 사람 메시지가 있는지 보고, 있으면 아무것도 넣지 않고 `conflict`(`details.reason: "changed_elsewhere"`)로 끝낸다. 합치지 않는다. 사람 메시지는 사람이 보낸 message이고 `!` 명령 기록과 rewind가 숨긴 메시지는 세지 않는다. 모르는 `seen`은 `invalid_input`이다. `seen`이 없으면 검사하지 않는다(화면이 없는 보내는 쪽: CLI, run, call). 이미 받은 id를 다시 보내면 검사보다 앞서 앞의 결과를 돌려준다. 화면은 `seen`을 대화와 다음 turn 줄의 마지막 사람 메시지, 아니면 받았지만 아직 대화에 오지 않은 자기 메시지에서 고른다. 대화의 첫 snapshot을 받기 전에는 아는 것이 없어 `seen`을 싣지 않는다(검사 없이 들어간다. 읽기 전의 보내기가 거짓 `changed_elsewhere`로 막히지 않는다). 거절이면 거절이면 쓴 글과 첨부를 입력칸에 두고 "This conversation changed on another device. Read the new messages, then send again." 한 줄을 보이며 대화를 다시 읽는다(`agent-chat.md`의 전달 상태). coding agent(harness) session의 보내기와 coding relay는 이 검사를 하지 않는다.
@@ -165,6 +165,7 @@ lophn core는 입력을 지금 route로 나눈다.
 | `compact` | `requestSessionCompact` | |
 | `rename` | `renameSession` | 앞뒤 빈칸을 자르고 빈 이름은 `invalid_input` |
 | `run_shell` | `RecordShellMessage` | 아래 |
+| `refresh_usage` | 없음 | lophn agent는 turn마다 사용량을 갱신해 no-op 성공이다. harness adapter가 구독 한도·사용량을 다시 읽는다 |
 | `stop_child`, `steer_child`, `stop_task`, `background_tool`, `stop_shell`, `set_toggle`, `set_goal`, `use_role`, `open_session` | 없음 | lophn agent에 그 기능이 없어 `unavailable`(capability도 false) |
 
 `run_shell`(사람이 composer에서 `!`로 돌리는 명령)

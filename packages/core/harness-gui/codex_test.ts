@@ -976,3 +976,51 @@ test("fetchCatalog는 thread/start 없이 model/list와 config/read만 부르고
   ]);
   assert.equal(killed, true);
 });
+
+test("refresh_usage는 account/rateLimits/read를 다시 부르고 빈 rateLimitsByLimitId와 credits를 처리한다", async () => {
+  const { t } = await boot();
+  assert.deepEqual(
+    t.state.session?.usage?.limits.map((one) => ({
+      id: one.id,
+      label: one.label,
+      used_percent: one.used_percent,
+    })),
+    [
+      { id: "codex.primary", label: "5h", used_percent: 6 },
+      { id: "codex.secondary", label: "weekly", used_percent: 9 },
+    ],
+  );
+
+  await t.input({ type: "refresh_usage", key: "usage-refresh-1" });
+  await t.reply("account/rateLimits/read", {
+    rateLimits: {
+      limitId: "codex",
+      primary: {
+        usedPercent: 42,
+        windowDurationMins: 300,
+        resetsAt: 1800000000,
+      },
+      secondary: { usedPercent: 15, windowDurationMins: null, resetsAt: null },
+      credits: { hasCredits: true, unlimited: false, balance: "12.5" },
+    },
+    rateLimitsByLimitId: {},
+  });
+  assert.deepEqual(
+    t.state.session?.usage?.limits.map((one) => ({
+      id: one.id,
+      label: one.label,
+      used_percent: one.used_percent,
+      left: one.left,
+    })),
+    [
+      { id: "codex.primary", label: "5h", used_percent: 42, left: null },
+      { id: "codex.secondary", label: "limit", used_percent: 15, left: null },
+      {
+        id: "codex.credits",
+        label: "Credits",
+        used_percent: null,
+        left: "$12.50 left",
+      },
+    ],
+  );
+});

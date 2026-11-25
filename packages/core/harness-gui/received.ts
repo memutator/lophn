@@ -1,7 +1,7 @@
 // 사람이 치지 않은 user 글(다른 agent나 앱의 lophn call·reply, program의 알림, 다른 session)을 가려낸다. 모르는 꼴은 null이라
 // 호출한 쪽이 지금처럼 사람 메시지로 둔다.
 import type { AcpSender } from "../../protocol/acp/items.ts";
-import type { AcpSessionHandle } from "../../protocol/acp/mod.ts";
+import type { AcpSessionHandle, AcpUpdate } from "../../protocol/acp/mod.ts";
 
 export type ReceivedText = {
   sender: AcpSender;
@@ -107,31 +107,47 @@ export function isTaskNotification(
 // 같은 글을 `classifyReceived`로 가른다.
 export function receivedSends(session: AcpSessionHandle): AcpSessionHandle {
   const injected = new Map<string, ReceivedText>();
+  const rewrite = (update: AcpUpdate): AcpUpdate | null => {
+    if (update.type === "origin_set" && injected.has(update.message)) {
+      return null;
+    }
+    const received =
+      update.type === "message_added" && update.item.actor === "user"
+        ? injected.get(update.item.id)
+        : undefined;
+    return received === undefined || update.type !== "message_added"
+      ? update
+      : {
+          ...update,
+          item: {
+            ...update.item,
+            actor: "received",
+            sender: received.sender,
+            call: received.call,
+            reply_to: received.reply_to,
+            origin: null,
+            content: [{ type: "text", text: received.text }],
+          },
+        };
+  };
   return {
     id: session.id,
     publish(update) {
-      if (update.type === "origin_set" && injected.has(update.message)) return;
-      const received =
-        update.type === "message_added" && update.item.actor === "user"
-          ? injected.get(update.item.id)
-          : undefined;
-      session.publish(
-        received === undefined || update.type !== "message_added"
-          ? update
-          : {
-              ...update,
-              item: {
-                ...update.item,
-                actor: "received",
-                sender: received.sender,
-                call: received.call,
-                reply_to: received.reply_to,
-                origin: null,
-                content: [{ type: "text", text: received.text }],
-              },
-            },
-      );
+      const mapped = rewrite(update);
+      if (mapped !== null) session.publish(mapped);
     },
+    ...(session.commit === undefined
+      ? {}
+      : {
+          commit(updates) {
+            const mapped: AcpUpdate[] = [];
+            for (const update of updates) {
+              const next = rewrite(update);
+              if (next !== null) mapped.push(next);
+            }
+            session.commit!(mapped);
+          },
+        }),
     onInput(listener) {
       session.onInput((input) => {
         if (input.type === "send") {

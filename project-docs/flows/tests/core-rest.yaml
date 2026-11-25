@@ -877,6 +877,10 @@ files:
     covers: [coding-session-sync:folded, coding-session-sync:withheld, coding-session-input:unavailable, acp-coding-tool-body:ok, acp-coding-tool-body:unavailable, coding-session-switch:invalid_input, coding-session-switch:forbidden, coding-session-switch:switched]
     note: "GUI handle의 snapshot·갱신·tool 본문 안의 알려진 secret(메시지 글, tool 출력)은 acp/snapshot·AcpUpdated·tool_body에서 가려지고, 알려진 secret을 다 모르면 snapshot은 unavailable이고 갱신은 나가지 않는다. switch는 confirmed: true 없이 invalid_input이고 agent 자격은 forbidden이며 둘 다 view를 바꾸지 않는다"
 
+  - path: packages/core/main/daemon/wiring/agent-delete_test.ts
+    covers: [agent-delete:deleted]
+    note: "agent.delete 시 해당 agent의 harness session을 AgentSessionStore에서 제거·tombstone 처리하고 일치하는 열린 GUI handle을 닫는 연쇄 정리를 본다"
+
   - path: packages/core/terminal-agents/agent_test.ts
     covers: [terminal-agent-track:running, terminal-agent-track:waiting, terminal-agent-track:idle, terminal-agent-track:unknown, terminal-agent-track:ignored, terminal-agent-notice:signaled, terminal-agent-notice:mark-dismissed, terminal-agent-notice:cancelled]
     note: "hook 줄 ingress(모르는 key, bind 안 된 key, 틀린 줄, 크기 초과는 버림, revoke 뒤 버림)와 coding agent 상태 tracker. Esc·Ctrl-C로 unknown, 다른 harness hook은 탭을 안 바꿈, 1.5초 안의 TurnStarted는 완료 알림을 취소, subagent가 끝나야 알림"
@@ -1210,7 +1214,13 @@ files:
       - harness-gui-input:sent
       - harness-gui-toggle:to-tui
       - session-open:ok
-    note: "Antigravity(agy acp) GUI adapter. 녹화(1.5.9)로 돈다. 승인은 창이 고른 optionId로만, 멈추면 cancelled로 답한다. 질문은 form 속성 이름(q1, q1_other)으로 답한다. 도는 중 steer는 바로 가고 turn은 마지막 prompt 답에서 한 번 끝난다. 저장 file이 없는 대화는 새 session으로 연다. TUI 명령은 GUI에서 바꾼 값만 싣는다"
+    note: "Antigravity(agy acp) GUI adapter. 공용 acp-client 계층과 AntigravityDialect 위에서 녹화(1.5.9)로 돈다. load replay 무누출·원자 commit, 에코 비의존 steer, slash 3분류(/swarm 보존·/compact 유지보수·/logout 차단), end_turn 뒤 subagent 카드 유지와 brain 읽기 전용 자식 대화를 본다"
+
+  - path: packages/core/harness-gui/acp-client/acp-client_test.ts
+    covers:
+      - harness-gui-input:sent
+      - session-open:ok
+    note: "공용 4계층 ACP client(transport 프레임 상한·타임아웃·stop, runtime initialize v1/v2 판별·replay 게이트·mid-turn steer, AntigravityDialect, brain 읽기 전용 child inspector) 단위 테스트"
 
   - path: packages/core/harness-gui/omp_test.ts
     covers:

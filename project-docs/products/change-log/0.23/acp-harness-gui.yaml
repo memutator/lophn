@@ -1,0 +1,35 @@
+id: acp-harness-gui
+version: 0.23.166
+platform_note: none
+title: "공용 ACP 클라이언트·Antigravity dialect, replay 일괄 반영, 통합 터미널 상태층, 삭제 tombstone, agy hook을 세운다"
+modules:
+  - packages/base
+  - packages/protocol
+  - packages/coding-agent
+  - packages/core/harness-gui
+  - packages/core/terminal-agents
+  - packages/core/main
+  - packages/shell/renderer
+  - packages/mobile
+change: |
+  - **공용 4계층 ACP 클라이언트와 Antigravity dialect(`packages/core/harness-gui/acp-client/*`, `antigravity.ts`)**: 전송(NDJSON·64 MiB 프레임 상한·타임아웃·`$/cancel_request`·redaction·프로세스 그룹 종료), 프로토콜 런타임(`initialize` v1/v2 응답 구조 판별·replay 게이트·mid-turn steer 레인), `AntigravityDialect`, 상태 투영으로 분리하고 `antigravity.ts`를 얇은 adapter로 재작성했다.
+  - **replay 무누출 + 원자 스냅샷 커밋 + 받는 쪽 프레임 묶음(`gui-session.ts`, `acp.ts`, `gui.ts`, `received.ts`, `index.ts`, `terminal-gui.tsx`, `acp-updates-store.ts`, `packages/mobile/src/data/coding.ts`)**: `session/load` 중 `writing_streamed`와 개별 라이브 이벤트를 내지 않고 메모리에서 완료 항목으로 접어 quiet window(agy 200ms, 불완전 바이트 수신 포함) 뒤 `AcpSessionHandle.commit`으로 한 번에 교체(`StateChanged{coding_sessions, id}`)한다. revive는 `session/resume`을 우선 사용한다. live `AcpUpdated`는 desktop GUI 탭, lophn agent 탭, 폰 모두 한 프레임 단위로 묶어 그린다.
+  - **에코 비의존 입력·steer·slash 3분류**: 일반 전송과 steer 모두 보내는 즉시 대화에 넣고 큐에서 빼며 live `user_message_chunk`는 무시한다. `agy >= 1.5.0`은 `session/cancel` 없이 mid-turn `session/prompt`로 steer하고 실패 시 같은 id로 큐 맨 앞에 재투입한다(`agy < 1.5.0`은 capability `steer` false). slash 명령은 호스트 UI/로컬(`resume`), 유지보수 화이트리스트(`compact`), 대화형/agent 기본값(`/swarm`, `/plan`, skill 등 — 사용자 메시지로 남기고 원문 전송, 턴 중 큐 강제) 3분류하고 `logout`은 메뉴·전송 모두 차단한다.
+  - **Antigravity subagent dock 카드와 읽기 전용 Child Inspector**: `invoke_subagent`·`start_subagent`·`swarm`(add) 등을 `detail.kind = "subagent"`와 `tasks`로 올리고 정상 `end_turn` 뒤에도(데몬·반복 schedule 제외) 취소하지 않고 유지하며 사후 `tool_call_update`·reactive wakeup을 이어 그린다. `~/.gemini/antigravity-cli/brain/`의 `subagents/*.json`과 `logs/transcript.jsonl`을 symlink 차단·바이트 상한 안에서 읽기만 해 `children`/`child_update`로 낸다(실패 시 fail-closed, `stop_child`/`steer_child` false).
+  - **터미널 하나 = 상태 한 줄(`terminals.ts`, `agent-state.ts`, `service.ts`, `coding-sessions.ts`, `store.ts`, `use-panel-terminals.ts`, `workspace-left-sidebar.tsx`, `kinds/terminal.tsx`, `workspace-window.tsx`)**: `TerminalAgent`에 `source: "gui" | "pty"`를 두고, GUI view에서는 handle에서 직접 `runtime.agent`를 발행해 `agy --gui`가 hook 없이도 즉시 사이드바 Current·아이콘·상태 점·제목에 반영되게 했다.
+  - **제목 우선순위와 보호**: `user_pinned > session_title > first_prompt > harness_label`을 고정해 `null`·빈 문자열·하네스 기본 라벨·subagent hook이 기존 제목을 지우지 못하게 했고, `antigravity` `TurnEnded` 뒤 2초 지연 요약 DB 재조회를 더했다.
+  - **영구 지우기·tombstone·연쇄 정리(`relay.ts`, `session-store.ts`, `wiring/terminal-agents.ts`, `wiring/agent-delete.ts`)**: `AgentSessionStore.remove`와 `<project>.json`의 `deleted` tombstone을 두고, Recent X가 `coding_sessions/forget`(project 및 `home` 지원)으로 영구 삭제하며, `agent.delete`가 해당 agent의 harness session 제거·열린 GUI handle 닫기로 연쇄 정리하고, 디스크에 `conversations/<id>.db`가 없는 agy session은 Recent 목록에서 뺀다.
+  - **Antigravity hook 확장과 subagent 필터(`harness-adapter.ts`, `hook-signal.ts`, `packages/coding-agent/local/hook.ts`, `packages/base/install/{linux,win}-install.ts`, `tracker.ts`)**: `PreToolUse`·`PostToolUse`(`matcher: "*"`)를 등록하고 `PreToolUse` stdout을 완전히 빈 출력(`""`, CLI 및 OS launcher fast-path 포함)으로 맞췄다. `Stop`의 `fullyIdle !== true` 유지 및 빈 문자열 `error: ""` 오탐을 수정했고, tracker에 부모 도구 호출 추적 기반 subagent 필터(①②③)와 idle `Stop` 뒤 유령 `PostToolUse` 무시를 더했다.
+why: |
+  Antigravity(`agy`) harness GUI와 coding agent hook에서 보고된 버그 9건(resume 재생 현상, `/swarm` 메시지 누락, subagent dock 미표시, `agy --gui` 세션 미등록, steer 큐 고착, 세션 이름 휘발, 정상 턴 `failed` 오판, 삭제한 세션 잔존, subagent의 Recent 오염)이 이원화된 상태층과 리플레이 누출, 에코 의존 구조에서 비롯되어 구조적으로 바로잡기 위해서다.
+decisions:
+  - text: "agy GUI의 subagent·steer·지우기는 다른 harness GUI와 CLI 자신의 동작을 그대로 따른다(dock 카드+자식 대화 읽기 전용, mid-turn prompt steer, Recent X 영구 지우기하되 CLI 원본 대화는 보존). 버린 길: lophn 독자 방식 선택 또는 CLI 원본 파일 삭제."
+    by: person
+  - text: "`AcpUpdated` 이벤트 모양을 바꾸지 않고 `AcpSessionHandle.commit` 원자 스냅샷과 받는 쪽 프레임 묶음(desktop·mobile)으로 replay 무누출과 live 배치를 구현한다. 버린 길: `AcpUpdated` 배치 이벤트 스키마 변경(폰·원격 allowlist·lophn agent 화면 동시 파손)."
+    by: agent
+  - text: "공용 4계층 ACP 클라이언트는 ACP 기반인 `antigravity`에만 적용하고 나머지 네 adapter(Claude SDK, Codex app-server, OpenCode HTTP/SSE, omp RPC)는 옮기지 않는다."
+    by: agent
+checklist:
+  - "해야: Settings › Coding agents에서 Antigravity hook을 다시 설치한다(PreToolUse·PostToolUse 추가 및 빈 PreToolUse stdout 반영)"
+  - "agy --gui로 탭을 열었을 때 hook 없이 바로 사이드바 Current에 agy 아이콘·상태 점·제목으로 서는지 본다"
+  - "agy GUI에서 지난 session resume 시 재생 없이 한 번에 서고, /swarm 메시지 보존·턴 중 steer·subagent dock 카드와 자식 대화·Recent X 삭제 후 재시작 유지가 되는지 본다"

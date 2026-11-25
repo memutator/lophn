@@ -223,7 +223,9 @@ projection은 event만으로 알 수 없는 것을 core가 context로 받는다.
 third-party CLI GUI(extension `harness-gui`, [harness-gui.md](harness-gui.md))의 대화는 ledger에 없다. adapter가 core 안 extension host의 session handle에 `AcpUpdate`를 publish하고 화면의 `AcpInput`을 받는다. handle은 갱신을 reducer로 접은 `AcpState` 하나만 쥔다. 순번(`seq`)은 adapter가 1부터 이어 붙인다. 위 "core가 갱신을 만드는 법"과 입력 표는 ledger session만의 이야기다. desktop 탭과 폰은 lophn agent session과 같은 route와 event로 읽고 보낸다. session id는 `ses_<터미널 ULID>`이다.
 - `AcpSnapshot {session}`은 그 session의 handle이 있으면 handle의 상태(tool 본문을 뺀 것)다. 없으면 ledger를 읽고, ledger에도 없으면 `not_found`다.
 - `AcpSend`는 handle이 있는 session이면 입력 꼴을 가리지 않고 handle에 그대로 넘긴다. 위 입력 표의 route 나누기는 타지 않는다. core는 입력을 상태에 적용하지 않고 결과는 adapter가 내는 갱신으로 돌아온다. `key`가 있는 입력(`send`는 `id`와 `key`)은 session마다 200개를 기억해 다시 오면 넘기지 않고 성공으로 답한다. adapter가 key를 거르지 않고 폰이 다시 붙은 뒤 같은 입력을 다시 보내기 때문이다.
-- `AcpUpdated`는 core가 handle마다 20ms 모은 갱신을 하나씩 낸다. handle이 열리거나 닫히면 `StateChanged{coding_sessions, id: session}`을 내고 화면이 snapshot을 다시 읽는다.
+- `AcpUpdated`는 core가 handle마다 20ms 모은 갱신을 하나씩 내고, 받는 화면(desktop GUI 탭, lophn agent 탭, 폰)은 한 프레임 동안 모은 `AcpUpdated`를 한 번에 접어 그린다(이벤트 모양은 바꾸지 않는다). handle이 열리거나 닫히거나 replay commit으로 상태가 통째로 바뀌면 `StateChanged{coding_sessions, id: session}`을 내고 화면이 snapshot을 한 번 다시 읽는다.
+- 사용자 메시지는 앱이 보낼 때 소유한다: 일반 전송과 steer 모두 보내는 순간 대화에 기록하고 큐에서 빼며, live 구간의 CLI 에코(`user_message_chunk`)는 무시한다(과거 `session/load` 리플레이에서만 복원).
+- slash 명령은 세 갈래로 나눈다: 호스트 UI/로컬 명령(`opens` 등), 유지보수 화이트리스트(`/compact` — 사용자 메시지 없이 `command_output`), 나머지 대화형/agent 명령(`/swarm`, `/plan`, skill 등 — 일반 사용자 메시지로 남기고 원문 그대로 보낸다; 턴 중에는 큐로 직렬화). 차단 목록(`withheldCommands`, 예: `agy`의 `logout`)은 목록에서 빼고 직접 쳐도 막는다.
 - 내기 전에 제품 redactor(`env.redact`와 같은 규칙)로 snapshot과 갱신의 모든 글을 거른다. 알려진 secret을 아직 다 모르면 내지 않는다(snapshot은 `unavailable`, 갱신은 버리고 화면이 다시 읽게 한다. 빈 글로 바꾸면 갱신의 `type` 같은 칸까지 비어 상태가 깨진다). desktop 탭과 폰이 같은 길이다.
 
 ## 결정

@@ -212,6 +212,15 @@ export function startHarnessGui(ctx: HarnessGuiDeps): () => void {
             if (adapter.handoff === "shared" && terminal !== null)
               void followSession(tab).catch(() => {});
           },
+          ...(session.commit === undefined
+            ? {}
+            : {
+                commit(updates) {
+                  session.commit!(updates);
+                  if (adapter.handoff === "shared" && terminal !== null)
+                    void followSession(tab).catch(() => {});
+                },
+              }),
         }),
         spawn: spawnFor(terminal, request.env),
         clock: ctx.clock,

@@ -50,17 +50,13 @@ export type TerminalAgentSource = "gui" | "pty";
 export function isGuiAgent(
   agent: TerminalAgent | TabAgent | undefined,
 ): boolean {
-  return (
-    agent !== undefined &&
-    (agent as TerminalAgent & { readonly source?: TerminalAgentSource })
-      .source === "gui"
-  );
+  return agent?.source === "gui";
 }
 
 /** hook으로 확인된 TUI agent이거나 GUI handle이 직접 올린 agent(`source: "gui"`). */
-export function isLiveAgent(
-  agent: TerminalAgent | TabAgent | undefined,
-): boolean {
+export function isLiveAgent<T extends TerminalAgent>(
+  agent: T | undefined,
+): agent is T {
   return agent !== undefined && (agent.hooked || isGuiAgent(agent));
 }
 

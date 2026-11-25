@@ -207,6 +207,7 @@ import { Taskbar } from "../shell/taskbar/taskbar.tsx";
 import { TrayHost } from "../shell/tray/tray.tsx";
 import { useMachineLists } from "../shell/use-left-sidebar.ts";
 import { type TerminalDeps, terminalLive } from "../terminal/deps.ts";
+import { isLiveAgent } from "../terminal/store.ts";
 import { workflowDeskStatus } from "../workflow/model.ts";
 import { NewTabMenu } from "./add-tab-menu.tsx";
 import { agentOf, sessionOf } from "./agent/tab-fields.ts";
@@ -3025,7 +3026,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
       syncTerminalTab(tab, terminal.store, host.patchTab);
       // 저장된 layout만 보는 다른 workspace의 sidebar가 coding agent 터미널을 알아보게 harness를 탭에 남긴다.
       const agent = terminal.store.agentOf(tab.key);
-      if (agent?.hooked === true && harnessOf(tab) !== agent.harness) {
+      if (isLiveAgent(agent) && harnessOf(tab) !== agent.harness) {
         host.patchTab(tab.key, (current) => ({
           fields: { ...current.fields, harness: agent.harness },
         }));

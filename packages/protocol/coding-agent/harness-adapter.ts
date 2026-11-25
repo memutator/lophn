@@ -834,8 +834,8 @@ export function canDeliverMessages(id: HarnessId): boolean {
 export function hookStdout(harness: string, event: string): string | null {
   if (!Object.hasOwn(HARNESS_ADAPTERS, harness)) return null;
   const stdout = HARNESS_ADAPTERS[harness as HarnessId].stdout;
-  if (Object.hasOwn(stdout, event)) return stdout[event];
-  return Object.hasOwn(stdout, "*") ? stdout["*"] : null;
+  if (Object.hasOwn(stdout, event)) return stdout[event] ?? null;
+  return Object.hasOwn(stdout, "*") ? (stdout["*"] ?? null) : null;
 }
 
 // launcher가 env 없이 일찍 끝날 때도 같은 stdout을 내도록 `hookStdout`이 읽는 표를 행으로 푼 것이다.

@@ -16,7 +16,11 @@ import {
   type RememberedName,
   terminalName,
 } from "../../terminal/model.ts";
-import type { TerminalResume, TerminalStore } from "../../terminal/store.ts";
+import {
+  isGuiAgent,
+  type TerminalResume,
+  type TerminalStore,
+} from "../../terminal/store.ts";
 import { GuiSwitch, guiTitleOf } from "../../terminal/terminal-gui.tsx";
 import { TerminalTab } from "../../terminal/terminal-tab.tsx";
 import type { TabItem } from "../model.ts";
@@ -278,7 +282,7 @@ function namingOf(
             screenTitle:
               agent?.foreground === true ? (agent.screen_title ?? null) : null,
             label: harnessLabel(harness),
-            gui: coding?.view === "gui",
+            gui: isGuiAgent(agent) || coding?.view === "gui",
           },
     remembered: rememberedOf(tab),
     auto: autoOf(tab),
@@ -372,11 +376,13 @@ export function pinAgentSessionName(
   });
 }
 
-// 사람이 plain 터미널에서 직접 띄운 coding agent도 core가 알려 주면 그 제품 아이콘을 쓴다. 모르는 제품은 kind 아이콘이다.
+// 사람이 plain 터미널에서 직접 띄운 coding agent나 GUI session도 core가 알려 주면 그 제품 아이콘을 쓴다. 모르는 제품은 kind 아이콘이다.
 function agentTabIcon(tab: TabItem, host: TabHost): ReactNode | null {
-  const agent = terminalOf(tab, host)?.store.agentOf(tab.key);
-  if (agent === undefined) return null;
-  const face = codingFace(agent.harness);
+  const store = terminalOf(tab, host)?.store;
+  const harness =
+    store?.agentOf(tab.key)?.harness ?? store?.codingOf(tab.key)?.harness;
+  if (harness === undefined) return null;
+  const face = codingFace(harness);
   return face.vendor === undefined ? null : (
     <AgentFaceIcon face={face} vendorSize={14} />
   );

@@ -13,6 +13,7 @@ import { followCoreRead } from "../../desktop/connection/core-read.ts";
 import type { SessionDot } from "../../parts/agent-session/activity.ts";
 import { useRemembered } from "../../shell/sidebar-memory.tsx";
 import type { TerminalDeps } from "../../terminal/deps.ts";
+import { isLiveAgent } from "../../terminal/store.ts";
 import type { PanelTerminal } from "./panel-types.ts";
 
 /** 이 창의 터미널 탭 하나가 탭 줄에 보이는 이름과 점. */
@@ -70,8 +71,9 @@ export function usePanelTerminals(
     const liveSessions = new Set<string>();
     const live = tabs.flatMap((tab): PanelTerminal[] => {
       const agent = store?.agentOf(tab.key);
-      // hook으로 연결을 확인한 agent만 session이다. foreground로만 알아본 것은 탭 icon에만 보인다.
-      if (agent === undefined || !agent.hooked) return [];
+      // hook으로 확인한 TUI agent와 GUI handle이 직접 올린 agent(`source: "gui"`)가 current session이다.
+      // foreground로만 알아본 것은 탭 icon에만 보인다.
+      if (agent === undefined || !isLiveAgent(agent)) return [];
       const id =
         agent.session === undefined
           ? undefined

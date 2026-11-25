@@ -3,8 +3,8 @@
 // 배열을 복사하지 않는다). 갱신은 저장하지 않으니 끊긴 사이는 쓰는 쪽이 snapshot을 다시 읽어 맞춘다.
 // ready 때는 쓰는 쪽이 snapshot을 다시 읽으므로 그 전의 갱신은 log에서 버린다.
 // 흘러나오는 글(`writing_streamed`)은 log에 바로 쌓되 구독자에게는 STREAM_PUBLISH_MS마다만 알린다. 알릴 때마다 화면 전체가
-// 다시 서므로 20ms마다 오는 조각을 그대로 알리면 긴 대화에서 main thread가 모자란다. 다른 갱신은 앞선 조각까지 모아 바로 알려
-// 순서가 어긋나지 않는다.
+// 다시 서므로 20ms마다 오는 조각을 그대로 알리면 긴 대화에서 main thread가 모자란다. 그 밖의 갱신 burst도 한 animation frame
+// 경계에서 모아 앞선 조각까지 순서대로 한 번만 알린다.
 import type { AcpUpdate } from "../../../../../protocol/acp/mod.ts";
 import type { EventClient } from "./client.ts";
 import { createValueStore } from "./store.ts";
@@ -36,17 +36,30 @@ interface AcpUpdatesStore {
 /** 글 조각을 알리는 간격. 이보다 짧으면 사람 눈에는 같고 화면만 바쁘다. */
 export const STREAM_PUBLISH_MS = 40;
 
+/** animation frame이 없는 환경(Node test)에서 쓰는 frame 경계 fallback(ms). */
+export const FRAME_PUBLISH_MS = 16;
+
 /** 시각과 예약. test가 가짜로 바꾼다. */
 export interface Pacer {
   now(): number;
   /** ms 뒤에 run을 부른다. 반환 함수가 취소한다. */
   after(ms: number, run: () => void): () => void;
+  /** 다음 animation frame에 run을 부른다. 없으면 `after(FRAME_PUBLISH_MS, run)`을 쓴다. */
+  frame?(run: () => void): () => void;
 }
 
 const REAL_PACER: Pacer = {
   now: () => performance.now(),
   after(ms, run) {
     const timer = setTimeout(run, ms);
+    return () => clearTimeout(timer);
+  },
+  frame(run) {
+    if (typeof globalThis.requestAnimationFrame === "function") {
+      const id = globalThis.requestAnimationFrame(() => run());
+      return () => globalThis.cancelAnimationFrame(id);
+    }
+    const timer = setTimeout(run, FRAME_PUBLISH_MS);
     return () => clearTimeout(timer);
   },
 };
@@ -84,20 +97,32 @@ export function createAcpUpdatesStore(
       (from: number) =>
         mine.slice(Math.max(0, from - offset), count - offset);
     let cancel: (() => void) | null = null;
+    let mode: "none" | "frame" | "stream" = "none";
     let publishedAt = Number.NEGATIVE_INFINITY;
-    const publish = () => {
+    const clearScheduled = () => {
       cancel?.();
       cancel = null;
+      mode = "none";
+    };
+    const publish = () => {
+      clearScheduled();
       publishedAt = pacer.now();
       const count = dropped + log.length;
       update(session, { count, since: sinceOf(log, dropped, count) });
+    };
+    const scheduleFrame = () => {
+      if (mode === "frame") return;
+      clearScheduled();
+      mode = "frame";
+      cancel = pacer.frame
+        ? pacer.frame(publish)
+        : pacer.after(FRAME_PUBLISH_MS, publish);
     };
     const stop = client.subscribe(
       { types: ["AcpUpdated"], session },
       (message) => {
         if (message.kind === "ready") {
-          cancel?.();
-          cancel = null;
+          clearScheduled();
           dropped += log.length;
           log = [];
           update(session, {
@@ -111,17 +136,22 @@ export function createAcpUpdatesStore(
         } else if (message.event.type === "AcpUpdated") {
           const next = message.event.payload.update;
           log.push(next);
-          if (!isStreamed(next)) publish();
-          else if (cancel === null) {
+          if (!isStreamed(next)) {
+            scheduleFrame();
+          } else if (mode === "none") {
             const wait = STREAM_PUBLISH_MS - (pacer.now() - publishedAt);
-            if (wait <= 0) publish();
-            else cancel = pacer.after(wait, publish);
+            if (wait <= 0) {
+              scheduleFrame();
+            } else {
+              mode = "stream";
+              cancel = pacer.after(wait, publish);
+            }
           }
         }
       },
     );
     return () => {
-      cancel?.();
+      clearScheduled();
       stop();
     };
   }

@@ -61,26 +61,61 @@ interface Feed {
   loaded(): Promise<SourceResult<void>>;
 }
 
+interface FrameScheduler {
+  schedule(run: () => void): () => void;
+}
+
+const DEFAULT_FRAME: FrameScheduler = {
+  schedule(run) {
+    if (typeof globalThis.requestAnimationFrame === "function") {
+      const id = globalThis.requestAnimationFrame(() => run());
+      return () => globalThis.cancelAnimationFrame(id);
+    }
+    const timer = setTimeout(run, 0);
+    return () => clearTimeout(timer);
+  },
+};
+
 /**
  * The state of one coding session's conversation: the core's snapshot with the updates since folded in. It listens only
  * while a screen listens to `changed`. A snapshot is read when the watch is ready (first time and after every
  * reconnect) and when the core replaced its copy (`StateChanged{coding_sessions}` for this session); updates that arrive
- * while a snapshot is on its way are folded after it.
+ * while a snapshot is on its way are folded after it. Live updates are coalesced per animation frame so bursts fold
+ * together and notify listeners once per frame.
  */
 export function codingFeed(
   client: EventClient,
   env: Env,
   session: string,
+  frame: FrameScheduler = DEFAULT_FRAME,
 ): Feed {
   let state = EMPTY_ACP_STATE;
   let last: SourceResult<void> | null = null;
   let waiting: (() => void)[] = [];
   let buffer: AcpUpdate[] | null = null;
+  let pending: AcpUpdate[] = [];
+  let cancelFrame: (() => void) | null = null;
   let reads = 0;
   let stop: (() => void) | null = null;
   const listeners = new Set<() => void>();
 
+  function clearPending() {
+    cancelFrame?.();
+    cancelFrame = null;
+    pending = [];
+  }
+
+  function flush() {
+    cancelFrame = null;
+    if (pending.length === 0) return;
+    const updates = pending;
+    pending = [];
+    state = updates.reduce(reduceAcp, state);
+    for (const listener of [...listeners]) listener();
+  }
+
   async function load() {
+    clearPending();
     const mine = ++reads;
     buffer = [];
     const read = await env.read(acpSnapshot, { session });
@@ -98,8 +133,11 @@ export function codingFeed(
     if (message.kind === "ready") void load();
     else if (message.kind === "event" && message.event.type === "AcpUpdated") {
       const { update } = message.event.payload;
-      if (buffer === null) state = reduceAcp(state, update);
-      else buffer.push(update);
+      if (buffer !== null) buffer.push(update);
+      else {
+        pending.push(update);
+        if (cancelFrame === null) cancelFrame = frame.schedule(flush);
+      }
     }
   }
 
@@ -137,6 +175,7 @@ export function codingFeed(
       return () => {
         listeners.delete(listener);
         if (listeners.size > 0) return;
+        clearPending();
         stop?.();
         stop = null;
         reads += 1;

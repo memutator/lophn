@@ -5,7 +5,7 @@ import type {
   TerminalAgent,
   TerminalRuntime,
 } from "../../../protocol/coding-agent/terminals.ts";
-import { TerminalStore } from "./store.ts";
+import { isGuiAgent, isLiveAgent, TerminalStore } from "./store.ts";
 
 const runtime = (agent: TerminalAgent): TerminalRuntime => ({
   terminal_ref: "trm_1",
@@ -72,4 +72,56 @@ test("generationOf는 adopt한 0과 layout만 읽은 탭도 runtime의 generatio
   assert.equal(store.generationOf("restored"), 3);
   assert.equal(store.refOf("restored"), "trm_2");
   assert.ok(seen.length >= 2);
+});
+
+test("source가 gui인 agent는 hook 없이도 live로 보고 unseen·상태 갱신을 반영한다", () => {
+  const store = new TerminalStore(null, null);
+  store.remember("gui-tab", "trm_1");
+  store.remember("pty-tab", "trm_2");
+
+  const guiAgent = {
+    harness: "antigravity",
+    state: "running",
+    hooked: false,
+    session: "agy-conv-1",
+    title: "Refactor ACP",
+    source: "gui",
+  } as TerminalAgent;
+  const foregroundOnly: TerminalAgent = {
+    harness: "antigravity",
+    state: "unknown",
+    hooked: false,
+    foreground: true,
+  };
+
+  store.noteRuntime(runtime(guiAgent));
+  store.noteRuntime({
+    ...runtime(foregroundOnly),
+    terminal_ref: "trm_2",
+  });
+
+  const live = store.agentOf("gui-tab");
+  assert.ok(live !== undefined);
+  assert.equal(isGuiAgent(live), true);
+  assert.equal(isLiveAgent(live), true);
+  assert.equal(live.unseen, false);
+  assert.equal(store.terminalOfCliSession("agy-conv-1"), "trm_1");
+
+  const fg = store.agentOf("pty-tab");
+  assert.equal(isGuiAgent(fg), false);
+  assert.equal(isLiveAgent(fg), false);
+
+  store.noteUnseen(new Set(["trm_1"]));
+  assert.equal(store.agentOf("gui-tab")?.unseen, true);
+
+  store.noteRuntime(
+    runtime({
+      ...guiAgent,
+      state: "idle",
+      title: "Refactored ACP",
+    } as TerminalAgent),
+  );
+  assert.equal(store.agentOf("gui-tab")?.state, "idle");
+  assert.equal(store.agentOf("gui-tab")?.title, "Refactored ACP");
+  assert.equal(store.agentOf("gui-tab")?.unseen, true);
 });

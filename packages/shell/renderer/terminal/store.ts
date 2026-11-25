@@ -43,6 +43,27 @@ export type TabAgent = TerminalAgent & {
   readonly unseen: boolean;
 };
 
+/** core가 알린 agent의 출처. */
+export type TerminalAgentSource = "gui" | "pty";
+
+/** core가 GUI handle에서 직접 올린 agent 상태인지(`source: "gui"`). */
+export function isGuiAgent(
+  agent: TerminalAgent | TabAgent | undefined,
+): boolean {
+  return (
+    agent !== undefined &&
+    (agent as TerminalAgent & { readonly source?: TerminalAgentSource })
+      .source === "gui"
+  );
+}
+
+/** hook으로 확인된 TUI agent이거나 GUI handle이 직접 올린 agent(`source: "gui"`). */
+export function isLiveAgent(
+  agent: TerminalAgent | TabAgent | undefined,
+): boolean {
+  return agent !== undefined && (agent.hooked || isGuiAgent(agent));
+}
+
 export class TerminalStore {
   readonly #opening = new Set<string>();
   readonly #entries = new Map<string, TerminalEntry>();

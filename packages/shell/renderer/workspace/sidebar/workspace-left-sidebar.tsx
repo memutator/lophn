@@ -13,6 +13,7 @@ import {
 
 import { HARNESS_ADAPTERS } from "../../../../protocol/coding-agent/harness-adapter.ts";
 import type { HarnessId } from "../../../../protocol/coding-agent/harness-id.ts";
+import { HOME_TERMINAL_PROJECT } from "../../../../protocol/coding-agent/terminals.ts";
 import { LOPHN_AGENT_NAME } from "../../../../protocol/lophn-agent/agent-values.ts";
 import type { HandoffNote } from "../../../../protocol/lophn-agent/handoff.ts";
 import { archiveSession } from "../../../../protocol/lophn-agent/sessions.ts";
@@ -86,6 +87,7 @@ import {
   useTabsElsewhere,
 } from "../../shell/use-left-sidebar.ts";
 import { closeTerminalTab, type TerminalDeps } from "../../terminal/deps.ts";
+import { isLiveAgent } from "../../terminal/store.ts";
 import { agentOf, sessionOf } from "../agent/tab-fields.ts";
 import { lophnIdAt } from "../agents/agent-key.ts";
 import {
@@ -437,7 +439,7 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
               if (
                 store === undefined ||
                 agent === undefined ||
-                !agent.hooked ||
+                !isLiveAgent(agent) ||
                 !onThisComputer(key, tab)
               ) {
                 return [];
@@ -507,7 +509,7 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
     [props.agentDrafts],
   );
   const workflows = useHumanTurnWorkflows(props.source, projectId);
-  // 지운 줄은 session id와 터미널 key로 기억하고 둘 다 겹치지 않아 한 곳에 둔다.
+  // Recent에서 지운 lophn session 줄만 창에 기억한다. 터미널 coding session은 core의 `coding_sessions/forget`으로 영구 삭제한다.
   const recentHidden = useHiddenRecent(null);
   const workspaces = useMemo(
     () =>
@@ -781,14 +783,21 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
     }
     await editTabAt(ref, isTerminal(key), "close");
   };
+  const terminalProjectOfRef = (ref: WorkspaceRef): string | null =>
+    ref.kind === "project"
+      ? ref.id
+      : ref.kind === "home"
+        ? HOME_TERMINAL_PROJECT
+        : null;
   const renameTerminalAt = (ref: WorkspaceRef, key: string, name: string) => {
     const person = name.trim() || null;
     const terminal = dataOf(ref.machine ?? null).terminal;
     void editTabAt(ref, isTerminal(key), (row) =>
       terminalNamed(row, person, terminal?.store),
     );
-    if (terminal !== undefined && ref.kind === "project") {
-      pinAgentSessionName(terminal, ref.id, key, person);
+    const project = terminalProjectOfRef(ref);
+    if (terminal !== undefined && project !== null) {
+      pinAgentSessionName(terminal, project, key, person);
     }
   };
 
@@ -883,12 +892,13 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
       const saved = props.terminals.find(
         (row) => row.key === item.ref && row.saved !== null,
       );
-      if (saved?.saved != null && workspace.ref.kind === "project") {
+      const savedProject = terminalProjectOfRef(workspace.ref);
+      if (saved?.saved != null && savedProject !== null) {
         const terminal = dataOf(workspace.ref.machine ?? null).terminal;
         const person = title.trim() || null;
         if (terminal?.core != null) {
           void terminal.core.renameSaved({
-            project: workspace.ref.id,
+            project: savedProject,
             harness: saved.harness,
             external_session: saved.saved.externalSession,
             name: person?.slice(0, 200) ?? null,
@@ -1117,21 +1127,22 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
         onSession={open}
         onSessionTab={openSessionTab}
         onRemoveRecent={(workspace, item) => {
-          recentHidden.hide(item.ref, item.at);
-          // 터미널 coding session을 지우면 그 GUI 탭이 맡던 팀원 session도 보관해 더는 불리지 않게 한다.
-          if (item.kind !== "terminal" || workspace.ref.kind !== "project") {
+          if (item.kind === "terminal") {
+            const project = terminalProjectOfRef(workspace.ref);
+            if (project === null) return;
+            const saved = props.terminals.find(
+              (row) => row.key === item.ref && row.saved !== null,
+            );
+            const terminal = dataOf(workspace.ref.machine ?? null).terminal;
+            if (saved?.saved == null || terminal?.core == null) return;
+            void terminal.core.forgetSaved({
+              project,
+              harness: saved.harness,
+              cli_session: saved.saved.externalSession,
+            });
             return;
           }
-          const saved = props.terminals.find(
-            (row) => row.key === item.ref && row.saved !== null,
-          );
-          const terminal = dataOf(workspace.ref.machine ?? null).terminal;
-          if (saved?.saved == null || terminal?.core == null) return;
-          void terminal.core.forgetSaved({
-            project: workspace.ref.id,
-            harness: saved.harness,
-            cli_session: saved.saved.externalSession,
-          });
+          recentHidden.hide(item.ref, item.at);
         }}
         onRenameSession={renameSession}
         onStopSession={stopSession}

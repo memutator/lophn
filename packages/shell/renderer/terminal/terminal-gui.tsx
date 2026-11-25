@@ -14,7 +14,6 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-
 import {
   type AcpInput,
   type AcpState,
@@ -23,6 +22,8 @@ import {
   acpSnapshot,
   acpToolBodyRead,
   EMPTY_ACP_STATE,
+  type GuiHarness,
+  isGuiHarness,
   reduceAcp,
 } from "../../../protocol/acp/mod.ts";
 import type { Route } from "../../../protocol/base/route.ts";
@@ -35,21 +36,20 @@ import {
   codingSessionsSwitchPlan,
 } from "../../../protocol/coding-agent/relay.ts";
 import type { BusEvent } from "../../../protocol/events/mod.ts";
-import { terminalSessionId } from "../../../protocol/lophn-agent/session-tag.ts";
-import { type GuiHarness, isGuiHarness } from "../../../protocol/acp/mod.ts";
-import { useReportVisible } from "../conversation/report-visible.ts";
 import { blocksText } from "../../../protocol/lophn-agent/content-block.ts";
+import { terminalSessionId } from "../../../protocol/lophn-agent/session-tag.ts";
 import { guiAgentTabSource } from "../conversation/agent-tab-gui-source.ts";
 import { AgentView, type AgentViewHost } from "../conversation/agent-view.tsx";
 import { desktopParts } from "../conversation/desktop-parts-impl.tsx";
 import { DraftStore } from "../conversation/drafts.ts";
+import { useReportVisible } from "../conversation/report-visible.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
 import { readRoute } from "../desktop/connection/core-read.ts";
-import { EventsProvider } from "../desktop/connection/events/hooks.tsx";
 import type {
   EventClient,
   EventMessage,
 } from "../desktop/connection/events/client.ts";
+import { EventsProvider } from "../desktop/connection/events/hooks.tsx";
 import { NoticeToast } from "../editor/notices.tsx";
 import {
   actionIcons,
@@ -57,9 +57,9 @@ import {
   workspaceIcons,
 } from "../icons/mod.ts";
 import { newId } from "../prefixed-id.ts";
-import type { TabItem } from "../workspace/model.ts";
-import type { TabHost } from "../workspace/kinds/host.ts";
 import { focusTabBody } from "../workspace/focus-tab.ts";
+import type { TabHost } from "../workspace/kinds/host.ts";
+import type { TabItem } from "../workspace/model.ts";
 import type { TerminalCore } from "./core.ts";
 import type { TerminalDeps } from "./deps.ts";
 import type { TerminalStore } from "./store.ts";
@@ -197,19 +197,58 @@ function createGuiFeed(session: string, now: () => number): GuiFeed {
   };
 }
 
+export interface FrameScheduler {
+  schedule(run: () => void): () => void;
+}
+
+const DEFAULT_FRAME_SCHEDULER: FrameScheduler = {
+  schedule(run) {
+    if (typeof globalThis.requestAnimationFrame === "function") {
+      const id = globalThis.requestAnimationFrame(() => run());
+      return () => globalThis.cancelAnimationFrame(id);
+    }
+    const timer = setTimeout(run, 16);
+    return () => clearTimeout(timer);
+  },
+};
+
 /**
- * core의 ACP 길을 feed에 잇는다. 갱신 구독이 서면(ready) snapshot을 읽고, 읽는 사이 온 갱신은 snapshot 뒤에 접는다. 첫 snapshot을
- * 받으면 `onLoaded`다. 해지를 돌려준다.
+ * core의 ACP 길을 feed에 잇는다. 갱신 구독이 서면(ready) snapshot을 읽고, 읽는 사이 온 갱신은 snapshot 뒤에 접는다.
+ * live 갱신은 한 animation frame 동안 모아 한 번에 `feed.apply`로 반영한다. 첫 snapshot을 받으면 `onLoaded`다. 해지를 돌려준다.
  */
-function followGui(
+export function followGui(
   events: EventClient,
   feed: GuiFeed,
   onLoaded: () => void,
+  frame: FrameScheduler = DEFAULT_FRAME_SCHEDULER,
 ): () => void {
   let buffer: AcpUpdate[] | null = null;
+  let pending: AcpUpdate[] = [];
+  let cancelFrame: (() => void) | null = null;
   let reads = 0;
   let stopped = false;
+
+  const clearPending = () => {
+    cancelFrame?.();
+    cancelFrame = null;
+    pending = [];
+  };
+
+  const flush = () => {
+    cancelFrame = null;
+    if (stopped || pending.length === 0) return;
+    const updates = pending;
+    pending = [];
+    feed.apply({ updates });
+  };
+
+  const enqueue = (update: AcpUpdate) => {
+    pending.push(update);
+    if (cancelFrame === null) cancelFrame = frame.schedule(flush);
+  };
+
   async function load() {
+    clearPending();
     const mine = ++reads;
     buffer = [];
     const read = await readRoute(events.core, acpSnapshot, {
@@ -232,7 +271,7 @@ function followGui(
       ) {
         const update = message.event.payload.update;
         if (buffer !== null) buffer.push(update);
-        else feed.apply({ updates: [update] });
+        else enqueue(update);
       }
     },
   );
@@ -253,6 +292,7 @@ function followGui(
   );
   return () => {
     stopped = true;
+    clearPending();
     offUpdates();
     offReplaced();
   };

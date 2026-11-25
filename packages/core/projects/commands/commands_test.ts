@@ -18,7 +18,7 @@ import {
   type ProjectCommandSettings,
 } from "../../../protocol/projects/project-commands.ts";
 import type { AuthenticatedContext, Tx } from "../../../protocol/server/mod.ts";
-import { judge } from "../../approvals/gate/judge.ts";
+import { evaluatePermission } from "../../approvals/gate/judge.ts";
 import { createSql } from "../../storage/ledger/sqlite.ts";
 import type { Terminals } from "../../terminals/ports.ts";
 import { projectsSchemaSteps } from "../registry/schema.ts";
@@ -42,7 +42,7 @@ const TRN = "trn_01h00000000000000000000001" as Id<"trn">;
 const TCL = "tcl_01h00000000000000000000001" as Id<"tcl">;
 const AGT = "agt_01h00000000000000000000001" as Id<"agt">;
 
-const EMPTY_SHELL = { floor: [], layers: [] };
+const EMPTY_RULES = { floor: [], global: [], project: [] };
 const FAKE_RANDOM = {
   fill(bytes: Uint8Array) {
     bytes.fill(7);
@@ -213,7 +213,7 @@ function fakeTerminals() {
   };
 }
 
-test("judge enforces project_command and project_command_definition rules across modes", () => {
+test("evaluatePermission enforces project_command and project_command_definition rules across modes", () => {
   const runCall = {
     kind: "project_command" as const,
     project: PRJ,
@@ -223,53 +223,107 @@ test("judge enforces project_command and project_command_definition rules across
     cwd: null,
     env_keys: ["API_KEY"],
   };
-  assert.deepEqual(
-    judge(runCall, null, EMPTY_SHELL, "attended", false, {
-      allowed: false,
-      askBeforeRun: false,
-      approveWrites: true,
-    }),
-    { kind: "deny", reason: "not_assigned", pattern: null },
+  const deniedUnassigned = evaluatePermission(
+    {
+      call: runCall,
+      projectCommand: {
+        allowed: false,
+        askBeforeRun: false,
+        approveWrites: true,
+      },
+    },
+    EMPTY_RULES,
+    [],
+    "workspace",
+    "attended",
   );
+  assert.equal(deniedUnassigned.kind, "deny");
+  assert.equal(deniedUnassigned.denial.reason_kind, "unassigned");
+
   assert.deepEqual(
-    judge(runCall, null, EMPTY_SHELL, "unattended", false, {
-      allowed: true,
-      askBeforeRun: false,
-      approveWrites: true,
-    }),
+    evaluatePermission(
+      {
+        call: runCall,
+        projectCommand: {
+          allowed: true,
+          askBeforeRun: false,
+          approveWrites: true,
+        },
+      },
+      EMPTY_RULES,
+      [],
+      "workspace",
+      "unattended",
+    ),
     { kind: "run" },
   );
-  assert.deepEqual(
-    judge(runCall, null, EMPTY_SHELL, "attended", false, {
-      allowed: true,
-      askBeforeRun: true,
-      approveWrites: true,
-    }),
-    { kind: "ask" },
+  assert.equal(
+    evaluatePermission(
+      {
+        call: runCall,
+        projectCommand: {
+          allowed: true,
+          askBeforeRun: true,
+          approveWrites: true,
+        },
+      },
+      EMPTY_RULES,
+      [],
+      "workspace",
+      "attended",
+    ).kind,
+    "ask",
   );
-  assert.deepEqual(
-    judge(runCall, null, EMPTY_SHELL, "skip", false, {
-      allowed: true,
-      askBeforeRun: true,
-      approveWrites: true,
-    }),
-    { kind: "ask" },
+  assert.equal(
+    evaluatePermission(
+      {
+        call: runCall,
+        projectCommand: {
+          allowed: true,
+          askBeforeRun: true,
+          approveWrites: true,
+        },
+      },
+      EMPTY_RULES,
+      [],
+      "full",
+      "attended",
+    ).kind,
+    "ask",
   );
-  assert.deepEqual(
-    judge(runCall, null, EMPTY_SHELL, "unattended", false, {
-      allowed: true,
-      askBeforeRun: true,
-      approveWrites: true,
-    }),
-    { kind: "deny", reason: "no_person", pattern: null },
+  const deniedUnattended = evaluatePermission(
+    {
+      call: runCall,
+      projectCommand: {
+        allowed: true,
+        askBeforeRun: true,
+        approveWrites: true,
+      },
+    },
+    EMPTY_RULES,
+    [],
+    "workspace",
+    "unattended",
   );
-  assert.deepEqual(
-    judge(runCall, null, EMPTY_SHELL, "unattended", true, {
-      allowed: true,
-      askBeforeRun: true,
-      approveWrites: true,
-    }),
-    { kind: "ask" },
+  assert.equal(deniedUnattended.kind, "deny");
+  assert.equal(deniedUnattended.denial.reason_kind, "no_person");
+
+  assert.equal(
+    evaluatePermission(
+      {
+        call: runCall,
+        projectCommand: {
+          allowed: true,
+          askBeforeRun: true,
+          approveWrites: true,
+        },
+      },
+      EMPTY_RULES,
+      [],
+      "workspace",
+      "team_child",
+    ).kind,
+    "ask",
   );
 
   const defCall = {
@@ -286,29 +340,55 @@ test("judge enforces project_command and project_command_definition rules across
     },
   };
   assert.deepEqual(
-    judge(defCall, null, EMPTY_SHELL, "unattended", true, {
-      allowed: true,
-      askBeforeRun: false,
-      approveWrites: false,
-    }),
+    evaluatePermission(
+      {
+        call: defCall,
+        projectCommand: {
+          allowed: true,
+          askBeforeRun: false,
+          approveWrites: false,
+        },
+      },
+      EMPTY_RULES,
+      [],
+      "workspace",
+      "team_child",
+    ),
     { kind: "run" },
   );
-  assert.deepEqual(
-    judge(defCall, null, EMPTY_SHELL, "skip", false, {
-      allowed: true,
-      askBeforeRun: false,
-      approveWrites: true,
-    }),
-    { kind: "ask" },
+  assert.equal(
+    evaluatePermission(
+      {
+        call: defCall,
+        projectCommand: {
+          allowed: true,
+          askBeforeRun: false,
+          approveWrites: true,
+        },
+      },
+      EMPTY_RULES,
+      [],
+      "full",
+      "attended",
+    ).kind,
+    "ask",
   );
-  assert.deepEqual(
-    judge(defCall, null, EMPTY_SHELL, "attended", true, {
-      allowed: true,
-      askBeforeRun: false,
-      approveWrites: true,
-    }),
-    { kind: "deny", reason: "no_person", pattern: null },
+  const deniedTeamChildDef = evaluatePermission(
+    {
+      call: defCall,
+      projectCommand: {
+        allowed: true,
+        askBeforeRun: false,
+        approveWrites: true,
+      },
+    },
+    EMPTY_RULES,
+    [],
+    "workspace",
+    "team_child",
   );
+  assert.equal(deniedTeamChildDef.kind, "deny");
+  assert.equal(deniedTeamChildDef.denial.reason_kind, "no_person");
 });
 
 test("handlers enforce agent settings lock, write approval, secret masking, and remote grant boundary", async () => {

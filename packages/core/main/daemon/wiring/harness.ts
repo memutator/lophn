@@ -637,21 +637,23 @@ export const harnessWiring: WiringFactory = () => {
             workspaceDepsOf(lookup.sql).agents.agent(agent),
           );
           if (!info.ok || info.value === null) return reject();
-          // session이나 agent 정의에 skip이 켜져 있으면 ask 규칙을 묻지 않고 허용한다(deny 규칙은 늘 유지).
-          const skip = row.skip || info.value.skip;
-          if (subject.kind === "plan") return skip ? "allow" : reject();
+          // session이나 agent 정의의 권한 단계가 full이면 ask 규칙을 묻지 않고 허용한다(floor·deny 규칙은 늘 유지).
+          const full =
+            row.permission_mode === "full" ||
+            info.value.permissionMode === "full";
+          if (subject.kind === "plan") return full ? "allow" : reject();
           if (subject.kind === "file_change") return "allow";
           const judged = await ctx.approvals.judge(subject, {
             agent,
             session,
             workspace: workspaceOf(row),
-            mode: skip ? "skip" : "attended",
-            toParent: false,
+            mode: full ? "full" : row.permission_mode,
+            context: "unattended",
           });
           if (!judged.ok) return reject();
           if (judged.value.kind === "run") return "allow";
           if (judged.value.kind === "deny") {
-            return reject(`denied by rule (${judged.value.reason})`);
+            return reject(`denied (${judged.value.denial.message})`);
           }
           return reject();
         },

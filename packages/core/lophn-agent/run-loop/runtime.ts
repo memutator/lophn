@@ -289,11 +289,7 @@ export async function startAgentRuntimeChild(
           .onMessage(message)
           .then((response) => {
             if (response !== undefined) {
-              // AgentCredentialDeniedResponse는 Wave 3에서 supervision protocol에 반영한다.
-              return deps.io.send(
-                AGENT_RUNTIME_KIND,
-                response as ParentMessage,
-              );
+              return deps.io.send(AGENT_RUNTIME_KIND, response);
             }
           })
           .catch(() => {});

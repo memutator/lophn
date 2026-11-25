@@ -25,7 +25,7 @@ import {
   requesterName,
   resolveMachine,
 } from "../../../protocol/machine/requester.ts";
-import { judge } from "../../approvals/gate/mod.ts";
+import { evaluatePermission } from "../../approvals/gate/mod.ts";
 import type { VerifiedCaller } from "./caller.ts";
 import { type CallGateDeps, callAllowed } from "./gate.ts";
 import type { OutboundCalls } from "./outbound.ts";
@@ -147,12 +147,20 @@ export function createRemoteForward(deps: RemoteForwardDeps): RemoteForward {
           app: entry.app,
           removed_tools: entry.removed_tools,
         }));
-      const judged = judge(
-        { kind: "app_tool", app: target.app, tool: name, effect: "external" },
-        { entries },
-        { floor: [], layers: [] },
+      const judged = evaluatePermission(
+        {
+          call: {
+            kind: "app_tool",
+            app: target.app,
+            tool: name,
+            effect: "external",
+          },
+          assignment: { entries },
+        },
+        { floor: [], global: [], project: [] },
+        [],
+        "workspace",
         "attended",
-        false,
       );
       if (judged.kind === "deny") return ok(blocked());
     }

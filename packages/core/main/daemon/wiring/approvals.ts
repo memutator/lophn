@@ -1,8 +1,18 @@
+import { homedir } from "node:os";
 import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
-import type { TurnRequest } from "../../../../protocol/approvals/mod.ts";
+import type {
+  LocalToolTrustSetting,
+  TurnRequest,
+} from "../../../../protocol/approvals/mod.ts";
 import {
-  DEFAULT_SHELL_RULES_SETTING,
-  SHELL_RULES_SETTING_KEY,
+  DEFAULT_LOCAL_TOOL_TRUST_SETTING,
+  DEFAULT_PERMISSION_RULES_SETTING,
+  LOCAL_TOOL_TRUST_SETTING_KEY,
+  localToolTrust,
+  localToolUntrust,
+  PERMISSION_RULES_SETTING_KEY,
+  sessionGrantRevoke,
+  sessionPermissionsRead,
   toolGateCheck,
   toolGateInputSchema,
   turnRequestDecide,
@@ -20,33 +30,54 @@ import {
   blocksText,
   textBlocks,
 } from "../../../../protocol/lophn-agent/content-block.ts";
+import type { McpTrust } from "../../../../protocol/lophn-agent/mcp-settings.ts";
 import { turnRead } from "../../../../protocol/lophn-agent/turn-reads.ts";
-import type { TurnMode } from "../../../../protocol/lophn-agent/turn-values.ts";
+import {
+  DEFAULT_PERMISSION_MODE,
+  type ExecutionContext,
+  type PermissionMode,
+  type TurnMode,
+} from "../../../../protocol/lophn-agent/turn-values.ts";
 import type {
   AgentId,
   Workspace,
 } from "../../../../protocol/lophn-agent/workspaces.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
-import { createApprovals } from "../../../approvals/mod.ts";
+import { workspaceDataToolsFolder } from "../../../agent-workspaces/workspace/data-folder.ts";
+import { PROJECT_LAYER } from "../../../agent-workspaces/workspace/project-layer.ts";
 import {
-  shellRuleLayers,
-  shellRulesSetting,
-  withAlwaysRules,
-} from "../../../approvals/shell-rules/mod.ts";
+  createApprovals,
+  defaultModeSetting,
+  isLocalToolTrusted,
+  localToolTrustSetting,
+  permissionRuleLayers,
+  permissionRulesSetting,
+  withAlwaysPermissionRules,
+  withTrustedLocalTool,
+} from "../../../approvals/mod.ts";
+import { appSourcePath } from "../../../apps/lookups.ts";
 import { agentAssignment } from "../../../apps/usage/users.ts";
 import type { Bus } from "../../../events/ports.ts";
+import { mergeMcpLayers } from "../../../lophn-agent/extensions/mcp-server.ts";
+import { registeredMcpServers } from "../../../lophn-agent/extensions/mcp-snapshot.ts";
+import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import {
   createToolGate,
   type ToolGateDeps,
 } from "../../../lophn-agent/tool-judgment/mod.ts";
+import { discoverLocalToolDigests } from "../../../lophn-agent/tools/local-tools.ts";
 import { createQuestionWaits } from "../../../lophn-agent/tools/questions/mod.ts";
 import {
   loadProjectCommands,
   resolveProjectCommandPolicy,
 } from "../../../projects/commands/store.ts";
+import { projectFolderPaths } from "../../../projects/lookups.ts";
 import { callsAskOpen, callsAskWithdraw } from "../../../router/mod.ts";
 import type { MemoryHandler } from "../../../server/mod.ts";
 import { openConnection } from "../../../storage/ledger/mod.ts";
+import { sessionFoldersOf } from "../workspace-folders-glue.ts";
+import { readAgentMcp } from "./agent-mcp.ts";
+import { isDevicePrincipal } from "./app-principal.ts";
 import type { WiringFactory } from "./context.ts";
 
 // tool Gate가 session의 agent를 읽는 core 내부 machine 자격이다. 기동 때 ledger에 기록한다.
@@ -88,18 +119,27 @@ function ownTurn(
       });
 }
 
-type SessionInfo = {
+export type SessionInfo = {
   agent: AgentId;
   workspace: Workspace | null;
   // 팀 자식이면 부모 session.
   spawnedBy: string | null;
-  skip: boolean;
+  permissionMode: PermissionMode;
 };
+
+function executionContextOf(
+  spawnedBy: string | null,
+  turnMode: TurnMode,
+): ExecutionContext {
+  if (spawnedBy !== null) return "team_child";
+  return turnMode === "unattended" ? "unattended" : "attended";
+}
 
 // runtime이 Gate가 걸리는 tool을 실행하기 직전에 부르는 입구다. 판정, 묻기, 사람 결정 기다리기를 모두 여기서 한다.
 // mode는 그 turn 행의 mode다(시작 때 정해 바뀌지 않는다). 읽지 못하면 판정하지 않는다.
 export function toolGateHandler(deps: {
   approvals: ToolGateDeps["approvals"];
+  onDenied?: ToolGateDeps["onDenied"];
   sessionOf(session: string): Promise<Result<SessionInfo>>;
   modeOf(turn: string): Promise<Result<TurnMode>>;
 }): MemoryHandler {
@@ -111,21 +151,24 @@ export function toolGateHandler(deps: {
     if (!found.ok) return found;
     const mode = await deps.modeOf(input.turn);
     if (!mode.ok) return mode;
-    return await createToolGate({ approvals: deps.approvals }).check({
+    const executionContext = executionContextOf(
+      found.value.spawnedBy,
+      mode.value,
+    );
+    return await createToolGate({
+      approvals: deps.approvals,
+      ...(deps.onDenied === undefined ? {} : { onDenied: deps.onDenied }),
+    }).check({
       session: input.session,
       turn: input.turn,
       toolCall: input.tool_call,
       agent: found.value.agent,
       workspace: found.value.workspace,
       mode: mode.value,
-      // skip이 먼저다: 사람이 skip을 켠 session은 팀 자식이어도 묻지 않는다. setting·project_command·project_command_definition은
-      // skip도 묻는 호출이라 팀 자식이면 skip과 상관없이 자식으로 판정한다(setting·definition은 Gate가 막고, command는 부모에게 간다).
-      toParent:
-        found.value.spawnedBy !== null &&
-        (!found.value.skip ||
-          input.call.kind === "setting" ||
-          input.call.kind === "project_command" ||
-          input.call.kind === "project_command_definition"),
+      permissionMode: found.value.permissionMode,
+      executionContext,
+      // 팀 자식이 ask 판정을 받으면 사람 대신 부모에게 간다(사람 전용 등급은 판정 엔진이 먼저 no_person으로 막는다).
+      toParent: found.value.spawnedBy !== null,
       tool: input.tool,
       call: input.call,
     });
@@ -133,7 +176,7 @@ export function toolGateHandler(deps: {
 }
 
 // `ask` tool의 기다림 입구다. 사람 없는 turn(unattended)과 팀 자식의 질문을 여기서 한 번에 가른다:
-// 자식이면 mode와 skip에 상관없이 부모에게 가고, 팀 밖이면 unattended turn만 묻지 않고 돌려준다.
+// 자식이면 mode와 permission_mode에 상관없이 부모에게 가고, 팀 밖이면 unattended turn만 묻지 않고 돌려준다.
 export function askWaitHandler(deps: {
   ask(
     call: { session: string; turn: string; tool_call: string },
@@ -167,13 +210,19 @@ function approvalText(subject: TurnRequest["subject"]): string {
   const what =
     subject.kind === "shell"
       ? `run this shell command:\n${subject.command}`
-      : subject.kind === "project_command"
-        ? `run project command "${subject.name}":\n${subject.command}${subject.cwd ? `\ncwd: ${subject.cwd}` : ""}${subject.env_keys.length > 0 ? `\nenv keys: ${subject.env_keys.join(", ")}` : ""}`
-        : subject.kind === "mcp_tool"
-          ? `use the tool ${subject.server}/${subject.tool}`
-          : subject.kind === "app_tool"
-            ? `use the tool ${subject.tool}`
-            : "continue";
+      : subject.kind === "file_read"
+        ? `read the file:\n${subject.path}`
+        : subject.kind === "file_write"
+          ? `${subject.action} the file:\n${subject.path}`
+          : subject.kind === "local_tool"
+            ? `run local tool "${subject.name}":\n${subject.path}`
+            : subject.kind === "project_command"
+              ? `run project command "${subject.name}":\n${subject.command}${subject.cwd ? `\ncwd: ${subject.cwd}` : ""}${subject.env_keys.length > 0 ? `\nenv keys: ${subject.env_keys.join(", ")}` : ""}`
+              : subject.kind === "mcp_tool"
+                ? `use the tool ${subject.server}/${subject.tool}`
+                : subject.kind === "app_tool"
+                  ? `use the tool ${subject.tool}`
+                  : "continue";
   return `A team member needs approval to ${what}\n\nReply with \`lophn call reply <call> --allow\` or \`lophn call reply <call> --reject --body <reason>\`. ${ASK_HELP}`;
 }
 
@@ -197,6 +246,7 @@ export const approvalsWiring: WiringFactory = () => {
     build(ctx) {
       // Bus는 events가 만들어 slot으로 낸다. slot이 비어 있으면 event를 버린다.
       const bus: Bus = ctx.peek.bus ?? DROPPING_BUS;
+      const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
       // 할당은 agent 정의 파일에서 그때그때 읽는다.
       const assignmentOf = (agent: AgentId) => {
         const connection = openConnection(ctx.ledgerPath);
@@ -207,9 +257,73 @@ export const approvalsWiring: WiringFactory = () => {
           connection.value.close();
         }
       };
-      const shellRulesNow = () =>
-        ctx.peek.settings?.get(shellRulesSetting) ??
-        DEFAULT_SHELL_RULES_SETTING;
+      const permissionRulesNow = () =>
+        ctx.peek.settings?.get(permissionRulesSetting) ??
+        DEFAULT_PERMISSION_RULES_SETTING;
+      const defaultModeNow = (): PermissionMode =>
+        ctx.peek.settings?.get(defaultModeSetting) ?? DEFAULT_PERMISSION_MODE;
+      const localToolTrustNow = (): LocalToolTrustSetting =>
+        ctx.peek.settings?.get(localToolTrustSetting) ??
+        DEFAULT_LOCAL_TOOL_TRUST_SETTING;
+      const saveLocalToolTrust = (
+        next: LocalToolTrustSetting,
+      ): Result<void> => {
+        const written = ctx.settingsUpdate([
+          { key: LOCAL_TOOL_TRUST_SETTING_KEY, action: "set", value: next },
+        ]);
+        return !written.ok || written.value.rejected.length > 0
+          ? err({
+              code: "unavailable",
+              message: "the local tool trust list could not be saved",
+            })
+          : ok(undefined);
+      };
+
+      const effectiveMcpServersOf = async (
+        workspace: Workspace | null,
+        agent: AgentId,
+      ) => {
+        const registered = await registeredMcpServers(ctx.ledgerPath, {
+          projectLayer: PROJECT_LAYER,
+          agents: () => readAgentMcp(ctx.ledgerPath),
+        });
+        if (!registered.ok) return registered;
+        const globalServers = registered.value
+          .filter((entry) => entry.workspace === null && entry.agent === null)
+          .map((entry) => entry.server);
+        const workspaceServers = registered.value
+          .filter((entry) => {
+            if (entry.agent !== null || entry.workspace === null) return false;
+            if (workspace === null) return entry.workspace.kind === "home";
+            return (
+              entry.workspace.kind === workspace.kind &&
+              entry.workspace.id === workspace.id
+            );
+          })
+          .map((entry) => entry.server);
+        const agentServers = registered.value
+          .filter((entry) => entry.agent === agent)
+          .map((entry) => entry.server);
+        return ok(
+          mergeMcpLayers([
+            { servers: globalServers, off: [] },
+            { servers: workspaceServers, off: [] },
+            { servers: agentServers, off: [] },
+          ]),
+        );
+      };
+
+      const mcpTrustOf = async (
+        serverName: string,
+        workspace: Workspace | null,
+        agent: AgentId,
+      ): Promise<Result<McpTrust>> => {
+        const merged = await effectiveMcpServersOf(workspace, agent);
+        if (!merged.ok) return merged;
+        const found = merged.value.find((server) => server.name === serverName);
+        return ok(found?.trust ?? "untrusted");
+      };
+
       const projectCommandPolicyOf = (
         project: string,
         commandId: string | null,
@@ -234,30 +348,39 @@ export const approvalsWiring: WiringFactory = () => {
           connection.value.close();
         }
       };
+
       const service = createApprovals({
         assignmentOf,
         // 판정마다 읽어 사람이 Settings에서 고친 값이 다음 호출부터 쓰인다.
-        shellRules: (workspace) => shellRuleLayers(shellRulesNow(), workspace),
+        permissionRules: (workspace) =>
+          permissionRuleLayers(permissionRulesNow(), workspace),
         projectCommandPolicyOf,
+        mcpTrustOf,
+        localToolTrustedOf: (path, sha256) =>
+          isLocalToolTrusted(localToolTrustNow(), path, sha256),
+        homeDir: homedir(),
+        dataRoot: ctx.root.path,
         bus,
         clock: ctx.clock,
-        ids: createIdSource({ clock: ctx.clock, random: ctx.random }),
+        ids,
       });
+
       // `always`는 사람의 결정에서만 온다(decide는 사람 자격만 받는다). 규칙은 workspace로 고른 층에 더한다.
       service.remember("shell", (request, workspace) => {
-        const next = withAlwaysRules(
-          shellRulesNow(),
+        const next = withAlwaysPermissionRules(
+          permissionRulesNow(),
           workspace,
           request.always_patterns,
+          ids,
         );
         const written = ctx.settingsUpdate([
-          { key: SHELL_RULES_SETTING_KEY, action: "set", value: next },
+          { key: PERMISSION_RULES_SETTING_KEY, action: "set", value: next },
         ]);
         return Promise.resolve(
           !written.ok || written.value.rejected.length > 0
             ? err({
                 code: "internal",
-                message: "the shell rule could not be saved",
+                message: "the permission rule could not be saved",
               })
             : ok(undefined),
         );
@@ -265,10 +388,10 @@ export const approvalsWiring: WiringFactory = () => {
       ctx.provide("approvals", service);
 
       // runtime의 Gate 입구와 ask 기다림이다. 기다림은 여기 main thread 메모리에 있고 runtime은 결과만 받는다.
-      const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
       const waits = createQuestionWaits({ bus, clock: ctx.clock, ids });
       ctx.provide("questionWaits", waits);
       // turn이 끝나거나 session이 닫히면 기다리던 turn request와 질문을 cancelled로 푼다.
+      // session이 닫히면 메모리의 session grant와 최근 거부도 함께 비운다.
       // 사람이 기다리는 session에 메시지를 보내면 질문은 그 메시지로 풀린다.
       stopWatching = bus.subscribe(
         [
@@ -284,6 +407,7 @@ export const approvalsWiring: WiringFactory = () => {
               waits.cancel(event.session, event.payload.turn);
             } else if (event.type === "SessionEnded") {
               service.cancelTurnRequests(event.session, "session_closed");
+              service.sessionGrants.clear(event.session);
               waits.cancel(event.session);
             } else if (
               event.type === "MessageReceived" &&
@@ -307,17 +431,22 @@ export const approvalsWiring: WiringFactory = () => {
           { session },
         );
         if (!found.ok) return found;
-        const { agent, workspace, spawned_by, skip } = (
+        const { agent, workspace, spawned_by, permission_mode } = (
           found.value as {
             session: {
               agent: AgentId;
               workspace: Workspace | null;
               spawned_by: string | null;
-              skip: boolean;
+              permission_mode: PermissionMode;
             };
           }
         ).session;
-        return ok({ agent, workspace, spawnedBy: spawned_by, skip });
+        return ok({
+          agent,
+          workspace,
+          spawnedBy: spawned_by,
+          permissionMode: permission_mode,
+        });
       };
       const modeOf = async (turn: string): Promise<Result<TurnMode>> => {
         const found = await ctx.runtime.readers.read(
@@ -507,10 +636,36 @@ export const approvalsWiring: WiringFactory = () => {
       };
       const toolGate = toolGateHandler({
         approvals: {
-          ...service,
-          openTurnRequest(origin, subject) {
+          judge(call, who) {
+            return service.judge(call, {
+              agent: who.agent,
+              session: who.session,
+              workspace: who.workspace,
+              mode: who.permissionMode ?? defaultModeNow(),
+              context:
+                who.executionContext ??
+                (who.toParent
+                  ? "team_child"
+                  : who.mode === "unattended"
+                    ? "unattended"
+                    : "attended"),
+              tool: who.tool,
+            });
+          },
+          openTurnRequest(origin, subject, options) {
             gating.add(origin.session);
-            return service.openTurnRequest(origin, subject);
+            return service.openTurnRequest(origin, subject, options);
+          },
+          waitTurnDecision: service.waitTurnDecision,
+          publishDenial(entry) {
+            service.publishDenial(
+              {
+                session: entry.session,
+                turn: entry.turn,
+                tool_call: entry.tool_call,
+              },
+              entry.denial,
+            );
           },
         },
         sessionOf: sessionInfo,
@@ -526,6 +681,132 @@ export const approvalsWiring: WiringFactory = () => {
         who.actor === "user"
           ? ok(undefined)
           : err({ code: "forbidden", message: "only the user answers" });
+      const localHumanOnly = (who: AuthenticatedContext): Result<void> => {
+        const user = humanOnly(who);
+        if (!user.ok) return user;
+        return isDevicePrincipal(who)
+          ? err({
+              code: "forbidden",
+              message: "only the local user may trust local tools",
+            })
+          : ok(undefined);
+      };
+
+      // `local_tool`의 `once` 허락은 곧 신뢰 기록이다: 결정이 확정되면 `(path, sha256)`을 `approvals.local_tool_trust`에 저장해
+      // 다음 호출은 파일이 바뀌기 전까지 다시 묻지 않는다.
+      const decideHandler: MemoryHandler = async (who, body) => {
+        const parsed = turnRequestDecide.input.safeParse(body);
+        const pending = parsed.success
+          ? service
+              .turnRequests(parsed.data.session)
+              .find((req) => req.id === parsed.data.request)
+          : undefined;
+        const decided = await service.decide(who, body);
+        if (
+          decided.ok &&
+          decided.value.outcome.outcome === "allow" &&
+          pending?.subject.kind === "local_tool"
+        ) {
+          const next = withTrustedLocalTool(
+            localToolTrustNow(),
+            pending.subject.path,
+            pending.subject.sha256,
+            ctx.clock.now(),
+          );
+          saveLocalToolTrust(next);
+        }
+        return decided;
+      };
+
+      const readPermissionsHandler: MemoryHandler = async (who, body) => {
+        const user = humanOnly(who);
+        if (!user.ok) return user;
+        const parsed = sessionPermissionsRead.input.safeParse(body);
+        if (!parsed.success) {
+          return err({
+            code: "invalid_input",
+            message: "invalid session permissions input",
+          });
+        }
+        const info = await sessionInfo(parsed.data.session);
+        if (!info.ok) return info;
+        const { agent, workspace, permissionMode } = info.value;
+
+        const foldersSnap = ledgerSnapshot(ctx.ledgerPath, (lookup) => {
+          const { folders } = sessionFoldersOf(
+            lookup,
+            ctx.root.path,
+            parsed.data.session,
+          );
+          const source =
+            workspace === null
+              ? null
+              : workspace.kind === "project"
+                ? (projectFolderPaths(lookup.sql, workspace.id)[0] ?? null)
+                : appSourcePath(lookup.sql, workspace.id);
+          return { folders, source };
+        });
+        const workspaceFolders = foldersSnap.ok
+          ? foldersSnap.value.folders
+          : [];
+        const sourceFolder = foldersSnap.ok ? foldersSnap.value.source : null;
+
+        const mcpLoaded = await effectiveMcpServersOf(workspace, agent);
+        const mcpServers = mcpLoaded.ok
+          ? mcpLoaded.value.map((server) => ({
+              name: server.name,
+              trust: server.trust,
+              enabled: server.enabled,
+            }))
+          : [];
+
+        const trusted = localToolTrustNow();
+        const digests = await discoverLocalToolDigests([
+          `${ctx.root.path}/tools`,
+          sourceFolder === null ? null : `${sourceFolder}/.lophn/tools`,
+          workspaceDataToolsFolder(ctx.root.path, workspace as never),
+        ]);
+        const localTools = digests.map((digest) => ({
+          name: digest.name,
+          path: digest.realPath,
+          sha256: digest.sha256,
+          trusted: isLocalToolTrusted(trusted, digest.realPath, digest.sha256),
+        }));
+
+        return ok(
+          service.buildSessionPermissions({
+            session: parsed.data.session,
+            mode: permissionMode,
+            workspace,
+            workspaceFolders,
+            mcpServers,
+            localTools,
+          }),
+        );
+      };
+
+      const trustLocalToolHandler: MemoryHandler = (who, body) => {
+        const local = localHumanOnly(who);
+        if (!local.ok) return local;
+        return service.trustLocalTool(
+          who,
+          body,
+          localToolTrustNow(),
+          saveLocalToolTrust,
+        );
+      };
+
+      const untrustLocalToolHandler: MemoryHandler = (who, body) => {
+        const local = localHumanOnly(who);
+        if (!local.ok) return local;
+        return service.untrustLocalTool(
+          who,
+          body,
+          localToolTrustNow(),
+          saveLocalToolTrust,
+        );
+      };
+
       const askReadHandler: MemoryHandler = (who, body) => {
         const user = humanOnly(who);
         if (!user.ok) return user;
@@ -542,8 +823,15 @@ export const approvalsWiring: WiringFactory = () => {
         `${route.resource}/${route.method}`;
       return ok({
         memory: [
-          [key(turnRequestDecide), (who, body) => service.decide(who, body)],
+          [key(turnRequestDecide), decideHandler],
           [key(toolGateCheck), toolGate],
+          [key(sessionPermissionsRead), readPermissionsHandler],
+          [
+            key(sessionGrantRevoke),
+            (who, body) => service.revokeGrant(who, body),
+          ],
+          [key(localToolTrust), trustLocalToolHandler],
+          [key(localToolUntrust), untrustLocalToolHandler],
           [key(askWait), askWaitRoute],
           [key(askRead), askReadHandler],
           [key(askAnswer), askAnswerHandler],

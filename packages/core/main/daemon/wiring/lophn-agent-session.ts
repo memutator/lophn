@@ -144,6 +144,8 @@ export const lophnAgentRewindWiring: WiringFactory = () => {
           );
           return read.ok ? read.value : [];
         },
+        openedFoldersOf: (session) =>
+          ctx.peek.approvals?.sessionGrants.openedFolders(session) ?? [],
         writer: () => ctx.writer,
       });
       return ok({

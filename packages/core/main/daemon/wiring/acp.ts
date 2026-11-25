@@ -35,11 +35,13 @@ import { rewindList } from "../../../../protocol/lophn-agent/reverts.ts";
 import { sessionRewind } from "../../../../protocol/lophn-agent/session-rewinds.ts";
 import { sessionStatusRead } from "../../../../protocol/lophn-agent/session-status.ts";
 import {
+  changeSessionMode,
   changeSessionModel,
-  changeSessionSkip,
   renameSession,
   setSessionAiTitle,
 } from "../../../../protocol/lophn-agent/sessions.ts";
+import { DEFAULT_PERMISSION_MODE } from "../../../../protocol/lophn-agent/turn-values.ts";
+import { defaultModeSetting } from "../../../approvals/mod.ts";
 import {
   toolCallList,
   toolCallRead,
@@ -125,6 +127,7 @@ const EVENT_TYPES = [
   "ToolCallEnded",
   "TurnRequestOpened",
   "TurnRequestClosed",
+  "PermissionDenied",
   "QuestionAsked",
   "QuestionResolved",
 ] as const;
@@ -205,8 +208,10 @@ export const acpWiring: WiringFactory = () => {
           return {
             id: request.id,
             subject: redactDeep(env, subject),
-            choices: acpCoreApprovalChoices(request.always_patterns),
+            choices: acpCoreApprovalChoices(request),
             always_patterns: request.always_patterns,
+            reason: request.reason === null ? null : env.redact(request.reason),
+            outside_rewind: request.outside_rewind,
           };
         }
         return null;
@@ -487,12 +492,18 @@ export const acpWiring: WiringFactory = () => {
                 return err({ code: "invalid_input", message: "invalid input" });
               }
               return ok(
-                await readDraftMeta(env, parsed.data, async (route, body) => {
-                  const handler = ctx.runtime.reads.get(key(route));
-                  return handler === undefined
-                    ? err({ code: "unavailable", message: "read not served" })
-                    : ((await handler(who, body)) as Result<never>);
-                }),
+                await readDraftMeta(
+                  env,
+                  parsed.data,
+                  async (route, body) => {
+                    const handler = ctx.runtime.reads.get(key(route));
+                    return handler === undefined
+                      ? err({ code: "unavailable", message: "read not served" })
+                      : ((await handler(who, body)) as Result<never>);
+                  },
+                  ctx.peek.settings?.get(defaultModeSetting) ??
+                    DEFAULT_PERMISSION_MODE,
+                ),
               );
             }),
         // rewind가 숨긴 구간은 AgentEvent가 없어 적용이 끝난 뒤 여기서 낸다. 제목·model·mode는 어느 client가 바꿔도
@@ -537,7 +548,7 @@ export const acpWiring: WiringFactory = () => {
               case changeSessionModel.name:
                 enqueue(() => publishSessionChange(session, "model"));
                 break;
-              case changeSessionSkip.name:
+              case changeSessionMode.name:
                 enqueue(() => publishSessionChange(session, "mode"));
                 break;
               case editQueuedMessage.name:

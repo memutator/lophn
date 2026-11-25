@@ -2191,8 +2191,15 @@ test("workflow participant_modes precedence, harness exclusion, and sub-workflow
       remote,
       rememberedModesOf: (_project, workflow) =>
         workflow === "parent-wf"
-          ? { planner: "full", reviewer: "read_only", coder: "full" }
-          : { worker: "full", narrow: "read_only" },
+          ? ({
+              planner: "full",
+              reviewer: "read_only",
+              coder: "full",
+            } as Record<string, "read_only" | "ask" | "workspace" | "full">)
+          : ({
+              worker: "full",
+              narrow: "read_only",
+            } as Record<string, "read_only" | "ask" | "workspace" | "full">),
       agentDefaultModeOf: (agent) =>
         agent === "custom-helper" ? "ask" : undefined,
       globalDefaultMode: () => "workspace",

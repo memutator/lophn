@@ -217,10 +217,12 @@ export function createProjectCommandHandlers(deps: ProjectCommandHandlersDeps) {
     }
     if (outcome.kind === "denied") {
       return forbidden(
-        outcome.reason === "not_assigned"
+        outcome.denial.reason_kind === "unassigned"
           ? `this agent is not allowed to run project command "${cmd.name}"`
           : "the person must approve running this command; ask from an attended session",
-        outcome.reason === "not_assigned" ? "not_assigned" : "needs_approval",
+        outcome.denial.reason_kind === "unassigned"
+          ? "not_assigned"
+          : "needs_approval",
       );
     }
     return forbidden(

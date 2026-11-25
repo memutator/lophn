@@ -25,24 +25,24 @@ export function denyRuleOf(slug: string, name: string): string {
   return `lophn(${slug} ${wordsOf(name).join(" ")})`;
 }
 
-// 앱의 active 선언 가운데 deny에 적힌 command의 이름. active release가 없으면 뺄 것이 없다.
-function removedCommands(
+// 앱의 active 선언 가운데 규칙 목록(deny·ask)에 적힌 command의 이름. active release가 없으면 뺄 것이 없다.
+function matchingCommands(
   sql: Query,
   app: { id: string; slug: string },
-  deny: readonly string[],
+  rules: readonly string[],
 ): Result<string[]> {
-  if (deny.length === 0) return ok([]);
+  if (rules.length === 0) return ok([]);
   const active = loadActiveDeclaration(sql, app.id);
   if (!active.ok) return active;
   return ok(
     (active.value?.declaration.commands ?? [])
-      .filter((command) => deny.includes(denyRuleOf(app.slug, command.name)))
+      .filter((command) => rules.includes(denyRuleOf(app.slug, command.name)))
       .map((command) => command.name),
   );
 }
 
-// 한 agent의 할당. 정의 파일의 `apps`(slug)와 `permissions.deny`를 앱 id와 뺀 command 이름으로 풀고, 다른 기계의 앱(`remote_apps`)을
-// 그 뒤에 `{app, machine, name, removed_tools}`로 잇는다. 없는 앱 slug는 건너뛴다. 앱 범위 agent는 자기 앱을 사람의 할당 없이 받는다(deny는 그대로 적용한다).
+// 한 agent의 할당. 정의 파일의 `apps`(slug)와 `permissions.deny`·`permissions.ask`를 앱 id와 command 이름으로 풀고, 다른 기계의 앱(`remote_apps`)을
+// 그 뒤에 `{app, machine, name, removed_tools, ask_tools?}`로 잇는다. 없는 앱 slug는 건너뛴다. 앱 범위 agent는 자기 앱을 사람의 할당 없이 받는다(deny·ask는 그대로 적용한다).
 export function agentAssignment(
   sql: Query,
   agent: AgentId,
@@ -51,12 +51,17 @@ export function agentAssignment(
   const info = agents.agent(agent);
   const own = info?.workspace?.kind === "app" ? info.workspace.id : null;
   if (info === null) return ok({ agent, entries: [] });
-  const remote: Assignment["entries"] = info.remoteApps.map((line) => ({
-    app: line.app,
-    machine: line.machine,
-    name: line.name,
-    removed_tools: [...line.removed],
-  }));
+  const remote: Assignment["entries"] = info.remoteApps.map((line) => {
+    const removedSet = new Set(line.removed);
+    const askTools = (line.ask ?? []).filter((tool) => !removedSet.has(tool));
+    return {
+      app: line.app,
+      machine: line.machine,
+      name: line.name,
+      removed_tools: [...line.removed],
+      ...(askTools.length > 0 ? { ask_tools: askTools } : {}),
+    };
+  });
   if (info.apps.length === 0 && own === null) {
     return ok({ agent, entries: remote });
   }
@@ -72,9 +77,17 @@ export function agentAssignment(
     if (app === undefined || entries.some((entry) => entry.app === app.id)) {
       continue;
     }
-    const removed = removedCommands(sql, app, info.deny);
+    const removed = matchingCommands(sql, app, info.deny);
     if (!removed.ok) return removed;
-    entries.push({ app: app.id, removed_tools: removed.value });
+    const ask = matchingCommands(sql, app, info.ask ?? []);
+    if (!ask.ok) return ask;
+    const removedSet = new Set(removed.value);
+    const askTools = ask.value.filter((name) => !removedSet.has(name));
+    entries.push({
+      app: app.id,
+      removed_tools: removed.value,
+      ...(askTools.length > 0 ? { ask_tools: askTools } : {}),
+    });
   }
   return ok({ agent, entries: [...entries, ...remote] });
 }

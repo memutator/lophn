@@ -201,9 +201,10 @@ function handOff(
     });
   }
   const participantMode =
-    plan.participant !== null
+    plan.permission_mode ??
+    (plan.participant !== null
       ? scope.participantModes?.[plan.participant]
-      : undefined;
+      : undefined);
   const routeInput: Parameters<Router["route"]>[1] & {
     permissionMode?: PermissionMode;
   } = {

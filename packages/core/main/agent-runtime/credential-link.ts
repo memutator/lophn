@@ -1,4 +1,4 @@
-import { err, ok } from "../../../base/mod.ts";
+import { err, ok, type Result } from "../../../base/mod.ts";
 import type {
   ChildMessage,
   ParentMessage,
@@ -16,6 +16,8 @@ type CredentialLink = {
   onParent(message: ParentMessage): boolean;
 };
 
+type CredentialReply = Result<{ credential: string; credential_ref: string }>;
+
 export function createCredentialLink(options: {
   send(message: ChildMessage): Promise<void>;
   // 응답을 기다리는 기한. 지나면 발급 실패다.
@@ -24,7 +26,7 @@ export function createCredentialLink(options: {
   const pending = new Map<
     string,
     {
-      resolve(value: { credential: string; credential_ref: string }): void;
+      resolve(value: CredentialReply): void;
       timer: ReturnType<typeof setTimeout>;
     }
   >();
@@ -51,12 +53,16 @@ export function createCredentialLink(options: {
           });
         }
         const id = `agent-credential-${++sequence}`;
-        const answered = new Promise<{
-          credential: string;
-          credential_ref: string;
-        } | null>((resolve) => {
+        const answered = new Promise<CredentialReply>((resolve) => {
           const timer = setTimeout(() => {
-            if (pending.delete(id)) resolve(null);
+            if (pending.delete(id)) {
+              resolve(
+                err({
+                  code: "unavailable",
+                  message: "agent credential was not issued",
+                }),
+              );
+            }
           }, timeoutMs);
           pending.set(id, { resolve, timer });
         });
@@ -77,16 +83,11 @@ export function createCredentialLink(options: {
           });
         }
         const issued = await answered;
-        if (issued === null) {
-          return err({
-            code: "unavailable",
-            message: "agent credential was not issued",
-          });
-        }
+        if (!issued.ok) return issued;
         held.set(turn, session);
         return ok({
-          token: issued.credential,
-          credential_ref: issued.credential_ref,
+          token: issued.value.credential,
+          credential_ref: issued.value.credential_ref,
         });
       },
       endBy(condition, value) {
@@ -104,10 +105,24 @@ export function createCredentialLink(options: {
       if (waiting === undefined) return true;
       pending.delete(message.request_id);
       clearTimeout(waiting.timer);
-      waiting.resolve({
-        credential: message.credential,
-        credential_ref: message.credential_ref,
-      });
+      if ("ok" in message && message.ok === false) {
+        waiting.resolve(
+          err({
+            code: "forbidden",
+            message: message.error.message,
+            ...(message.error.operations === undefined
+              ? {}
+              : { details: { operations: message.error.operations } }),
+          }),
+        );
+      } else {
+        waiting.resolve(
+          ok({
+            credential: message.credential,
+            credential_ref: message.credential_ref,
+          }),
+        );
+      }
       return true;
     },
   };

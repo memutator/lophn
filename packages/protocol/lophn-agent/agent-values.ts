@@ -104,6 +104,10 @@ const remoteAppsSchema = z
       removed: z
         .array(toolKeySchema)
         .refine(unique, { message: "duplicate removed tool" }),
+      ask: z
+        .array(toolKeySchema)
+        .refine(unique, { message: "duplicate ask tool" })
+        .optional(),
     }),
   )
   .refine(
@@ -111,9 +115,13 @@ const remoteAppsSchema = z
       unique(entries.map((entry) => `${entry.machine}/${entry.app}`)),
     { message: "duplicate remote app" },
   );
-// agent 층 권한 규칙. 지금은 할당한 앱에서 뺀 command(`lophn(<앱 slug> <command>)`)만 쓴다.
+// agent 층 권한 규칙. 할당한 앱에서 뺀 command(`deny`)와 부를 때마다 물을 command(`ask`)를 `lophn(<앱 slug> <command>)` 꼴로 적는다.
 const permissionsSchema = z.strictObject({
   deny: z
+    .array(nonblankSchema)
+    .refine(unique, { message: "duplicate rule" })
+    .optional(),
+  ask: z
     .array(nonblankSchema)
     .refine(unique, { message: "duplicate rule" })
     .optional(),

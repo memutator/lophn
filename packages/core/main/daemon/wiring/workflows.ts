@@ -8,6 +8,7 @@ import {
 import {
   agentCards,
   isCodingBuiltin,
+  isHarnessRuntime,
   messageBody,
   receivedMessageList,
   stopTurn,
@@ -48,6 +49,10 @@ import {
   workflowStop,
   workflowTitleRequestTake,
 } from "../../../../protocol/workflows/mod.ts";
+import {
+  defaultModeSetting,
+  workflowModesSetting,
+} from "../../../approvals/mod.ts";
 import { callPolicySetting } from "../../../config/setting-declarations.ts";
 import {
   type BodyPrepare,
@@ -950,6 +955,39 @@ export const workflowsWiring: WiringFactory = () => {
         remote,
         snapshots,
         lifecycle,
+        rememberedModesOf(project, workflow) {
+          return ctx.settings.get(workflowModesSetting)?.[
+            `${project}/${workflow}`
+          ];
+        },
+        agentDefaultModeOf(agent, project) {
+          const found = ledgerSnapshot(ctx.ledgerPath, (lookup) => {
+            const deps = workspaceDepsOf(lookup.sql);
+            const resolved = deps.names.resolveAddress({
+              agent,
+              ...(project === undefined ? {} : { workspace: { project } }),
+            });
+            if (!resolved.ok) return undefined;
+            return deps.agents.agent(resolved.value.agent)?.permissionMode;
+          });
+          return found.ok ? found.value : undefined;
+        },
+        globalDefaultMode() {
+          return ctx.settings.get(defaultModeSetting);
+        },
+        isHarnessAgent(agent, project) {
+          const found = ledgerSnapshot(ctx.ledgerPath, (lookup) => {
+            const deps = workspaceDepsOf(lookup.sql);
+            const resolved = deps.names.resolveAddress({
+              agent,
+              ...(project === undefined ? {} : { workspace: { project } }),
+            });
+            if (!resolved.ok) return false;
+            const info = deps.agents.agent(resolved.value.agent);
+            return info !== null && isHarnessRuntime(info.runtime);
+          });
+          return found.ok ? found.value : false;
+        },
         onTitleNeeded(request) {
           if (titleQueue.length >= MAX_TITLE_QUEUE) titleQueue.shift();
           titleQueue.push(request);
@@ -968,6 +1006,9 @@ export const workflowsWiring: WiringFactory = () => {
             cause: "start",
             session: input.session === undefined ? "new" : "same",
             ...(input.open !== undefined ? { open: input.open } : {}),
+            ...(input.permissionMode !== undefined
+              ? { permission_mode: input.permissionMode }
+              : {}),
             delivery: {
               to:
                 input.session === undefined

@@ -1,3 +1,5 @@
+import { access, readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import type { JsonValue } from "../../../../protocol/base/mod.ts";
@@ -11,12 +13,29 @@ import {
   jobRunStarted,
 } from "../../../../protocol/jobs/mod.ts";
 import type { BusEvent } from "../../../../protocol/events/mod.ts";
+import {
+  agentHandleKey,
+  CODING_BUILTINS,
+  DEFAULT_PERMISSION_MODE,
+  HARNESS_RUNTIMES,
+  isHarnessRuntime,
+  type PermissionMode,
+} from "../../../../protocol/lophn-agent/mod.ts";
 import type {
   AuthenticatedContext,
   Output,
   Sql,
 } from "../../../../protocol/server/mod.ts";
-import { workflowInstanceRead } from "../../../../protocol/workflows/mod.ts";
+import {
+  WORKFLOW_DECLARATION_FILE,
+  WORKFLOW_FLOW_FILE,
+  workflowFolder,
+  workflowInstanceRead,
+} from "../../../../protocol/workflows/mod.ts";
+import {
+  defaultModeSetting,
+  workflowModesSetting,
+} from "../../../approvals/mod.ts";
 import type { Flight } from "../../../apps/calls/intake.ts";
 import { reachCheckerOf } from "../../../events/mod.ts";
 import {
@@ -26,6 +45,7 @@ import {
   type JobStarter,
 } from "../../../jobs/mod.ts";
 import { createJobScheduler } from "../../../jobs/scheduler.ts";
+import { workspaceDepsOf } from "../../../lophn-agent/workspaces/mod.ts";
 import { type RunOrigin, systemTimers } from "../../../runs/mod.ts";
 import type { MachineCandidate } from "../../../../protocol/machine/requester.ts";
 import {
@@ -39,6 +59,10 @@ import {
   DEFAULT_CALL_POLICY,
   isPrivate,
 } from "../../../../protocol/lophn-agent/call-policy.ts";
+import {
+  parseDeclaration,
+  participantsOf,
+} from "../../../workflows/declaration.ts";
 import {
   createFlowEventRegistry,
   type FlowEventRegistry,
@@ -562,6 +586,71 @@ export const jobsWiring: WiringFactory = () => {
         store,
         starter,
         logger: ctx.telemetry.logger,
+        async workflowModesOf(project, workflow) {
+          const remembered =
+            ctx.settings.get(workflowModesSetting)?.[`${project}/${workflow}`];
+          const globalDefault =
+            ctx.settings.get(defaultModeSetting) ?? DEFAULT_PERMISSION_MODE;
+          const folder = workflowFolder(
+            ctx.root.path,
+            project as Id<"prj">,
+            workflow,
+          );
+          let declaration: string | null = null;
+          try {
+            declaration = await readFile(
+              join(folder, WORKFLOW_DECLARATION_FILE),
+              "utf8",
+            );
+          } catch {
+            declaration = null;
+          }
+          if (declaration === null) {
+            return remembered !== undefined ? { ...remembered } : {};
+          }
+          let flow = false;
+          try {
+            await access(join(folder, WORKFLOW_FLOW_FILE));
+            flow = true;
+          } catch {
+            flow = false;
+          }
+          const parsed = parseDeclaration({
+            name: workflow,
+            declaration,
+            flow,
+            artifacts: { static: false, instance: false },
+          });
+          if (!parsed.ok) {
+            return remembered !== undefined ? { ...remembered } : {};
+          }
+          const participants = participantsOf(parsed.declaration);
+          const deps = workspaceDepsOf(sql);
+          const resolved: Record<string, PermissionMode> = {};
+          for (const [key, participant] of Object.entries(participants)) {
+            if ("kind" in participant) continue;
+            const handleKey = agentHandleKey(participant.agent);
+            if (
+              (HARNESS_RUNTIMES as readonly string[]).includes(handleKey) ||
+              CODING_BUILTINS.some(
+                (b) =>
+                  agentHandleKey(b.harness) === handleKey ||
+                  agentHandleKey(b.id) === handleKey,
+              )
+            ) {
+              continue;
+            }
+            const addr = deps.names.resolveAddress({
+              agent: participant.agent,
+              workspace: { project },
+            });
+            const info = addr.ok ? deps.agents.agent(addr.value.agent) : null;
+            if (info !== null && isHarnessRuntime(info.runtime)) continue;
+            resolved[key] =
+              remembered?.[key] ?? info?.permissionMode ?? globalDefault;
+          }
+          return resolved;
+        },
       });
       scheduler = built;
 

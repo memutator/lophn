@@ -12,9 +12,13 @@ import {
 import type { Tracer } from "../../../base/telemetry/mod.ts";
 import {
   assignmentGet,
+  DEFAULT_LOCAL_TOOL_TRUST_SETTING,
+  LOCAL_TOOL_TRUST_SETTING_KEY,
+  localToolTrustSettingSchema,
   toolGateCheck,
 } from "../../../protocol/approvals/mod.ts";
 import { appGet } from "../../../protocol/apps/mod.ts";
+import { settingsList } from "../../../protocol/config/mod.ts";
 import { askWait } from "../../../protocol/lophn-agent/ask-tool.ts";
 import {
   type AgentId,
@@ -299,6 +303,17 @@ export function productDriver(
           workspace === null
             ? null
             : await SKILL_WORKSPACES.sourceFolder(calls.machine, workspace);
+        const trustRead = await readOf(calls.machine, settingsList, {
+          keys: [LOCAL_TOOL_TRUST_SETTING_KEY],
+        });
+        const settingEntry = trustRead.ok
+          ? trustRead.value.settings[0]
+          : undefined;
+        const rawTrust = settingEntry?.chosen ?? settingEntry?.default;
+        const parsedTrust = localToolTrustSettingSchema.safeParse(rawTrust);
+        const trusted = parsedTrust.success
+          ? parsedTrust.data
+          : DEFAULT_LOCAL_TOOL_TRUST_SETTING;
         return await loadLocalTools(
           [
             root === null ? null : `${root}/tools`,
@@ -308,6 +323,7 @@ export function productDriver(
               : workspaceDataToolsFolder(root, workspace as never),
           ],
           source,
+          { trusted },
         );
       },
     });

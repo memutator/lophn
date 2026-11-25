@@ -4,11 +4,20 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import {
+  createIdSource,
+  manualClock,
+  seededRandom,
+} from "../../../base/mod.ts";
+import {
   LEGACY_SHELL_RULES_SETTING_KEY,
   PERMISSION_RULES_SETTING_KEY,
   permissionRulesSettingSchema,
 } from "../../../protocol/approvals/mod.ts";
 import { migrateShellRulesDataStep } from "./migrate.ts";
+
+const stepDeps = {
+  ids: createIdSource({ clock: manualClock(0), random: seededRandom(1) }),
+};
 
 const PRJ = "prj_0000000000000000000000000a";
 
@@ -30,7 +39,7 @@ test("approvals.shell_rules의 전역·project 규칙을 approvals.permission_ru
     };
     await writeFile(settingsPath, `${JSON.stringify(initial, null, 2)}\n`);
 
-    const first = await migrateShellRulesDataStep.run(dir);
+    const first = await migrateShellRulesDataStep.run(dir, stepDeps);
     assert.ok(first.ok);
 
     const afterFirst = JSON.parse(
@@ -63,7 +72,7 @@ test("approvals.shell_rules의 전역·project 규칙을 approvals.permission_ru
 
     // 같은 data root에 다시 돌려도 내용이 바뀌지 않는다(idempotent).
     const snapshotBeforeSecond = await readFile(settingsPath, "utf8");
-    const second = await migrateShellRulesDataStep.run(dir);
+    const second = await migrateShellRulesDataStep.run(dir, stepDeps);
     assert.ok(second.ok);
     assert.strictEqual(
       await readFile(settingsPath, "utf8"),
@@ -108,7 +117,7 @@ test("이미 있는 permission_rules와 합칠 때 기존 규칙을 유지하고
     };
     await writeFile(settingsPath, `${JSON.stringify(initial, null, 2)}\n`);
 
-    const res = await migrateShellRulesDataStep.run(dir);
+    const res = await migrateShellRulesDataStep.run(dir, stepDeps);
     assert.ok(res.ok);
 
     const after = JSON.parse(await readFile(settingsPath, "utf8")) as Record<

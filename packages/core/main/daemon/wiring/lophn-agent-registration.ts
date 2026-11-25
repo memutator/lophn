@@ -3,11 +3,15 @@
 // 다른 import로 우연히 놓여 드러나지 않는다.
 // - session을 열고 Router가 session 목록을 읽을 때 쓰는 project와 앱 조회. reader에서는 snapshot의 sql로 읽기만 한다.
 import { err, ok, type Result } from "../../../../base/mod.ts";
+import { DEFAULT_PERMISSION_MODE } from "../../../../protocol/lophn-agent/turn-values.ts";
 import type { Sql } from "../../../../protocol/server/mod.ts";
-import type { ReaderRegistration } from "../../../storage/ledger/mod.ts";
-import { projectInfoOf } from "../../../projects/registry/mod.ts";
 import { createWorkspaceNameRules } from "../../../agent-workspaces/workspace/session-directory.ts";
+import { defaultModeSetting } from "../../../approvals/mod.ts";
+import { createFileSettingsReader } from "../../../config/mod.ts";
+import { dataRootOf } from "../../../lophn-agent/agents/store.ts";
 import { installWorkspaceEnvironment } from "../../../lophn-agent/workspaces/mod.ts";
+import { projectInfoOf } from "../../../projects/registry/mod.ts";
+import type { ReaderRegistration } from "../../../storage/ledger/mod.ts";
 import { agentDirectory } from "./lophn-agent-team.ts";
 
 // 열 수 있는지만 보므로 폴더가 있는지는 묻지 않는다.
@@ -59,6 +63,13 @@ const environment = {
       apps,
       agents,
       names: createWorkspaceNameRules({ projects, apps, agents }),
+      defaultMode() {
+        const root = dataRootOf(sql, undefined);
+        return root.ok
+          ? (createFileSettingsReader(root.value).get(defaultModeSetting) ??
+              DEFAULT_PERMISSION_MODE)
+          : DEFAULT_PERMISSION_MODE;
+      },
     };
   },
 };

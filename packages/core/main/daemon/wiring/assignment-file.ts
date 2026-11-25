@@ -65,13 +65,15 @@ create table agent_assignments (
   },
 ];
 
-// 할당 내용(앱, 다른 기계의 앱, deny 규칙)에서 정한 비교 값. 48 bit라 정수로 안전하다. 다른 기계의 앱이 없으면 그 칸은 넣지 않아
+// 할당 내용(앱, 다른 기계의 앱, deny·ask 규칙)에서 정한 비교 값. 48 bit라 정수로 안전하다. 다른 기계의 앱이나 ask가 없으면 그 칸은 넣지 않아
 // 옛 할당의 값이 그대로다.
 function revisionOf(info: AgentInfo | null): number {
+  const ask = info?.ask ?? [];
   if (
     info === null ||
     (info.apps.length === 0 &&
       info.deny.length === 0 &&
+      ask.length === 0 &&
       info.remoteApps.length === 0)
   ) {
     return 0;
@@ -81,6 +83,7 @@ function revisionOf(info: AgentInfo | null): number {
       canonicalize({
         apps: info.apps,
         deny: info.deny,
+        ...(ask.length === 0 ? {} : { ask }),
         ...(info.remoteApps.length === 0
           ? {}
           : { remote_apps: info.remoteApps }),
@@ -103,14 +106,20 @@ export function readAssignment(
   });
 }
 
-// 할당의 앱 id와 뺀 command를 파일에 쓸 slug와 deny 규칙으로 바꾼다. 없는 앱과 active 선언에 없는 command는 버린다.
+// 할당의 앱 id와 뺀·물을 command를 파일에 쓸 slug와 deny·ask 규칙으로 바꾼다. 없는 앱과 active 선언에 없는 command는 버린다.
 // 다른 기계의 앱(machine이 있는 줄)은 이 기계의 앱 표를 보지 않고 그대로 `remote_apps`로 간다(그 앱의 선언은 그 기계에 있다).
 function fileValuesOf(
   sql: Query,
   entries: readonly AssignmentEntry[],
-): Result<{ apps: string[]; deny: string[]; remoteApps: RemoteAppLine[] }> {
+): Result<{
+  apps: string[];
+  deny: string[];
+  ask: string[];
+  remoteApps: RemoteAppLine[];
+}> {
   const apps: string[] = [];
   const deny: string[] = [];
+  const ask: string[] = [];
   const remoteApps: RemoteAppLine[] = [];
   for (const entry of entries) {
     if (entry.machine !== undefined) {
@@ -119,6 +128,9 @@ function fileValuesOf(
         app: entry.app,
         name: entry.name!,
         removed: entry.removed_tools,
+        ...(entry.ask_tools && entry.ask_tools.length > 0
+          ? { ask: entry.ask_tools }
+          : {}),
       });
       continue;
     }
@@ -126,16 +138,19 @@ function fileValuesOf(
     if (!app.ok) return app;
     if (app.value === null) continue;
     apps.push(app.value.slug);
-    if (entry.removed_tools.length === 0) continue;
+    const askTools = entry.ask_tools ?? [];
+    if (entry.removed_tools.length === 0 && askTools.length === 0) continue;
     const active = loadActiveDeclaration(sql, entry.app);
     if (!active.ok) return active;
     for (const command of active.value?.declaration.commands ?? []) {
       if (entry.removed_tools.includes(command.name)) {
         deny.push(denyRuleOf(app.value.slug, command.name));
+      } else if (askTools.includes(command.name)) {
+        ask.push(denyRuleOf(app.value.slug, command.name));
       }
     }
   }
-  return ok({ apps, deny, remoteApps });
+  return ok({ apps, deny, ask, remoteApps });
 }
 
 // 이 할당이 다루는 규칙은 옛 앱과 새 앱의 command 규칙이다. 그 밖의 deny 규칙은 그대로 둔다.
@@ -198,6 +213,10 @@ export function writeAssignment(
       deny: [
         ...info.deny.filter((rule) => !managed.value.has(rule)),
         ...next.value.deny,
+      ],
+      ask: [
+        ...(info.ask ?? []).filter((rule) => !managed.value.has(rule)),
+        ...next.value.ask,
       ],
     },
   );

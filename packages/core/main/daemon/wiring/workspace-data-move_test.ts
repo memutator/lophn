@@ -390,7 +390,7 @@ test("domains 칸이 차 있던 정의 file이 step 뒤에 읽힌다", async () 
     const agent = "agt_01hzzzzzzzzzzzzzzzzzzzzzza" as never;
     const path = join(root, "agents", `${agent}.md`);
     const original =
-      "---\nhandle: Reviewer\nname: Reviewer\ndomains:\n  - dom_a\n  - dom_b\nskills_off:\n  - noisy\nskip: true\n---\nHello\n";
+      "---\nhandle: Reviewer\nname: Reviewer\ndomains:\n  - dom_a\n  - dom_b\nskills_off:\n  - noisy\npermission_mode: full\n---\nHello\n";
     await put(path, original);
     assert.ok(!parseAgentFile(original, { agent }).ok);
     // lophn의 정의는 칸이 domains뿐일 수 있다.
@@ -406,7 +406,7 @@ test("domains 칸이 차 있던 정의 file이 step 뒤에 읽힌다", async () 
       handle: "Reviewer",
       name: "Reviewer",
       skills_off: ["noisy"],
-      skip: true,
+      permission_mode: "full",
       body: "Hello",
     });
     const lophn = parseAgentFile(

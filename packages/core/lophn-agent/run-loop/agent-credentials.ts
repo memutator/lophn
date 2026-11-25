@@ -29,7 +29,7 @@ export type AgentCredentialDeniedResponse = {
   error: {
     code: "forbidden";
     message: string;
-    operations: readonly string[];
+    operations: string[];
   };
 };
 

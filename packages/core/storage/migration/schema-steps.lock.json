@@ -442,5 +442,17 @@
   {
     "id": "workflows.instances-title",
     "sha256": "1619dae4577635cc5fd792f19a6f1c4af4fa5f2c5fb94d34888a6bde5fdadc35"
+  },
+  {
+    "id": "lophn-agent.session-permission-mode",
+    "sha256": "8f2fb65282af03ad1389636fc75452be38d5f5f6948395f6e5e480413dc6fbc8"
+  },
+  {
+    "id": "workflows.instances-participant-modes",
+    "sha256": "d126f3553992892847706921f40a52e1e5701915215fe5a3a1d80b22eabdf0da"
+  },
+  {
+    "id": "jobs.approved-modes",
+    "sha256": "accebd2f0092651e748bc80a9f581cfaa7a9031ddee1c312ca1e800f7e96a8d9"
   }
 ]

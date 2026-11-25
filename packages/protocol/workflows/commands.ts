@@ -52,6 +52,7 @@ export const handoffPlanSchema = z
     cause: z.enum(["start", "report", "edit", "retry"]),
     session: sessionChoiceSchema.nullable(),
     open: sessionOpenModeSchema.optional(),
+    permission_mode: permissionModeSchema.optional(),
     // 이 컴퓨터의 받는 곳(to)이거나, 다른 컴퓨터의 받는 곳(remote: 명단의 그 컴퓨터와 기계를 건너는 주소)이다.
     delivery: z
       .union([

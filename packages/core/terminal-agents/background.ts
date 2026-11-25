@@ -93,6 +93,12 @@ function approvalLabel(subject: AcpApprovalSubject): string {
   switch (subject.kind) {
     case "shell":
       return subject.command;
+    case "file_read":
+      return `read ${subject.path}`;
+    case "file_write":
+      return `${subject.action} ${subject.path}`;
+    case "local_tool":
+      return subject.name;
     case "app_tool":
       return `${subject.app}:${subject.tool}`;
     case "mcp_tool":

@@ -1,7 +1,7 @@
-import { shellPieces } from "../../../approvals/gate/shell-match.ts";
+import { scanShellCommand } from "../../../approvals/gate/shell-match.ts";
 
 // shell 명령을 read·list·search·command로 가른다. 화면의 묶기에만 쓰고 판정에는 쓰지 않는다.
-// 따옴표와 escape를 풀지 않는다(명령 parser 없음). 앞머리의 `cd …`는 어디서 도는지만 정하므로 뗀다.
+// 앞머리의 `cd …`는 어디서 도는지만 정하므로 뗀다.
 const READ = new Set(["cat", "head", "tail", "nl"]);
 const LIST = new Set(["ls", "tree", "find", "fd"]);
 const SEARCH = new Set(["rg", "grep"]);
@@ -25,7 +25,10 @@ function pieceCategory(piece: string): Category {
 }
 
 export function shellCategory(command: string): Category {
-  const pieces = shellPieces(command);
+  const scan = scanShellCommand(command);
+  const pieces = scan.segments
+    .filter((segment) => !segment.unwrapped)
+    .map((segment) => segment.raw);
   let start = 0;
   while (start < pieces.length && firstWord(pieces[start]!) === "cd") {
     start += 1;

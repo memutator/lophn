@@ -80,7 +80,6 @@
   font-weight: var(--font-weight-medium);
   color: var(--color-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
 .categoryList {
@@ -99,22 +98,22 @@
 .broadBadge {
   display: inline-flex;
   align-items: center;
-  padding: 1px var(--space-2);
+  padding: var(--space-0) var(--space-2);
   border-radius: var(--radius-sm);
-  border: var(--border-width) solid var(--color-status-warning);
-  color: var(--color-status-warning);
+  border: var(--border-width) solid var(--status-warning-marker);
+  color: var(--status-warning-text);
   font-size: var(--type-small-size);
   font-weight: var(--font-weight-medium);
 }
 
 .broadNote {
   font-size: var(--type-small-size);
-  color: var(--color-status-warning);
+  color: var(--status-warning-text);
 }
 
 .addFields {
   display: grid;
-  grid-template-columns: minmax(120px, 160px) minmax(0, 1fr);
+  grid-template-columns: max-content minmax(var(--space-0), 1fr);
   gap: var(--space-3);
   align-items: end;
 }

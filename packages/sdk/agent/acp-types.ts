@@ -33,10 +33,99 @@ type ProjectCommandSummary = {
   env_keys: string[];
 };
 
+type PermissionMode = "read_only" | "ask" | "workspace" | "full";
+
+type PermissionCategory =
+  | "shell"
+  | "file_read"
+  | "file_write"
+  | "file_outside"
+  | "file_sensitive"
+  | "app_tool"
+  | "mcp_tool"
+  | "local_tool"
+  | "setting"
+  | "project_command"
+  | "project_command_definition"
+  | "web"
+  | "extension_tool"
+  | "other";
+
+type DenyReasonKind =
+  | "floor"
+  | "user_deny"
+  | "mode"
+  | "scope"
+  | "unassigned"
+  | "removed"
+  | "untrusted"
+  | "no_person"
+  | "locked"
+  | "policy";
+
+type RecoveryAction = {
+  kind:
+    | "none"
+    | "edit_rule"
+    | "assign_app"
+    | "change_mode"
+    | "trust_local_tool"
+    | "trust_mcp"
+    | "add_allow_rule"
+    | "sign_in_mcp";
+  label?: string;
+  app?: string;
+  server?: string;
+  tool_path?: string;
+  sha256?: string;
+  suggested_mode?: PermissionMode;
+  suggested_pattern?: string;
+  category?: PermissionCategory;
+};
+
+type PermissionDenial = {
+  tool: string;
+  category: PermissionCategory;
+  target_summary: string;
+  reason_kind: DenyReasonKind;
+  rule_pattern: string | null;
+  message: string;
+  recovery_hint: string | null;
+  recovery_action: RecoveryAction | null;
+};
+
 type GateCall =
   | { kind: "app_tool"; app: string; tool: string; effect: ToolEffect }
-  | { kind: "mcp_tool"; server: string; tool: string; effect: ToolEffect }
+  | {
+      kind: "mcp_tool";
+      server: string;
+      tool: string;
+      effect: ToolEffect;
+      read_only?: boolean;
+    }
   | { kind: "shell"; command: string }
+  | {
+      kind: "file_read";
+      path: string;
+      folder: string;
+      outside_workspace: boolean;
+      sensitive: boolean;
+    }
+  | {
+      kind: "file_write";
+      path: string;
+      folder: string;
+      outside_workspace: boolean;
+      sensitive: boolean;
+      action: "write" | "edit" | "delete";
+    }
+  | {
+      kind: "local_tool";
+      name: string;
+      path: string;
+      sha256: string;
+      changed: boolean;
+    }
   | { kind: "setting"; key: string; lines: string[] }
   | {
       kind: "project_command";
@@ -239,7 +328,11 @@ export type AcpNoticeItem = {
         type: "error";
         code: string;
         message: string;
-        evidence?: { verdict_path: string | null; request_id: string | null };
+        evidence?: {
+          verdict_path: string | null;
+          request_id: string | null;
+          http_status?: number | null;
+        };
       }
     | { type: "info"; text: string; level: "info" | "warning" }
     | {
@@ -247,6 +340,11 @@ export type AcpNoticeItem = {
         command: string;
         text: string;
         format: "markdown" | "preformatted";
+      }
+    | {
+        type: "permission_denied";
+        tool_call: string;
+        denial: PermissionDenial;
       };
 };
 
@@ -296,6 +394,8 @@ export type AcpApproval = {
   subject: AcpApprovalSubject;
   choices: ("once" | "session" | "always" | "reject")[];
   always_patterns: string[];
+  reason?: string | null;
+  outside_rewind?: boolean;
 };
 
 export type AcpPending = {

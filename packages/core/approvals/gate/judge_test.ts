@@ -232,7 +232,8 @@ test("자기 보호 경로(~/.ssh, ~/.aws, ~/.gnupg, data root 설정·agent·se
   for (const call of blockedCalls) {
     for (const mode of MODES) {
       const res = evalReq(call, mode, "attended");
-      assert.strictEqual(res.kind, "deny", `${mode}: ${call.path}`);
+      const label = "path" in call ? call.path : call.kind;
+      assert.strictEqual(res.kind, "deny", `${mode}: ${label}`);
       assert.strictEqual(res.denial.reason_kind, "scope");
       assert.strictEqual(res.denial.recovery_action, null);
     }

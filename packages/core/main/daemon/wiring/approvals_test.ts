@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ok } from "../../../../base/mod.ts";
-import type { TurnMode } from "../../../../protocol/lophn-agent/turn-values.ts";
+import type {
+  PermissionMode,
+  TurnMode,
+} from "../../../../protocol/lophn-agent/turn-values.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import { askWaitHandler, toolGateHandler } from "./approvals.ts";
 
@@ -43,7 +46,7 @@ test("다른 session·turn의 자격으로는 Gate route를 부르지 못한다"
           agent: "lophn_home",
           workspace: null,
           spawnedBy: null,
-          skip: false,
+          permissionMode: "workspace" as const,
         }),
       ),
     modeOf: () => Promise.resolve(ok("attended" as const)),
@@ -81,7 +84,7 @@ const QUESTIONS = [
 ];
 
 function askWith(
-  session: { spawnedBy: string | null; skip: boolean },
+  session: { spawnedBy: string | null; permissionMode: PermissionMode },
   mode: TurnMode,
 ) {
   const asked: boolean[] = [];
@@ -105,37 +108,58 @@ function askWith(
 }
 
 test("팀 밖 session의 ask는 그대로다: unattended turn은 묻지 않고, 아니면 사람에게 기다린다", async () => {
-  const unattended = askWith({ spawnedBy: null, skip: false }, "unattended");
+  const unattended = askWith(
+    { spawnedBy: null, permissionMode: "workspace" },
+    "unattended",
+  );
   assert.deepStrictEqual(await unattended.run(), ok({ outcome: "unattended" }));
   assert.deepStrictEqual(unattended.asked, []);
-  for (const mode of ["attended", "skip"] as const) {
-    const person = askWith({ spawnedBy: null, skip: false }, mode);
+  for (const permissionMode of ["ask", "workspace", "full"] as const) {
+    const person = askWith({ spawnedBy: null, permissionMode }, "attended");
     await person.run();
-    assert.deepStrictEqual(person.asked, [false], mode);
+    assert.deepStrictEqual(person.asked, [false], permissionMode);
   }
 });
 
-test("팀 자식의 ask는 mode와 skip에 상관없이 부모에게 간다", async () => {
-  for (const mode of ["attended", "unattended", "skip"] as const) {
-    for (const skip of [false, true]) {
-      const child = askWith({ spawnedBy: "ses_parent", skip }, mode);
+test("팀 자식의 ask는 mode와 permissionMode에 상관없이 부모에게 간다", async () => {
+  for (const mode of ["attended", "unattended"] as const) {
+    for (const permissionMode of [
+      "read_only",
+      "ask",
+      "workspace",
+      "full",
+    ] as const) {
+      const child = askWith({ spawnedBy: "ses_parent", permissionMode }, mode);
       await child.run();
-      assert.deepStrictEqual(child.asked, [true], `${mode} skip=${skip}`);
+      assert.deepStrictEqual(
+        child.asked,
+        [true],
+        `${mode} permissionMode=${permissionMode}`,
+      );
     }
   }
 });
 
-test("shell ask를 부모에게 보내는 것은 팀 자식이고 skip을 켜지 않은 session뿐이다", async () => {
-  const seen: boolean[] = [];
-  for (const [spawnedBy, skip] of [
-    [null, false],
-    ["ses_parent", false],
-    ["ses_parent", true],
+test("toolGateHandler는 팀 자식이면 executionContext를 team_child와 toParent=true로 넘기고, 팀 밖이면 turn mode와 toParent=false로 넘긴다", async () => {
+  const seen: {
+    toParent: boolean;
+    permissionMode: PermissionMode | undefined;
+    executionContext: string | undefined;
+  }[] = [];
+  for (const [spawnedBy, permissionMode, turnMode] of [
+    [null, "workspace", "attended"],
+    [null, "workspace", "unattended"],
+    ["ses_parent", "workspace", "unattended"],
+    ["ses_parent", "full", "unattended"],
   ] as const) {
     const handler = toolGateHandler({
       approvals: {
         judge: (_call, who) => {
-          seen.push(who.toParent);
+          seen.push({
+            toParent: who.toParent,
+            permissionMode: who.permissionMode,
+            executionContext: who.executionContext,
+          });
           return Promise.resolve(ok({ kind: "run" as const }));
         },
         openTurnRequest: () => {
@@ -147,9 +171,14 @@ test("shell ask를 부모에게 보내는 것은 팀 자식이고 skip을 켜지
       },
       sessionOf: () =>
         Promise.resolve(
-          ok({ agent: "lophn_home", workspace: null, spawnedBy, skip }),
+          ok({
+            agent: "lophn_home",
+            workspace: null,
+            spawnedBy,
+            permissionMode,
+          }),
         ),
-      modeOf: () => Promise.resolve(ok("unattended" as const)),
+      modeOf: () => Promise.resolve(ok(turnMode)),
     });
     await handler(credential(SES, TRN), {
       session: SES,
@@ -159,5 +188,22 @@ test("shell ask를 부모에게 보내는 것은 팀 자식이고 skip을 켜지
       call: { kind: "shell", command: "rm -r x" },
     });
   }
-  assert.deepStrictEqual(seen, [false, true, false]);
+  assert.deepStrictEqual(seen, [
+    {
+      toParent: false,
+      permissionMode: "workspace",
+      executionContext: "attended",
+    },
+    {
+      toParent: false,
+      permissionMode: "workspace",
+      executionContext: "unattended",
+    },
+    {
+      toParent: true,
+      permissionMode: "workspace",
+      executionContext: "team_child",
+    },
+    { toParent: true, permissionMode: "full", executionContext: "team_child" },
+  ]);
 });

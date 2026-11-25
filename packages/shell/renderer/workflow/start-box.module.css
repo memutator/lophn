@@ -218,7 +218,7 @@ label.choice:not([data-picked]) .stepName {
 
 .modeList {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(calc(var(--space-12) * 5), 1fr));
   gap: var(--space-4);
 }
 

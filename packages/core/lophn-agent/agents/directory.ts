@@ -32,9 +32,10 @@ export type AgentInfo = {
   permissionMode?: PermissionMode;
   // 정의의 runtime. 없으면 lophn이다.
   runtime: AgentRuntime;
-  // 할당: 앱 slug와 permissions.deny 규칙. 사람만 쓰는 칸이다.
+  // 할당: 앱 slug와 permissions.deny·permissions.ask 규칙. 사람만 쓰는 칸이다.
   apps: readonly string[];
   deny: readonly string[];
+  ask?: readonly string[];
   /** harness runtime의 model·option 설정. 없거나 비면 CLI 기본이다. */
   harnessConfig?: HarnessConfig;
   /** session을 여는 기본 방식(tab | background). 없으면 내장 규칙을 따른다. */
@@ -51,6 +52,7 @@ export type RemoteAppLine = {
   app: string;
   name: string;
   removed: readonly string[];
+  ask?: readonly string[];
 };
 
 export interface AgentDirectory {
@@ -72,6 +74,7 @@ function infoOf(loaded: Loaded): AgentInfo {
     runtime: loaded.definition?.runtime ?? "lophn",
     apps: loaded.definition?.apps ?? [],
     deny: loaded.definition?.permissions?.deny ?? [],
+    ask: loaded.definition?.permissions?.ask ?? [],
     ...(loaded.definition?.harness_config === undefined
       ? {}
       : { harnessConfig: loaded.definition.harness_config }),

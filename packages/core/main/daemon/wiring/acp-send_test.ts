@@ -172,8 +172,8 @@ test("session controls through AcpSend are forbidden without the scope of the ro
       scope: ["ReadSession", "ChangeSessionModel"],
     },
     {
-      input: { ...base, type: "set_mode", mode: "skip" },
-      scope: ["ReadSession", "ChangeSessionSkip"],
+      input: { ...base, type: "set_mode", mode: "full" },
+      scope: ["ReadSession", "ChangeSessionMode"],
     },
     {
       input: { ...base, type: "rename", title: "name" },

@@ -2,6 +2,8 @@
 // jobs는 session 표와 agent·project·앱 이름 풀기를 모르므로 이 조립이 jobTargetsPort로 꽂는다.
 // reader port는 등록마다 모아 모든 read가 같이 쓰므로(같은 key를 두 곳에 두면 기동 때 던진다)
 // read를 가진 jobs/register.ts와 따로 둔다.
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import type { Id } from "../../../../protocol/base/mod.ts";
 import {
@@ -9,20 +11,40 @@ import {
   isPrivate,
   mayReachWorkspace,
 } from "../../../../protocol/lophn-agent/call-policy.ts";
+import {
+  agentHandleKey,
+  CODING_BUILTINS,
+  DEFAULT_PERMISSION_MODE,
+  HARNESS_RUNTIMES,
+  isHarnessRuntime,
+  type PermissionMode,
+} from "../../../../protocol/lophn-agent/mod.ts";
 import type { Sql } from "../../../../protocol/server/mod.ts";
+import {
+  WORKFLOW_DECLARATION_FILE,
+  WORKFLOW_FLOW_FILE,
+  workflowFolder,
+} from "../../../../protocol/workflows/mod.ts";
+import {
+  defaultModeSetting,
+  workflowModesSetting,
+} from "../../../approvals/mod.ts";
 import { appStatusOf } from "../../../apps/lookups.ts";
 import { loadActiveDeclaration } from "../../../apps/releases/store.ts";
+import { createFileSettingsReader } from "../../../config/mod.ts";
 import { callPolicyAt } from "../../../config/setting-declarations.ts";
 import type {
   JobEventPolicy,
   JobTargetAvailability,
   JobTargets,
+  JobWorkflowModes,
 } from "../../../jobs/ports.ts";
 import {
   jobEventPolicyPort,
   jobMachinePort,
   jobTargetAvailabilityPort,
   jobTargetsPort,
+  jobWorkflowModesPort,
   jobZonePort,
 } from "../../../jobs/ports.ts";
 import { dataRootOf } from "../../../lophn-agent/agents/store.ts";
@@ -41,6 +63,10 @@ import {
   type ReaderRegistration,
   snapshotPort,
 } from "../../../storage/ledger/mod.ts";
+import {
+  parseDeclaration,
+  participantsOf,
+} from "../../../workflows/declaration.ts";
 
 type Query = Pick<Sql, "get" | "all">;
 
@@ -150,6 +176,66 @@ function targetAvailabilityOf(sql: Query): JobTargetAvailability {
   };
 }
 
+function isBuiltinHarness(agent: string): boolean {
+  const key = agentHandleKey(agent);
+  if ((HARNESS_RUNTIMES as readonly string[]).includes(key)) return true;
+  return CODING_BUILTINS.some(
+    (b) => agentHandleKey(b.harness) === key || agentHandleKey(b.id) === key,
+  );
+}
+
+function workflowModesOf(sql: Query): JobWorkflowModes {
+  return {
+    workflowModesOf(project, workflow) {
+      const root = dataRootOf(sql, undefined);
+      if (!root.ok) return {};
+      const reader = createFileSettingsReader(root.value);
+      const remembered =
+        reader.get(workflowModesSetting)?.[`${project}/${workflow}`];
+      const globalDefault =
+        reader.get(defaultModeSetting) ?? DEFAULT_PERMISSION_MODE;
+      const folder = workflowFolder(root.value, project, workflow);
+      let declaration: string | null = null;
+      try {
+        declaration = readFileSync(
+          join(folder, WORKFLOW_DECLARATION_FILE),
+          "utf8",
+        );
+      } catch {
+        declaration = null;
+      }
+      if (declaration === null) {
+        return remembered !== undefined ? { ...remembered } : {};
+      }
+      const parsed = parseDeclaration({
+        name: workflow,
+        declaration,
+        flow: existsSync(join(folder, WORKFLOW_FLOW_FILE)),
+        artifacts: { static: false, instance: false },
+      });
+      if (!parsed.ok) {
+        return remembered !== undefined ? { ...remembered } : {};
+      }
+      const participants = participantsOf(parsed.declaration);
+      const deps = workspaceDepsOf(sql);
+      const resolved: Record<string, PermissionMode> = {};
+      for (const [key, participant] of Object.entries(participants)) {
+        if ("kind" in participant) continue;
+        if (isBuiltinHarness(participant.agent)) continue;
+        const addr = deps.names.resolveAddress({
+          agent: participant.agent,
+          workspace: { project },
+        });
+        const info = addr.ok ? deps.agents.agent(addr.value.agent) : null;
+        if (info !== null && isHarnessRuntime(info.runtime)) continue;
+        resolved[key] =
+          remembered?.[key] ?? info?.permissionMode ?? globalDefault;
+      }
+      return resolved;
+    },
+  };
+}
+
 export function createCoreRegistration() {
   const machineOf = machineReader();
   return {
@@ -159,6 +245,7 @@ export function createCoreRegistration() {
       defineTxPort(jobTargetAvailabilityPort, (tx) =>
         targetAvailabilityOf(tx.sql),
       ),
+      defineTxPort(jobWorkflowModesPort, (tx) => workflowModesOf(tx.sql)),
       defineTxPort(jobEventPolicyPort, (tx) => eventPolicyOf(tx.sql)),
       defineTxPort(jobZonePort, () => ({
         zone: () => Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -177,6 +264,10 @@ export function createReaderRegistration(): ReaderRegistration {
       [
         jobTargetAvailabilityPort,
         snapshotPort((snapshot) => targetAvailabilityOf(snapshot.sql)),
+      ],
+      [
+        jobWorkflowModesPort,
+        snapshotPort((snapshot) => workflowModesOf(snapshot.sql)),
       ],
       [
         jobEventPolicyPort,

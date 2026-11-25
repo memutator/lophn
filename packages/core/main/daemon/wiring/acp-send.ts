@@ -28,8 +28,8 @@ import {
   sessionRewindPreview,
 } from "../../../../protocol/lophn-agent/session-rewinds.ts";
 import {
+  changeSessionMode,
   changeSessionModel,
-  changeSessionSkip,
   forkSession,
   renameSession,
   requestSessionCompact,
@@ -382,9 +382,8 @@ export function createAcpSend(deps: AcpSendDeps) {
           answers: input.answers,
         });
       case "decide":
-        // core 승인에는 session 범위와 plan 승인이 없다.
-        if (input.choice.kind === "session" || input.choice.kind === "mode")
-          return invalid();
+        // core 승인에는 harness의 plan 승인(`mode`)이 없다.
+        if (input.choice.kind === "mode") return invalid();
         return await memory(who, turnRequestDecide, {
           session: input.session,
           request: input.request,
@@ -453,8 +452,8 @@ export function createAcpSend(deps: AcpSendDeps) {
         if (!seq.ok) return seq;
         return await command(
           who,
-          changeSessionSkip,
-          { session: input.session, skip: input.mode === "skip" },
+          changeSessionMode,
+          { session: input.session, mode: input.mode },
           `acp-set-mode-${input.key}`,
           { state_seq: seq.value },
         );

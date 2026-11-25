@@ -177,6 +177,7 @@ test("jobs를 다시 짜도 주기 job과 job run은 그대로다", async () => 
         last_skipped_at: null,
         last_skip_reason: null,
         machine: null,
+        approved_modes_json: null,
       },
     );
     assert.deepStrictEqual(after["trigger"], null);

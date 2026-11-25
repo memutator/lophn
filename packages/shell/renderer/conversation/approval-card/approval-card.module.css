@@ -35,7 +35,8 @@
   align-items: center;
   padding: var(--space-0) var(--space-3);
   border-radius: var(--radius-xs);
-  background: var(--status-warning-surface, var(--color-surface-muted));
+  background: var(--color-surface-muted);
+  border: var(--border-width) solid var(--status-warning-marker);
   color: var(--status-warning-text);
   font-size: var(--type-caption-size);
   line-height: var(--type-caption-line);

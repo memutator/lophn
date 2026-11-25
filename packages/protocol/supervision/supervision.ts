@@ -154,12 +154,26 @@ export const agentCredentialRequestSchema = z.strictObject({
   turn: idSchema("trn"),
   operations: z.array(opaque),
 });
-const agentCredentialResponseSchema = z.strictObject({
+export const agentCredentialSuccessResponseSchema = z.strictObject({
   type: z.literal("agent_credential_response"),
   request_id: opaque,
   credential: opaque,
   credential_ref: opaque,
 });
+export const agentCredentialDeniedResponseSchema = z.strictObject({
+  type: z.literal("agent_credential_response"),
+  request_id: opaque,
+  ok: z.literal(false),
+  error: z.strictObject({
+    code: z.literal("forbidden"),
+    message: z.string().max(400),
+    operations: z.array(opaque).optional(),
+  }),
+});
+const agentCredentialResponseSchema = z.union([
+  agentCredentialSuccessResponseSchema,
+  agentCredentialDeniedResponseSchema,
+]);
 // turn 종료·멈춤에 그 turn의 credential을 끝낸다. 감독 상실은 core가 process 조건으로 끝낸다.
 export const agentCredentialEndSchema = z.strictObject({
   type: z.literal("agent_credential_end"),

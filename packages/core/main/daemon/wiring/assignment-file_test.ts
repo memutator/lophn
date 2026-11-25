@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import type { ReleaseRecord } from "../../../../protocol/apps/mod.ts";
 import type { Tx } from "../../../../protocol/server/mod.ts";
-import { judge } from "../../../approvals/gate/mod.ts";
+import { evaluatePermission } from "../../../approvals/gate/mod.ts";
 import { appsSchemaSteps } from "../../../apps/registration/schema.ts";
 import { releasesSchemaSteps } from "../../../apps/releases/schema.ts";
 import { insertRelease } from "../../../apps/releases/store.ts";
@@ -135,25 +135,24 @@ test("data step이 옛 할당을 정의 파일로 옮기면 judge가 같은 판�
         { app: LEDGER, removed_tools: [] },
       ]);
       const call = (app: string, tool: string) =>
-        judge(
-          { kind: "app_tool", app, tool, effect: "write" } as never,
-          assignment,
-          { floor: [], layers: [] },
+        evaluatePermission(
+          {
+            call: { kind: "app_tool", app, tool, effect: "write" } as never,
+            assignment,
+          },
+          { floor: [], global: [], project: [] },
+          [],
+          "workspace",
           "attended",
-          false,
         );
       assert.deepStrictEqual(call(NOTES, "note.add"), { kind: "run" });
       assert.deepStrictEqual(call(LEDGER, "session.usage"), { kind: "run" });
-      assert.deepStrictEqual(call(NOTES, "session.usage"), {
-        kind: "deny",
-        reason: "removed",
-        pattern: null,
-      });
-      assert.deepStrictEqual(call(OTHER, "note.add"), {
-        kind: "deny",
-        reason: "not_assigned",
-        pattern: null,
-      });
+      const removed = call(NOTES, "session.usage");
+      assert.strictEqual(removed.kind, "deny");
+      assert.strictEqual(removed.denial.reason_kind, "removed");
+      const unassigned = call(OTHER, "note.add");
+      assert.strictEqual(unassigned.kind, "deny");
+      assert.strictEqual(unassigned.denial.reason_kind, "unassigned");
     } finally {
       opened.value.close();
     }
@@ -251,18 +250,24 @@ test("deny step은 앱 둘째 domain의 규칙을 앱 slug 규칙으로 바꾸�
         { app: NOTES, removed_tools: ["entry.add"] },
       ]);
       const call = (tool: string) =>
-        judge(
-          { kind: "app_tool", app: NOTES, tool, effect: "write" } as never,
-          read.value.assignment,
-          { floor: [], layers: [] },
+        evaluatePermission(
+          {
+            call: {
+              kind: "app_tool",
+              app: NOTES,
+              tool,
+              effect: "write",
+            } as never,
+            assignment: read.value.assignment,
+          },
+          { floor: [], global: [], project: [] },
+          [],
+          "workspace",
           "attended",
-          false,
         );
-      assert.deepStrictEqual(call("entry.add"), {
-        kind: "deny",
-        reason: "removed",
-        pattern: null,
-      });
+      const removed = call("entry.add");
+      assert.strictEqual(removed.kind, "deny");
+      assert.strictEqual(removed.denial.reason_kind, "removed");
       assert.deepStrictEqual(call("note.add"), { kind: "run" });
     } finally {
       opened.value.close();
@@ -327,16 +332,23 @@ test("다른 기계의 앱 할당은 정의 파일의 remote_apps로 저장되�
       assert.ok(alone.ok);
       assert.deepStrictEqual(alone.value.assignment.entries, [remote]);
       assert.notEqual(alone.value.revision, written.value.revision);
-      assert.deepStrictEqual(
-        judge(
-          { kind: "app_tool", app: NOTES, tool: "x", effect: "write" } as never,
-          alone.value.assignment,
-          { floor: [], layers: [] },
-          "attended",
-          false,
-        ),
-        { kind: "deny", reason: "not_assigned", pattern: null },
+      const remoteDenied = evaluatePermission(
+        {
+          call: {
+            kind: "app_tool",
+            app: NOTES,
+            tool: "x",
+            effect: "write",
+          } as never,
+          assignment: alone.value.assignment,
+        },
+        { floor: [], global: [], project: [] },
+        [],
+        "workspace",
+        "attended",
       );
+      assert.strictEqual(remoteDenied.kind, "deny");
+      assert.strictEqual(remoteDenied.denial.reason_kind, "unassigned");
       // 줄을 모두 빼면 칸도 파일에서 빠지고 비교 값은 0이다.
       const none = writeAssignment(
         sql,

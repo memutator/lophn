@@ -11,6 +11,7 @@ import {
   type AcpToolDetail,
   type AcpToolItem,
   acpNoticeId,
+  acpPermissionDeniedId,
   acpTurnTimes,
   type AcpApprovalItem,
   type AcpCard,
@@ -82,14 +83,21 @@ import {
   turnBody,
   turnList,
 } from "../../../../protocol/lophn-agent/turn-reads.ts";
-import type { TurnRecord } from "../../../../protocol/lophn-agent/turn-values.ts";
+import {
+  DEFAULT_PERMISSION_MODE,
+  type PermissionMode,
+  type TurnRecord,
+} from "../../../../protocol/lophn-agent/turn-values.ts";
 import type { Output } from "../../../../protocol/server/mod.ts";
 import {
   acpShellItem,
   acpUpdatesOf,
   type AgentEvent,
 } from "../../../../protocol/events/mod.ts";
-import type { TurnRequest } from "../../../../protocol/approvals/mod.ts";
+import type {
+  PermissionDenial,
+  TurnRequest,
+} from "../../../../protocol/approvals/mod.ts";
 
 export type Route = { resource: string; method: string };
 
@@ -1045,32 +1053,69 @@ export async function buildAcpState(
     });
   }
 
-  // 승인 결과는 기록에서 다시 만들 수 없어 결정 때 저장해 둔 내용으로 만든다.
+  // 승인 결과와 권한 거부 알림은 기록에서 다시 만들 수 없어 저장해 둔 내용으로 만든다.
   for (const row of live.stored) {
-    if (row.kind !== "approval" || row.data === null) continue;
-    const data = JSON.parse(row.data) as Pick<
-      AcpApprovalItem,
-      "subject" | "outcome" | "choice" | "reason"
-    >;
-    candidates.push({
-      id: row.id,
-      kind: "approval",
-      turn: row.turn,
-      at: row.at,
-      rank: 2,
-      createdSeq: null,
-      make: (seq) => ({
-        kind: "approval",
+    if (row.data === null) continue;
+    if (row.kind === "approval") {
+      const data = JSON.parse(row.data) as Pick<
+        AcpApprovalItem,
+        "subject" | "outcome" | "choice" | "reason"
+      >;
+      candidates.push({
         id: row.id,
-        seq,
+        kind: "approval",
+        turn: row.turn,
         at: row.at,
-        subject: redactDeep(env, data.subject),
-        outcome: data.outcome,
-        choice: data.choice,
-        reason: data.reason === null ? null : env.redact(data.reason),
-        mode: null,
-      }),
-    });
+        rank: 2,
+        createdSeq: null,
+        make: (seq) => ({
+          kind: "approval",
+          id: row.id,
+          seq,
+          at: row.at,
+          subject: redactDeep(env, data.subject),
+          outcome: data.outcome,
+          choice: data.choice,
+          reason: data.reason === null ? null : env.redact(data.reason),
+          mode: null,
+        }),
+      });
+    } else if (row.kind === "notice") {
+      const data = JSON.parse(row.data) as {
+        type?: string;
+        tool_call?: string;
+        denial?: PermissionDenial;
+      };
+      if (
+        data.type !== "permission_denied" ||
+        typeof data.tool_call !== "string" ||
+        data.denial === undefined
+      ) {
+        continue;
+      }
+      const toolCall = data.tool_call;
+      const denial = data.denial;
+      candidates.push({
+        id: row.id,
+        kind: "notice",
+        turn: row.turn,
+        at: row.at,
+        rank: 2,
+        createdSeq: null,
+        make: (seq) => ({
+          kind: "notice",
+          id: row.id,
+          seq,
+          at: row.at,
+          turn: row.turn,
+          notice: {
+            type: "permission_denied",
+            tool_call: toolCall,
+            denial: redactDeep(env, denial),
+          },
+        }),
+      });
+    }
   }
 
   // 순번이 없는 항목(옛 기록, 놓친 event)은 대화에 든 때 순서로 이어 붙인다.
@@ -1214,17 +1259,29 @@ export async function buildAcpState(
 
 // ---------------------------------------------------------------- session 기능
 
-// lophn mode는 둘이다. acp-send도 이 id로 받는다.
+// lophn 권한 단계 넷이다. acp-send도 이 id로 받는다.
 export const AGENT_MODES: AcpChoice[] = [
   {
-    id: "ask",
-    label: "Ask",
-    description: "Ask before actions that need permission",
+    id: "read_only",
+    label: "Read only",
+    description: "Read and search only; no edits or shell commands",
   },
   {
-    id: "skip",
-    label: "Skip permissions",
-    description: "Do not ask for permission (deny rules still block)",
+    id: "ask",
+    label: "Ask everything",
+    description: "Read freely; ask before edits, shell, or external actions",
+  },
+  {
+    id: "workspace",
+    label: "Auto-edit workspace",
+    description:
+      "Edit workspace files and run read-only commands; ask for other shell or outside actions",
+  },
+  {
+    id: "full",
+    label: "Full access",
+    description:
+      "Run without asking (safety floor, deny rules, and person-only actions still block)",
   },
 ];
 
@@ -1407,7 +1464,7 @@ export async function readUsage(
 type MetaParts = {
   harness: boolean;
   title: string | null;
-  skip: boolean;
+  mode: PermissionMode;
   model: Pick<AcpSessionMeta, "models" | "model">;
   usage: AcpUsage | null;
   commands: AcpSessionMeta["commands"];
@@ -1421,7 +1478,7 @@ function metaOf(env: AcpEnv, parts: MetaParts): AcpSessionMeta {
     capabilities: capabilitiesOf(parts.harness),
     ...parts.model,
     modes: AGENT_MODES,
-    mode: parts.skip ? "skip" : "ask",
+    mode: parts.mode,
     commands: parts.commands,
     usage: parts.usage,
     toggles: [],
@@ -1547,7 +1604,7 @@ export async function readSessionMeta(
   return metaOf(env, {
     harness,
     title: record.value.title,
-    skip: record.value.skip,
+    mode: record.value.permission_mode,
     model,
     usage,
     commands: commandsOf(env, commands, true, harness),
@@ -1556,13 +1613,14 @@ export async function readSessionMeta(
 
 /**
  * 첫 메시지 전 새 session 화면의 meta. 그 agent와 workspace로 지금 session을 열면 받을 값이다: session이 고른 model이
- * 없어 agent 기본값이고, mode는 ask, title·usage는 없다. harness runtime agent는 lophn model picker를 쓰지 않고
+ * 없어 agent 기본값이고, mode는 agent 정의의 permission_mode 또는 전역 기본(`defaultMode`), title·usage는 없다. harness runtime agent는 lophn model picker를 쓰지 않고
  * `harness: true`로 맞춘다. 명령은 `readSessionMeta`와 같이 부른 사람의 read로 읽는다.
  */
 export async function readDraftMeta(
   env: AcpEnv,
   draft: { agent: AgentId; workspace: Workspace | null },
   readAsCaller: AcpEnv["read"],
+  defaultMode: PermissionMode = DEFAULT_PERMISSION_MODE,
 ): Promise<AcpSessionMeta> {
   const [agent, commands] = await Promise.all([
     env.read<Output<typeof agentRead>>(agentRead, {
@@ -1578,7 +1636,9 @@ export async function readDraftMeta(
   return metaOf(env, {
     harness,
     title: null,
-    skip: agent.ok && agent.value.definition?.skip === true,
+    mode:
+      (agent.ok ? agent.value.definition?.permission_mode : undefined) ??
+      defaultMode,
     model,
     usage: null,
     commands: commandsOf(env, commands, false, harness),
@@ -1611,7 +1671,7 @@ export async function sessionChangeOf(
     case "mode":
       return {
         type: "session_changed",
-        session: { mode: record.value.skip ? "skip" : "ask" },
+        session: { mode: record.value.permission_mode },
       };
     case "model":
       // 고른 model이 바뀌면 창 한도도 바뀐다.
@@ -1631,7 +1691,7 @@ export async function sessionChangeOf(
 export type AcpCaptured = {
   queuedHuman: boolean;
   decision: Promise<{
-    choice: "once" | "always" | null;
+    choice: "once" | "session" | "always" | null;
     reason: string | null;
   } | null> | null;
   questions: NonNullable<AcpPending["question"]>["questions"];
@@ -1744,11 +1804,31 @@ export async function acpUpdatesFor(
     case "TurnRequestOpened": {
       const { request } = event.payload;
       const subject = redactDeep(env, request.subject);
+      const reason = request.reason == null ? null : env.redact(request.reason);
       openRequests.set(request.id, subject);
       projected = {
         ...event,
-        payload: { request: { ...request, subject } },
+        payload: { request: { ...request, subject, reason } },
       };
+      break;
+    }
+    case "PermissionDenied": {
+      const denial = redactDeep(env, event.payload.denial);
+      projected = {
+        ...event,
+        payload: { ...event.payload, denial },
+      };
+      alloc.push({
+        id: acpPermissionDeniedId(event.payload.tool_call),
+        kind: "notice",
+        turn: event.payload.turn,
+        at: event.at,
+        data: JSON.stringify({
+          type: "permission_denied",
+          tool_call: event.payload.tool_call,
+          denial,
+        }),
+      });
       break;
     }
     case "TurnRequestClosed": {

@@ -124,7 +124,13 @@ export const releaseRecord = defineCommand({
     contract_changes: z.array(contractChangeSchema).optional(),
   }),
   actors: ["machine"],
-  errors: ["forbidden", "invalid_input", "conflict", "unavailable"],
+  errors: [
+    "forbidden",
+    "not_found",
+    "invalid_input",
+    "conflict",
+    "unavailable",
+  ],
 });
 
 // 선언 비교. 카드에는 이 넷만 보인다.
@@ -207,7 +213,13 @@ export const activationStart = defineCommand({
     previous_release: releaseIdSchema.nullable(),
   }),
   actors: machine,
-  errors: ["forbidden", "conflict", "invalid_input", "unavailable"],
+  errors: [
+    "forbidden",
+    "not_found",
+    "conflict",
+    "invalid_input",
+    "unavailable",
+  ],
 });
 
 export const activationRecordBackup = defineCommand({
@@ -315,7 +327,7 @@ export const activationActivatePrevious = defineCommand({
   }),
   output: z.object({}),
   actors: ["user"],
-  errors: ["forbidden", "conflict", "invalid_input"],
+  errors: ["forbidden", "not_found", "conflict", "invalid_input"],
 });
 
 const readActors = ["user", "agent", "app", "machine"] as const;

@@ -113,7 +113,7 @@ export function dataRootOf(
   return ok(dirname(file));
 }
 
-// 할당(`apps`, `remote_apps`, `permissions.deny`)만 바꿔 정의 파일에 다시 쓴다. 다른 칸과 본문은 그대로다.
+// 할당(`apps`, `remote_apps`, `permissions.deny`, `permissions.ask`)만 바꿔 정의 파일에 다시 쓴다. 다른 칸과 본문은 그대로다.
 // 파일이 없는 agent는 쓰지 않는다(할당은 정의가 있는 agent의 것이다). lophn은 파일이 없어도 기본 정의가 있다.
 export function writeAgentAssignment(
   store: AgentStore,
@@ -121,6 +121,7 @@ export function writeAgentAssignment(
   assignment: {
     apps: readonly string[];
     deny: readonly string[];
+    ask?: readonly string[];
     remoteApps: readonly RemoteAppLine[];
   },
 ): Result<string> {
@@ -134,15 +135,22 @@ export function writeAgentAssignment(
   }
   const parsed = parseAgentFile(current, { agent });
   if (!parsed.ok) return parsed;
+  const ask = assignment.ask ?? parsed.value.permissions?.ask ?? [];
   const text = serializeAgentFile(
     {
       ...parsed.value,
       apps: [...assignment.apps],
       remote_apps: assignment.remoteApps.map((line) => ({
-        ...line,
+        machine: line.machine,
+        app: line.app,
+        name: line.name,
         removed: [...line.removed],
+        ...(line.ask && line.ask.length > 0 ? { ask: [...line.ask] } : {}),
       })),
-      permissions: { deny: [...assignment.deny] },
+      permissions: {
+        deny: [...assignment.deny],
+        ...(ask.length > 0 ? { ask: [...ask] } : {}),
+      },
     },
     { agent },
   );

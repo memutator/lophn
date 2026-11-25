@@ -105,7 +105,6 @@ function materialize(
     name: input.name,
     command: input.command,
     kind: input.kind,
-    ...(input.icon === undefined ? {} : { icon: input.icon }),
     ...(input.description === undefined || input.description === ""
       ? {}
       : { description: input.description }),
@@ -461,9 +460,6 @@ export function createProjectCommandHandlers(deps: ProjectCommandHandlersDeps) {
         command: patch.command ?? base.command,
         kind: patch.kind ?? base.kind,
         order: base.order,
-        ...((patch.icon === undefined ? base.icon : patch.icon) != null
-          ? { icon: (patch.icon === undefined ? base.icon : patch.icon)! }
-          : {}),
         ...((patch.description === undefined
           ? base.description
           : patch.description) != null &&
@@ -803,11 +799,17 @@ export function createProjectCommandHandlers(deps: ProjectCommandHandlersDeps) {
     }
     const grant = requireRemoteGrant(who);
     if (!grant.ok) return grant;
-    const { project: rawProject, command: idOrName, all } = parsed.data;
+    const {
+      project: rawProject,
+      command: idOrName,
+      all,
+      dismiss,
+    } = parsed.data;
     const project = rawProject as Id<"prj">;
     const loaded = deps.load(project);
     if (!loaded.ok) return loaded;
     const by: "user" | "agent" = isAgent(who) ? "agent" : "user";
+    const stopOptions = dismiss === true ? { dismiss: true } : undefined;
 
     if (all === true) {
       if (isAgent(who)) {
@@ -827,7 +829,12 @@ export function createProjectCommandHandlers(deps: ProjectCommandHandlersDeps) {
         );
         const stopped = await Promise.all(
           allowed.map(async (cmd) => {
-            const done = await deps.runtime.stop(project, cmd.id, by);
+            const done = await deps.runtime.stop(
+              project,
+              cmd.id,
+              by,
+              stopOptions,
+            );
             return done.ok ? done.value : null;
           }),
         );
@@ -837,7 +844,7 @@ export function createProjectCommandHandlers(deps: ProjectCommandHandlersDeps) {
           ),
         });
       }
-      const runs = await deps.runtime.stopAll(project, by);
+      const runs = await deps.runtime.stopAll(project, by, stopOptions);
       return ok({ runs });
     }
 
@@ -863,7 +870,7 @@ export function createProjectCommandHandlers(deps: ProjectCommandHandlersDeps) {
         );
       }
     }
-    const stopped = await deps.runtime.stop(project, cmd.id, by);
+    const stopped = await deps.runtime.stop(project, cmd.id, by, stopOptions);
     if (!stopped.ok) return stopped;
     return ok({ runs: stopped.value === null ? [] : [stopped.value] });
   };

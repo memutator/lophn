@@ -2896,7 +2896,7 @@ flows:
       - packages/core/projects/commands/runtime.ts
     steps:
       - "원격 기기 호출은 터미널 입력 허락을 확인하고, agent 호출은 허용된 명령만 멈춘다"
-      - "명령별 직렬 큐에서 전용 PTY 프로세스 그룹에 SIGTERM → 3초 → SIGKILL(Windows taskkill /T /F)을 보내 stopped 상태로 전이한다"
+      - "명령별 직렬 큐에서 전용 PTY 프로세스 그룹에 SIGTERM → 3초 → SIGKILL(Windows taskkill /T /F)을 보내 stopped 상태로 전이한다. dismiss: true면 끝난·실패 실행 상태와 터미널 참조까지 정리하고 idle로 발행한다"
     outcomes:
       - id: stopped
         observe: [event:ProjectCommandRunChanged, response]

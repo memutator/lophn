@@ -128,7 +128,6 @@ export const project = {
   "project-settings.label.command-env-key": "KEY",
   "project-settings.label.command-env-value": "Value",
   "project-settings.label.command-folder": "Base folder",
-  "project-settings.label.command-icon": "Icon",
   "project-settings.label.command-kind": "Kind",
   "project-settings.label.command-kind-action": "Action",
   "project-settings.label.command-kind-service": "Service",
@@ -150,6 +149,7 @@ export const project = {
     "No commands yet. Detect scripts from your project or add one manually.",
   "project-settings.notice.commands-lead":
     "Repeatable actions and long-running services for this project. Managed by lophn and available from menus, palette, CLI, and agents.",
+  "project-commands.button.dismiss": "Dismiss",
   "project-commands.button.manage": "Manage commands…",
   "project-commands.button.open-preview": "Open preview",
   "project-commands.button.restart": "Restart",

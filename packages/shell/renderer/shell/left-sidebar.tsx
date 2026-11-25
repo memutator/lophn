@@ -9,8 +9,6 @@ import {
   Menu,
   MenuIcon,
   type MenuItem,
-  Popover,
-  PopoverRow,
   Tooltip,
 } from "@lophn/ui/overlay";
 import { Button, Icon, IconButton } from "@lophn/ui/primitives";
@@ -37,13 +35,13 @@ import {
 } from "../desktop/workspaces/projects/handoff-source.ts";
 import {
   actionIcons,
-  browserIcons,
   commonIcons,
   notificationsIcon,
+  projectCommandActionIcons,
+  projectCommandIcon,
   settingsEntryIcon,
   shellIcons,
   sidebarIcons,
-  workspaceIcons,
 } from "../icons/mod.ts";
 import {
   type AgentChoice,
@@ -62,6 +60,7 @@ import {
 import { type WorkspaceRef, workspaceKey } from "./desk-model.ts";
 import styles from "./left-sidebar.module.css";
 import {
+  type SidebarCommand,
   type SidebarSession,
   type SidebarTab,
   type SidebarWorkspace,
@@ -138,12 +137,8 @@ export interface LeftSidebarProps {
   renderNote?: (workspace: SidebarWorkspace) => ReactNode;
   /** project 줄의 + hover 목록 아래에 붙이는 Commands 공용 목록. */
   commandsPopover?: (workspace: WorkspaceRef) => ReactNode;
-  /** project 줄에 도는 명령 수·실패 표시. 누르면 같은 공용 목록이 뜬다. */
-  commandsIndicator?: (workspace: WorkspaceRef) => {
-    readonly running: number;
-    readonly failed: boolean;
-    readonly content: ReactNode;
-  } | null;
+  /** project 아래에 agent session처럼 보이는 실행 중·실패 command 줄. */
+  workspaceCommands?: (workspace: WorkspaceRef) => readonly SidebarCommand[];
   /**
    * 줄을 누른 채 끌기 시작. 탭 줄과 같은 pointer 끌기(tab-drag.tsx)라 화면(탭 줄, 칸)이나 다른 workspace 줄(`data-drop-workspace`)에
    * 놓는다. 없으면 줄을 끌 수 없다.
@@ -424,7 +419,7 @@ export function LeftSidebar({
   onWorkspaceMenu,
   renderNote,
   commandsPopover,
-  commandsIndicator,
+  workspaceCommands,
   onRowDrag,
 }: LeftSidebarProps) {
   const nameOf = (machine: string | undefined) =>
@@ -632,34 +627,38 @@ export function LeftSidebar({
             {onRenameSession === undefined ||
             item.kind === "draft" ||
             item.noRename === true ? null : (
-              <button
-                type="button"
-                className={styles.rowAction}
-                aria-label={t("left-sidebar.button.rename-session")}
-                data-session-rename=""
-                onClick={() => setRenaming(itemKey)}
-              >
-                <Icon icon={actionIcons.edit} pixels={14} />
-              </button>
+              <Tooltip content={t("left-sidebar.button.rename-session")}>
+                <button
+                  type="button"
+                  className={styles.rowAction}
+                  aria-label={t("left-sidebar.button.rename-session")}
+                  data-session-rename=""
+                  onClick={() => setRenaming(itemKey)}
+                >
+                  <Icon icon={actionIcons.edit} pixels={14} />
+                </button>
+              </Tooltip>
             )}
             {onStopSession === undefined ? null : (
-              <button
-                type="button"
-                className={styles.rowAction}
-                aria-label={t("left-sidebar.button.stop-session")}
-                data-session-stop=""
-                data-dot={item.dot === null ? undefined : ""}
-                onClick={() => onStopSession(workspace, item)}
-              >
-                {item.dot === null ? null : (
-                  <TabStateDot dot={item.dot} className={styles.stopDot} />
-                )}
-                <Icon
-                  icon={shellIcons.close}
-                  pixels={14}
-                  className={styles.stopCross}
-                />
-              </button>
+              <Tooltip content={t("left-sidebar.button.stop-session")}>
+                <button
+                  type="button"
+                  className={styles.rowAction}
+                  aria-label={t("left-sidebar.button.stop-session")}
+                  data-session-stop=""
+                  data-dot={item.dot === null ? undefined : ""}
+                  onClick={() => onStopSession(workspace, item)}
+                >
+                  {item.dot === null ? null : (
+                    <TabStateDot dot={item.dot} className={styles.stopDot} />
+                  )}
+                  <Icon
+                    icon={shellIcons.close}
+                    pixels={14}
+                    className={styles.stopCross}
+                  />
+                </button>
+              </Tooltip>
             )}
           </span>
         </div>
@@ -787,51 +786,33 @@ export function LeftSidebar({
                 : workspace.name}
             </span>
           </button>
-          {(() => {
-            if (workspace.offline || commandsIndicator === undefined)
-              return null;
-            const indicator = commandsIndicator(workspace.ref);
-            if (indicator === null) return null;
-            return (
-              <Popover
-                trigger={
-                  <button
-                    type="button"
-                    className={styles.commandIndicator}
-                    data-command-indicator={key}
-                    data-failed={indicator.failed ? "" : undefined}
-                    aria-label={t("left-sidebar.heading.commands")}
-                  >
-                    <span className={styles.commandIndicatorDot} />
-                    {indicator.running > 0 ? (
-                      <span>{indicator.running}</span>
-                    ) : null}
-                  </button>
-                }
-              >
-                {indicator.content}
-              </Popover>
-            );
-          })()}
           {/* Project settings는 이 컴퓨터만, App details는 다른 기계의 앱도 연다(오프라인 제외). */}
           {((workspace.ref.kind === "project" &&
             workspace.ref.machine === undefined) ||
             (workspace.ref.kind === "app" && !workspace.offline)) &&
           onWorkspaceSettings !== undefined ? (
             <span className={styles.workspaceSettings}>
-              <button
-                type="button"
-                className={styles.rowAction}
-                aria-label={t(
+              <Tooltip
+                content={t(
                   workspace.ref.kind === "app"
                     ? "left-sidebar.button.app-detail"
                     : "left-sidebar.button.project-settings",
                 )}
-                data-workspace-settings=""
-                onClick={() => onWorkspaceSettings(workspace.ref)}
               >
-                <Icon icon={commonIcons.settings} pixels={14} />
-              </button>
+                <button
+                  type="button"
+                  className={styles.rowAction}
+                  aria-label={t(
+                    workspace.ref.kind === "app"
+                      ? "left-sidebar.button.app-detail"
+                      : "left-sidebar.button.project-settings",
+                  )}
+                  data-workspace-settings=""
+                  onClick={() => onWorkspaceSettings(workspace.ref)}
+                >
+                  <Icon icon={commonIcons.settings} pixels={14} />
+                </button>
+              </Tooltip>
             </span>
           ) : null}
           {workspace.offline ? null : (
@@ -906,6 +887,125 @@ export function LeftSidebar({
             </Fragment>
           );
         })}
+        {workspace.offline || workspaceCommands === undefined
+          ? null
+          : workspaceCommands(workspace.ref).map((cmd) => {
+              const running = cmd.status === "running";
+              const restartLabel = t(
+                running
+                  ? "project-commands.button.restart"
+                  : "project-commands.button.run",
+              );
+              const dismissLabel = t(
+                running
+                  ? "project-commands.button.stop"
+                  : "project-commands.button.dismiss",
+              );
+              return (
+                <div
+                  key={cmd.key}
+                  className={`${styles.sessionLine} ${styles.commandLine}`}
+                  data-command-line={cmd.key}
+                  data-command-status={cmd.status}
+                  data-has-preview={
+                    cmd.onPreview === undefined ? undefined : ""
+                  }
+                >
+                  <button
+                    type="button"
+                    className={styles.sessionRow}
+                    aria-current={
+                      here && selected === cmd.selectedKey ? true : undefined
+                    }
+                    onClick={cmd.onOpen}
+                  >
+                    <span className={styles.rowIcon}>
+                      <Icon icon={projectCommandIcon} pixels={14} />
+                    </span>
+                    <span className={styles.rowLabel}>{cmd.name}</span>
+                    <MachineTag name={cmd.machineName} />
+                    <span className={styles.commandStatus}>
+                      {running ? (
+                        <span
+                          className={`${styles.commandDot} ${styles.commandDotRunning}`}
+                          aria-label={t("project-commands.label.running")}
+                        />
+                      ) : (
+                        <>
+                          <span
+                            className={`${styles.commandDot} ${styles.commandDotFailed}`}
+                          />
+                          <span className={styles.commandStatusText}>
+                            {cmd.status === "timed_out"
+                              ? t("project-commands.label.timed-out")
+                              : cmd.exitCode !== null
+                                ? t("project-commands.label.failed", {
+                                    code: cmd.exitCode,
+                                  })
+                                : t("run-list.label.failed")}
+                          </span>
+                        </>
+                      )}
+                    </span>
+                  </button>
+                  <span
+                    className={`${styles.rowActions} ${styles.commandActions}`}
+                  >
+                    {cmd.onPreview === undefined ? null : (
+                      <Tooltip
+                        content={
+                          cmd.previewUrl === null
+                            ? t("project-commands.button.open-preview")
+                            : `${t("project-commands.button.open-preview")} · ${cmd.previewUrl}`
+                        }
+                      >
+                        <button
+                          type="button"
+                          className={styles.rowAction}
+                          aria-label={t("project-commands.button.open-preview")}
+                          data-command-preview=""
+                          onClick={cmd.onPreview}
+                        >
+                          <Icon
+                            icon={projectCommandActionIcons.preview}
+                            pixels={14}
+                          />
+                        </button>
+                      </Tooltip>
+                    )}
+                    <Tooltip content={restartLabel}>
+                      <button
+                        type="button"
+                        className={styles.rowAction}
+                        aria-label={restartLabel}
+                        data-command-restart=""
+                        onClick={cmd.onRestart}
+                      >
+                        <Icon
+                          icon={
+                            running
+                              ? projectCommandActionIcons.restart
+                              : projectCommandActionIcons.run
+                          }
+                          pixels={14}
+                        />
+                      </button>
+                    </Tooltip>
+                    <Tooltip content={dismissLabel}>
+                      <button
+                        type="button"
+                        className={styles.rowAction}
+                        aria-label={dismissLabel}
+                        data-command-stop=""
+                        onClick={cmd.onDismiss}
+                      >
+                        <Icon icon={shellIcons.close} pixels={14} />
+                      </button>
+                    </Tooltip>
+                  </span>
+                </div>
+              );
+            })}
         {workspace.recent.length === 0 ? null : (
           <button
             type="button"

@@ -506,12 +506,39 @@ export function createProjectCommandRuntime(deps: ProjectCommandRuntimeDeps) {
       project: Id<"prj">,
       commandId: string,
       by: "user" | "agent" | "shutdown",
+      options?: { dismiss?: boolean },
     ): Promise<Result<ProjectCommandRun | null>> {
       return ok(
         await serialize(project, commandId, async () => {
-          const state = entries.get(keyOf(project, commandId));
+          const key = keyOf(project, commandId);
+          const state = entries.get(key);
           if (state === undefined) return null;
-          return await stopUnlocked(state, by);
+          if (isLive(state.run.status)) {
+            await stopUnlocked(state, by);
+          }
+          if (options?.dismiss === true) {
+            clearTimers(state);
+            if (
+              state.run.terminal_id !== null &&
+              byTerminal.get(state.run.terminal_id) === state
+            ) {
+              byTerminal.delete(state.run.terminal_id);
+            }
+            entries.delete(key);
+            terminalRefs.delete(key);
+            state.run = {
+              ...state.run,
+              status: "idle",
+              terminal_id: null,
+              pid: null,
+              exit_code: null,
+              signal: null,
+              detected_urls: [],
+              ended_by: null,
+            };
+            emit(state);
+          }
+          return { ...state.run };
         }),
       );
     },
@@ -519,17 +546,21 @@ export function createProjectCommandRuntime(deps: ProjectCommandRuntimeDeps) {
     async stopAll(
       project: Id<"prj">,
       by: "user" | "agent" | "shutdown",
+      options?: { dismiss?: boolean },
     ): Promise<ProjectCommandRun[]> {
       const prefix = `${project}\0`;
-      const running: string[] = [];
+      const targets: string[] = [];
       for (const [key, state] of entries) {
-        if (key.startsWith(prefix) && isLive(state.run.status)) {
-          running.push(state.command.id);
+        if (
+          key.startsWith(prefix) &&
+          (options?.dismiss === true || isLive(state.run.status))
+        ) {
+          targets.push(state.command.id);
         }
       }
       const results = await Promise.all(
-        running.map(async (commandId) => {
-          const stopped = await this.stop(project, commandId, by);
+        targets.map(async (commandId) => {
+          const stopped = await this.stop(project, commandId, by, options);
           return stopped.ok ? stopped.value : null;
         }),
       );

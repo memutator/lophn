@@ -69,7 +69,7 @@ export interface ProjectCommandsSource {
   ): Promise<Result<{ run: ProjectCommandRun; tail?: string }>>;
   stop(
     project: string,
-    options: { command?: string; all?: boolean },
+    options: { command?: string; all?: boolean; dismiss?: boolean },
   ): Promise<Result<{ runs: ProjectCommandRun[] }>>;
   restart(
     project: string,
@@ -174,6 +174,7 @@ export function createProjectCommandsSource(
         project,
         ...(options.command === undefined ? {} : { command: options.command }),
         ...(options.all ? { all: true } : {}),
+        ...(options.dismiss ? { dismiss: true } : {}),
       }),
     restart: (project, command, options) =>
       callRoute(core, projectCommandsRestart, {

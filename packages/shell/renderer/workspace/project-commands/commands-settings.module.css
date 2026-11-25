@@ -144,31 +144,6 @@
   gap: var(--space-3);
 }
 
-.iconGrid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-}
-
-.iconOption {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--control-sm-height);
-  height: var(--control-sm-height);
-  color: var(--color-text-secondary);
-  background: transparent;
-  border: var(--border-width) solid var(--color-border-base);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-}
-
-.iconOption[data-selected] {
-  color: var(--color-text-primary);
-  background: var(--color-surface-muted);
-  border-color: var(--color-text-primary);
-}
-
 .envRows {
   display: flex;
   flex-direction: column;

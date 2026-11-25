@@ -13,12 +13,11 @@ import {
   Switch,
   Textarea,
 } from "@lophn/ui/input";
+import { Tooltip } from "@lophn/ui/overlay";
 import { Button, Icon, IconButton } from "@lophn/ui/primitives";
 import { useMemo, useState } from "react";
 import { projectApi } from "../../../../protocol/projects/project-api.ts";
 import {
-  COMMAND_ICONS,
-  type CommandIcon,
   type CommandKind,
   type DetectedCommandCandidate,
   PROJECT_COMMANDS_MAX,
@@ -31,7 +30,7 @@ import { useMachineData } from "../../desktop/machines/scope.tsx";
 import {
   actionIcons,
   projectCommandActionIcons,
-  projectCommandIcons,
+  projectCommandIcon,
 } from "../../icons/mod.ts";
 import type { SidebarAgent } from "../sidebar/sidebar-agent.ts";
 import styles from "./commands-settings.module.css";
@@ -48,7 +47,6 @@ interface CommandDraft {
   name: string;
   command: string;
   kind: CommandKind;
-  icon: CommandIcon;
   description: string;
   folder_ref: string;
   cwd: string;
@@ -72,7 +70,6 @@ function draftFromCommand(
       name: "",
       command: "",
       kind: "action",
-      icon: "terminal",
       description: "",
       folder_ref: defaultFolder ?? "",
       cwd: "",
@@ -94,7 +91,6 @@ function draftFromCommand(
     name: cmd.name,
     command: cmd.command,
     kind: cmd.kind,
-    icon: cmd.icon ?? "terminal",
     description: cmd.description ?? "",
     folder_ref: cmd.folder_ref ?? defaultFolder ?? "",
     cwd: cmd.cwd ?? "",
@@ -132,7 +128,6 @@ function buildInputFromDraft(draft: CommandDraft): ProjectCommandInput {
     name: draft.name.trim(),
     command: draft.command.trim(),
     kind: draft.kind,
-    icon: draft.icon,
     ...(draft.description.trim() === ""
       ? {}
       : { description: draft.description.trim() }),
@@ -221,23 +216,6 @@ function CommandForm({
           spellCheck={false}
           onChange={(e) => setDraft({ ...draft, command: e.target.value })}
         />
-      </Field>
-
-      <Field label={t("project-settings.label.command-icon")}>
-        <div className={styles.iconGrid}>
-          {COMMAND_ICONS.map((icon) => (
-            <button
-              key={icon}
-              type="button"
-              className={styles.iconOption}
-              data-selected={draft.icon === icon ? "" : undefined}
-              aria-label={icon}
-              onClick={() => setDraft({ ...draft, icon })}
-            >
-              <Icon icon={projectCommandIcons[icon]} pixels={16} />
-            </button>
-          ))}
-        </div>
       </Field>
 
       <div className={styles.twoCol}>
@@ -551,7 +529,6 @@ export function ProjectCommandsSettings({
         name: c.name,
         command: c.command,
         kind: c.kind,
-        ...(c.icon === undefined ? {} : { icon: c.icon }),
         ...(c.description === undefined ? {} : { description: c.description }),
         ...(c.folder_ref === undefined ? {} : { folder_ref: c.folder_ref }),
         ...(c.cwd === undefined ? {} : { cwd: c.cwd }),
@@ -799,26 +776,22 @@ export function ProjectCommandsSettings({
             </Button>
           </div>
           <ul className={styles.rows} data-command-rows="">
-            {commands.map((cmd, index) => {
-              const glyph =
-                cmd.icon !== undefined && cmd.icon in projectCommandIcons
-                  ? projectCommandIcons[cmd.icon]
-                  : projectCommandIcons.terminal;
-              return (
-                <li
-                  key={cmd.id}
-                  className={styles.item}
-                  data-command-row={cmd.id}
-                >
-                  <div className={styles.itemHead}>
-                    <Icon icon={glyph} pixels={16} />
-                    <div className={styles.itemInfo}>
-                      <div className={styles.itemTitleLine}>
-                        <span className={styles.itemName}>{cmd.name}</span>
-                        <span className={styles.badge}>{cmd.kind}</span>
-                      </div>
-                      <span className={styles.codePreview}>{cmd.command}</span>
+            {commands.map((cmd, index) => (
+              <li
+                key={cmd.id}
+                className={styles.item}
+                data-command-row={cmd.id}
+              >
+                <div className={styles.itemHead}>
+                  <Icon icon={projectCommandIcon} pixels={16} />
+                  <div className={styles.itemInfo}>
+                    <div className={styles.itemTitleLine}>
+                      <span className={styles.itemName}>{cmd.name}</span>
+                      <span className={styles.badge}>{cmd.kind}</span>
                     </div>
+                    <span className={styles.codePreview}>{cmd.command}</span>
+                  </div>
+                  <Tooltip content={t("project-settings.button.move-up")}>
                     <IconButton
                       icon={actionIcons.moveUp}
                       label={t("project-settings.button.move-up")}
@@ -826,6 +799,8 @@ export function ProjectCommandsSettings({
                       disabled={busy || index === 0}
                       onClick={() => void move(index, -1)}
                     />
+                  </Tooltip>
+                  <Tooltip content={t("project-settings.button.move-down")}>
                     <IconButton
                       icon={actionIcons.moveDown}
                       label={t("project-settings.button.move-down")}
@@ -833,6 +808,8 @@ export function ProjectCommandsSettings({
                       disabled={busy || index === commands.length - 1}
                       onClick={() => void move(index, 1)}
                     />
+                  </Tooltip>
+                  <Tooltip content={t("project-settings.button.edit-command")}>
                     <IconButton
                       icon={actionIcons.edit}
                       label={t("project-settings.button.edit-command")}
@@ -843,6 +820,10 @@ export function ProjectCommandsSettings({
                         setEditingId(editingId === cmd.id ? null : cmd.id);
                       }}
                     />
+                  </Tooltip>
+                  <Tooltip
+                    content={t("project-settings.button.remove-command")}
+                  >
                     <IconButton
                       icon={actionIcons.remove}
                       label={t("project-settings.button.remove-command")}
@@ -860,70 +841,67 @@ export function ProjectCommandsSettings({
                         }
                       }}
                     />
-                  </div>
-                  {editingId === cmd.id ? (
-                    <CommandForm
-                      initial={draftFromCommand(cmd, folders[0]?.ref)}
-                      folders={folders}
-                      agents={agents}
-                      busy={busy}
-                      onCancel={() => setEditingId(null)}
-                      onSave={async (draft) => {
-                        setBusy(true);
-                        setActionError(null);
-                        const timeoutParsed =
-                          draft.kind === "action" &&
-                          draft.timeout_ms.trim() !== ""
-                            ? Number.parseInt(draft.timeout_ms.trim(), 10)
-                            : null;
-                        const envRecord = Object.fromEntries(
-                          draft.env
-                            .map((r) => [r.key.trim(), r.value] as const)
-                            .filter(([k]) => k.length > 0),
-                        );
-                        const res = await source.update(projectId, cmd.id, {
-                          name: draft.name.trim(),
-                          command: draft.command.trim(),
-                          kind: draft.kind,
-                          icon: draft.icon,
-                          description: draft.description.trim() || null,
-                          folder_ref: draft.folder_ref || null,
-                          cwd: draft.cwd.trim() || null,
-                          env:
-                            Object.keys(envRecord).length > 0
-                              ? envRecord
-                              : null,
-                          preview_url: draft.preview_url.trim() || null,
-                          auto_open_preview: draft.auto_open_preview,
-                          timeout_ms:
-                            timeoutParsed !== null &&
-                            Number.isFinite(timeoutParsed) &&
-                            timeoutParsed >= 1000
-                              ? timeoutParsed
-                              : null,
-                          agents:
-                            draft.agentsMode === "inherit"
-                              ? null
-                              : draft.agentsMode === "all"
-                                ? "all"
-                                : [...draft.selectedAgents],
-                          ask_before_run:
-                            draft.askMode === "inherit"
-                              ? null
-                              : draft.askMode === "on",
-                        });
-                        setBusy(false);
-                        if (!res.ok) setActionError(res.error.message);
-                        else {
-                          setEditingId(null);
-                          state.reload();
-                        }
-                      }}
-                    />
-                  ) : null}
-                </li>
-              );
-            })}
+                  </Tooltip>
+                </div>
+                {editingId === cmd.id ? (
+                  <CommandForm
+                    initial={draftFromCommand(cmd, folders[0]?.ref)}
+                    folders={folders}
+                    agents={agents}
+                    busy={busy}
+                    onCancel={() => setEditingId(null)}
+                    onSave={async (draft) => {
+                      setBusy(true);
+                      setActionError(null);
+                      const timeoutParsed =
+                        draft.kind === "action" &&
+                        draft.timeout_ms.trim() !== ""
+                          ? Number.parseInt(draft.timeout_ms.trim(), 10)
+                          : null;
+                      const envRecord = Object.fromEntries(
+                        draft.env
+                          .map((r) => [r.key.trim(), r.value] as const)
+                          .filter(([k]) => k.length > 0),
+                      );
+                      const res = await source.update(projectId, cmd.id, {
+                        name: draft.name.trim(),
+                        command: draft.command.trim(),
+                        kind: draft.kind,
+                        description: draft.description.trim() || null,
+                        folder_ref: draft.folder_ref || null,
+                        cwd: draft.cwd.trim() || null,
+                        env:
+                          Object.keys(envRecord).length > 0 ? envRecord : null,
+                        preview_url: draft.preview_url.trim() || null,
+                        auto_open_preview: draft.auto_open_preview,
+                        timeout_ms:
+                          timeoutParsed !== null &&
+                          Number.isFinite(timeoutParsed) &&
+                          timeoutParsed >= 1000
+                            ? timeoutParsed
+                            : null,
+                        agents:
+                          draft.agentsMode === "inherit"
+                            ? null
+                            : draft.agentsMode === "all"
+                              ? "all"
+                              : [...draft.selectedAgents],
+                        ask_before_run:
+                          draft.askMode === "inherit"
+                            ? null
+                            : draft.askMode === "on",
+                      });
+                      setBusy(false);
+                      if (!res.ok) setActionError(res.error.message);
+                      else {
+                        setEditingId(null);
+                        state.reload();
+                      }
+                    }}
+                  />
+                ) : null}
+              </li>
+            ))}
           </ul>
         </>
       )}

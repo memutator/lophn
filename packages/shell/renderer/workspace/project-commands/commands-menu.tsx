@@ -1,8 +1,13 @@
-// 네 진입점이 같이 쓰는 Project Commands 공용 목록.
-// - `ProjectCommandsList`: Popover(Terminal hover, 사이드바 project + hover, 사이드바 표시 popover)
+// 세 메뉴 진입점이 같이 쓰는 Project Commands 공용 목록.
+// - `ProjectCommandsList`: Popover(Terminal hover, 사이드바 project + hover)
 // - `projectCommandsMenuItems`: 탭 줄 + 메뉴의 Terminal 하위 메뉴
 import { t } from "@lophn/i18n";
-import { MenuIcon, type MenuItem, PopoverRow } from "@lophn/ui/overlay";
+import {
+  MenuIcon,
+  type MenuItem,
+  PopoverRow,
+  Tooltip,
+} from "@lophn/ui/overlay";
 import { Icon } from "@lophn/ui/primitives";
 import { Fragment, type MouseEvent, type ReactNode } from "react";
 
@@ -13,7 +18,8 @@ import type {
 import {
   commonIcons,
   projectCommandActionIcons,
-  projectCommandIcons,
+  projectCommandIcon,
+  shellIcons,
 } from "../../icons/mod.ts";
 import styles from "./commands-menu.module.css";
 import {
@@ -28,6 +34,7 @@ export interface ProjectCommandActions {
   onStop(group: ProjectCommandGroup, cmd: ProjectCommand): void;
   onStopAll(group: ProjectCommandGroup): void;
   onRestart(group: ProjectCommandGroup, cmd: ProjectCommand): void;
+  onDismiss?: (group: ProjectCommandGroup, cmd: ProjectCommand) => void;
   onViewTerminal(
     group: ProjectCommandGroup,
     cmd: ProjectCommand,
@@ -46,12 +53,8 @@ function shortUrl(url: string): string {
   }
 }
 
-function CommandIconGlyph({ icon }: { icon: ProjectCommand["icon"] }) {
-  const glyph =
-    icon !== undefined && icon in projectCommandIcons
-      ? projectCommandIcons[icon]
-      : projectCommandIcons.terminal;
-  return <Icon icon={glyph} pixels={14} />;
+function CommandIconGlyph() {
+  return <Icon icon={projectCommandIcon} pixels={14} />;
 }
 
 function stopBubble(event: MouseEvent) {
@@ -71,80 +74,110 @@ function InlineActions({
   actions: ProjectCommandActions;
 }) {
   const running = isCommandActive(run);
+  const failed = isCommandFailed(run);
   const url = previewUrlOf(cmd, run);
   const hasTerminal = run?.terminal_id != null;
-  if (!running && !hasTerminal && url === null) return null;
+  const canDismiss = failed && actions.onDismiss !== undefined;
+  if (!running && !hasTerminal && url === null && !canDismiss) return null;
   return (
     <span className={styles.actions}>
       {url !== null && running ? (
-        <button
-          type="button"
-          className={styles.urlChip}
-          aria-label={url}
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => {
-            stopBubble(e);
-            actions.onOpenPreview(group, url);
-          }}
+        <Tooltip
+          content={`${t("project-commands.button.open-preview")} · ${url}`}
         >
-          {shortUrl(url)}
-        </button>
+          <button
+            type="button"
+            className={styles.urlChip}
+            aria-label={url}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              stopBubble(e);
+              actions.onOpenPreview(group, url);
+            }}
+          >
+            {shortUrl(url)}
+          </button>
+        </Tooltip>
       ) : null}
       {running ? (
         <>
-          <button
-            type="button"
-            className={styles.actionButton}
-            aria-label={t("project-commands.button.stop")}
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => {
-              stopBubble(e);
-              actions.onStop(group, cmd);
-            }}
-          >
-            <Icon icon={projectCommandActionIcons.stop} pixels={12} />
-          </button>
-          <button
-            type="button"
-            className={styles.actionButton}
-            aria-label={t("project-commands.button.restart")}
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => {
-              stopBubble(e);
-              actions.onRestart(group, cmd);
-            }}
-          >
-            <Icon icon={projectCommandActionIcons.restart} pixels={12} />
-          </button>
+          <Tooltip content={t("project-commands.button.stop")}>
+            <button
+              type="button"
+              className={styles.actionButton}
+              aria-label={t("project-commands.button.stop")}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                stopBubble(e);
+                actions.onStop(group, cmd);
+              }}
+            >
+              <Icon icon={projectCommandActionIcons.stop} pixels={12} />
+            </button>
+          </Tooltip>
+          <Tooltip content={t("project-commands.button.restart")}>
+            <button
+              type="button"
+              className={styles.actionButton}
+              aria-label={t("project-commands.button.restart")}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                stopBubble(e);
+                actions.onRestart(group, cmd);
+              }}
+            >
+              <Icon icon={projectCommandActionIcons.restart} pixels={12} />
+            </button>
+          </Tooltip>
         </>
       ) : null}
       {hasTerminal && run !== undefined ? (
-        <button
-          type="button"
-          className={styles.actionButton}
-          aria-label={t("project-commands.button.view-terminal")}
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => {
-            stopBubble(e);
-            actions.onViewTerminal(group, cmd, run);
-          }}
-        >
-          <Icon icon={projectCommandActionIcons.terminal} pixels={12} />
-        </button>
+        <Tooltip content={t("project-commands.button.view-terminal")}>
+          <button
+            type="button"
+            className={styles.actionButton}
+            aria-label={t("project-commands.button.view-terminal")}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              stopBubble(e);
+              actions.onViewTerminal(group, cmd, run);
+            }}
+          >
+            <Icon icon={projectCommandActionIcons.terminal} pixels={12} />
+          </button>
+        </Tooltip>
       ) : null}
       {url !== null && !running ? (
-        <button
-          type="button"
-          className={styles.actionButton}
-          aria-label={t("project-commands.button.open-preview")}
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => {
-            stopBubble(e);
-            actions.onOpenPreview(group, url);
-          }}
-        >
-          <Icon icon={projectCommandActionIcons.preview} pixels={12} />
-        </button>
+        <Tooltip content={t("project-commands.button.open-preview")}>
+          <button
+            type="button"
+            className={styles.actionButton}
+            aria-label={t("project-commands.button.open-preview")}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              stopBubble(e);
+              actions.onOpenPreview(group, url);
+            }}
+          >
+            <Icon icon={projectCommandActionIcons.preview} pixels={12} />
+          </button>
+        </Tooltip>
+      ) : null}
+      {canDismiss ? (
+        <Tooltip content={t("project-commands.button.dismiss")}>
+          <button
+            type="button"
+            className={styles.actionButton}
+            aria-label={t("project-commands.button.dismiss")}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              stopBubble(e);
+              actions.onDismiss?.(group, cmd);
+            }}
+          >
+            <Icon icon={shellIcons.close} pixels={12} />
+          </button>
+        </Tooltip>
       ) : null}
     </span>
   );
@@ -243,7 +276,7 @@ export function ProjectCommandsList({
                   }}
                 >
                   <span className={styles.rowIcon}>
-                    <CommandIconGlyph icon={cmd.icon} />
+                    <CommandIconGlyph />
                   </span>
                   <span className={styles.rowName}>{cmd.name}</span>
                   <StatusMark run={run} />
@@ -329,7 +362,7 @@ export function projectCommandsMenuItems(
         textValue: cmd.name,
         leading: (
           <MenuIcon>
-            <CommandIconGlyph icon={cmd.icon} />
+            <CommandIconGlyph />
           </MenuIcon>
         ),
         label: (

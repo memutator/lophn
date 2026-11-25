@@ -34,12 +34,30 @@ export interface ProjectCommandsState {
   reload(): void;
 }
 
+export function projectCommandTabKey(
+  machine: string | null,
+  projectId: string,
+  commandId: string,
+): string {
+  return `project-cmd-${machine ?? "local"}-${projectId}-${commandId}`;
+}
+
 export function isCommandActive(run: ProjectCommandRun | undefined): boolean {
   return run?.status === "starting" || run?.status === "running";
 }
 
 export function isCommandFailed(run: ProjectCommandRun | undefined): boolean {
   return run?.status === "failed" || run?.status === "timed_out";
+}
+
+function applyRunUpdate(
+  prev: ReadonlyMap<string, ProjectCommandRun>,
+  run: ProjectCommandRun,
+): ReadonlyMap<string, ProjectCommandRun> {
+  const next = new Map(prev);
+  if (run.status === "idle") next.delete(run.command_id);
+  else next.set(run.command_id, run);
+  return next;
 }
 
 export function previewUrlOf(
@@ -146,11 +164,7 @@ export function useProjectCommandsState(
           ev.payload.project === projectId
         ) {
           const run = ev.payload.run;
-          setRuns((prev) => {
-            const next = new Map(prev);
-            next.set(run.command_id, run);
-            return next;
-          });
+          setRuns((prev) => applyRunUpdate(prev, run));
           const cmd = commandsRef.current.find((c) => c.id === run.command_id);
           onRunEventRef.current?.(run, cmd);
         }
@@ -274,8 +288,7 @@ export function useRemoteProjectCommandGroups(
             setGroups((prev) => {
               const existing = prev.get(peer.machine);
               if (existing === undefined) return prev;
-              const nextRuns = new Map(existing.runs);
-              nextRuns.set(ev.payload.run.command_id, ev.payload.run);
+              const nextRuns = applyRunUpdate(existing.runs, ev.payload.run);
               const next = new Map(prev);
               next.set(peer.machine, { ...existing, runs: nextRuns });
               return next;
@@ -388,8 +401,7 @@ export function useSidebarCommandsIndex(
               void loadOne(project);
               return prev;
             }
-            const nextRuns = new Map(current.runs);
-            nextRuns.set(run.command_id, run);
+            const nextRuns = applyRunUpdate(current.runs, run);
             const next = new Map(prev);
             next.set(project, makeEntry(project, current.commands, nextRuns));
             return next;

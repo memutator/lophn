@@ -18,10 +18,6 @@ import { LOPHN_AGENT_NAME } from "../../../../protocol/lophn-agent/agent-values.
 import type { HandoffNote } from "../../../../protocol/lophn-agent/handoff.ts";
 import { archiveSession } from "../../../../protocol/lophn-agent/sessions.ts";
 import { isLophn } from "../../../../protocol/lophn-agent/workspaces.ts";
-import type {
-  ProjectCommand,
-  ProjectCommandRun,
-} from "../../../../protocol/projects/project-commands.ts";
 import { STAY, useViewToast } from "../../app-frame/annotate/use-view-toast.ts";
 import type { AppsSource } from "../../apps/source.ts";
 import { takeInText } from "../../apps/take-in-note.ts";
@@ -69,9 +65,11 @@ import {
 import leftStyles from "../../shell/left-sidebar.module.css";
 import { LeftSidebar } from "../../shell/left-sidebar.tsx";
 import {
+  type SidebarCommand,
   type SidebarSession,
   type SidebarTab,
   type SidebarWorkspace,
+  sessionKey,
   withChildren,
 } from "../../shell/left-sidebar-model.ts";
 import {
@@ -105,7 +103,11 @@ import {
 } from "../project-commands/commands-menu.tsx";
 import { createProjectCommandsSource } from "../project-commands/source.ts";
 import {
+  isCommandActive,
+  isCommandFailed,
   type ProjectCommandGroup,
+  previewUrlOf,
+  projectCommandTabKey,
   useSidebarCommandsIndex,
 } from "../project-commands/use-project-commands.ts";
 import type { WorkspaceSource } from "../source.ts";
@@ -188,12 +190,7 @@ export interface WorkspaceLeftSidebarProps {
   activeProjectCommandGroups?: readonly ProjectCommandGroup[];
   /** 지금 보이는 project의 명령 동작. */
   projectCommandActions?: ProjectCommandActions;
-  /** 다른 project의 명령 터미널/프리뷰 열기(그 workspace로 가거나 바로 연다). */
-  onCommandTerminal?: (
-    group: ProjectCommandGroup,
-    cmd: ProjectCommand,
-    run: ProjectCommandRun,
-  ) => void;
+  /** 다른 project의 명령 프리뷰 열기(그 workspace로 가거나 바로 연다). */
   onCommandPreview?: (group: ProjectCommandGroup, url: string) => void;
   /** 이 workspace 줄의 +. */
   onNewSession: () => void;
@@ -295,12 +292,13 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
         void callSource(group).stop(group.projectId, { all: true }),
       onRestart: (group, cmd) =>
         void callSource(group).restart(group.projectId, cmd.id),
-      onViewTerminal: (group, cmd, run) => {
-        if (props.onCommandTerminal !== undefined) {
-          props.onCommandTerminal(group, cmd, run);
-        } else {
-          props.onWorkspace(ref);
-        }
+      onDismiss: (group, cmd) =>
+        void callSource(group).stop(group.projectId, {
+          command: cmd.id,
+          dismiss: true,
+        }),
+      onViewTerminal: () => {
+        props.onWorkspace(ref);
       },
       onOpenPreview: (group, url) => {
         if (props.onCommandPreview !== undefined) {
@@ -319,13 +317,14 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
   const commandGroupsFor = (
     ref: WorkspaceRef,
   ): readonly ProjectCommandGroup[] => {
-    if (ref.kind !== "project" || ref.machine !== undefined) return [];
+    if (ref.kind !== "project") return [];
     if (
       props.activeProjectCommandGroups !== undefined &&
       workspaceKey(ref) === workspaceKey(current)
     ) {
       return props.activeProjectCommandGroups;
     }
+    if (ref.machine !== undefined) return [];
     const entry = sidebarCommands.get(ref.id);
     if (entry === undefined) return [];
     return [
@@ -1204,42 +1203,57 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
             />
           );
         }}
-        commandsIndicator={(ref) => {
-          if (ref.kind !== "project" || ref.machine !== undefined) return null;
-          const entry = sidebarCommands.get(ref.id);
+        workspaceCommands={(ref): readonly SidebarCommand[] => {
           const groups = commandGroupsFor(ref);
-          const running =
-            groups.length > 0
-              ? groups.reduce((sum, g) => {
-                  let n = 0;
-                  for (const c of g.commands) {
-                    const s = g.runs.get(c.id)?.status;
-                    if (s === "starting" || s === "running") n++;
+          if (groups.length === 0) return [];
+          const actions = commandsActionsFor(ref);
+          const rows: SidebarCommand[] = [];
+          for (const group of groups) {
+            for (const cmd of group.commands) {
+              const run = group.runs.get(cmd.id);
+              const active = isCommandActive(run);
+              const failed = isCommandFailed(run);
+              if (!active && !failed) continue;
+              const status: SidebarCommand["status"] = active
+                ? "running"
+                : run?.status === "timed_out"
+                  ? "timed_out"
+                  : "failed";
+              const url = previewUrlOf(cmd, run);
+              const tabKey = projectCommandTabKey(
+                group.machine,
+                group.projectId,
+                cmd.id,
+              );
+              rows.push({
+                key: `${group.machine ?? "local"}:${group.projectId}:${cmd.id}`,
+                name: cmd.name,
+                status,
+                exitCode: run?.exit_code ?? null,
+                ...(group.machine !== null && group.machineName !== undefined
+                  ? { machineName: group.machineName }
+                  : {}),
+                previewUrl: url,
+                selectedKey: sessionKey({ kind: "terminal", ref: tabKey }),
+                onOpen: () => {
+                  if (run?.terminal_id != null) {
+                    actions.onViewTerminal(group, cmd, run);
+                  } else if (!active) {
+                    actions.onRun(group, cmd);
                   }
-                  return sum + n;
-                }, 0)
-              : (entry?.runningCount ?? 0);
-          const failed =
-            groups.length > 0
-              ? groups.some((g) =>
-                  g.commands.some((c) => {
-                    const s = g.runs.get(c.id)?.status;
-                    return s === "failed" || s === "timed_out";
-                  }),
-                )
-              : (entry?.hasFailed ?? false);
-          if (running === 0 && !failed) return null;
-          return {
-            running,
-            failed,
-            content: (
-              <ProjectCommandsList
-                heading={t("left-sidebar.heading.commands")}
-                groups={groups}
-                actions={commandsActionsFor(ref)}
-              />
-            ),
-          };
+                },
+                onRestart: () => {
+                  if (active) actions.onRestart(group, cmd);
+                  else actions.onRun(group, cmd);
+                },
+                onDismiss: () => actions.onDismiss?.(group, cmd),
+                ...(url !== null && active
+                  ? { onPreview: () => actions.onOpenPreview(group, url) }
+                  : {}),
+              });
+            }
+          }
+          return rows;
         }}
         {...(projects === undefined
           ? {}

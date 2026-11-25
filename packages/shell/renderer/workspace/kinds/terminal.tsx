@@ -10,7 +10,11 @@ import { workspaceIcons } from "../../icons/mod.ts";
 import type { SessionDot } from "../../parts/agent-session/activity.ts";
 import { AgentFaceIcon } from "../../parts/agent-session/agent-session.tsx";
 import { codingDot, codingFace } from "../../parts/agent-session/coding.ts";
-import { closeTerminalTab, type TerminalDeps } from "../../terminal/deps.ts";
+import {
+  closeTerminalTab,
+  type TerminalDeps,
+  terminalLive,
+} from "../../terminal/deps.ts";
 import {
   folderTitle,
   type RememberedName,
@@ -25,6 +29,7 @@ import { GuiSwitch, guiTitleOf } from "../../terminal/terminal-gui.tsx";
 import { TerminalTab } from "../../terminal/terminal-tab.tsx";
 import type { TabItem } from "../model.ts";
 import { openAt, showAfter } from "../open-policy.ts";
+import { createProjectCommandsSource } from "../project-commands/source.ts";
 import type { SessionTabOpen } from "./agent.tsx";
 import { openFile } from "./document-editor.tsx";
 import type { TabHost } from "./host.ts";
@@ -100,8 +105,13 @@ export function openTerminal(
     open?: SessionTabOpen;
     /** 이미 core에 있는 터미널의 참조. */
     terminal?: string;
-    /** project command 전용 PTY 탭. layout에 저장하지 않고(일반 탭 복원 제외) 탭 닫기로 프로세스를 죽이지 않는다. */
+    /** project command 전용 PTY 탭. layout에 저장하지 않고(일반 탭 복원 제외) 닫을 때 실행 중이면 확인 후 중지, 종료 상태면 indicator를 정리한다. */
     dedicated?: true;
+    /** project command 전용 탭이 가리키는 명령. 닫을 때 `project_commands/stop{dismiss: true}`를 호출한다. */
+    projectCommand?: {
+      readonly project: string;
+      readonly id: string;
+    };
     /** 탭 초기 제목(명령 전용 터미널의 명령 이름 등). */
     title?: string;
     /** 터미널이 있는 기계. 없으면 workspace의 기계다. */
@@ -150,6 +160,12 @@ export function openTerminal(
       auto,
       ...(options.terminal === undefined ? {} : { terminal: options.terminal }),
       ...(options.dedicated === true ? { dedicated: true } : {}),
+      ...(options.projectCommand === undefined
+        ? {}
+        : {
+            commandProject: options.projectCommand.project,
+            commandId: options.projectCommand.id,
+          }),
       ...(options.title === undefined ? {} : { name: options.title }),
       ...(options.seed === undefined
         ? {}
@@ -540,12 +556,35 @@ export const terminalKind: TabKindDef = {
     );
   },
   // 살아 있는 터미널은 사람이 확인해야 닫는다. 취소하면 탭과 shell을 유지한다.
-  // project command 전용 터미널 탭은 뷰어만 닫고 실행 중인 명령은 계속 돈다(중지는 메뉴·CLI·palette에서).
+  // project command 전용 터미널 탭도 실행 중이면 확인 후 명령을 중지하고, 끝난·실패 상태면 indicator를 함께 지운다.
   beforeClose(tab, host, options) {
     const terminal = terminalOf(tab, host);
     if (tab.fields?.dedicated === true) {
-      terminal?.store.delete(tab.key);
-      return Promise.resolve(true);
+      const commandProject =
+        typeof tab.fields.commandProject === "string"
+          ? tab.fields.commandProject
+          : null;
+      const commandId =
+        typeof tab.fields.commandId === "string" ? tab.fields.commandId : null;
+      return (async () => {
+        const live =
+          terminal !== undefined && (await terminalLive(terminal, tab.key));
+        if (live && options?.confirmed !== true) {
+          if (terminal === undefined || !(await terminal.confirmClose())) {
+            return false;
+          }
+        }
+        if (commandProject !== null && commandId !== null) {
+          const core = host.machineData(tab.machine ?? host.machine).core;
+          const stopped = await createProjectCommandsSource(core).stop(
+            commandProject,
+            { command: commandId, dismiss: true },
+          );
+          if (live && !stopped.ok) return false;
+        }
+        terminal?.store.delete(tab.key);
+        return true;
+      })();
     }
     return terminal
       ? closeTerminalTab(terminal, tab.key, options?.confirmed === true)

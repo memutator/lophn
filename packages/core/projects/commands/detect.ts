@@ -3,7 +3,6 @@
 import { join } from "node:path";
 import { parse as parseToml } from "smol-toml";
 import {
-  type CommandIcon,
   type CommandKind,
   type DetectedCommandCandidate,
   type DetectResult,
@@ -27,41 +26,8 @@ export type DetectFolder = {
 const SERVICE_SCRIPT_NAME =
   /^(?:dev|start|serve|watch|preview|server|backend|frontend)(?:[:_-]|$)|(?:[:_-])(?:dev|serve|watch)$/i;
 
-function classifyScript(name: string): {
-  kind: CommandKind;
-  icon: CommandIcon;
-} {
-  if (SERVICE_SCRIPT_NAME.test(name)) {
-    return { kind: "service", icon: "globe" };
-  }
-  const lower = name.toLowerCase();
-  if (
-    lower.includes("test") ||
-    lower.includes("spec") ||
-    lower.includes("e2e")
-  ) {
-    return { kind: "action", icon: "test" };
-  }
-  if (
-    lower.includes("lint") ||
-    lower.includes("check") ||
-    lower.includes("fmt") ||
-    lower.includes("format") ||
-    lower.includes("type")
-  ) {
-    return { kind: "action", icon: "lint" };
-  }
-  if (
-    lower.includes("build") ||
-    lower.includes("compile") ||
-    lower.includes("bundle")
-  ) {
-    return { kind: "action", icon: "build" };
-  }
-  if (lower.includes("debug")) {
-    return { kind: "action", icon: "debug" };
-  }
-  return { kind: "action", icon: "terminal" };
+function classifyScript(name: string): CommandKind {
+  return SERVICE_SCRIPT_NAME.test(name) ? "service" : "action";
 }
 
 function asStringRecord(value: unknown): Record<string, string> | undefined {
@@ -117,7 +83,6 @@ type RawCandidate = {
   name: string;
   command: string;
   kind: CommandKind;
-  icon?: CommandIcon;
   description?: string;
   folder_ref?: string;
   cwd?: string;
@@ -149,12 +114,10 @@ async function detectPackageJson(
   const pm = await detectPackageManager(fs, folder.path);
   for (const [scriptName, scriptBody] of Object.entries(parsed.scripts)) {
     if (typeof scriptBody !== "string" || scriptBody.trim() === "") continue;
-    const { kind, icon } = classifyScript(scriptName);
     out.push({
       name: scriptName.slice(0, 60),
       command: `${pm} ${shellQuote(scriptName)}`,
-      kind,
-      icon,
+      kind: classifyScript(scriptName),
       folder_ref: folder.folder_ref,
       source: "package.json",
     });
@@ -177,12 +140,10 @@ async function detectMakefile(
     const target = match[1]!;
     if (seen.has(target)) continue;
     seen.add(target);
-    const { kind, icon } = classifyScript(target);
     out.push({
       name: target.slice(0, 60),
       command: `make ${shellQuote(target)}`,
-      kind,
-      icon,
+      kind: classifyScript(target),
       folder_ref: folder.folder_ref,
       source: "Makefile",
     });
@@ -206,12 +167,10 @@ async function detectJustfile(
     const recipe = match[1]!;
     if (seen.has(recipe)) continue;
     seen.add(recipe);
-    const { kind, icon } = classifyScript(recipe);
     out.push({
       name: recipe.slice(0, 60),
       command: `just ${shellQuote(recipe)}`,
-      kind,
-      icon,
+      kind: classifyScript(recipe),
       folder_ref: folder.folder_ref,
       source: "justfile",
     });
@@ -264,7 +223,6 @@ async function detectClaudeLaunch(
       name: name.slice(0, 60),
       command: command.slice(0, 4000),
       kind: "service",
-      icon: "globe",
       folder_ref: folder.folder_ref,
       cwd: validCwd(cfg.cwd),
       env: asStringRecord(cfg.env),
@@ -306,12 +264,10 @@ async function detectCodexEnv(
     const name = typeof act.name === "string" ? act.name.trim() : "";
     const command = typeof act.command === "string" ? act.command.trim() : "";
     if (name === "" || command === "") continue;
-    const { kind, icon } = classifyScript(name);
     out.push({
       name: name.slice(0, 60),
       command: command.slice(0, 4000),
-      kind,
-      icon,
+      kind: classifyScript(name),
       folder_ref: folder.folder_ref,
       source: ".codex/environments/environment.toml",
     });
@@ -359,18 +315,16 @@ async function detectJsonToolConfig(
           `${file} "${name}": worktree lifecycle hook flag was omitted.`,
         );
       }
-      const classified = classifyScript(name);
       const kind: CommandKind =
         entry.kind === "service" || entry.type === "service"
           ? "service"
           : entry.kind === "action"
             ? "action"
-            : classified.kind;
+            : classifyScript(name);
       out.push({
         name: name.slice(0, 60),
         command: command.slice(0, 4000),
         kind,
-        icon: kind === "service" ? "globe" : classified.icon,
         folder_ref: folder.folder_ref,
         cwd: validCwd(entry.cwd),
         env: asStringRecord(entry.env),
@@ -392,12 +346,10 @@ async function detectJsonToolConfig(
         continue;
       }
       if (typeof value === "string" && value.trim() !== "") {
-        const { kind, icon } = classifyScript(key);
         out.push({
           name: key.slice(0, 60),
           command: value.trim().slice(0, 4000),
-          kind,
-          icon,
+          kind: classifyScript(key),
           folder_ref: folder.folder_ref,
           source: file,
         });
@@ -449,7 +401,6 @@ export async function detectProjectCommands(deps: {
       name: item.name,
       command: item.command,
       kind: item.kind,
-      ...(item.icon === undefined ? {} : { icon: item.icon }),
       ...(item.description === undefined
         ? {}
         : { description: item.description }),

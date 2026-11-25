@@ -31,19 +31,6 @@ export const COMMAND_KINDS = ["action", "service"] as const;
 export const commandKindSchema = z.enum(COMMAND_KINDS);
 export type CommandKind = z.infer<typeof commandKindSchema>;
 
-export const COMMAND_ICONS = [
-  "play",
-  "terminal",
-  "build",
-  "test",
-  "lint",
-  "debug",
-  "globe",
-  "wrench",
-] as const;
-export const commandIconSchema = z.enum(COMMAND_ICONS);
-export type CommandIcon = z.infer<typeof commandIconSchema>;
-
 export const PROJECT_COMMANDS_MAX = 50;
 export const PROJECT_COMMAND_ENV_MAX = 64;
 export const PROJECT_COMMAND_DETECTED_URLS_MAX = 8;
@@ -135,7 +122,6 @@ export const projectCommandSchema = z.strictObject({
   name: projectCommandNameSchema,
   command: projectCommandScriptSchema,
   kind: commandKindSchema,
-  icon: commandIconSchema.optional(),
   description: z.string().trim().max(200).optional(),
   folder_ref: z.string().min(1).max(80).optional(),
   cwd: projectCommandCwdSchema.optional(),
@@ -160,7 +146,6 @@ export const projectCommandInputSchema = z.strictObject({
   name: projectCommandNameSchema,
   command: projectCommandScriptSchema,
   kind: commandKindSchema.default("action"),
-  icon: commandIconSchema.optional(),
   description: z.string().trim().max(200).optional(),
   folder_ref: z.string().min(1).max(80).optional(),
   cwd: projectCommandCwdSchema.optional(),
@@ -178,7 +163,6 @@ export const projectCommandPatchSchema = z.strictObject({
   name: projectCommandNameSchema.optional(),
   command: projectCommandScriptSchema.optional(),
   kind: commandKindSchema.optional(),
-  icon: commandIconSchema.nullable().optional(),
   description: z.string().trim().max(200).nullable().optional(),
   folder_ref: z.string().min(1).max(80).nullable().optional(),
   cwd: projectCommandCwdSchema.nullable().optional(),
@@ -235,7 +219,6 @@ export const detectedCommandCandidateSchema = z.strictObject({
   name: projectCommandNameSchema,
   command: projectCommandScriptSchema,
   kind: commandKindSchema,
-  icon: commandIconSchema.optional(),
   description: z.string().trim().max(200).optional(),
   folder_ref: z.string().min(1).max(80).optional(),
   cwd: projectCommandCwdSchema.optional(),
@@ -253,11 +236,6 @@ export const detectResultSchema = z.strictObject({
   unsupported_notes: z.array(z.string()),
 });
 export type DetectResult = z.infer<typeof detectResultSchema>;
-
-// icon 생략 시 kind의 기본 아이콘이다.
-export function defaultCommandIcon(kind: CommandKind): CommandIcon {
-  return kind === "service" ? "globe" : "terminal";
-}
 
 const errors = [
   "invalid_input",
@@ -419,6 +397,7 @@ export const projectCommandsRun = defineMemory({
 });
 
 // 명령을 멈춘다(`command` 하나 또는 `all: true`로 project 전체). 프로세스 트리 종료 완료 뒤 돌려준다.
+// `dismiss: true`면 끝난·실패 실행 상태와 터미널 참조까지 정리해 idle로 되돌린다(터미널 탭 닫기·사이드바 지우기).
 export const projectCommandsStop = defineMemory({
   resource: "project_commands",
   method: "stop",
@@ -429,6 +408,7 @@ export const projectCommandsStop = defineMemory({
       project: idSchema("prj"),
       command: z.string().trim().min(1).max(120).optional(),
       all: z.boolean().optional(),
+      dismiss: z.boolean().optional(),
     })
     .refine((value) => value.all === true || value.command !== undefined, {
       message: "specify command or all: true",

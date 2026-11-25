@@ -564,6 +564,59 @@ test("runtime blocks symlink cwd escape, tracks state machine, URL detection, lo
   }
 });
 
+test("stop with dismiss clears failed state and stops+clears running command", async () => {
+  const root = mkdtempSync(join(tmpdir(), "lophn-pc-dismiss-"));
+  try {
+    const events: ProjectCommandRun[] = [];
+    const fakeTerm = fakeTerminals();
+    const clock = fakeClock();
+    const runtime = createProjectCommandRuntime({
+      terminals: fakeTerm.terminals,
+      folders: async () => ok([{ folder_ref: `${PRJ}_0`, path: root }]),
+      clock,
+      ids: createIdSource({ clock, random: FAKE_RANDOM }),
+      onRunChanged: (_project, run) => events.push(run),
+    });
+
+    const act: ProjectCommand = {
+      id: "build",
+      name: "Build",
+      command: "npm run build",
+      kind: "action",
+    };
+    const started = await runtime.start(PRJ, act);
+    assert.ok(started.ok);
+    const ref1 = fakeTerm.opened[0]!.terminal_ref;
+    const gen1 = fakeTerm.opened[0]!.generation;
+    fakeTerm.emitExit(ref1, gen1, 1);
+    assert.equal(runtime.getRun(PRJ, "build")?.status, "failed");
+
+    // Dismissing a failed run emits idle (terminal_id: null) and removes it from runtime entries.
+    const dismissedFailed = await runtime.stop(PRJ, "build", "user", {
+      dismiss: true,
+    });
+    assert.ok(dismissedFailed.ok);
+    assert.equal(dismissedFailed.value?.status, "idle");
+    assert.equal(dismissedFailed.value?.terminal_id, null);
+    assert.equal(runtime.getRun(PRJ, "build"), null);
+    assert.equal(events.at(-1)?.status, "idle");
+
+    // Dismissing a running command stops the PTY first and clears state.
+    const started2 = await runtime.start(PRJ, act);
+    assert.ok(started2.ok);
+    const closedBefore = fakeTerm.closed.length;
+    const dismissedRunning = await runtime.stop(PRJ, "build", "user", {
+      dismiss: true,
+    });
+    assert.ok(dismissedRunning.ok);
+    assert.equal(fakeTerm.closed.length, closedBefore + 1);
+    assert.equal(dismissedRunning.value?.status, "idle");
+    assert.equal(runtime.getRun(PRJ, "build"), null);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("log buffer retains at most 200 lines / 32 KiB after exit and URL detection strips ANSI", () => {
   const buf = new CommandLogBuffer();
   for (let i = 1; i <= 350; i += 1) {
@@ -682,7 +735,6 @@ test("store round-trips commands and settings through ledger createSql (bigint I
             name: "Deploy",
             command: "/usr/local/bin/deploy",
             kind: "action",
-            icon: "globe",
             description: "deploy build",
             preview_url: "http://localhost:3000",
             auto_open_preview: true,
@@ -710,7 +762,6 @@ test("store round-trips commands and settings through ledger createSql (bigint I
       name: "Deploy",
       command: "/usr/local/bin/deploy",
       kind: "action",
-      icon: "globe",
       description: "deploy build",
       preview_url: "http://localhost:3000",
       auto_open_preview: true,

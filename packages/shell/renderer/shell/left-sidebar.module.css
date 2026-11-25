@@ -577,40 +577,60 @@ button.deskHead:hover {
   visibility: hidden;
 }
 
-/* project 줄의 실행 중/실패 command 표시 점과 수. 누르면 공용 명령 목록 popover가 뜬다. */
-.commandIndicator {
+/* project 아래에 agent session처럼 서는 실행 중·실패 command 줄. 평소에는 상태 점·실패 글을 보이고, hover·focus 때 액션 단추로 바뀐다. */
+.commandLine > .sessionRow {
+  padding-inline-end: var(--space-3);
+}
+
+.commandLine:hover > .sessionRow,
+.commandLine:focus-within > .sessionRow {
+  padding-inline-end: calc(var(--space-7) * 2 + var(--space-1));
+}
+
+.commandLine[data-has-preview]:hover > .sessionRow,
+.commandLine[data-has-preview]:focus-within > .sessionRow {
+  padding-inline-end: calc(var(--space-7) * 3 + var(--space-2));
+}
+
+.commandStatus {
   display: inline-flex;
   flex: none;
   gap: var(--space-1);
   align-items: center;
-  height: var(--space-5);
-  padding: var(--space-0) var(--space-1);
-  color: var(--color-text-secondary);
-  font-size: var(--type-caption-size);
-  font-family: var(--font-mono);
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-full);
-  cursor: pointer;
 }
 
-.commandIndicator:hover {
-  color: var(--color-text-primary);
-  background: var(--color-surface-subtle);
-}
-
-.commandIndicatorDot {
+.commandDot {
   flex: none;
   width: var(--space-2);
   height: var(--space-2);
-  background: var(--status-good-marker);
   border-radius: var(--radius-full);
 }
 
-.commandIndicator[data-failed] .commandIndicatorDot {
+.commandDotRunning {
+  background: var(--status-good-marker);
+}
+
+.commandDotFailed {
   background: var(--status-critical-marker);
 }
 
-.commandIndicator[data-failed] {
+.commandStatusText {
+  flex: none;
   color: var(--status-critical-text);
+  font-size: var(--type-caption-size);
+  font-family: var(--font-mono);
+}
+
+.commandActions {
+  display: none;
+}
+
+.commandLine:hover .commandStatus,
+.commandLine:focus-within .commandStatus {
+  display: none;
+}
+
+.commandLine:hover .commandActions,
+.commandLine:focus-within .commandActions {
+  display: flex;
 }

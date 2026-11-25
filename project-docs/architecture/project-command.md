@@ -32,7 +32,7 @@ ledger (project마다)
   project_command_settings  : { agents: "all" | agent_id[], ask_before_run, approve_agent_writes }
 ```
 
-- `ProjectCommand`는 `id`(slug, project 내 유일), `name`, `command`(여러 줄 가능), `kind`(`action` | `service`), `icon`(8종), `description`, `folder_ref`(기준 등록 폴더), `cwd`(기준 폴더 기준 상대 경로), `env`(key-value, 최대 64개), `preview_url`, `auto_open_preview`(기본 꺼짐), `timeout_ms`(`action` 전용), `order`, 명령별 덮어쓰기 `agents?`, `ask_before_run?`을 갖는다.
+- `ProjectCommand`는 `id`(slug, project 내 유일), `name`, `command`(여러 줄 가능), `kind`(`action` | `service`), `description`, `folder_ref`(기준 등록 폴더), `cwd`(기준 폴더 기준 상대 경로), `env`(key-value, 최대 64개), `preview_url`, `auto_open_preview`(기본 꺼짐), `timeout_ms`(`action` 전용), `order`, 명령별 덮어쓰기 `agents?`, `ask_before_run?`을 갖는다. 목록·사이드바·설정에서 명령 아이콘은 모두 터미널 아이콘으로 통일한다.
 - 새 project의 기본 agent 설정은 `agents: "all"`, `ask_before_run: false`, `approve_agent_writes: true`다.
 - `env` 값은 비밀일 수 있으므로 로그·알림·승인 카드·CLI `list`·agent 응답·원격 응답에 원문으로 싣지 않는다(키 이름 `env_keys`만 보인다). 로컬 사람 자격의 설정 편집 읽기(`include_env: true`)에만 값을 싣는다.
 
@@ -75,8 +75,8 @@ idle ─▶ starting ─▶ running ─┬─ exit 0           ─▶ succeeded 
 ### 화면 진입점
 
 - 진입점은 네 곳이다: Ctrl+K palette(`Run: <이름>`, 도는 중 `Stop: <이름>`·`Restart: <이름>`), Terminal 빠른 실행 단추 hover의 Commands 묶음, 사이드바 project 줄의 `+` hover 아래 Commands 묶음, 탭 줄 `+` 메뉴의 `Terminal` 하위 메뉴.
-- 메뉴 세 곳과 사이드바 project 줄의 상태 표시(도는 수 점, 실패 시 오류 색) 클릭 popover가 같은 공용 목록 component를 쓴다.
-- 명령마다 터미널 탭은 하나를 재사용하며, `action`이 0이 아닌 코드나 timeout으로 끝나면 "터미널 보기" 행동이 달린 toast를 띄운다.
+- 메뉴 세 곳은 같은 공용 목록 component를 쓰며, 실행 중이거나 실패한 명령은 사이드바에서 project 줄 아래에 agent session과 같은 수준의 개별 줄로 보인다(클릭 시 터미널 열기, hover 시 preview·재시작·중지/지우기 단추).
+- 명령마다 터미널 탭은 하나를 재사용하며, `action`이 0이 아닌 코드나 timeout으로 끝나면 "터미널 보기" 행동이 달린 toast를 띄운다. 전용 터미널 탭을 닫을 때 명령이 실행 중이면 확인 후 중지하고, 끝난·실패 상태면 실행 표시(`dismiss`)를 함께 지운다.
 
 ## 지키는 것
 

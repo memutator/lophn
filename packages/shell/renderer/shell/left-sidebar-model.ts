@@ -1,10 +1,11 @@
 // 왼쪽 sidebar가 그리는 값. 화면은 이 값과 callback만 안다(project 창, 뒤에 Home과 app workspace가 같이 쓴다).
-import type { AgentFace } from "../parts/agent-session/agent-session.tsx";
-import type { SessionDot } from "../parts/agent-session/activity.ts";
+
 import type {
   Copy,
   ListedProject,
 } from "../desktop/workspaces/projects/machine-workspaces.ts";
+import type { SessionDot } from "../parts/agent-session/activity.ts";
+import type { AgentFace } from "../parts/agent-session/agent-session.tsx";
 import type { WorkspaceRef } from "./desk-model.ts";
 
 /**
@@ -97,6 +98,22 @@ export interface SidebarDeskGroup {
   readonly desk: { readonly key: string; readonly label: string } | null;
   /** 팀 tree의 맨 위 단계 줄. 자식 줄은 `children`에 든다. */
   readonly items: readonly SidebarSession[];
+}
+
+export interface SidebarCommand {
+  readonly key: string;
+  readonly name: string;
+  readonly status: "running" | "failed" | "timed_out";
+  readonly exitCode: number | null;
+  /** 다른 컴퓨터(같은 `pri_`)에서 도는 명령이면 그 컴퓨터 이름. */
+  readonly machineName?: string;
+  readonly previewUrl: string | null;
+  /** 이 창에서 선택된 탭(`selected`)과 비교할 `sessionKey`. */
+  readonly selectedKey: string;
+  readonly onOpen: () => void;
+  readonly onRestart: () => void;
+  readonly onDismiss: () => void;
+  readonly onPreview?: () => void;
 }
 
 export interface SidebarWorkspace {

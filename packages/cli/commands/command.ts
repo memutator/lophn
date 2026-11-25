@@ -5,7 +5,6 @@
 import { z } from "zod";
 import { err, type LophnError, ok, type Result } from "../../base/mod.ts";
 import {
-  commandIconSchema,
   commandKindSchema,
   type ProjectCommand,
   type ProjectCommandRun,
@@ -367,7 +366,6 @@ const addCmd = defineCommand({
     command: projectCommandScriptSchema,
     id: projectCommandIdSchema.optional(),
     kind: commandKindSchema.optional(),
-    icon: commandIconSchema.optional(),
     description: z.string().trim().max(200).optional(),
     folder_ref: z.string().min(1).max(80).optional(),
     cwd: projectCommandCwdSchema.optional(),
@@ -394,7 +392,6 @@ const addCmd = defineCommand({
         name: input.name,
         command: input.command,
         kind: input.kind ?? "action",
-        ...(input.icon === undefined ? {} : { icon: input.icon }),
         ...(input.description === undefined
           ? {}
           : { description: input.description }),
@@ -434,7 +431,6 @@ const updateCmd = defineCommand({
     name: projectCommandNameSchema.optional(),
     command: projectCommandScriptSchema.optional(),
     kind: commandKindSchema.optional(),
-    icon: commandIconSchema.optional(),
     description: z.string().trim().max(200).optional(),
     folder_ref: z.string().min(1).max(80).optional(),
     cwd: projectCommandCwdSchema.optional(),
@@ -461,7 +457,6 @@ const updateCmd = defineCommand({
         ...(input.name === undefined ? {} : { name: input.name }),
         ...(input.command === undefined ? {} : { command: input.command }),
         ...(input.kind === undefined ? {} : { kind: input.kind }),
-        ...(input.icon === undefined ? {} : { icon: input.icon }),
         ...(input.description === undefined
           ? {}
           : { description: input.description }),

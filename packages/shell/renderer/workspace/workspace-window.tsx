@@ -281,6 +281,7 @@ import { createProjectCommandsSource } from "./project-commands/source.ts";
 import {
   isCommandActive,
   type ProjectCommandGroup,
+  projectCommandTabKey,
   useProjectCommandsState,
   useRemoteProjectCommandGroups,
 } from "./project-commands/use-project-commands.ts";
@@ -1787,7 +1788,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
       run: ProjectCommandRun,
     ) => {
       if (run.terminal_id === null) return;
-      const key = `project-cmd-${group.machine ?? "local"}-${group.projectId}-${cmd.id}`;
+      const key = projectCommandTabKey(group.machine, group.projectId, cmd.id);
       const existing = allTabs(latestLayout.current).find(
         (tab) => tab.key === key,
       );
@@ -1806,6 +1807,8 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
               ...cur.fields,
               terminal: run.terminal_id,
               dedicated: true,
+              commandProject: group.projectId,
+              commandId: cmd.id,
               name: cmd.name,
             },
           }));
@@ -1817,6 +1820,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
       openTerminalTab(hostRef.current, {
         terminal: run.terminal_id,
         dedicated: true,
+        projectCommand: { project: group.projectId, id: cmd.id },
         title: cmd.name,
         docked: true,
         open: { key },
@@ -1858,6 +1862,22 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
         void sourceOf(group).stop(group.projectId, { all: true }),
       onRestart: (group, cmd) =>
         void sourceOf(group).restart(group.projectId, cmd.id),
+      onDismiss: (group, cmd) => {
+        const key = projectCommandTabKey(
+          group.machine,
+          group.projectId,
+          cmd.id,
+        );
+        void sourceOf(group)
+          .stop(group.projectId, { command: cmd.id, dismiss: true })
+          .then((res) => {
+            if (!res.ok) return;
+            machineData(group.machine).terminal?.store.delete(key);
+            if (allTabs(latestLayout.current).some((tab) => tab.key === key)) {
+              removeTab(key);
+            }
+          });
+      },
       onViewTerminal: openCommandTerminal,
       onOpenPreview: openCommandPreview,
       ...(data.here && projectId !== null
@@ -4191,7 +4211,6 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
                   canTerminal={terminal !== undefined}
                   activeProjectCommandGroups={projectCommandGroups}
                   projectCommandActions={projectCommandActions}
-                  onCommandTerminal={openCommandTerminal}
                   onCommandPreview={openCommandPreview}
                   onNewSession={() => void openLophn()}
                   {...(props.onNewSessionAt === undefined

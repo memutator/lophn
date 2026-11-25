@@ -23,7 +23,7 @@ export { modalityIcons, modelIcons } from "./model.ts";
 export { paletteIcons } from "./palette.ts";
 export {
   projectCommandActionIcons,
-  projectCommandIcons,
+  projectCommandIcon,
 } from "./project-commands.ts";
 export { settingsIcons } from "./settings.ts";
 export { shellIcons } from "./shell.ts";

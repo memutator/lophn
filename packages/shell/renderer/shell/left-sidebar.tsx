@@ -99,6 +99,8 @@ export interface LeftSidebarProps {
   /** workspace 줄 누르기. 앱 줄이면 그 앱 화면 탭으로 간다. */
   onWorkspace: (ref: WorkspaceRef) => void;
   onSession: (workspace: SidebarWorkspace, session: SidebarSession) => void;
+  /** current 줄을 나눈 desk 머리 줄 누르기. 그 workspace의 해당 desk로 전환한다. */
+  onDesk?: (workspace: SidebarWorkspace, deskKey: string) => void;
   /** 펼친 session 줄 아래의 탭 줄 누르기. 그 탭으로 간다(접힌 float이면 편다). */
   onSessionTab?: (tab: SidebarTab) => void;
   /** Recent 줄을 목록에서 지운다. 주지 않으면 menu가 없다. */
@@ -406,6 +408,7 @@ export function LeftSidebar({
   onAgents,
   onWorkspace,
   onSession,
+  onDesk,
   onSessionTab,
   onRemoveRecent,
   onRegisterProject,
@@ -873,20 +876,36 @@ export function LeftSidebar({
         {handoffs === null || projectId === undefined
           ? null
           : handoffRows(handoffs, projectId)}
-        {workspace.current.map((group) => (
-          <Fragment key={group.desk?.key ?? ""}>
-            {/* desk를 하나만 쓰면 지금처럼 줄만 둔다. */}
-            {workspace.current.length < 2 ? null : (
-              <div
-                className={styles.deskHead}
-                data-sidebar-desk={group.desk?.key ?? ""}
-              >
-                {group.desk?.label}
-              </div>
-            )}
-            {group.items.map((item) => renderItem(workspace, here, item))}
-          </Fragment>
-        ))}
+        {workspace.current.map((group) => {
+          const desk = group.desk;
+          const head =
+            workspace.current.length < 2 || desk === null ? null : onDesk ===
+              undefined ? (
+              <Tooltip content={desk.label} placement="beside">
+                <div className={styles.deskHead} data-sidebar-desk={desk.key}>
+                  {desk.label}
+                </div>
+              </Tooltip>
+            ) : (
+              <Tooltip content={desk.label} placement="beside">
+                <button
+                  type="button"
+                  className={styles.deskHead}
+                  data-sidebar-desk={desk.key}
+                  onClick={() => onDesk(workspace, desk.key)}
+                >
+                  {desk.label}
+                </button>
+              </Tooltip>
+            );
+          return (
+            <Fragment key={desk?.key ?? ""}>
+              {/* desk를 하나만 쓰면 지금처럼 줄만 둔다. */}
+              {head}
+              {group.items.map((item) => renderItem(workspace, here, item))}
+            </Fragment>
+          );
+        })}
         {workspace.recent.length === 0 ? null : (
           <button
             type="button"

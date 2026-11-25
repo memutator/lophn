@@ -52,6 +52,7 @@ import {
   loadLines,
   runningInstances,
 } from "./store.ts";
+import { WORKFLOW_TITLE_SCHEMA_STEP } from "./title-schema.ts";
 
 const FLOW = "wfi_01hzzzzzzzzzzzzzzzzzzzzzza";
 const AGENT = "wfi_01hzzzzzzzzzzzzzzzzzzzzzzb";
@@ -939,6 +940,7 @@ test("StartWorkflow validates inputs (required, when-hidden, callable agent), in
   const h = makeHarness();
   try {
     h.db.exec(WORKFLOW_INPUTS_SCHEMA_STEP.sql);
+    h.db.exec(WORKFLOW_TITLE_SCHEMA_STEP.sql);
     const agentYaml = [
       "kind: agent",
       "inputs:",
@@ -994,6 +996,8 @@ test("StartWorkflow validates inputs (required, when-hidden, callable agent), in
     };
 
     let idSeq = 0;
+    const titleRequests: Array<{ instance: string; expected: string | null }> =
+      [];
     const service = createWorkflowService({
       files: {
         list: () =>
@@ -1099,6 +1103,9 @@ test("StartWorkflow validates inputs (required, when-hidden, callable agent), in
         newId: (prefix: string) =>
           `${prefix}_01hzzzzzzzzzzzzzzzzzzzzzz${String.fromCharCode(97 + idSeq++)}`,
       } as never,
+      onTitleNeeded: (req) => {
+        titleRequests.push(req);
+      },
       logger,
     });
 
@@ -1169,6 +1176,36 @@ test("StartWorkflow validates inputs (required, when-hidden, callable agent), in
     assert.equal(launched.length, 1);
     const launchArg = launched[0] as { inputs?: Record<string, unknown> };
     assert.deepStrictEqual(launchArg.inputs, startedFlow.value.instance.inputs);
+    assert.equal(titleRequests.length, 2);
+    assert.equal(startedAgent.value.instance.title, "Check latency");
+    assert.equal(startedFlow.value.instance.title, "run flow");
+
+    // 5) explicit title is stored verbatim (trimmed) and skips AI auto-title request
+    const explicitAgent = await service.start(
+      {
+        workflow: "demo/agent-wf",
+        title: "  Latency audit  ",
+        text: "Check latency again",
+        inputs: { reviewer: "coding_codex" },
+      },
+      { kind: "user" },
+    );
+    assert.ok(explicitAgent.ok);
+    assert.equal(explicitAgent.value.instance.title, "Latency audit");
+    assert.equal(titleRequests.length, 2);
+
+    const explicitFlow = await service.start(
+      {
+        workflow: "demo/flow-wf",
+        title: "Nightly release flow",
+        text: "run flow again",
+        inputs: { token_note: "ok" },
+      },
+      { kind: "user" },
+    );
+    assert.ok(explicitFlow.ok);
+    assert.equal(explicitFlow.value.instance.title, "Nightly release flow");
+    assert.equal(titleRequests.length, 2);
   } finally {
     h.db.close();
   }

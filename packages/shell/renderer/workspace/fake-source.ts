@@ -1695,7 +1695,7 @@ export function fakeWorkspaceSource(
           : { ok: true, value: detail },
       );
     },
-    startWorkflow({ workflow, text, step, inputs }) {
+    startWorkflow({ workflow, title, text, step, inputs }) {
       const entry = (options.workflows ?? FAKE_WORKFLOWS).find(
         (item) => item.key === workflow,
       );
@@ -1733,11 +1733,13 @@ export function fakeWorkspaceSource(
           .split("\n")
           .map((line) => line.trim())
           .find((line) => line !== "") ?? null;
+      const explicit = title?.trim() || null;
+      const resolvedTitle = explicit ?? firstLine;
       const instance: WorkflowInstanceView = {
         id,
         project: entry.project,
         workflow: entry.name,
-        title: firstLine,
+        title: resolvedTitle,
         input: text,
         ...(normalizedInputs === undefined ? {} : { inputs: normalizedInputs }),
         state: "running",
@@ -1777,7 +1779,7 @@ export function fakeWorkspaceSource(
       ];
       return Promise.resolve({
         ok: true,
-        value: { instance: id, title: firstLine },
+        value: { instance: id, title: resolvedTitle },
       });
     },
     renameWorkflowInstance(id, title) {

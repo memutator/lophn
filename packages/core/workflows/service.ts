@@ -75,7 +75,7 @@ import type {
 import { deriveWorkflowStatus } from "./reads.ts";
 import { remoteTurnEndedText } from "./remote.ts";
 import { STATUS_LINE_KINDS, type StatusLineKind } from "./store.ts";
-import { autoWorkflowTitle } from "./title-schema.ts";
+import { autoWorkflowTitle, renameWorkflowTitle } from "./title-schema.ts";
 import {
   runSubWorkflowCall,
   type SubWorkflowRequest,
@@ -700,6 +700,13 @@ export function createWorkflowService(deps: {
       validatedInputs = input.inputs;
     }
 
+    let explicitTitle: string | null = null;
+    if (input.title !== undefined) {
+      const checkedTitle = renameWorkflowTitle(input.title);
+      if (!checkedTitle.ok) return checkedTitle;
+      explicitTitle = checkedTitle.value;
+    }
+
     // 실행 모드는 오직 flow.ts 파일 유무로 결정한다.
     if (file.flow) {
       if (input.step !== undefined) {
@@ -712,7 +719,8 @@ export function createWorkflowService(deps: {
         codeSnapshot = captured.value;
       }
       const id = ids.newId("wfi") as Id<"wfi">;
-      const initialTitle = autoWorkflowTitle(input.text, validatedInputs);
+      const initialTitle =
+        explicitTitle ?? autoWorkflowTitle(input.text, validatedInputs);
       const flowSteps = flowStepsOf(parsed.declaration).map((s) => {
         const override = input.step_open?.[s.name];
         return override !== undefined ? { ...s, open: override } : s;
@@ -732,15 +740,17 @@ export function createWorkflowService(deps: {
         handoff: null,
       });
       if (!created.ok) return created;
-      onTitleNeeded?.({
-        instance: id,
-        workflow: name,
-        input: created.value.instance.input,
-        ...(created.value.instance.inputs !== undefined
-          ? { inputs: created.value.instance.inputs }
-          : {}),
-        expected: created.value.instance.title ?? null,
-      });
+      if (explicitTitle === null) {
+        onTitleNeeded?.({
+          instance: id,
+          workflow: name,
+          input: created.value.instance.input,
+          ...(created.value.instance.inputs !== undefined
+            ? { inputs: created.value.instance.inputs }
+            : {}),
+          expected: created.value.instance.title ?? null,
+        });
+      }
       // process 인자에는 redaction을 거친 instance.input·instance.inputs를 넘긴다.
       const launched = await flows.launch({
         instance: id,
@@ -780,7 +790,8 @@ export function createWorkflowService(deps: {
       return fail("not_found", "step not found");
     }
     const id = ids.newId("wfi") as Id<"wfi">;
-    const initialTitle = autoWorkflowTitle(input.text, validatedInputs);
+    const initialTitle =
+      explicitTitle ?? autoWorkflowTitle(input.text, validatedInputs);
     const created = await store.create({
       id,
       project: project.value.id,
@@ -803,7 +814,7 @@ export function createWorkflowService(deps: {
         remote,
       }),
     });
-    if (created.ok) {
+    if (created.ok && explicitTitle === null) {
       onTitleNeeded?.({
         instance: id,
         workflow: name,

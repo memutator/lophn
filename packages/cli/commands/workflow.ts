@@ -30,6 +30,7 @@ import {
   workflowStart,
   workflowStop,
   workflowTextSchema,
+  workflowTitleSchema,
 } from "../../protocol/workflows/mod.ts";
 import { defineCommand } from "./types.ts";
 
@@ -240,6 +241,9 @@ const start = defineCommand({
     "Starts an instance of <project name>/<name> with the given text and prints its id. Without --step it begins at the declaration's start step. Use --inputs '<json>' to pass declarative workflow inputs as a JSON object.",
   input: z.strictObject({
     workflow: workflowKeySchema,
+    title: workflowTitleSchema
+      .optional()
+      .describe("optional run title (default: auto-generated from text)"),
     text: z.string().min(1),
     step: stepNameSchema
       .optional()

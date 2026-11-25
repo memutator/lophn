@@ -4,8 +4,9 @@
 // 서로 대신하는 step은 한 단계에 묶이고 이 run이 지나가지 않은 쪽은 한 줄로만 남는다. 시작 입력과 checkpoint 같은 세부는 접혀 있다.
 
 import { type MessageKey, t } from "@lophn/i18n";
-import { Button, Icon, IconButton } from "@lophn/ui/primitives";
-import { iconPixels } from "@lophn/ui/shared";
+import { Tooltip } from "@lophn/ui/overlay";
+import { Button, CopyButton, Icon, IconButton } from "@lophn/ui/primitives";
+import { iconPixels, systemClipboard } from "@lophn/ui/shared";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import { actionIcons, commonIcons, editorIcons } from "../icons/mod.ts";
@@ -538,7 +539,7 @@ export function RunView({
               </>
             )}
           </div>
-          <p className={styles.meta}>
+          <div className={styles.meta}>
             <StateMark
               shown={shownOfRun(
                 instance.state,
@@ -579,7 +580,19 @@ export function RunView({
                 </span>
               )
             ) : null}
-          </p>
+            <span className={styles.instanceId} data-instance-id={instance.id}>
+              <code className={styles.instanceIdText}>{instance.id}</code>
+              <Tooltip content={t("common.button.copy-id")} placement="beside">
+                <span className={styles.copyWrap}>
+                  <CopyButton
+                    text={instance.id}
+                    label={t("common.button.copy-id")}
+                    clipboard={systemClipboard}
+                  />
+                </span>
+              </Tooltip>
+            </span>
+          </div>
         </div>
         <span className={styles.actions}>
           {hasArtifact ? (

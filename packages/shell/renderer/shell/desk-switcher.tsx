@@ -3,8 +3,9 @@
 // 지우기)를 두어야 해서 Menu가 아니라 Popover다.
 
 import { t } from "@lophn/i18n";
-import { Popover } from "@lophn/ui/overlay";
-import { Icon } from "@lophn/ui/primitives";
+import { Popover, Tooltip } from "@lophn/ui/overlay";
+import { CopyButton, Icon } from "@lophn/ui/primitives";
+import { systemClipboard } from "@lophn/ui/shared";
 import { Fragment, useEffect, useRef, useState } from "react";
 
 import { useKeyLabel } from "../commands/react.tsx";
@@ -26,6 +27,8 @@ export interface DeskOption {
   readonly status?: string;
   /** workflow instance desk의 진행 상태 색/점(working | needs_you | blocked). */
   readonly tone?: DeskStatusTone;
+  /** workflow instance desk에서 복사할 instance ID(`wfi_...`). hover 때 복사 단추를 둔다. */
+  readonly copyId?: string;
   /** 줄 오른쪽에 이름 바꾸기 단추를 둔다(사람이 만든 desk와 workflow instance desk). */
   readonly renameable?: boolean;
   /** 줄 오른쪽에 지우기/닫기 단추를 둔다(사람이 만든 desk와 끝난 workflow instance desk). */
@@ -98,6 +101,14 @@ export function DeskSwitcher({
   const own = desks.filter((desk) => sectionOf(desk) === "desks");
   const flows = desks.filter((desk) => sectionOf(desk) === "workflows");
   const workflowSummary = summarizeWorkflowDesks(desks);
+  // 현재 보고 있는 workflow instance가 유일한 활성 workflow면 숫자(1)는 중복이라 점만 보인다.
+  const showSummaryCount =
+    workflowSummary !== null &&
+    (now.tone === undefined || workflowSummary.count > 1);
+  const triggerTooltip =
+    now.subtitle !== undefined && now.subtitle !== now.label
+      ? `${now.label} / ${now.subtitle}`
+      : now.label;
   const pick = (key: string) => {
     setOpen(false);
     onSelect(key);
@@ -166,8 +177,27 @@ export function DeskSwitcher({
             )}
           </button>
         )}
-        {desk.key !== renaming && (canRename || canDelete) ? (
+        {desk.key !== renaming &&
+        (desk.copyId !== undefined || canRename || canDelete) ? (
           <span className={styles.actions}>
+            {desk.copyId === undefined ? null : (
+              <span className={styles.copyAction}>
+                <Tooltip
+                  content={t("workflow.label.copy-instance-id", {
+                    id: desk.copyId,
+                  })}
+                  placement="beside"
+                >
+                  <span className={styles.copyWrap}>
+                    <CopyButton
+                      text={desk.copyId}
+                      label={t("common.button.copy-id")}
+                      clipboard={systemClipboard}
+                    />
+                  </span>
+                </Tooltip>
+              </span>
+            )}
             {canRename ? (
               <button
                 type="button"
@@ -194,84 +224,92 @@ export function DeskSwitcher({
     );
   };
   return (
-    <span className={styles.slot}>
-      <Popover
-        placement="corner"
-        open={open}
-        onOpenChange={(next) => {
-          setOpen(next);
-          if (!next) setRenaming(null);
-        }}
-        // 이름을 바꾸는 중의 Escape는 입력만 취소한다.
-        onEscapeKeyDown={(event) => {
-          if (renaming !== null) event.preventDefault();
-        }}
-        trigger={
-          <button
-            type="button"
-            className={styles.button}
-            data-workflow={now.workflow || undefined}
-            data-desk-button=""
-            aria-label={t("shell.button.desk", { name: now.label })}
-          >
-            <Icon
-              icon={now.workflow ? shellIcons.workflow : shellIcons.desk}
-              pixels={14}
-            />
-            <span className={styles.label}>{now.label}</span>
-            {workflowSummary === null ? null : (
-              <span
-                className={styles.summary}
-                data-tone={workflowSummary.tone}
-                data-desk-summary=""
-                aria-label={t("workflow.label.desk-summary", {
-                  count: workflowSummary.count,
-                })}
-              >
+    <Tooltip
+      content={triggerTooltip}
+      open={open ? false : undefined}
+      placement="corner"
+    >
+      <span className={styles.slot}>
+        <Popover
+          placement="corner"
+          open={open}
+          onOpenChange={(next) => {
+            setOpen(next);
+            if (!next) setRenaming(null);
+          }}
+          // 이름을 바꾸는 중의 Escape는 입력만 취소한다.
+          onEscapeKeyDown={(event) => {
+            if (renaming !== null) event.preventDefault();
+          }}
+          trigger={
+            <button
+              type="button"
+              className={styles.button}
+              data-workflow={now.workflow || undefined}
+              data-desk-button=""
+              aria-label={t("shell.button.desk", { name: now.label })}
+            >
+              <Icon
+                icon={now.workflow ? shellIcons.workflow : shellIcons.desk}
+                pixels={14}
+              />
+              <span className={styles.label}>{now.label}</span>
+              {workflowSummary === null ? null : (
                 <span
-                  className={styles.dot}
+                  className={styles.summary}
                   data-tone={workflowSummary.tone}
-                  aria-hidden="true"
-                />
-                <span className={styles.summaryCount}>
-                  {workflowSummary.count}
+                  data-desk-summary=""
+                  aria-label={t("workflow.label.desk-summary", {
+                    count: workflowSummary.count,
+                  })}
+                >
+                  <span
+                    className={styles.dot}
+                    data-tone={workflowSummary.tone}
+                    aria-hidden="true"
+                  />
+                  {showSummaryCount ? (
+                    <span className={styles.summaryCount}>
+                      {workflowSummary.count}
+                    </span>
+                  ) : null}
                 </span>
+              )}
+              <Icon icon={shellIcons.expand} pixels={12} />
+            </button>
+          }
+        >
+          <div className={styles.list}>
+            <p className={styles.heading}>{t("shell.heading.desks")}</p>
+            {own.map(row)}
+            {flows.length === 0 ? null : (
+              <Fragment>
+                <div className={styles.separator} />
+                <p className={styles.heading}>{t("shell.heading.workflows")}</p>
+                {flows.map(row)}
+              </Fragment>
+            )}
+            <div className={styles.separator} />
+            <button
+              type="button"
+              className={styles.pick}
+              onClick={() => {
+                setOpen(false);
+                onNewDesk();
+              }}
+            >
+              <span className={styles.lead}>
+                <Icon icon={shellIcons.add} pixels={16} />
               </span>
-            )}
-            <Icon icon={shellIcons.expand} pixels={12} />
-          </button>
-        }
-      >
-        <div className={styles.list}>
-          <p className={styles.heading}>{t("shell.heading.desks")}</p>
-          {own.map(row)}
-          {flows.length === 0 ? null : (
-            <Fragment>
-              <div className={styles.separator} />
-              <p className={styles.heading}>{t("shell.heading.workflows")}</p>
-              {flows.map(row)}
-            </Fragment>
-          )}
-          <div className={styles.separator} />
-          <button
-            type="button"
-            className={styles.pick}
-            onClick={() => {
-              setOpen(false);
-              onNewDesk();
-            }}
-          >
-            <span className={styles.lead}>
-              <Icon icon={shellIcons.add} pixels={16} />
-            </span>
-            <span className={styles.name}>{t("shell.button.new-desk")}</span>
-            {newDeskKey === null ? null : (
-              <span className={styles.status}>{newDeskKey}</span>
-            )}
-          </button>
-        </div>
-      </Popover>
-    </span>
+              <span className={styles.name}>{t("shell.button.new-desk")}</span>
+              {newDeskKey === null ? null : (
+                <span className={styles.status}>{newDeskKey}</span>
+              )}
+            </button>
+          </div>
+        </Popover>
+      </span>
+    </Tooltip>
   );
 }
 

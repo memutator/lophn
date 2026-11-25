@@ -318,16 +318,32 @@
   background: var(--color-surface-muted);
 }
 
-/* current 줄을 나눈 desk 이름. session 줄의 글 자리에 맞춰 들인 작은 글이다. */
+/* current 줄을 나눈 desk 이름. session 줄의 글 자리에 맞춰 들인 작은 글이다. 누르면 그 desk로 간다. */
 .deskHead {
+  display: block;
+  width: 100%;
   overflow: hidden;
-  padding: var(--space-2) var(--space-3) var(--space-0)
+  padding: var(--space-2) var(--space-3) var(--space-1)
     calc(var(--space-3) + var(--space-6));
   color: var(--color-text-muted);
+  font: inherit;
   font-size: var(--type-caption-size);
   line-height: var(--type-caption-line);
+  text-align: start;
   white-space: nowrap;
   text-overflow: ellipsis;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+}
+
+button.deskHead {
+  cursor: pointer;
+}
+
+button.deskHead:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-muted);
 }
 
 .recentToggle {

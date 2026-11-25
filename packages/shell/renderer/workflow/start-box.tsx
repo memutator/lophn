@@ -2,11 +2,12 @@
 // 탭으로 열지, 여기서 시작할지)이 접힌 채 붙는다. 서로 대신하는 step(같은 다음 step으로 가는 이웃)은 한 단계의 선택지로 보이고,
 // 시작하는 단계에서 하나를 고르면 그 step에서 run이 시작된다. step에 붙지 않은 입력과 flow의 session 열기는 Run settings에 있다.
 // 선언적 `inputs`는 제출 직전에 core와 같은 규칙으로 검증한다. 시작이 실패하면 적은 것을 지키고(알림은 탭 위쪽 toast), 성공하면 비운다.
-import { type ReactNode, useState } from "react";
-import { Field, SegmentedControl, Textarea } from "@lophn/ui/input";
+
+import { t } from "@lophn/i18n";
+import { Field, Input, SegmentedControl, Textarea } from "@lophn/ui/input";
 import { Tooltip } from "@lophn/ui/overlay";
 import { Button } from "@lophn/ui/primitives";
-import { t } from "@lophn/i18n";
+import { type ReactNode, useState } from "react";
 
 import {
   resolveInputDefaults,
@@ -113,6 +114,7 @@ export function StartBox({
     step: string | undefined,
     inputs: Record<string, unknown> | undefined,
     options?: {
+      readonly title?: string;
       readonly open?: SessionOpenMode;
       readonly stepOpen?: Record<string, SessionOpenMode>;
     },
@@ -136,6 +138,7 @@ export function StartBox({
   const keysOfPanel = (panel: string) =>
     inputKeys.filter((key) => panelOfInput(key) === panel);
 
+  const [title, setTitle] = useState("");
   const [text, setText] = useState("");
   const [startStep, setStartStep] = useState(steps[0]?.name ?? "");
   const [flowOpen, setFlowOpen] = useState<"default" | SessionOpenMode>(
@@ -268,14 +271,19 @@ export function StartBox({
       setErrors({});
       normalizedInputs = validated.value;
     }
+    const trimmedTitle = title.trim();
+    const titleOption = trimmedTitle === "" ? undefined : trimmedTitle;
     const openOption = isFlow && flowOpen !== "default" ? flowOpen : undefined;
     const stepOpenOption =
       !isFlow && Object.keys(stepOpenOverrides).length > 0
         ? stepOpenOverrides
         : undefined;
     const options =
-      openOption !== undefined || stepOpenOption !== undefined
+      titleOption !== undefined ||
+      openOption !== undefined ||
+      stepOpenOption !== undefined
         ? {
+            ...(titleOption === undefined ? {} : { title: titleOption }),
             ...(openOption === undefined ? {} : { open: openOption }),
             ...(stepOpenOption === undefined
               ? {}
@@ -291,6 +299,7 @@ export function StartBox({
     )
       .then((started) => {
         if (started) {
+          setTitle("");
           setText("");
           setStartStep(steps[0]?.name ?? "");
           setFlowOpen("default");
@@ -326,6 +335,20 @@ export function StartBox({
 
   return (
     <section className={styles.box} data-start-box="">
+      <Field label={t("workflow.label.run-title")}>
+        <Input
+          value={title}
+          placeholder={t("workflow.placeholder.run-title")}
+          disabled={!entry.startable}
+          onChange={(event) => setTitle(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+              event.preventDefault();
+              start();
+            }
+          }}
+        />
+      </Field>
       <Field
         label={t("workflow.label.new-run")}
         help={t(

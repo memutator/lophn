@@ -1,8 +1,9 @@
 // workflow 하나의 run 목록. 도는 run(사람 차례, 막힌 것, 도는 것)과 지난 run(끝났거나 멈춘 것)을 따로 그린다. 줄을 누르면 그 run 화면으로 간다.
 
 import { t } from "@lophn/i18n";
-import { Button, Icon } from "@lophn/ui/primitives";
-import { iconPixels } from "@lophn/ui/shared";
+import { Tooltip } from "@lophn/ui/overlay";
+import { Button, CopyButton, Icon } from "@lophn/ui/primitives";
+import { iconPixels, systemClipboard } from "@lophn/ui/shared";
 import { useState } from "react";
 
 import { commonIcons } from "../icons/mod.ts";
@@ -22,7 +23,7 @@ function RunRow({
   onSelect: (id: string) => void;
 }) {
   return (
-    <li>
+    <li className={styles.rowWrap}>
       <button
         type="button"
         className={styles.row}
@@ -64,6 +65,20 @@ function RunRow({
           <Icon icon={commonIcons.expand} pixels={iconPixels("base")} />
         </span>
       </button>
+      <span className={styles.rowCopy}>
+        <Tooltip
+          content={t("workflow.label.copy-instance-id", { id: item.id })}
+          placement="beside"
+        >
+          <span className={styles.copyWrap}>
+            <CopyButton
+              text={item.id}
+              label={t("common.button.copy-id")}
+              clipboard={systemClipboard}
+            />
+          </span>
+        </Tooltip>
+      </span>
     </li>
   );
 }

@@ -41,6 +41,7 @@ export interface UseWorkflow {
     step?: string,
     inputs?: Record<string, unknown>,
     options?: {
+      readonly title?: string;
       readonly open?: "tab" | "background";
       readonly stepOpen?: Record<string, "tab" | "background">;
     },
@@ -155,6 +156,7 @@ export function useWorkflow({
       if (entry === null) return false;
       const result = await source.startWorkflow({
         workflow: entry.key,
+        ...(options?.title === undefined ? {} : { title: options.title }),
         text,
         step,
         ...(inputs === undefined ? {} : { inputs }),

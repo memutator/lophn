@@ -1,22 +1,32 @@
 .slot {
   display: inline-flex;
   flex: 0 1 auto;
+  align-self: center;
   min-width: var(--space-0);
-  margin-inline-start: var(--space-2);
+  max-width: calc(var(--space-12) * 4);
+  margin-inline-end: var(--space-2);
 }
 
 .button {
   display: inline-flex;
   gap: var(--space-2);
   align-items: center;
+  min-width: var(--space-0);
+  max-width: 100%;
   height: var(--control-sm-height);
   padding-inline: var(--space-3);
+  overflow: hidden;
   color: var(--color-text-secondary);
   font: inherit;
   font-size: var(--type-small-size);
   background: transparent;
   border: none;
   border-radius: var(--radius-full);
+  cursor: pointer;
+}
+
+.button > svg {
+  flex: none;
 }
 
 .button:hover {
@@ -31,7 +41,8 @@
 }
 
 .label {
-  max-width: calc(var(--space-12) * 2);
+  flex: 0 1 auto;
+  min-width: var(--space-0);
   overflow: hidden;
   font-weight: var(--font-weight-medium);
   white-space: nowrap;
@@ -221,6 +232,21 @@
   color: var(--color-text-primary);
   background: var(--color-surface-muted);
   outline: none;
+}
+
+.copyAction {
+  display: inline-flex;
+  opacity: 0;
+  transition: opacity var(--motion-duration-short) var(--motion-ease);
+}
+
+.row:hover .copyAction,
+.row:focus-within .copyAction {
+  opacity: 1;
+}
+
+.copyWrap {
+  display: inline-flex;
 }
 
 .rename {

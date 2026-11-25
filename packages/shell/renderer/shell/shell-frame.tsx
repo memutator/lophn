@@ -231,11 +231,12 @@ export function ShellFrame({
               <span className={styles.brandName}>lophn</span>
             </span>
           ) : null}
-          <span className={styles.grow} />
-          {deskSwitcher}
         </div>
 
-        <div className={styles.tabs}>{tabs}</div>
+        <div className={styles.tabs}>
+          {deskSwitcher}
+          {tabs}
+        </div>
 
         <div
           className={styles.titleRight}

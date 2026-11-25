@@ -30,6 +30,7 @@ import {
   workflowRefsSchema,
   workflowStateSchema,
   workflowTextSchema,
+  workflowTitleSchema,
 } from "./values.ts";
 
 const instanceRef = { instance: idSchema("wfi") };
@@ -62,6 +63,7 @@ export const workflowStart = defineMemory({
   changes: [],
   input: z.strictObject({
     workflow: workflowKeySchema,
+    title: workflowTitleSchema.optional(),
     text: z.string().min(1),
     step: stepNameSchema.optional(),
     inputs: workflowInputValuesSchema.optional(),

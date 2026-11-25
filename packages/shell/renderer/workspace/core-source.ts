@@ -506,13 +506,22 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
       };
     },
 
-    async startWorkflow({ workflow, text, step, inputs, open, step_open }) {
+    async startWorkflow({
+      workflow,
+      title,
+      text,
+      step,
+      inputs,
+      open,
+      step_open,
+    }) {
       const reply = await core.call({
         kind: workflowStart.kind,
         resource: workflowStart.resource,
         method: workflowStart.method,
         body: {
           workflow,
+          ...(title === undefined ? {} : { title }),
           text,
           ...(step === undefined ? {} : { step }),
           ...(inputs === undefined ? {} : { inputs }),

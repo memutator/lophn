@@ -461,6 +461,7 @@ export interface WorkspaceSource {
    */
   startWorkflow(input: {
     workflow: string;
+    title?: string;
     text: string;
     step?: string;
     inputs?: Record<string, unknown>;

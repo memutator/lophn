@@ -214,6 +214,8 @@ export interface WorkspaceLeftSidebarProps {
   ) => void;
   onTerminal: (terminal: PanelTerminal) => void;
   onWorkflow: (workflow: string) => void;
+  /** 이 workspace의 desk를 고른다. 없으면 `onWorkflow`로 간다. */
+  onDesk?: (deskKey: string) => void;
   /** 다른 workspace의 session이거나 Inbox 카드의 session. 그 workspace로 가서 연다. */
   onOpenSession: (session: string) => void;
   onWorkspace: (ref: WorkspaceRef) => void;
@@ -875,6 +877,30 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
     } else void showTabAt(tab.workspace, tab.key);
   };
 
+  // current 줄의 desk 머리 줄. 이 workspace면 바로 desk를 바꾸고, 다른 workspace면 그 layout의 active_desk를 맞춘 뒤 이동한다.
+  const openDesk = (workspace: SidebarWorkspace, deskKey: string) => {
+    if (workspaceKey(workspace.ref) === workspaceKey(current)) {
+      (props.onDesk ?? props.onWorkflow)(deskKey);
+      return;
+    }
+    void (async () => {
+      const read = await layoutOf(workspace.ref).readWorkspaceLayout(
+        workspace.ref,
+      );
+      if (
+        read.ok &&
+        read.layout !== null &&
+        Object.hasOwn(read.layout.desks, deskKey)
+      ) {
+        await layoutOf(workspace.ref).saveWorkspaceLayout(
+          workspace.ref,
+          setActiveDesk(read.layout, deskKey),
+        );
+      }
+      props.onWorkspace(workspace.ref);
+    })();
+  };
+
   // tab 없이 current에 있는 lophn session(도는 중, 기다리는 중)은 그 기계의 agent source로 바로 부른다.
   const sourceOf = (session: string) => {
     const entry = entries.find((row) => row.session === session);
@@ -1127,6 +1153,7 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
         {...(props.onAgents === undefined ? {} : { onAgents: props.onAgents })}
         onWorkspace={props.onWorkspaceRow}
         onSession={open}
+        onDesk={openDesk}
         onSessionTab={openSessionTab}
         onRemoveRecent={(workspace, item) => {
           recentHidden.hide(item.ref, item.at);

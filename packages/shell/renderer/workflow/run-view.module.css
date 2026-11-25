@@ -82,6 +82,25 @@
   line-height: var(--type-small-line);
 }
 
+.instanceId {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: 100%;
+}
+
+.instanceIdText {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  user-select: all;
+}
+
+.copyWrap {
+  display: inline-flex;
+}
+
 /* 행동 단추 묶음. 줄 오른쪽 끝에 붙는다. */
 .actions {
   display: flex;

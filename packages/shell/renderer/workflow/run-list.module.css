@@ -36,14 +36,25 @@
   list-style: none;
 }
 
-.row {
+.rowWrap {
+  position: relative;
   display: flex;
   align-items: center;
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+}
+
+.rowWrap:hover {
+  background: var(--color-surface-muted);
+}
+
+.row {
+  display: flex;
+  flex: 1;
+  align-items: center;
   gap: var(--space-4);
-  width: 100%;
+  min-width: var(--space-0);
   padding: var(--space-4) var(--space-3);
   border: var(--space-0);
-  border-bottom: var(--border-width) solid var(--color-border-subtle);
   background: transparent;
   color: var(--color-text-primary);
   font: inherit;
@@ -51,13 +62,27 @@
   cursor: pointer;
 }
 
-.row:hover {
-  background: var(--color-surface-muted);
-}
-
 .row:focus-visible {
   outline: var(--border-focus-width) solid var(--color-focus);
   outline-offset: calc(var(--border-focus-width) * -1);
+}
+
+.rowCopy {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  padding-inline-end: var(--space-2);
+  opacity: 0;
+  transition: opacity var(--motion-duration-short) var(--motion-ease);
+}
+
+.rowWrap:hover .rowCopy,
+.rowWrap:focus-within .rowCopy {
+  opacity: 1;
+}
+
+.copyWrap {
+  display: inline-flex;
 }
 
 .main {

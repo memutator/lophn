@@ -81,9 +81,4 @@ MVP 이전이다. 설계는 자유롭게 바꾸되, 사람이 실제로 쓰는 d
 * 제품 판은 root `package.json`의 `version` 하나다. 다른 package의 `version`은 쓰지 않는다. PATCH는 main에 올리는 도구(`land.sh`, `main-merge.sh`)가 정한다: branch는 판을 고치지 않고, `packages/`를 바꾸고 change-log 항목을 더한 branch를 올릴 때 도구가 main 판의 PATCH를 올리고 branch의 새 change-log 항목의 판을 맞춘다. 항목은 branch에서 보이는 판으로 쓴다. MINOR·MAJOR는 사람이 정하고 release notes를 쓴다(`products/change-log/README.md`).
 * 틀린 옛 test(e2e 포함)는 옮기거나 고쳐 살리지 않는다. 지우고 새 설계에 맞춰 다시 쓴다.
 
-## worker
 
-일을 worker(subagent)에게 맡길 때 model은 이렇게 고른다. 워커와의 대화는 영어로만 소통한다
-
-* 보통은 `sonnet-high`를 쓴다.
-* `mimo-v2.6-flash`는 쓰지 않는다.

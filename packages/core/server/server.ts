@@ -298,6 +298,21 @@ export async function startApiServer(
           },
         );
       }
+      if (result.status === 400) {
+        const details = (
+          result.json as { error?: { details?: Record<string, unknown> } }
+        )?.error?.details;
+        if (details?.["reason"] === "body_too_large") {
+          options.logger?.warn({
+            component: "api",
+            event: "body_too_large",
+            fields: {
+              route: url.pathname,
+              max_bytes: details["max_bytes"],
+            },
+          });
+        }
+      }
       return Response.json(
         result.status >= 400 && traceId !== undefined
           ? withTraceId(result.json, traceId)

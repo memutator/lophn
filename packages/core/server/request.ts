@@ -138,6 +138,14 @@ type BodyLimit = {
   timeoutMs: number;
 };
 
+function bodyTooLarge(maxBytes: number): RequestFailure {
+  return failure({
+    code: "invalid_input",
+    message: `body exceeds the ${maxBytes} byte limit`,
+    details: { reason: "body_too_large", max_bytes: maxBytes },
+  });
+}
+
 // Content-Length는 읽기 전에, chunked는 누적 bytes로 상한을 넘기 전에 끊는다.
 export async function readLimitedBody(
   request: Request,
@@ -145,13 +153,16 @@ export async function readLimitedBody(
 ): Promise<Result<Uint8Array, RequestFailure>> {
   const declared = request.headers.get("content-length");
   if (declared !== null) {
-    if (!/^\d+$/.test(declared) || Number(declared) > limit.maxBytes) {
+    if (!/^\d+$/.test(declared)) {
       return err(
         failure({
           code: "invalid_input",
-          message: "body exceeds limit",
+          message: "invalid content-length",
         }),
       );
+    }
+    if (Number(declared) > limit.maxBytes) {
+      return err(bodyTooLarge(limit.maxBytes));
     }
   }
   const body = request.body;
@@ -184,12 +195,7 @@ export async function readLimitedBody(
         if (next.done) break;
         total += next.value.byteLength;
         if (total > limit.maxBytes) {
-          return err(
-            failure({
-              code: "invalid_input",
-              message: "body exceeds limit",
-            }),
-          );
+          return err(bodyTooLarge(limit.maxBytes));
         }
         chunks.push(next.value);
       }
@@ -221,12 +227,7 @@ export function parseLimitedJson(
   maxBytes: number = JSON_MAX_BYTES,
 ): Result<unknown, RequestFailure> {
   if (bytes.byteLength > maxBytes) {
-    return err(
-      failure({
-        code: "invalid_input",
-        message: "body exceeds limit",
-      }),
-    );
+    return err(bodyTooLarge(maxBytes));
   }
   let value: unknown;
   try {

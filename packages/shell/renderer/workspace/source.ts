@@ -46,8 +46,7 @@ export interface FileRow {
 
 /** 파일 tree를 바꾸는 일의 결과. 실패는 main이 돌려준 code다. */
 export type FileOpResult =
-  | { readonly ok: true }
-  | { readonly ok: false; readonly code: FileFailure };
+  { readonly ok: true } | { readonly ok: false; readonly code: FileFailure };
 
 export type WorkflowProblemReason =
   | "no_declaration"
@@ -95,8 +94,7 @@ export interface WorkflowEntryView {
       | {
           readonly agent: string;
           readonly workspace?:
-            | { readonly project: string }
-            | { readonly app: string };
+            { readonly project: string } | { readonly app: string };
           /** 그 agent가 도는 다른 컴퓨터(명단의 이름이나 id). 없으면 이 컴퓨터다. */
           readonly on?: string;
           readonly open?: "tab" | "background";
@@ -131,11 +129,7 @@ export type WorkflowState = "running" | "ended" | "stopped";
 
 /** 읽을 때 계산한 workflow 상태. */
 export type WorkflowDerivedStatus =
-  | "working"
-  | "needs_you"
-  | "blocked"
-  | "ended"
-  | "stopped";
+  "working" | "needs_you" | "blocked" | "ended" | "stopped";
 
 /** instance의 `workflow_origin`을 가진 session 한 줄. parent로 spawn tree를 이룬다. */
 export interface WorkflowSessionNodeView {
@@ -158,17 +152,10 @@ export interface WorkflowSessionNodeView {
 }
 
 export type WorkflowCheckpointKind =
-  | "step"
-  | "agent"
-  | "human"
-  | "workflow"
-  | "tool";
+  "step" | "agent" | "human" | "workflow" | "tool";
 
 export type WorkflowCheckpointState =
-  | "started"
-  | "completed"
-  | "failed"
-  | "interrupted";
+  "started" | "completed" | "failed" | "interrupted";
 
 export interface WorkflowOutcomeErrorView {
   readonly reason: string;
@@ -327,8 +314,7 @@ export interface WorkflowInstanceView {
       | {
           readonly agent: string;
           readonly workspace?:
-            | { readonly project: string }
-            | { readonly app: string };
+            { readonly project: string } | { readonly app: string };
           /** 그 agent가 도는 다른 컴퓨터(명단의 이름이나 id). 없으면 이 컴퓨터다. */
           readonly on?: string;
         }
@@ -396,7 +382,11 @@ export interface WorkflowInstanceDetailView {
 
 export type ReadResult<T> =
   | { ok: true; value: T }
-  | { ok: false; message: string };
+  | {
+      ok: false;
+      message: string;
+      details?: Readonly<Record<string, unknown>>;
+    };
 
 /** `workflows(project)` 결과. 목록 외에 `agent` 입력용 callable agent 목록을 함께 싣는다. */
 export type WorkflowListResult =

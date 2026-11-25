@@ -195,12 +195,36 @@ export function ExportWorkflowDialog({
       setError(t("workflow.error.export-failed", { name: workflow }));
       return;
     }
+    const formatFailure = (
+      code: string,
+      details?: Readonly<Record<string, unknown>>,
+    ): string => {
+      const reason = details?.["reason"];
+      if (reason === "body_too_large" || reason === "too_large") {
+        return t("workflow.error.export-too-large", { name: workflow });
+      }
+      if (reason === "too_many_files") {
+        return t("workflow.error.export-too-many-files", { name: workflow });
+      }
+      if (code === "conflict") {
+        return t("workflow.error.export-conflict", {
+          name: trimmed,
+          machine: selectedMachine.label,
+        });
+      }
+      if (code === "forbidden") {
+        return t("workflow.dialog.export-denied", {
+          machine: selectedMachine.label,
+        });
+      }
+      return t("workflow.error.export-failed", { name: workflow });
+    };
     setBusy(true);
     setError(null);
     const exported = await source.exportWorkflow({ project, name: workflow });
     if (!exported.ok) {
       setBusy(false);
-      setError(t("workflow.error.export-failed", { name: workflow }));
+      setError(formatFailure(exported.message, exported.details));
       return;
     }
     const imported = await targetData.workspace.importWorkflow({
@@ -211,18 +235,7 @@ export function ExportWorkflowDialog({
     });
     setBusy(false);
     if (!imported.ok) {
-      setError(
-        imported.message === "conflict"
-          ? t("workflow.error.export-conflict", {
-              name: trimmed,
-              machine: selectedMachine.label,
-            })
-          : imported.message === "forbidden"
-            ? t("workflow.dialog.export-denied", {
-                machine: selectedMachine.label,
-              })
-            : t("workflow.error.export-failed", { name: workflow }),
-      );
+      setError(formatFailure(imported.message, imported.details));
       return;
     }
     setDone({

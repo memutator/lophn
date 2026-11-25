@@ -9,6 +9,7 @@ import { eventConditionSchema } from "../events/bus.ts";
 import { agentIdSchema, workspaceSchema } from "../lophn-agent/workspaces.ts";
 import { machineIdSchema } from "../machine/mod.ts";
 import { appIdSchema } from "../projects/values.ts";
+import { REMOTE_FRAME_MAX_BYTES } from "./channel.ts";
 import {
   deviceNameSchema,
   keyTextSchema,
@@ -410,6 +411,9 @@ export const machinesList = defineMemory({
 // 답은 그 기계의 value이고 오류(code, message, details)도 그대로다. 그래서 일곱 code가 다 날 수 있다.
 // 연결이 없으면 unavailable, 명단에 없는 기계면 not_found, 같은 이름이 둘이면 invalid_input(`details.candidates`)이다.
 export const machinesCall = defineMemory({
+  // 다른 기계로 넘기는 `workflows/import`, `app_files/put`, base64 upload 등을 한 번에 싣는다.
+  // 실제 route별 상한은 받는 기계의 dispatch가 각 route의 `body_max_bytes`로 다시 검사한다.
+  body_max_bytes: REMOTE_FRAME_MAX_BYTES,
   resource: "machines",
   method: "call",
   name: "machines.call",

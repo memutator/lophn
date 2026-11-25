@@ -10,7 +10,7 @@ import { SHELL_ROUTES } from "./routes.ts";
 // - Grants의 MCP tool 목록 읽기(`agent-mcp-tools/list`). 같은 resource의 `take`·`done`은 runtime만 부른다.
 // - 대기 목록의 turn request 결정(`turn_requests/decide`)과 질문 읽기·답(`ask/read`·`ask/answer`)
 // - 대화 조작(`acp/send`). 보내기, 멈춤, 다시 하기, 질문 답, 허락 결정, queue 고치기를 core가 지금 route로 나눈다.
-// - workflow 목록 읽기와 시작·멈춤·재시도(Workflows 탭과 sidebar). 보고(`report`)와 고치기(`edit`)는 agent가 부르므로 renderer는 부르지 않는다.
+// - workflow 목록 읽기와 시작·멈춤·재시도·이름 바꾸기·지우기·내보내기·가져오기·기본값 저장(Workflows 탭과 sidebar). 보고(`report`)와 고치기(`edit`)는 agent가 부르므로 renderer는 부르지 않는다.
 // - 앱 tray 값 읽기(`app_tray/list`. 작업 표시줄 tray). `app_tray/set`은 앱 process만 부른다.
 // - 내 기기 명단 읽기·초대장 내기·초대장으로 들기·빼기·터미널 입력·이름 바꾸기(`roster/*`. Settings › Remote)
 // - 명단의 다른 컴퓨터 이름 읽기(`machines/list`. 앱 상세의 Activity와 되돌리기 미리보기가 부른 컴퓨터를 이름으로 말한다). `machines/call`·`machines/watch`는 shell main만 부른다.
@@ -76,6 +76,9 @@ const RENDERER_MEMORY_ROUTES: readonly string[] = [
   "memory:workflows/resume",
   "memory:workflows/rename",
   "memory:workflows/delete",
+  "memory:workflows/export",
+  "memory:workflows/import",
+  "memory:workflows/set-defaults",
   "memory:impact/read",
   "memory:app_tray/list",
   "memory:roster/list",

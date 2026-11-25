@@ -277,6 +277,9 @@ export const workflowDelete = defineMemory({
 
 export const WORKFLOW_EXPORT_MAX_FILES = 200;
 export const WORKFLOW_EXPORT_MAX_TOTAL_BYTES = 8 * 1024 * 1024;
+// 8 MiB raw bytes를 base64로 싣고 최대 200개 file 경로와 JSON envelope를 담는다.
+export const WORKFLOW_IMPORT_BODY_MAX_BYTES =
+  Math.ceil(WORKFLOW_EXPORT_MAX_TOTAL_BYTES / 3) * 4 + 256 * 1024;
 
 export const workflowExportFileSchema = z.strictObject({
   path: z.string().min(1).max(512),
@@ -303,6 +306,7 @@ export const workflowExport = defineMemory({
 });
 
 export const workflowImport = defineMemory({
+  body_max_bytes: WORKFLOW_IMPORT_BODY_MAX_BYTES,
   resource: "workflows",
   method: "import",
   name: "ImportWorkflow",

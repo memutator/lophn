@@ -442,25 +442,23 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
       );
       return {
         ok: true as const,
-        value: read.value.map(
-          (entry): WorkflowInstanceSummaryView => ({
-            id: entry.id,
-            project: entry.project,
-            workflow: entry.workflow,
-            ...(entry.title === undefined ? {} : { title: entry.title }),
-            state: entry.state,
-            current: entry.current,
-            input: entry.input,
-            ...(entry.inputs === undefined ? {} : { inputs: entry.inputs }),
-            started_by: startedByOf(entry.started_by, titles),
-            created_at: entry.created_at,
-            finished_at: entry.finished_at,
-            last_line: entry.last_line,
-            ...(entry.derived_status === undefined
-              ? {}
-              : { derived_status: entry.derived_status }),
-          }),
-        ),
+        value: read.value.map((entry): WorkflowInstanceSummaryView => ({
+          id: entry.id,
+          project: entry.project,
+          workflow: entry.workflow,
+          ...(entry.title === undefined ? {} : { title: entry.title }),
+          state: entry.state,
+          current: entry.current,
+          input: entry.input,
+          ...(entry.inputs === undefined ? {} : { inputs: entry.inputs }),
+          started_by: startedByOf(entry.started_by, titles),
+          created_at: entry.created_at,
+          finished_at: entry.finished_at,
+          last_line: entry.last_line,
+          ...(entry.derived_status === undefined
+            ? {}
+            : { derived_status: entry.derived_status }),
+        })),
       };
     },
 
@@ -667,7 +665,13 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
         body: { project: projectId, name },
       });
       if (!reply.ok) {
-        return { ok: false, message: reply.error?.code ?? "internal" };
+        return {
+          ok: false,
+          message: reply.error?.code ?? "internal",
+          ...(reply.error?.details === undefined
+            ? {}
+            : { details: reply.error.details }),
+        };
       }
       const value = reply.value as {
         name: string;
@@ -689,7 +693,13 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
         },
       });
       if (!reply.ok) {
-        return { ok: false, message: reply.error?.code ?? "internal" };
+        return {
+          ok: false,
+          message: reply.error?.code ?? "internal",
+          ...(reply.error?.details === undefined
+            ? {}
+            : { details: reply.error.details }),
+        };
       }
       const value = reply.value as { files_written: number };
       return { ok: true, value: { files_written: value.files_written } };

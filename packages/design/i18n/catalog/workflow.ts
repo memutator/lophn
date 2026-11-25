@@ -56,6 +56,10 @@ export const workflow = {
   "workflow.error.export-failed": "Couldn't export {name}. Try again.",
   "workflow.error.export-projects-failed":
     "Couldn't load projects from {machine}.",
+  "workflow.error.export-too-large":
+    "Couldn't export {name}: it exceeds the size limit.",
+  "workflow.error.export-too-many-files":
+    "Couldn't export {name}: it has too many files.",
   "workflow.error.rename-conflict": "A workflow named {name} already exists.",
   "workflow.error.rename-failed": "Couldn't rename {name}. Try again.",
   "workflow.error.rename-invalid":

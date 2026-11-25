@@ -165,6 +165,23 @@ function rejected(error: LophnError): HttpResult {
   return { status: failure(error).status, json: errorBody(error) };
 }
 
+function withBodyLimitRoute(
+  reason: RequestFailure,
+  route: Route,
+): RequestFailure {
+  if (reason.error.details?.["reason"] !== "body_too_large") return reason;
+  const maxBytes = reason.error.details["max_bytes"];
+  const key = routeKey(route);
+  return {
+    status: reason.status,
+    error: {
+      ...reason.error,
+      message: `body exceeds the ${String(maxBytes)} byte limit for ${key}`,
+      details: { ...reason.error.details, route: key },
+    },
+  };
+}
+
 function fromFailure(reason: RequestFailure): HttpResult {
   return { status: reason.status, json: errorBody(reason.error) };
 }
@@ -254,7 +271,7 @@ export async function dispatchHttp(
     maxBytes,
     timeoutMs: deps.bodyTimeoutMs,
   });
-  if (!body.ok) return fromFailure(body.error);
+  if (!body.ok) return fromFailure(withBodyLimitRoute(body.error, route));
   if (!contentTypeJson(request)) {
     return rejected({
       code: "invalid_input",
@@ -262,7 +279,7 @@ export async function dispatchHttp(
     });
   }
   const parsed = parseLimitedJson(body.value, maxBytes);
-  if (!parsed.ok) return fromFailure(parsed.error);
+  if (!parsed.ok) return fromFailure(withBodyLimitRoute(parsed.error, route));
   try {
     if (isCommandRoute(route)) {
       return await command(route, parsed.value, ctx, deps);
@@ -333,9 +350,15 @@ async function upload(
   if (declared !== null) {
     length = /^\d+$/.test(declared) ? Number(declared) : Number.NaN;
     if (!Number.isSafeInteger(length) || length > route.max_bytes) {
+      const key = routeKey(route);
       return rejected({
         code: "invalid_input",
-        message: `body exceeds the ${route.max_bytes} byte limit`,
+        message: `body exceeds the ${route.max_bytes} byte limit for ${key}`,
+        details: {
+          reason: "body_too_large",
+          max_bytes: route.max_bytes,
+          route: key,
+        },
       });
     }
   }

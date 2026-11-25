@@ -61,6 +61,13 @@ test("renderer는 terminals/input·restart를 core에 바로 부르지 못한다
   assert.equal(isAllowed("memory", "terminals", "restart"), false);
   assert.equal(isAllowed("memory", "terminals", "open"), true);
   assert.equal(isAllowed("memory", "coding_sessions", "open"), true);
+  for (const method of ["export", "import", "set-defaults"]) {
+    assert.equal(
+      isAllowed("memory", "workflows", method),
+      true,
+      `workflows/${method} should be allowed for renderer`,
+    );
+  }
   for (const method of [
     "add",
     "update",

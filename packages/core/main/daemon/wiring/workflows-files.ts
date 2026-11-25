@@ -747,6 +747,10 @@ export function createWorkflowFiles(dataRoot: string): WorkflowFiles {
             return err({
               code: "invalid_input",
               message: `workflow exceeds maximum of ${WORKFLOW_EXPORT_MAX_FILES} files`,
+              details: {
+                reason: "too_many_files",
+                max_files: WORKFLOW_EXPORT_MAX_FILES,
+              },
             });
           }
           discovered.push({ rel: posix.normalize(nextRel), abs: nextAbs });
@@ -781,6 +785,10 @@ export function createWorkflowFiles(dataRoot: string): WorkflowFiles {
           return err({
             code: "invalid_input",
             message: `workflow exceeds maximum export size of ${WORKFLOW_EXPORT_MAX_TOTAL_BYTES} bytes`,
+            details: {
+              reason: "too_large",
+              max_bytes: WORKFLOW_EXPORT_MAX_TOTAL_BYTES,
+            },
           });
         }
         files.push({
@@ -802,6 +810,14 @@ export function createWorkflowFiles(dataRoot: string): WorkflowFiles {
         return err({
           code: "invalid_input",
           message: `workflow import must contain 1 to ${WORKFLOW_EXPORT_MAX_FILES} files`,
+          ...(files.length > WORKFLOW_EXPORT_MAX_FILES
+            ? {
+                details: {
+                  reason: "too_many_files",
+                  max_files: WORKFLOW_EXPORT_MAX_FILES,
+                },
+              }
+            : {}),
         });
       }
 
@@ -835,6 +851,10 @@ export function createWorkflowFiles(dataRoot: string): WorkflowFiles {
           return err({
             code: "invalid_input",
             message: `workflow import exceeds maximum size of ${WORKFLOW_EXPORT_MAX_TOTAL_BYTES} bytes`,
+            details: {
+              reason: "too_large",
+              max_bytes: WORKFLOW_EXPORT_MAX_TOTAL_BYTES,
+            },
           });
         }
         seenPaths.add(normalized);

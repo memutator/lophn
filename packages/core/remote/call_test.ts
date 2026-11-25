@@ -16,6 +16,7 @@ import { browserVaultExchange } from "../../protocol/secrets/browser-vault.ts";
 import { browserVaultExchangeHandler } from "../secrets/vault-sync.ts";
 import {
   APP_FILE_PIECE_MAX_BYTES,
+  APP_FILE_PUT_BODY_MAX_BYTES,
   appFilesPut,
 } from "../../protocol/apps/app-files.ts";
 import type { Route } from "../../protocol/base/mod.ts";
@@ -680,6 +681,15 @@ test("기기가 app_files/put으로 256 KiB보다 큰 조각은 보낼 수 있�
   assert.deepEqual(s.reached, ["app_files/put"]);
   const over = await send(APP_FILE_PIECE_MAX_BYTES + 3);
   assert.ok(!over.ok && over.error.code === "invalid_input");
+  const overBody = await send(APP_FILE_PIECE_MAX_BYTES + 4096);
+  assert.ok(!overBody.ok && overBody.error.code === "invalid_input");
+  assert.equal(overBody.error.details?.["reason"], "body_too_large");
+  assert.equal(
+    overBody.error.details?.["max_bytes"],
+    APP_FILE_PUT_BODY_MAX_BYTES,
+  );
+  assert.equal(overBody.error.details?.["route"], "app_files/put");
+  assert.match(overBody.error.message, /byte limit/);
   assert.deepEqual(s.reached, ["app_files/put"]);
 });
 

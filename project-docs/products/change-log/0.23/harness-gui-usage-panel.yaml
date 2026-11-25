@@ -1,5 +1,5 @@
 id: harness-gui-usage-panel
-version: 0.23.176
+version: 0.23.177
 platform_note: none
 title: "harness GUI `/usage` 구독 한도 조회 및 Usage 패널 분리"
 modules:

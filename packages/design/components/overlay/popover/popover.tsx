@@ -6,12 +6,12 @@ import {
   useRef,
   useState,
 } from "react";
-import { focusLike, keepFocus, useInputMode } from "../return-focus.ts";
 import {
   componentMark,
   type Placement,
   placementProps,
 } from "../../_shared/shared.ts";
+import { focusLike, keepFocus, useInputMode } from "../return-focus.ts";
 import styles from "./popover.module.css";
 
 export interface PopoverProps {
@@ -75,8 +75,29 @@ export function Popover({
           {...mode.props}
           {...(card ? ({ side: "right", align: "center" } as const) : {})}
           onOpenAutoFocus={(event) => {
-            mode.start(false);
-            if (card) event.preventDefault();
+            if (card) {
+              mode.start(false);
+              event.preventDefault();
+              return;
+            }
+            // 마우스로 연 popover는 첫 항목에 focus ring/hover 배경이 잘못 켜지지 않게 container로만 focus를 둔다.
+            const byKeyboard =
+              anchor.current?.matches(":focus-visible") === true;
+            mode.start(byKeyboard);
+            if (byKeyboard) return;
+            const scope = event.target;
+            if (!(scope instanceof HTMLElement)) return;
+            const active = globalThis.document?.activeElement;
+            if (
+              active instanceof HTMLElement &&
+              active !== scope &&
+              scope.contains(active)
+            ) {
+              event.preventDefault();
+              return;
+            }
+            event.preventDefault();
+            focusLike(scope, false);
           }}
           onCloseAutoFocus={(event) => {
             // Radix는 plain focus()로 trigger에 돌려줘 마우스로 닫아도 ring이 선다.

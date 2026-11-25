@@ -78,7 +78,7 @@
 }
 
 .row:hover,
-.row:focus-within {
+.row:has(:focus-visible) {
   background: var(--floating-hover);
 }
 
@@ -205,12 +205,12 @@
 }
 
 .row:hover .actions,
-.row:focus-within .actions {
+.row:has(:focus-visible) .actions {
   display: inline-flex;
 }
 
 .row:has(.actions):hover .status,
-.row:has(.actions):focus-within .status {
+.row:has(.actions):has(:focus-visible) .status {
   display: none;
 }
 

@@ -2,10 +2,14 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import {
   type AgentId,
+  DEFAULT_PERMISSION_MODE,
   isHarnessRuntime,
   isLophn,
+  minPermissionMode,
+  type PermissionMode,
   type Workspace,
 } from "../../../protocol/lophn-agent/mod.ts";
+import type { TeamLimits } from "../../../protocol/lophn-agent/team.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
 import {
   type AgentSessionRow,
@@ -14,7 +18,6 @@ import {
   workspaceOf,
 } from "../session/model.ts";
 import type { EndDeps, OpenDeps, WorkspaceDeps } from "./ports.ts";
-import type { TeamLimits } from "../../../protocol/lophn-agent/team.ts";
 
 // session을 열고 끝내는 규칙. command(`OpenSession`, `ArchiveSession`, `DeleteSession`)와 Router의
 // SessionDirectory가 같이 쓴다.
@@ -97,10 +100,15 @@ export function startSession(
     tab?: true;
     // 다른 컴퓨터의 mail이 열었으면 그 기계.
     openedByMachine?: string | null;
-    // false면 agent 정의가 skip이어도 묻는 session으로 연다(다른 컴퓨터의 mail은 받는 기계의 허락이 있을 때만 skip을 따른다).
+    // false면 다른 컴퓨터의 비신뢰 mail이라 단계를 최대 workspace로 제한한다(full 금지).
     skipAllowed?: boolean;
-    // fork는 출처의 제목, model 선택, 출처 표시를 이어받는다. skip은 가져가지 않는다:
-    // 새 session은 정의의 기본값으로 시작한다(workspace-session의 fork가 허락을 가져가지 않는 것과 같은 이유).
+    // 전역 기본 권한 단계(`approvals.default_mode`). 없으면 deps.defaultMode() 또는 'workspace'.
+    defaultMode?: PermissionMode;
+    // workflow participant 등 명시 단계 override.
+    permissionMode?: PermissionMode;
+    // 팀 자식의 부모 단계 override(생략하면 spawnedBy session에서 읽는다).
+    parentMode?: PermissionMode;
+    // fork는 출처의 제목, model 선택, 출처 표시를 이어받는다. permission_mode는 가져가지 않고 정의·전역 기본값으로 시작한다.
     inherit?: {
       title: string | null;
       model_selection: string | null;
@@ -128,6 +136,20 @@ export function startSession(
     const usable = workspaceUsable(deps, workspace);
     if (!usable.ok) return usable;
   }
+  const baseDefault =
+    input.defaultMode ?? deps.defaultMode?.() ?? DEFAULT_PERMISSION_MODE;
+  let permissionMode: PermissionMode =
+    input.permissionMode ?? definition.permissionMode ?? baseDefault;
+  if (input.skipAllowed === false) {
+    permissionMode = minPermissionMode(permissionMode, "workspace");
+  }
+  if (input.spawnedBy !== undefined && input.spawnedBy !== null) {
+    const parentMode =
+      input.parentMode ?? loadSession(tx, input.spawnedBy)?.permission_mode;
+    if (parentMode !== undefined) {
+      permissionMode = minPermissionMode(parentMode, permissionMode);
+    }
+  }
   const seq = nextSessionSeq(tx);
   const kind = workspace?.kind ?? null;
   const id = workspace?.id ?? null;
@@ -135,7 +157,7 @@ export function startSession(
   tx.sql.run(
     `insert into sessions (id, agent, project, app, workspace_kind,
        workspace_id, title, lifecycle, forked_from_session, forked_from_through_seq,
-       model_selection, skip, harness, harness_gui, called_from_kind, called_from_id, spawned_by, opened_by_app, opened_by_machine,
+       model_selection, permission_mode, harness, harness_gui, called_from_kind, called_from_id, spawned_by, opened_by_app, opened_by_machine,
        workflow_origin, created_seq, state_seq)
      values (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
        (select workflow_origin from sessions where id = ?), ?, ?)`,
@@ -150,7 +172,7 @@ export function startSession(
       inherit?.forked_from?.session ?? null,
       inherit?.forked_from?.through_seq ?? null,
       inherit?.model_selection ?? null,
-      definition.skip && input.skipAllowed !== false ? 1 : 0,
+      permissionMode,
       harness,
       input.tab === true && harness !== null ? 1 : 0,
       input.calledFrom?.kind ?? null,

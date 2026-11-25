@@ -1,32 +1,45 @@
 import type { z } from "zod";
 import type { Result } from "../../../base/mod.ts";
+import { routePath } from "../../../protocol/base/mod.ts";
 import {
+  turnRead,
   type WorkspaceKind,
   workspaceKindOf,
   workspaceSessionRead,
-  turnRead,
 } from "../../../protocol/lophn-agent/mod.ts";
+import type { CredentialConditions } from "../../../protocol/server/mod.ts";
 import {
+  type AgentCredentialResponse,
   agentCredentialEndSchema,
   agentCredentialRequestSchema,
-  type AgentCredentialResponse,
   type ChildMessage,
 } from "../../../protocol/supervision/mod.ts";
-import { routePath } from "../../../protocol/base/mod.ts";
-import type { CredentialConditions } from "../../../protocol/server/mod.ts";
 import type { AgentCredentialIssuer } from "./mod.ts";
 
 // agent runtime 감독 pipe의 agent credential 발급. child가 보낸 요청은 신뢰하지 않는다. turn이 있고 진행
 // 중이며 요청한 session의 것인지, session이 열려 있는지, 요청한 operation이 그 session workspace 종류의 상한 안인지를
-// core 자신의 기록으로 확인한다. 어느 하나라도 어긋나면 없는 turn과 똑같이 답하지 않는다.
+// core 자신의 기록으로 확인한다. 요청한 operation이 workspace 상한 밖이면 undefined로 끝내지 않고 forbidden 거부를 돌려준다.
 
 type CoreCall = (path: string, body: unknown) => Promise<Result<unknown>>;
 
+export type AgentCredentialDeniedResponse = {
+  type: "agent_credential_response";
+  request_id: string;
+  ok: false;
+  error: {
+    code: "forbidden";
+    message: string;
+    operations: readonly string[];
+  };
+};
+
+export type AgentCredentialReply =
+  | AgentCredentialResponse
+  | AgentCredentialDeniedResponse;
+
 type AgentCredentialLink = {
-  // child message를 처리한다. 발급했으면 응답 message를, 그 밖(거절·종료 처리)에는 undefined를 돌려준다.
-  onMessage(
-    message: ChildMessage,
-  ): Promise<AgentCredentialResponse | undefined>;
+  // child message를 처리한다. 발급했거나 operation 범위 거부가 나면 응답 message를, 그 밖(종료·무효 요청)에는 undefined를 돌려준다.
+  onMessage(message: ChildMessage): Promise<AgentCredentialReply | undefined>;
 };
 
 export function createAgentCredentialLink(options: {
@@ -60,7 +73,7 @@ export function createAgentCredentialLink(options: {
 
   async function issue(
     message: ReturnType<typeof agentCredentialRequestSchema.parse>,
-  ): Promise<AgentCredentialResponse | undefined> {
+  ): Promise<AgentCredentialReply | undefined> {
     const turn = await read(turnRead, { turn: message.turn });
     if (
       turn === undefined ||
@@ -76,8 +89,20 @@ export function createAgentCredentialLink(options: {
     const kind = workspaceKindOf(found.session.workspace);
     const allowed = new Set(operationsFor(kind));
     const operations = [...new Set(message.operations)];
-    if (operations.some((operation) => !allowed.has(operation))) {
-      return undefined;
+    const disallowed = operations.filter(
+      (operation) => !allowed.has(operation),
+    );
+    if (disallowed.length > 0) {
+      return {
+        type: "agent_credential_response",
+        request_id: message.request_id,
+        ok: false,
+        error: {
+          code: "forbidden",
+          message: `operations not permitted in ${kind} workspace: ${disallowed.join(", ")}`,
+          operations: disallowed,
+        },
+      };
     }
     // 같은 turn의 이전 credential은 새로 받기 전에 끝낸다.
     options.issuer.endBy("turn", message.turn);

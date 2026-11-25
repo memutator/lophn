@@ -6,12 +6,12 @@ import {
   type ToolEffect,
   type ToolResult,
 } from "../../../protocol/lophn-agent/mod.ts";
-import type { SpillableResult } from "../tools/spill.ts";
 import type {
   ToolDefinition,
   ToolHandler,
   TurnCredential,
 } from "../tools/mod.ts";
+import type { SpillableResult } from "../tools/spill.ts";
 import type { McpToolView } from "./mcp-connections.ts";
 import type { McpRuntimeServer } from "./mcp-server.ts";
 
@@ -176,6 +176,7 @@ export async function buildMcpTools(
         server: entry.server,
         tool: entry.original,
         effect,
+        read_only: entry.read_only,
       }),
       ...(call === undefined
         ? {}

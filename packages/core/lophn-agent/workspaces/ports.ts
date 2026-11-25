@@ -5,14 +5,15 @@ import type {
   AgentAddress,
   AgentAtWorkspace,
   AgentId,
+  PermissionMode,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
+import type { AgentDirectory } from "../agents/mod.ts";
 import type {
   AppDirectory,
   ProjectDirectory,
   SessionEndEffects,
 } from "../ports.ts";
-import type { AgentDirectory } from "../agents/mod.ts";
 
 // 이름 규칙. agent-workspaces가 project·앱·agent 조회를 쥐고 만들어 wiring이 꽂는다.
 export type WorkspaceNameRules = {
@@ -28,6 +29,8 @@ export type WorkspaceDeps = {
   apps: Pick<AppDirectory, "app" | "appByName">;
   agents: AgentDirectory;
   names: WorkspaceNameRules;
+  // 전역 기본 권한 단계(`approvals.default_mode`). 없으면 `workspace`다.
+  defaultMode?(): PermissionMode;
 };
 
 export type OpenDeps = WorkspaceDeps & {

@@ -2,12 +2,13 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { z } from "zod";
-import { err, type ErrorCode, ok } from "../../../base/mod.ts";
+import { type ErrorCode, err, ok } from "../../../base/mod.ts";
 import { defineTool } from "./define.ts";
 import { selectTools } from "./registry.ts";
 import type { ToolContext } from "./tool-context.ts";
 import { buildWireTable } from "./wire.ts";
 import { executeToolCall } from "./work.ts";
+
 const MODEL = { input_media: ["text"] };
 
 function fixture(gateVerdict: "run" | "deny" = "run") {
@@ -80,7 +81,19 @@ function fixture(gateVerdict: "run" | "deny" = "run") {
             ok(
               gateVerdict === "run"
                 ? { kind: "run" as const }
-                : { kind: "denied" as const, reason: "not_assigned" as const },
+                : {
+                    kind: "denied" as const,
+                    denial: {
+                      tool: "agent.update",
+                      category: "app_tool" as const,
+                      target_summary: "agent.update",
+                      reason_kind: "policy" as const,
+                      rule_pattern: null,
+                      message: "not assigned",
+                      recovery_hint: null,
+                      recovery_action: null,
+                    },
+                  },
             ),
           );
         },
@@ -131,11 +144,11 @@ test("Gate가 막은 tool은 실행되지 않고 Gate 없는 tool은 Gate를 거
   assert.deepStrictEqual(ran, ["file.read"]);
 });
 
-// model에 간략한 schema를 보여도 실행 input을 넓혀 할당·skip 같은 설정을 끼워 넣을 수 없어야 한다.
+// model에 간략한 schema를 보여도 실행 input을 넓혀 할당·permission_mode 같은 설정을 끼워 넣을 수 없어야 한다.
 test("model용 schema가 느슨해도 실행 검증은 Gate와 handler 전에 입력을 거절한다", async () => {
   const { ran, asked, context } = fixture();
   const result = await executeToolCall(context("app"), "agent_update", {
-    skip: true,
+    permission_mode: "full",
   });
   assert.deepStrictEqual(result.outcome.code, "invalid_input");
   assert.deepStrictEqual(result.executed, false);
@@ -143,9 +156,8 @@ test("model용 schema가 느슨해도 실행 검증은 Gate와 handler 전에 �
   assert.deepStrictEqual(ran, []);
 });
 
-// model은 틀린 입력을 고치려면 무엇이 틀렸는지 알아야 한다. 하지만 not_found·forbidden 문장은 범위 밖 대상의 이름과
-// 존재를 담을 수 있어, 그 문장이 새면 할당 밖 대상을 탐색할 수 있다.
-test("invalid_input은 어디가 왜 틀렸는지 알리고 not_found·forbidden은 handler 문장을 숨긴다", async () => {
+// model은 틀린 입력을 고치려면 무엇이 틀렸는지 알아야 한다. not_found는 존재를 숨기고, forbidden은 이유와 우회 금지 지침을 그대로 전한다.
+test("invalid_input은 어디가 왜 틀렸는지 알리고 not_found는 숨기며 forbidden은 이유와 우회 금지 지침을 전한다", async () => {
   const failing = (code: ErrorCode) =>
     defineTool({
       name: `fail.${code}`,
@@ -178,10 +190,14 @@ test("invalid_input은 어디가 왜 틀렸는지 알리고 not_found·forbidden
       "secret-target-name",
     ),
   );
-  for (const name of ["fail_not_found", "fail_forbidden"]) {
-    assert.deepStrictEqual(
-      await summary(name, { count: 1 }),
-      "tool target is not available",
-    );
-  }
+  assert.deepStrictEqual(
+    await summary("fail_not_found", { count: 1 }),
+    "tool target is not available",
+  );
+  const forbiddenSummary = await summary("fail_forbidden", { count: 1 });
+  assert.ok(forbiddenSummary.includes("secret-target-name"), forbiddenSummary);
+  assert.ok(
+    forbiddenSummary.includes("Do not try to bypass"),
+    forbiddenSummary,
+  );
 });

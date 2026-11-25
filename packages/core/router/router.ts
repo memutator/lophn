@@ -1,11 +1,15 @@
 import { err, ok, type Result } from "../../base/mod.ts";
 import type { Id } from "../../protocol/base/ids.ts";
-import type { Tx } from "../../protocol/server/mod.ts";
 import {
-  blocksText,
-  textBlocks,
-  type ContentBlock,
-} from "../../protocol/lophn-agent/content-block.ts";
+  LOPHN_AGENT_HANDLE,
+  type Modality,
+} from "../../protocol/lophn-agent/agent-values.ts";
+import {
+  type CallPolicy,
+  isPrivate,
+  mayCall,
+  mayReachWorkspace,
+} from "../../protocol/lophn-agent/call-policy.ts";
 import type {
   AgentCallRow,
   CallAddressInput,
@@ -20,26 +24,20 @@ import type {
   RemoteAddress,
 } from "../../protocol/lophn-agent/calls.ts";
 import {
-  LOPHN_AGENT_HANDLE,
-  type Modality,
-} from "../../protocol/lophn-agent/agent-values.ts";
+  blocksText,
+  type ContentBlock,
+  textBlocks,
+} from "../../protocol/lophn-agent/content-block.ts";
 import {
-  type CallPolicy,
-  isPrivate,
-  mayCall,
-  mayReachWorkspace,
-} from "../../protocol/lophn-agent/call-policy.ts";
-import {
-  type Mail,
-  type MailApplied,
-  type MailAuthor,
   MAIL_EXPIRY_MS,
   MAIL_LATE_MS,
   MAIL_TEXT_MAX_BYTES,
+  type Mail,
+  type MailApplied,
+  type MailAuthor,
   mailBodySchema,
   type TurnEndedKind,
 } from "../../protocol/lophn-agent/mail.ts";
-import { requesterName } from "../../protocol/machine/requester.ts";
 import {
   type AgentAddress,
   type AgentAtWorkspace,
@@ -48,28 +46,30 @@ import {
   lophnIdOf,
   type Workspace,
 } from "../../protocol/lophn-agent/workspaces.ts";
+import { requesterName } from "../../protocol/machine/requester.ts";
+import type { Tx } from "../../protocol/server/mod.ts";
 import { STATE_CHANGED_TOPIC } from "../storage/ledger/after-commit.ts";
 import {
-  addressingOf,
   AGENT_CALL_SETTLED_TOPIC,
   APP_CALL_SETTLED_TOPIC,
   ASK_ANSWERED_TOPIC,
-  CALL_SESSION_OPENED_TOPIC,
-  WORKFLOW_SESSION_OPENED_TOPIC,
   ASK_ENDED_TOPIC,
+  addressingOf,
+  CALL_SESSION_OPENED_TOPIC,
   calId,
   FAILURE_TEXTS,
   failureCode,
   failureInput,
   isFinished,
-  MAIL_QUEUED_TOPIC,
   LEFT_ROSTER_TEXT,
-  remoteStepBody,
+  MAIL_QUEUED_TOPIC,
   type RouteInput,
-  TAKEN_RESTART_TEXTS,
   type RouteResult,
+  remoteStepBody,
   sesId,
+  TAKEN_RESTART_TEXTS,
   teamMayReach,
+  WORKFLOW_SESSION_OPENED_TOPIC,
 } from "./model.ts";
 import type {
   CallStore,
@@ -77,10 +77,10 @@ import type {
   MailDraft,
   MailOutbox,
   MailSeen,
-  SentSteps,
-  StepEnding,
   RoutedInput,
+  SentSteps,
   SessionDirectory,
+  StepEnding,
   TargetSession,
 } from "./ports.ts";
 
@@ -305,7 +305,10 @@ export function createRouter(deps: RouterDeps): Router {
     agent: AgentAtWorkspace,
     to: CallTarget,
     spawn: boolean,
-    input: Pick<RouteInput, "skipAllowed" | "member" | "open">,
+    input: Pick<
+      RouteInput,
+      "skipAllowed" | "permissionMode" | "member" | "open"
+    >,
   ): Result<Resolved> {
     const opened = directory.open(
       tx,
@@ -314,6 +317,9 @@ export function createRouter(deps: RouterDeps): Router {
       spawn && from.kind === "agent" ? sesId(from.session) : null,
       {
         skipAllowed: input.skipAllowed,
+        ...(input.permissionMode === undefined
+          ? {}
+          : { permissionMode: input.permissionMode }),
         ...(input.member === undefined ? {} : { member: input.member }),
         ...(input.open === undefined ? {} : { open: input.open }),
       },

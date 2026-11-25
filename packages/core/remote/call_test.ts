@@ -7,18 +7,20 @@ import {
   ok,
   seededRandom,
 } from "../../base/mod.ts";
-import {
-  appsOAuthBegin,
-  appsOAuthCallback,
-} from "../../protocol/apps/oauth.ts";
 import { alwaysOnSet } from "../../protocol/always-on/mod.ts";
-import { browserVaultExchange } from "../../protocol/secrets/browser-vault.ts";
-import { browserVaultExchangeHandler } from "../secrets/vault-sync.ts";
+import {
+  localToolTrust,
+  localToolUntrust,
+} from "../../protocol/approvals/permissions-view.ts";
 import {
   APP_FILE_PIECE_MAX_BYTES,
   APP_FILE_PUT_BODY_MAX_BYTES,
   appFilesPut,
 } from "../../protocol/apps/app-files.ts";
+import {
+  appsOAuthBegin,
+  appsOAuthCallback,
+} from "../../protocol/apps/oauth.ts";
 import type { Route } from "../../protocol/base/mod.ts";
 import { settingsUpdate } from "../../protocol/config/file.ts";
 import { agentCreate } from "../../protocol/lophn-agent/agent-definitions.ts";
@@ -34,7 +36,6 @@ import {
   providerConnectKey,
   providerSignInCallback,
 } from "../../protocol/lophn-agent/providers.ts";
-import { changeSessionSkip } from "../../protocol/lophn-agent/sessions.ts";
 import { resolveMachine } from "../../protocol/machine/requester.ts";
 import { projectApi } from "../../protocol/projects/project-api.ts";
 import {
@@ -66,19 +67,21 @@ import {
   rosterStatements,
   rosterStore,
 } from "../../protocol/remote/routes.ts";
-import { secretPut } from "../../protocol/secrets/secret-file.ts";
+import { browserVaultExchange } from "../../protocol/secrets/browser-vault.ts";
 import {
   loginsDelete,
   loginsList,
   loginsRelease,
   loginsSave,
 } from "../../protocol/secrets/logins.ts";
+import { secretPut } from "../../protocol/secrets/secret-file.ts";
 import type { AuthenticatedContext } from "../../protocol/server/mod.ts";
 import { secretPutHandler } from "../secrets/routes.ts";
+import { browserVaultExchangeHandler } from "../secrets/vault-sync.ts";
 import {
-  confirmationBinding,
   ConfirmationRegistry,
   CredentialRegistry,
+  confirmationBinding,
 } from "../server/identity/mod.ts";
 import {
   type MemoryHandler,
@@ -168,7 +171,8 @@ const NEVER: Route[] = [
   machinesCall,
   machinesWatch,
   mcpAuthComplete,
-  changeSessionSkip,
+  localToolTrust,
+  localToolUntrust,
 ];
 
 const upload = (input: Record<string, unknown>) => ({
@@ -626,7 +630,7 @@ test("agent 자격은 기기의 길로도 secret을 넣거나 확인이 필요�
   assert.deepEqual(s.issued, []);
 });
 
-test("허락받은 기기가 roster, logins, 목록 밖 devices, machines, MCP 로그인 완료, change-skip, vault 이름의 secrets/put을 부르면 forbidden이다", async () => {
+test("허락받은 기기가 roster, logins, 목록 밖 devices, machines, MCP 로그인 완료, trust-local-tool, vault 이름의 secrets/put을 부르면 forbidden이다", async () => {
   const s = setup();
   const granted = await s.device(GRANTED);
   for (const route of NEVER) {

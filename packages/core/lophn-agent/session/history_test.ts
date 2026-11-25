@@ -84,7 +84,7 @@ function stub(
             forked_from: null,
             model_selection: null,
             compaction: null,
-            skip: false,
+            permission_mode: "workspace",
             called_from: null,
             spawned_by: null,
             opened_by_app: null,

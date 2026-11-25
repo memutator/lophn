@@ -10,7 +10,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { type Mode, resolveInWorkspace } from "./scope.ts";
+import { classifyFilePath, type Mode, resolveInWorkspace } from "./scope.ts";
 
 test("file tool은 workspace 폴더 밖과 밖으로 나가는 symlink를 거절한다", async (t) => {
   const temp = await mkdtemp(join(tmpdir(), "lophn-scope-"));
@@ -234,6 +234,129 @@ test("session은 자기 tool-results 폴더만 읽고 쓰지 못하며 data root
       (await resolveInWorkspace(home, join(mine, "tcl_1.json"), "write")).ok,
       false,
     );
+  } finally {
+    await rm(temp, { recursive: true });
+  }
+});
+
+test("classifyFilePath는 바깥 경로, 자기 보호 경로, 민감 workspace 경로를 정확히 분류하고 onceTarget을 허용한다", async () => {
+  const temp = await mkdtemp(join(tmpdir(), "lophn-classify-"));
+  try {
+    const workspace = join(temp, "workspace");
+    const outside = join(temp, "outside");
+    const fakeHome = join(temp, "home");
+    const fakeDataRoot = join(temp, "lophn-data");
+    await mkdir(join(workspace, ".git", "hooks"), { recursive: true });
+    await mkdir(join(workspace, ".lophn", "tools"), { recursive: true });
+    await mkdir(outside, { recursive: true });
+    await mkdir(join(fakeHome, ".ssh"), { recursive: true });
+    await mkdir(join(fakeHome, ".aws"), { recursive: true });
+    await mkdir(join(fakeHome, ".gnupg"), { recursive: true });
+    await mkdir(join(fakeDataRoot, "agents"), { recursive: true });
+    await writeFile(join(workspace, "app.ts"), "export {};\n");
+    await writeFile(join(workspace, ".env"), "SECRET=1\n");
+    await writeFile(join(workspace, ".env.local"), "SECRET=2\n");
+    await writeFile(join(workspace, ".env.example"), "SECRET=\n");
+    await writeFile(join(workspace, ".env.sample"), "SECRET=\n");
+    await writeFile(join(outside, "note.txt"), "hello\n");
+    await writeFile(join(fakeHome, ".ssh", "id_ed25519"), "key\n");
+    await writeFile(join(fakeDataRoot, "settings.json"), "{}\n");
+    await writeFile(join(fakeDataRoot, "secrets.json"), "{}\n");
+    await writeFile(join(fakeDataRoot, "agents", "lophn_home.md"), "# hi\n");
+
+    const roots = { read: [workspace], write: [workspace] };
+    const opts = { homeDir: fakeHome, dataRoot: fakeDataRoot };
+
+    // 일반 workspace 파일
+    const normalRead = await classifyFilePath(roots, "app.ts", "read", opts);
+    assert.equal(normalRead.outsideWorkspace, false);
+    assert.equal(normalRead.sensitive, false);
+    assert.equal(normalRead.selfProtection, false);
+
+    // .env* 읽기는 민감, .env.example / .env.sample은 제외
+    const envRead = await classifyFilePath(roots, ".env", "read", opts);
+    assert.equal(envRead.outsideWorkspace, false);
+    assert.equal(envRead.sensitive, true);
+    assert.equal(envRead.selfProtection, false);
+
+    const envLocal = await classifyFilePath(roots, ".env.local", "read", opts);
+    assert.equal(envLocal.sensitive, true);
+
+    const envExample = await classifyFilePath(
+      roots,
+      ".env.example",
+      "read",
+      opts,
+    );
+    assert.equal(envExample.sensitive, false);
+
+    const envSample = await classifyFilePath(
+      roots,
+      ".env.sample",
+      "read",
+      opts,
+    );
+    assert.equal(envSample.sensitive, false);
+
+    // workspace 민감 쓰기: .git/hooks/*, .git/config, .lophn/tools/*
+    for (const rel of [
+      ".git/hooks/pre-commit",
+      ".git/config",
+      ".lophn/tools/run.ts",
+    ]) {
+      const c = await classifyFilePath(roots, rel, "write", opts);
+      assert.equal(c.outsideWorkspace, false, rel);
+      assert.equal(c.sensitive, true, rel);
+      assert.equal(c.selfProtection, false, rel);
+    }
+
+    // 바깥 일반 폴더
+    const outRead = await classifyFilePath(
+      roots,
+      join(outside, "note.txt"),
+      "read",
+      opts,
+    );
+    assert.equal(outRead.outsideWorkspace, true);
+    assert.equal(outRead.sensitive, false);
+    assert.equal(outRead.folder, await realpath(outside));
+
+    // 자기 보호 경로 (~/.ssh, ~/.aws, ~/.gnupg, data root 설정·agent·secret)
+    for (const target of [
+      join(fakeHome, ".ssh", "id_ed25519"),
+      join(fakeHome, ".aws", "credentials"),
+      join(fakeHome, ".gnupg", "secring.gpg"),
+      join(fakeDataRoot, "settings.json"),
+      join(fakeDataRoot, "secrets.json"),
+      join(fakeDataRoot, "agents", "lophn_home.md"),
+    ]) {
+      const c = await classifyFilePath(roots, target, "write", opts);
+      assert.equal(c.selfProtection, true, target);
+      assert.equal(c.sensitive, true, target);
+    }
+
+    // onceTarget으로 승인된 바깥 파일은 resolveInWorkspace가 정확히 그 파일만 연다
+    const notePath = await realpath(join(outside, "note.txt"));
+    const noteFolder = await realpath(outside);
+    const withOnce = {
+      ...roots,
+      onceTarget: {
+        path: notePath,
+        folder: noteFolder,
+        mode: "read" as const,
+      },
+    };
+    const okNote = await resolveInWorkspace(withOnce, notePath, "read");
+    assert.equal(okNote.ok, true);
+    assert.equal(okNote.ok && okNote.value.root, noteFolder);
+    assert.equal(okNote.ok && okNote.value.relative, "note.txt");
+    // 같은 바깥 폴더의 다른 파일은 onceTarget으로 열리지 않는다
+    const otherDenied = await resolveInWorkspace(
+      withOnce,
+      join(outside, "other.txt"),
+      "read",
+    );
+    assert.equal(otherDenied.ok, false);
   } finally {
     await rm(temp, { recursive: true });
   }

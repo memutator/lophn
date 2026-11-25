@@ -383,7 +383,10 @@ const list: ReadDefinition<typeof followUpList> = {
     const ports = snapshot.port(followUpPorts);
     const scope = resolveAgentScope(ctx, (s) => ports.sessionWorkspace(s));
     if (scope.kind === "denied") {
-      return err({ code: "forbidden", message: "forbidden" });
+      return err({
+        code: "forbidden",
+        message: "the session is not permitted to list follow-up items",
+      });
     }
     if (scope.kind === "scoped") {
       if (input.workspace !== undefined) {

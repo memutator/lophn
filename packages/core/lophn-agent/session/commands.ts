@@ -2,25 +2,26 @@ import { canonicalize, err, ok, type Result } from "../../../base/mod.ts";
 import type { CatalogEntry } from "../../../protocol/lophn-agent/mod.ts";
 import {
   archiveSession,
+  type bindHarnessSession,
+  CODING_BUILTINS,
+  changeSessionMode,
   changeSessionModel,
-  changeSessionSkip,
   type compactSession,
   deleteSession,
+  failHarnessMemberCall,
   type failSessionCompact,
   type forkSession,
+  isModeDowngrade,
   MESSAGE_BODY_OWNER_KIND,
-  workspaceSessionOpen,
-  workspaceSessionAppOpen,
+  openHarnessMember,
   type recordMessage,
   type recordShellMessage,
   renameSession,
-  setSessionAiTitle,
   type requestSessionCompact,
   type sendMessage,
-  type bindHarnessSession,
-  CODING_BUILTINS,
-  failHarnessMemberCall,
-  openHarnessMember,
+  setSessionAiTitle,
+  workspaceSessionAppOpen,
+  workspaceSessionOpen,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { teamEnd } from "../../../protocol/lophn-agent/team.ts";
 import type {
@@ -29,19 +30,18 @@ import type {
   RequestContext,
   Tx,
 } from "../../../protocol/server/mod.ts";
+import { defaultIfUnset, showChosen } from "../models/store.ts";
 import { endSession, startSession } from "../workspaces/lifecycle.ts";
 import type { EndDeps, OpenDeps } from "../workspaces/ports.ts";
 import { createCompactCommands } from "./compact.ts";
-import { createHarnessCommands } from "./harness.ts";
 import { createForkCommand } from "./fork.ts";
-import { createTeamEnd } from "./team-commands.ts";
-import { deleteSessionReverts } from "./rewind/mod.ts";
 import {
   reject,
   requireMachine,
   requireUser,
   sessionNotFound,
 } from "./guards.ts";
+import { createHarnessCommands } from "./harness.ts";
 import {
   createMessageCommands,
   type SendMessageDeps,
@@ -51,12 +51,13 @@ import {
   loadSession,
   modelSelectionOf,
   nextSessionSeq,
-  workspaceOf,
   type SessionRow,
+  workspaceOf,
 } from "./model.ts";
-import { defaultIfUnset, showChosen } from "../models/store.ts";
+import { deleteSessionReverts } from "./rewind/mod.ts";
 import { checkSessionModel } from "./session-model.ts";
 import { renameSessionTitle } from "./session-title.ts";
+import { createTeamEnd } from "./team-commands.ts";
 
 // 세션 command. 등록 순서와 transaction 규칙은 message-commands.ts와 같다.
 
@@ -101,7 +102,7 @@ export function createConversationCommands(deps: ConversationDeps): {
   archive: CommandDefinition<typeof archiveSession>;
   delete: CommandDefinition<typeof deleteSession>;
   changeModel: CommandDefinition<typeof changeSessionModel>;
-  changeSkip: CommandDefinition<typeof changeSessionSkip>;
+  changeMode: CommandDefinition<typeof changeSessionMode>;
   fork: CommandDefinition<typeof forkSession>;
   requestCompact: CommandDefinition<typeof requestSessionCompact>;
   compact: CommandDefinition<typeof compactSession>;
@@ -443,10 +444,11 @@ export function createConversationCommands(deps: ConversationDeps): {
         });
       },
     },
-    // 도는 turn은 시작 때 정한 mode를 쓰므로 바꾼 값은 다음 turn부터 닿는다.
-    changeSkip: {
-      route: changeSessionSkip,
-      handle(tx, ctx, input: Input<typeof changeSessionSkip>, compare) {
+    // 권한 단계 변경. 사람만 바꾸며, 낮추면 다음 tool 호출부터 바로 닿는다.
+    // 폰·다른 기기(`device:`)는 단계를 낮추기만 할 수 있고 올리지 못한다(forbidden).
+    changeMode: {
+      route: changeSessionMode,
+      handle(tx, ctx, input: Input<typeof changeSessionMode>, compare) {
         const user = requireUser(ctx);
         if (!user.ok) return user;
         const session = loadSession(tx, input.session);
@@ -454,25 +456,33 @@ export function createConversationCommands(deps: ConversationDeps): {
         if (session.lifecycle !== "open") {
           return reject("conflict", "the session is archived");
         }
-        if (session.skip === input.skip) {
+        if (session.permission_mode === input.mode) {
           return ok({
             id: session.id,
-            skip: session.skip,
+            permission_mode: session.permission_mode,
             state_seq: session.state_seq,
+          });
+        }
+        if (
+          ctx.principal?.startsWith("device:") &&
+          !isModeDowngrade(session.permission_mode, input.mode)
+        ) {
+          return err({
+            code: "forbidden",
+            message: "a remote device can only lower the permission mode",
           });
         }
         if (session.state_seq !== compare.state_seq) {
           return reject("conflict", "session changed");
         }
         const seq = nextSessionSeq(tx);
-        tx.sql.run("update sessions set skip = ?, state_seq = ? where id = ?", [
-          input.skip ? 1 : 0,
-          seq,
-          session.id,
-        ]);
+        tx.sql.run(
+          "update sessions set permission_mode = ?, state_seq = ? where id = ?",
+          [input.mode, seq, session.id],
+        );
         return ok({
           id: session.id,
-          skip: input.skip,
+          permission_mode: input.mode,
           state_seq: String(seq),
         });
       },

@@ -1,4 +1,21 @@
 export {
+  bodyContentOf,
+  type MessageBodyEnvironment,
+  messageBodyRead,
+  readBodyBytes,
+} from "./body-read.ts";
+export { createConversationCommands } from "./commands.ts";
+export { isFinishedSummaryCall } from "./compact.ts";
+export { guiMemberSchemaSteps } from "./gui-member-schema.ts";
+export {
+  createHarnessCommands,
+  createHarnessInputTransport,
+  forkedHarnessSession,
+  HARNESS_QUEUE_PUT_TOPIC,
+  harnessOf,
+} from "./harness.ts";
+export { messageSearchRead } from "./message-search.ts";
+export {
   type AgentSessionRow,
   appWorkspaceSessions,
   conversationSchemaSteps,
@@ -7,27 +24,14 @@ export {
   type SessionRow,
   takeSteering,
 } from "./model.ts";
-export { createConversationCommands } from "./commands.ts";
-export { guiMemberSchemaSteps } from "./gui-member-schema.ts";
-export { workflowOriginSchemaSteps } from "./workflow-origin-schema.ts";
 export {
-  createHarnessCommands,
-  createHarnessInputTransport,
-  HARNESS_QUEUE_PUT_TOPIC,
-  forkedHarnessSession,
-  harnessOf,
-} from "./harness.ts";
-export { messageRemoveQueued, removeQueuedCommand } from "./queued-remove.ts";
+  SESSION_PERMISSION_MODE_SCHEMA_STEP_ID,
+  sessionPermissionModeSchemaSteps,
+} from "./permission-mode-schema.ts";
 export { editQueuedCommand } from "./queued-edit.ts";
 export { moveQueuedCommand } from "./queued-move.ts";
-export { isFinishedSummaryCall } from "./compact.ts";
+export { messageRemoveQueued, removeQueuedCommand } from "./queued-remove.ts";
 export { createConversationReads } from "./reads.ts";
-export {
-  bodyContentOf,
-  type MessageBodyEnvironment,
-  messageBodyRead,
-  readBodyBytes,
-} from "./body-read.ts";
-export { messageSearchRead } from "./message-search.ts";
-export { sessionSummaryRead } from "./summary-read.ts";
 export { sessionStatusReadDefinition } from "./status.ts";
+export { sessionSummaryRead } from "./summary-read.ts";
+export { workflowOriginSchemaSteps } from "./workflow-origin-schema.ts";

@@ -1,20 +1,21 @@
+import { err, ok, type Result } from "../../../base/mod.ts";
+import {
+  type CallFrom,
+  type CallRef,
+  callFromOfRow,
+} from "../../../protocol/lophn-agent/calls.ts";
 import {
   type AgentId,
+  DEFAULT_PERMISSION_MODE,
   type HarnessRuntime,
   MESSAGE_BODY_FIELD,
   MESSAGE_BODY_OWNER_KIND,
   MESSAGE_IMAGE_FIELD,
+  type PermissionMode,
+  type ReceivedMessage,
   type Workspace,
   type WorkspaceSession,
-  type ReceivedMessage,
 } from "../../../protocol/lophn-agent/mod.ts";
-import {
-  type CallFrom,
-  callFromOfRow,
-  type CallRef,
-} from "../../../protocol/lophn-agent/calls.ts";
-import { err, ok, type Result } from "../../../base/mod.ts";
-import type { Id } from "../../../protocol/base/ids.ts";
 import type {
   SchemaStep,
   SqlParams,
@@ -273,7 +274,7 @@ export type AgentSessionRow = {
   model_selection: string | null;
   compaction_through_seq: string | null;
   compaction_summary_call: string | null;
-  skip: boolean;
+  permission_mode: PermissionMode;
   // runtime이 harness인 agent의 session이면 그 harness. 열 때 정해 바뀌지 않는다.
   harness: HarnessRuntime | null;
   harness_session: string | null;
@@ -302,7 +303,7 @@ export type SessionRow = AgentSessionRow;
 export const SESSION_COLUMNS = `id, agent, project, app, workspace_kind,
   workspace_id, title, lifecycle, forked_from_session, forked_from_through_seq,
   model_selection, compaction_through_seq,
-  compaction_summary_call, skip, harness, harness_session, harness_gui, called_from_kind, called_from_id, spawned_by, opened_by_app, opened_by_machine, runs_on, workflow_origin, created_seq, state_seq`;
+  compaction_summary_call, permission_mode, harness, harness_session, harness_gui, called_from_kind, called_from_id, spawned_by, opened_by_app, opened_by_machine, runs_on, workflow_origin, created_seq, state_seq`;
 
 export function sessionRowOf(row: SqlRow): AgentSessionRow {
   return {
@@ -321,7 +322,8 @@ export function sessionRowOf(row: SqlRow): AgentSessionRow {
     model_selection: text(row["model_selection"]),
     compaction_through_seq: text(row["compaction_through_seq"]),
     compaction_summary_call: text(row["compaction_summary_call"]),
-    skip: Number(row["skip"]) === 1,
+    permission_mode: (text(row["permission_mode"]) ??
+      DEFAULT_PERMISSION_MODE) as PermissionMode,
     harness: text(row["harness"]) as HarnessRuntime | null,
     harness_session: text(row["harness_session"]),
     harness_gui: Number(row["harness_gui"]) === 1,
@@ -458,7 +460,7 @@ export function workspaceSessionOf(row: AgentSessionRow): WorkspaceSession {
             through_seq: row.compaction_through_seq,
             summary_call: row.compaction_summary_call,
           },
-    skip: row.skip,
+    permission_mode: row.permission_mode,
     called_from: calledFromOf(row),
     spawned_by: row.spawned_by as WorkspaceSession["spawned_by"],
     opened_by_app: row.opened_by_app as WorkspaceSession["opened_by_app"],

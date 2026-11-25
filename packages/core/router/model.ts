@@ -1,8 +1,5 @@
 import type { Id } from "../../protocol/base/ids.ts";
-import {
-  type ContentBlock,
-  textBlocks,
-} from "../../protocol/lophn-agent/content-block.ts";
+import type { SessionOpenMode } from "../../protocol/lophn-agent/agent-values.ts";
 import type {
   CallAddressInput,
   CallAskKind,
@@ -12,11 +9,15 @@ import type {
   CallReply,
   CallState,
 } from "../../protocol/lophn-agent/calls.ts";
+import {
+  type ContentBlock,
+  textBlocks,
+} from "../../protocol/lophn-agent/content-block.ts";
+import type { NoticeKind } from "../../protocol/lophn-agent/input-tags.ts";
 import type { InputDelivery } from "../../protocol/lophn-agent/inputs.ts";
+import type { PermissionMode } from "../../protocol/lophn-agent/turn-values.ts";
 import type { AgentAddress } from "../../protocol/lophn-agent/workspaces.ts";
 import type { WorkflowOrigin } from "../../protocol/workflows/values.ts";
-import type { SessionOpenMode } from "../../protocol/lophn-agent/agent-values.ts";
-import type { NoticeKind } from "../../protocol/lophn-agent/input-tags.ts";
 import type { RoutedInput, TargetSession } from "./ports.ts";
 
 // 순수 함수만 둔다. 받는 곳 해석 순서, 실패 이유를 오류로 바꾸는 규칙, 실패 알림 글.
@@ -63,6 +64,8 @@ export type RouteInput = {
   // 다른 컴퓨터의 `team spawn --on`이 연 팀원: 그 기계가 지은 session id와 그 기계의 부모 session.
   member?: { id: Id<"ses">; parent: Id<"ses"> };
   skipAllowed?: boolean;
+  // workflow participant 등 새 session을 열 때 쓸 권한 단계.
+  permissionMode?: PermissionMode;
 };
 
 export type RouteResult = {

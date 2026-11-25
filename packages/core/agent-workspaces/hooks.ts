@@ -7,10 +7,10 @@ import {
   isLophn,
   type Workspace,
 } from "../../protocol/lophn-agent/workspaces.ts";
+import { agentMemoryFile } from "../lophn-agent/agents/store.ts";
 import { recordBeforeWrite } from "../lophn-agent/session/rewind/record.ts";
 import { rewindOverCore } from "../lophn-agent/session/rewind/runtime-port.ts";
 import type { FileHooks } from "../lophn-agent/tools/ports.ts";
-import { agentMemoryFile } from "../lophn-agent/agents/store.ts";
 import { memoryFileOf, workspaceMemoryFile } from "./workspace/data-folder.ts";
 
 // agent runtime child의 data root(LOPHN_HOME)다. 절대 path가 아니면 memory 자리를 알 수 없다.
@@ -20,8 +20,8 @@ function dataRoot(): string | null {
 }
 
 // file.write와 file.edit에 workspace 층(`agent-workspaces`)이 끼우는 규칙이다: 쓰기 전에 pre-image를 남긴다(기록이 실패해도 쓰기는 막지
-// 않는다). 지침 파일(LOPHN.md)도 묻지 않고 쓰고 rewind로 되돌린다. agent 정의는 lophn data에 있어 file tool이
-// 닿지 않는다. agent.memory도 같은 길로 쓰기를 남긴다.
+// 않는다). 등록 폴더 안 쓰기와 이번 대화에 연 바깥 폴더 안 쓰기 모두 target.root·target.relative로 rewind 기록에 남는다.
+// 지침 파일(LOPHN.md)도 묻지 않고 쓰고 rewind로 되돌린다. agent 정의는 lophn data에 있어 file tool이 닿지 않는다. agent.memory도 같은 길로 쓰기를 남긴다.
 export const FILE_HOOKS: FileHooks = {
   async aroundWrite(ctx, target, run) {
     const written = await recordBeforeWrite(rewindOverCore(ctx.core), {

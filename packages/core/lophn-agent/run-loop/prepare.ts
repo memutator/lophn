@@ -19,18 +19,18 @@ import {
   isHarnessRuntime,
   type McpServer,
   type ModelChoice,
+  startTurn,
+  TURN_BLOB_PURPOSES,
+  type TurnLimits,
+  type TurnMode,
+  textBlocks,
+  toolCallList,
+  turnList,
+  turnRead,
   type WorkspaceKind,
   type WorkspaceSession,
   workspaceKindOf,
   workspaceSessionRead,
-  startTurn,
-  textBlocks,
-  toolCallList,
-  TURN_BLOB_PURPOSES,
-  type TurnLimits,
-  type TurnMode,
-  turnList,
-  turnRead,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { createListSettingsReader } from "../../config/mod.ts";
 import { type CannotStart, resolveTurnAgent } from "../agents/layers.ts";
@@ -967,7 +967,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     if (!read.ok) return read;
     const session = read.value.session;
     const kind = workspaceKindOf(session.workspace);
-    const mode = turnModeOf(session, start.input);
+    const mode = turnModeOf(start.input);
     if (session.lifecycle !== "open") {
       return err({ code: "conflict", message: "the session is not open" });
     }

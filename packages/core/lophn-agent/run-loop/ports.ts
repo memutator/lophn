@@ -183,6 +183,8 @@ export type ToolDone = {
   status: "success" | "failure" | "uncertain" | "not_executed";
   code: string;
   result: ToolResult;
+  // 사람이 이유를 달아 거절했는지(true면 남은 batch 호출을 이어 간다).
+  rejectedWithReason?: boolean;
 };
 
 // 사람의 결정을 기다리는 동안 turn의 active·stall 시간을 세지 않게 알리는 길이다.

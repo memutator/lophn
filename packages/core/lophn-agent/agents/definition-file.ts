@@ -7,9 +7,9 @@ import {
   type AgentDefinition,
   type AgentDefinitionIssue,
   type AgentId,
+  type AgentRuntime,
   agentDefinitionSchema,
   codingBuiltinOf,
-  type AgentRuntime,
   isHarnessRuntime,
   isLophn,
   isReservedHandle,
@@ -305,7 +305,9 @@ function orderedFrontmatter(value: Plain): Plain {
   if (value.browser_profile !== undefined) {
     out.browser_profile = value.browser_profile;
   }
-  if (value.skip !== undefined) out.skip = value.skip;
+  if (value.permission_mode !== undefined) {
+    out.permission_mode = value.permission_mode;
+  }
   return out;
 }
 

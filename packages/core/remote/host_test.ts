@@ -12,7 +12,10 @@ import {
   ok,
   seededRandom,
 } from "../../base/mod.ts";
-import { type Route, routePath } from "../../protocol/base/mod.ts";
+import {
+  localToolTrust,
+  localToolUntrust,
+} from "../../protocol/approvals/permissions-view.ts";
 import { activationActivatePrevious } from "../../protocol/apps/activation/activation.ts";
 import { appLogViewError } from "../../protocol/apps/app-log.ts";
 import {
@@ -32,6 +35,8 @@ import {
   releasePrepare,
 } from "../../protocol/apps/releases.ts";
 import { appsSecretValue } from "../../protocol/apps/secret-use.ts";
+import { type Route, routePath } from "../../protocol/base/mod.ts";
+import type { BusEvent, EventCondition } from "../../protocol/events/mod.ts";
 import { jobCreate, jobDelete } from "../../protocol/jobs/jobs.ts";
 import {
   agentChange,
@@ -50,13 +55,16 @@ import {
   loginCancel,
   refreshProviderModels,
 } from "../../protocol/lophn-agent/providers.ts";
-import {
-  changeSessionSkip,
-  deleteSession,
-} from "../../protocol/lophn-agent/sessions.ts";
+import { deleteSession } from "../../protocol/lophn-agent/sessions.ts";
 import { resolveMachine } from "../../protocol/machine/requester.ts";
 import { projectApi } from "../../protocol/projects/project-api.ts";
 import { ROUTES } from "../../protocol/registry.ts";
+import { REMOTE_PERSON_ROUTES } from "../../protocol/remote/allowlist.ts";
+import {
+  rosterGrantSet,
+  rosterGrants,
+  rosterGrantsSeed,
+} from "../../protocol/remote/grants.ts";
 import {
   connectRemote,
   devicesClearPush,
@@ -66,14 +74,16 @@ import {
   devicesSetPrimary,
   generateKeyPair,
   type KeyPair,
+  machinesCall,
   REMOTE_ALLOWED_ROUTES,
   type RemoteClientChannel,
   type RemoteClientFrame,
   type RemoteServerFrame,
+  type RosterEntryBody,
+  type RosterInvitedStatement,
   remoteKeyBytes,
   remoteKeyText,
   rosterForgetAll,
-  machinesCall,
   rosterInvite,
   rosterList,
   rosterRemove,
@@ -81,26 +91,18 @@ import {
   rosterSetTerminalInput,
   rosterStatements,
   rosterStore,
-  type RosterEntryBody,
-  type RosterInvitedStatement,
   rosterView,
   signRoster,
 } from "../../protocol/remote/mod.ts";
-import {
-  rosterGrants,
-  rosterGrantSet,
-  rosterGrantsSeed,
-} from "../../protocol/remote/grants.ts";
-import { REMOTE_PERSON_ROUTES } from "../../protocol/remote/allowlist.ts";
+import type { Tx } from "../../protocol/server/mod.ts";
 import { workflowEdit } from "../../protocol/workflows/routes.ts";
 import { appViewHandlers, createAppViews } from "../apps/views/mod.ts";
 import { devicesSetting } from "../config/shell-settings.ts";
+import { createBus } from "../events/mod.ts";
 import {
   projectFilesListRead,
   projectFilesReadRead,
 } from "../projects/files/mod.ts";
-import type { BusEvent, EventCondition } from "../../protocol/events/mod.ts";
-import { createBus } from "../events/mod.ts";
 import {
   CredentialRegistry,
   type OperationPolicy,
@@ -109,11 +111,10 @@ import {
   bytesFileStream,
   type FileStreamHandler,
   type MemoryHandler,
+  RouteRegistry,
   type UploadHandler,
 } from "../server/mod.ts";
-import type { Tx } from "../../protocol/server/mod.ts";
 import { createSql } from "../storage/ledger/sqlite.ts";
-import { RouteRegistry } from "../server/mod.ts";
 import { createAdmission } from "../supervision/responsiveness/mod.ts";
 import {
   createDeviceCredentials,
@@ -134,11 +135,6 @@ import {
   screensRevoked,
 } from "./devices.ts";
 import {
-  addSigningKey,
-  loadRemoteKeys,
-  stampHostKeyMachine,
-} from "./host-key.ts";
-import {
   createRemoteHost,
   JOIN_TRIES,
   REMOTE_JOIN_MS,
@@ -147,10 +143,15 @@ import {
   type RemoteRoster,
   type RemoteSocket,
 } from "./host.ts";
+import {
+  addSigningKey,
+  loadRemoteKeys,
+  stampHostKeyMachine,
+} from "./host-key.ts";
 import { createLinks } from "./links.ts";
 import { createMachineRoutes } from "./machine-routes.ts";
-import { CORE_APP_EVENTS, sharesAppEvent } from "./subscriptions.ts";
 import { createRoster, type Roster, type RosterChange } from "./roster.ts";
+import { CORE_APP_EVENTS, sharesAppEvent } from "./subscriptions.ts";
 
 // 메모리 안에서 폰과 core를 잇는다. 실제 socket처럼 다음 microtask에 전한다.
 function wire() {
@@ -254,7 +255,8 @@ function setup(real?: { roster: RemoteRoster; hostKey: KeyPair }) {
   // 목록 밖이어야 하는 route도 등록한다. 등록되지 않으면 forbidden이 아니라 not_found가 된다.
   const outside: Route[] = [
     deleteSession,
-    changeSessionSkip,
+    localToolTrust,
+    localToolUntrust,
     appsSecretValue,
     connectProvider,
     disconnectProvider,
@@ -713,7 +715,8 @@ test("터미널 입력 허락이 없는 기기는 route 목록을 넓힌 뒤에�
   const c = await s.connect(key);
   const outside = [
     "sessions/delete",
-    "sessions/change-skip",
+    "permissions/trust-local-tool",
+    "permissions/untrust-local-tool",
     "secrets/status",
     "secrets/put",
     "secrets/delete",

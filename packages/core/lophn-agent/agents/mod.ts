@@ -27,6 +27,10 @@ export {
   nameOf,
   openAgentContext,
 } from "./inspect.ts";
+export {
+  AGENT_PERMISSION_MODE_STEP_ID,
+  agentPermissionModeStep,
+} from "./permission-mode-step.ts";
 export type {
   AgentDeps,
   AgentFileSystem,

@@ -83,9 +83,9 @@ function unavailable(message: string): Result<never> {
   return err({ code: "unavailable", message });
 }
 
-// 없는 앱과 범위 밖 앱은 같은 답이다.
+// 없는 앱과 범위 밖 앱은 같은 답(not_found)이라 존재가 새지 않는다.
 function unreachableTarget(): Result<never> {
-  return err({ code: "forbidden", message: "release target is not available" });
+  return err({ code: "not_found", message: "release target is not available" });
 }
 
 function sha256(text: string): string {

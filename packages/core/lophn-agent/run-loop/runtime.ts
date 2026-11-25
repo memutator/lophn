@@ -1,41 +1,30 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
+  type Frame,
+  type ReadRoute,
+  routePath,
+} from "../../../protocol/base/mod.ts";
+import type { AgentEvent } from "../../../protocol/events/mod.ts";
+import {
   AGENT_RUNTIME_PRINCIPAL,
+  turnRead,
   type WorkspaceKind,
   workspaceSessionRead,
-  turnRead,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
   AuthenticatedContext,
   RequestContext,
 } from "../../../protocol/server/mod.ts";
-import {
-  type Frame,
-  type ReadRoute,
-  routePath,
-} from "../../../protocol/base/mod.ts";
 import type {
   ChildMessage,
   Diagnostic,
   ModelOutputMessage,
   ParentMessage,
 } from "../../../protocol/supervision/mod.ts";
-import {
-  type AgentCredentialIssuer,
-  EXTERNAL_TOOL_OPERATIONS,
-  RUNTIME_MACHINE_OPERATIONS,
-} from "./mod.ts";
 import type {
   CredentialRegistry,
   OperationPolicy,
 } from "../../server/identity/mod.ts";
-import type {
-  ChildCallbacks,
-  Supervisor,
-} from "../../supervision/responsiveness/mod.ts";
-import { answerRedactRequest } from "./runtime-redaction.ts";
-import type { AgentRuntimeSecrets } from "./runtime-secret.ts";
-import { createAgentCredentialLink } from "./agent-credentials.ts";
 import {
   type ChildBlobPrepare,
   createChildBlobPrepare,
@@ -46,11 +35,22 @@ import type {
   PreparedRelayResult,
 } from "../../storage/blobs/prepare-relay.ts";
 import type { KnownSecretMatch } from "../../storage/ledger/mod.ts";
+import type {
+  ChildCallbacks,
+  Supervisor,
+} from "../../supervision/responsiveness/mod.ts";
 import { agentRuntimeLaunchSpec } from "../register.ts";
-import type { AgentEvent } from "../../../protocol/events/mod.ts";
-import { createTurnPipe } from "./turn-pipe.ts";
+import { createAgentCredentialLink } from "./agent-credentials.ts";
+import {
+  type AgentCredentialIssuer,
+  EXTERNAL_TOOL_OPERATIONS,
+  RUNTIME_MACHINE_OPERATIONS,
+} from "./mod.ts";
 import type { TurnSource } from "./ports.ts";
 import type { Queue } from "./queue.ts";
+import { answerRedactRequest } from "./runtime-redaction.ts";
+import type { AgentRuntimeSecrets } from "./runtime-secret.ts";
+import { createTurnPipe } from "./turn-pipe.ts";
 
 // 제품 core가 agent runtime child를 띄우고 감독하는 자리. child는
 // 상시 신뢰 process이고 core 안의 인증 경계(CredentialRegistry)가 두 가지 자격을 발급한다.
@@ -289,7 +289,11 @@ export async function startAgentRuntimeChild(
           .onMessage(message)
           .then((response) => {
             if (response !== undefined) {
-              return deps.io.send(AGENT_RUNTIME_KIND, response);
+              // AgentCredentialDeniedResponse는 Wave 3에서 supervision protocol에 반영한다.
+              return deps.io.send(
+                AGENT_RUNTIME_KIND,
+                response as ParentMessage,
+              );
             }
           })
           .catch(() => {});

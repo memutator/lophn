@@ -1,10 +1,10 @@
 import type { SchemaStep } from "../../../protocol/server/mod.ts";
+import { guiMemberSchemaSteps } from "./gui-member-schema.ts";
+import { conversationSchemaSteps } from "./model.ts";
 import {
   appMessagesSchemaSteps,
   sessionOpenerSchemaSteps,
 } from "./opener-schema.ts";
-import { conversationSchemaSteps } from "./model.ts";
-import { guiMemberSchemaSteps } from "./gui-member-schema.ts";
 import {
   memberRunsOnSchemaSteps,
   remoteSenderMessagesSchemaSteps,
@@ -21,4 +21,12 @@ export const conversationTestSteps: readonly SchemaStep[] = [
   ...remoteSenderMessagesSchemaSteps,
   ...memberRunsOnSchemaSteps,
   ...workflowOriginSchemaSteps,
+  {
+    // turns 표 없이 conversationTestSteps만 돌리는 test에서도 sessions.permission_mode 열이 있게 한다.
+    id: "lophn-agent.session-permission-mode.test-sessions",
+    sql: `
+alter table sessions add column permission_mode text not null default 'workspace'
+  check (permission_mode in ('read_only', 'ask', 'workspace', 'full'));
+update sessions set permission_mode = 'full' where skip = 1;`,
+  },
 ];

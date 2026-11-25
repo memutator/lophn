@@ -1,13 +1,14 @@
 import { createHash } from "node:crypto";
 import { realpath } from "node:fs/promises";
+import { isAbsolute, relative, sep } from "node:path";
 import { err, ok, type Result } from "../../../../base/mod.ts";
+import { parseActor } from "../../../../protocol/base/mod.ts";
 import {
+  REWIND_MAX_FILE_BYTES,
   recordRewindFile,
   recordRewindWrite,
-  REWIND_MAX_FILE_BYTES,
   stageRewindFile,
 } from "../../../../protocol/lophn-agent/mod.ts";
-import { parseActor } from "../../../../protocol/base/mod.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import type { MemoryHandler } from "../../../server/mod.ts";
 import type { Writer } from "../../../storage/ledger/mod.ts";
@@ -24,6 +25,8 @@ type RewindWriteDeps = {
   store: Pick<RewindStore, "put" | "has">;
   // 그 session의 workspace가 file tool에 연 쓰기 폴더(절대 경로)다. 열리지 않았으면 빈 목록이다.
   foldersOf(session: string): readonly string[];
+  // 이번 대화 동안("session") 허락으로 연 바깥 폴더(절대 경로). 이 폴더 안 쓰기도 rewind 기록에 남는다.
+  openedFoldersOf?(session: string): readonly string[];
   writer(): Writer;
 };
 
@@ -48,6 +51,11 @@ function sameTurn(
   );
 }
 
+function insideDir(folder: string, target: string): boolean {
+  const rel = relative(folder, target);
+  return rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel);
+}
+
 async function openRoot(
   deps: RewindWriteDeps,
   session: string,
@@ -56,6 +64,14 @@ async function openRoot(
   for (const folder of deps.foldersOf(session)) {
     try {
       if ((await realpath(folder)) === root) return true;
+    } catch {
+      // 없어진 폴더는 열린 폴더가 아니다.
+    }
+  }
+  for (const folder of deps.openedFoldersOf?.(session) ?? []) {
+    try {
+      const realFolder = await realpath(folder);
+      if (realFolder === root || insideDir(realFolder, root)) return true;
     } catch {
       // 없어진 폴더는 열린 폴더가 아니다.
     }

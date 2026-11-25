@@ -1,14 +1,15 @@
 import { canonicalize } from "../../../base/mod.ts";
+import type { SecretSlot } from "../../../protocol/lophn-agent/input-request.ts";
 import type {
   AgentId,
   McpOwnerWorkspace,
   McpServer,
+  McpTrust,
 } from "../../../protocol/lophn-agent/mod.ts";
 import {
   type SecretDestination,
   secretDestinationOf,
 } from "../../../protocol/secrets/mod.ts";
-import type { SecretSlot } from "../../../protocol/lophn-agent/input-request.ts";
 import { mcpOwnerScope, mcpTokenNames } from "./mcp-oauth-vault.ts";
 
 // 연결이 쓰는 MCP 서버 한 대다. 층에서 온 설정(`McpServer`, secret은 `secrets.json`의 이름 `{secret}`)을 연결,
@@ -38,6 +39,7 @@ type Common = {
   name: string;
   enabled: boolean;
   call_timeout_ms: number;
+  trust: McpTrust;
   // 설정이 바뀌면 달라지는 지문이다. 같은 연결을 이어 쓸지 가른다.
   fingerprint: string;
 };
@@ -74,6 +76,7 @@ export function runtimeServerOfLayer(
     name: server.name,
     enabled: server.enabled,
     call_timeout_ms: server.call_timeout_ms,
+    trust: server.trust ?? "untrusted",
     fingerprint: canonicalize([mcpOwnerScope(workspace), agent, server]),
   };
   if (server.transport === "stdio") {
@@ -208,11 +211,9 @@ export function mcpMissingSlot(
     }
   } else if (connection.state === "failed_auth") {
     part =
-      auth.kind === "oauth2"
-        ? "sign_in"
-        : auth.kind === "bearer" || auth.kind === "api_key"
-          ? "credential"
-          : undefined;
+      auth.kind === "bearer" || auth.kind === "api_key"
+        ? "credential"
+        : "sign_in";
   }
   return part === undefined ? undefined : { mcp: server.name, part };
 }

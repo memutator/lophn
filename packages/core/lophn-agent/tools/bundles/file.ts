@@ -1,12 +1,15 @@
+import { z } from "zod";
+import type { AskedCall } from "../../../../protocol/approvals/mod.ts";
 import { readImage } from "../file/image.ts";
-import { readPdf } from "../file/pdf.ts";
 import { outlineFile } from "../file/outline.ts";
+import { readPdf } from "../file/pdf.ts";
 import { readFile } from "../file/read.ts";
+import { classifyFilePath } from "../file/scope.ts";
 import { globFiles, grepFiles } from "../file/search.ts";
 import { editFile, writeFile } from "../file/write.ts";
 import type { FileHooks } from "../ports.ts";
 import { defineTool, type ToolDefinition } from "../spi.ts";
-import { z } from "zod";
+import type { ToolContext } from "../tool-context.ts";
 
 const nonblank = z.string().refine((value) => value.trim().length > 0, {
   message: "expected nonblank text",
@@ -21,6 +24,39 @@ function lineRange(input: { offset?: number; limit?: number }): string {
   return input.limit === undefined
     ? ` (${start}-)`
     : ` (${start}-${start + input.limit - 1})`;
+}
+
+// 바깥 폴더나 민감 경로(.env*, 자기 보호 경로) 읽기는 Gate를 거친다. 일반 등록 폴더 안 읽기는 묻지 않는다.
+async function fileReadGate(
+  targetPath: string,
+  ctx: ToolContext,
+): Promise<AskedCall | null> {
+  const classified = await classifyFilePath(ctx.scope, targetPath, "read");
+  if (!classified.outsideWorkspace && !classified.sensitive) return null;
+  return {
+    kind: "file_read",
+    path: classified.path ?? targetPath,
+    folder: classified.folder,
+    outside_workspace: classified.outsideWorkspace,
+    sensitive: classified.sensitive,
+  };
+}
+
+// 모든 파일 쓰기·편집은 Gate를 거친다(read_only 거부, ask 묻기, workspace 자동·민감/바깥 묻기).
+async function fileWriteGate(
+  targetPath: string,
+  action: "write" | "edit",
+  ctx: ToolContext,
+): Promise<AskedCall> {
+  const classified = await classifyFilePath(ctx.scope, targetPath, "write");
+  return {
+    kind: "file_write",
+    path: classified.path ?? targetPath,
+    folder: classified.folder,
+    outside_workspace: classified.outsideWorkspace,
+    sensitive: classified.sensitive,
+    action,
+  };
 }
 
 // workspace 폴더 안의 file tool 여덟 개. agent runtime 안에서 돌고 쓰기 기록은 hook이 맡는다.
@@ -43,6 +79,7 @@ export const createFileTools = (
       category: "read",
       title: `Read ${input.path}${lineRange(input)}`,
     }),
+    gate: (input, ctx) => fileReadGate(input.path, ctx),
     handler: (input, ctx) => readFile(input, ctx),
   }),
   defineTool({
@@ -52,6 +89,7 @@ export const createFileTools = (
     description:
       "Write a text file in the workspace folder, replacing it if it exists. Missing folders are created.",
     effect: "write",
+    gate: (input, ctx) => fileWriteGate(input.path, "write", ctx),
     handler: (input, ctx) => writeFile(input, ctx, hooks),
   }),
   defineTool({
@@ -66,6 +104,7 @@ export const createFileTools = (
     description:
       "Replace old_string with new_string in a text file. old_string must appear exactly once unless replace_all is true.",
     effect: "write",
+    gate: (input, ctx) => fileWriteGate(input.path, "edit", ctx),
     handler: (input, ctx) => editFile(input, ctx, hooks),
   }),
   defineTool({
@@ -76,6 +115,7 @@ export const createFileTools = (
       "List files whose path matches a glob (**, *, ?, {a,b}) under path, or the workspace's first folder.",
     effect: "read",
     display: (input) => ({ category: "list", title: `List ${input.pattern}` }),
+    gate: (input, ctx) => fileReadGate(input.path ?? ".", ctx),
     handler: (input, ctx) => globFiles(input, ctx),
   }),
   defineTool({
@@ -95,6 +135,7 @@ export const createFileTools = (
         input.path === undefined ? "" : ` in ${input.path}`
       }`,
     }),
+    gate: (input, ctx) => fileReadGate(input.path ?? ".", ctx),
     handler: (input, ctx) => grepFiles(input, ctx),
   }),
   defineTool({
@@ -105,6 +146,7 @@ export const createFileTools = (
       "Show the heading tree of a markdown file with the line range of each section. Read a section with file.read using offset and limit.",
     effect: "read",
     display: (input) => ({ category: "list", title: `Outline ${input.path}` }),
+    gate: (input, ctx) => fileReadGate(input.path, ctx),
     handler: (input, ctx) => outlineFile(input, ctx),
   }),
   defineTool({
@@ -118,6 +160,7 @@ export const createFileTools = (
       category: "read",
       title: `Read ${input.path} (pages ${input.pages})`,
     }),
+    gate: (input, ctx) => fileReadGate(input.path, ctx),
     handler: (input, ctx) => readPdf(input, ctx),
   }),
   defineTool({
@@ -128,6 +171,11 @@ export const createFileTools = (
       "Show an image file (png, jpeg, gif, webp, up to 5 MiB) to the model. path can also be annotation:<id> to open the screenshot of an annotation, or attachment:<id> to open an image the person attached to a message.",
     effect: "read",
     display: (input) => ({ category: "read", title: `Read ${input.path}` }),
+    gate: (input, ctx) =>
+      input.path.startsWith("annotation:") ||
+      input.path.startsWith("attachment:")
+        ? null
+        : fileReadGate(input.path, ctx),
     handler: (input, ctx) => readImage(input, ctx),
   }),
 ];

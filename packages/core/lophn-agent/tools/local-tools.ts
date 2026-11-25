@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
-import { readdir } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { readdir, readFile, realpath } from "node:fs/promises";
 import { dirname, extname, join } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -16,6 +17,8 @@ import type { ToolContext } from "./tool-context.ts";
 // 파일 기반 로컬 tool이다. `<data root>/tools/`, `<workspace>/.lophn/tools/`, `<workspace data>/tools/` 세 층에서
 // `.ts`·`.js`·`.mjs` 파일을 찾아 격리된 Node 자식 프로세스로 schema를 읽고 실행한다.
 // model에 보이는 이름은 `local__<name>`이라 내장 tool(`_` 하나)·MCP(`mcp__`)와 겹치지 않는다.
+// 신뢰 목록(`approvals.local_tool_trust`)에 `(realPath, sha256)`이 없는 스크립트는 inspect 단계에서도 실행하지 않고
+// stub 정의 + local_tool gate로 올려, 사람이 승인한 뒤에만 실행한다.
 export const LOCAL_TOOL_PREFIX = "local__";
 export const LOCAL_TOOL_NAME = /^[a-z][a-z0-9_]*$/;
 const MODEL_NAME_MAX = 64;
@@ -49,9 +52,28 @@ export type LocalToolFile = {
   path: string;
 };
 
+export type LocalToolDigest = LocalToolFile & {
+  realPath: string;
+  sha256: string;
+};
+
+export type LocalToolTrustRecord = {
+  path: string;
+  sha256: string;
+};
+
+export type LoadLocalToolsOptions = {
+  // 사람이 이미 신뢰한 `(실제 경로, sha256)` 목록(`approvals.local_tool_trust`).
+  // 생략하면 빈 목록(fail-closed): 신뢰되지 않은 스크립트는 inspect를 실행하지 않고 stub + gate로만 올린다.
+  trusted?: readonly LocalToolTrustRecord[];
+};
+
 export type InspectedLocalTool = {
   name: string;
   path: string;
+  realPath?: string;
+  sha256?: string;
+  changed?: boolean;
   description: string;
   inputSchema: Record<string, unknown>;
   effect: ToolEffect;
@@ -91,6 +113,31 @@ export async function discoverLocalToolFiles(
     }
   }
   return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export async function hashLocalToolFile(
+  file: LocalToolFile,
+): Promise<LocalToolDigest | null> {
+  try {
+    const resolved = await realpath(file.path);
+    const bytes = await readFile(resolved);
+    const sha256 = createHash("sha256").update(bytes).digest("hex");
+    return { ...file, realPath: resolved, sha256 };
+  } catch {
+    return null;
+  }
+}
+
+export async function discoverLocalToolDigests(
+  folders: readonly (string | null | undefined)[],
+): Promise<LocalToolDigest[]> {
+  const files = await discoverLocalToolFiles(folders);
+  const digests: LocalToolDigest[] = [];
+  for (const file of files) {
+    const digest = await hashLocalToolFile(file);
+    if (digest !== null) digests.push(digest);
+  }
+  return digests;
 }
 
 function safeEnv(
@@ -235,12 +282,39 @@ async function formatResult(
   });
 }
 
+function makeRunnerHandler(
+  toolPath: string,
+  cwd: string | null,
+): NonNullable<ToolDefinition["handler"]> {
+  return async (input, ctx) => {
+    const ran = await runRunner<
+      { ok: true; content: RunnerContent[] } | { ok: false; message: string }
+    >(
+      "run",
+      { path: toolPath, input, cwd: cwd ?? dirname(toolPath) },
+      {
+        cwd: cwd ?? dirname(toolPath),
+        timeoutMs: RUN_TIMEOUT_MS,
+        signal: ctx.signal,
+      },
+    );
+    if (!ran.ok) return ran;
+    if (!ran.value.ok) {
+      return err({ code: "unavailable", message: ran.value.message });
+    }
+    return ok(await formatResult(ran.value.content, ctx));
+  };
+}
+
 export function buildLocalToolDefinitions(
   tools: readonly InspectedLocalTool[],
   cwd: string | null,
 ): ToolDefinition[] {
   return tools.map((tool) => {
     const modelName = localToolModelName(tool.name);
+    const gatePath = tool.realPath ?? tool.path;
+    const gateSha256 = tool.sha256 ?? "";
+    const gateChanged = tool.changed === true;
     return {
       name: modelName,
       description: tool.description,
@@ -249,40 +323,118 @@ export function buildLocalToolDefinitions(
       effect: tool.effect,
       origin: "local",
       operations: [],
-      async handler(input, ctx) {
-        const ran = await runRunner<
-          | { ok: true; content: RunnerContent[] }
-          | { ok: false; message: string }
-        >(
-          "run",
-          { path: tool.path, input, cwd: cwd ?? dirname(tool.path) },
-          {
-            cwd: cwd ?? dirname(tool.path),
-            timeoutMs: RUN_TIMEOUT_MS,
-            signal: ctx.signal,
-          },
-        );
-        if (!ran.ok) return ran;
-        if (!ran.value.ok) {
-          return err({ code: "unavailable", message: ran.value.message });
-        }
-        return ok(await formatResult(ran.value.content, ctx));
+      gate: async () => {
+        // 호출 시점에 파일이 바뀌었으면 최신 sha256을 다시 계산해 변조를 놓치지 않는다.
+        const current = await hashLocalToolFile({
+          name: tool.name,
+          path: gatePath,
+        });
+        const liveSha = current?.sha256 ?? gateSha256;
+        const livePath = current?.realPath ?? gatePath;
+        const changed =
+          gateChanged || (gateSha256 !== "" && liveSha !== gateSha256);
+        return {
+          kind: "local_tool",
+          name: tool.name,
+          path: livePath,
+          sha256: liveSha,
+          changed,
+        };
       },
+      handler: makeRunnerHandler(gatePath, cwd),
     };
   });
 }
 
-// 세 층의 폴더에서 로컬 tool을 발견해 ToolDefinition 목록으로 돌려준다. 파일이 없으면 자식 프로세스를 띄우지 않는다.
+function untrustedStub(
+  digest: LocalToolDigest,
+  changed: boolean,
+  cwd: string | null,
+): ToolDefinition {
+  return {
+    name: localToolModelName(digest.name),
+    description: changed
+      ? `Local tool ${digest.name} (file changed since last trust; requires re-approval before running)`
+      : `Untrusted local tool ${digest.name} (requires approval before first run)`,
+    input: z.record(z.string(), z.unknown()),
+    inputSchema: { type: "object", additionalProperties: true },
+    effect: "external",
+    origin: "local",
+    operations: [],
+    gate: async () => {
+      const current = await hashLocalToolFile(digest);
+      const liveSha = current?.sha256 ?? digest.sha256;
+      const livePath = current?.realPath ?? digest.realPath;
+      return {
+        kind: "local_tool",
+        name: digest.name,
+        path: livePath,
+        sha256: liveSha,
+        changed: changed || liveSha !== digest.sha256,
+      };
+    },
+    handler: makeRunnerHandler(digest.realPath, cwd),
+  };
+}
+
+// 세 층의 폴더에서 로컬 tool을 발견해 ToolDefinition 목록으로 돌려준다.
+// 이미 신뢰된 `(realPath, sha256)` 파일만 inspect 자식 프로세스로 읽고, 비신뢰·변경 파일은 코드를 실행하지 않고
+// stub 정의와 local_tool gate로만 올려 승인 뒤 실행되게 한다.
 export async function loadLocalTools(
   folders: readonly (string | null | undefined)[],
   cwd: string | null,
+  options?: LoadLocalToolsOptions,
 ): Promise<ToolDefinition[]> {
-  const files = await discoverLocalToolFiles(folders);
-  if (files.length === 0) return [];
-  const inspected = await runRunner<{
-    tools: InspectedLocalTool[];
-    broken: { name: string; path: string; reason: string }[];
-  }>("inspect", { files }, { timeoutMs: INSPECT_TIMEOUT_MS });
-  if (!inspected.ok) return [];
-  return buildLocalToolDefinitions(inspected.value.tools, cwd);
+  const digests = await discoverLocalToolDigests(folders);
+  if (digests.length === 0) return [];
+
+  const trustedByPath = new Map<string, string>();
+  for (const entry of options?.trusted ?? []) {
+    const resolved = await realpath(entry.path).catch(() => entry.path);
+    trustedByPath.set(resolved, entry.sha256);
+  }
+
+  const trustedDigests: LocalToolDigest[] = [];
+  const untrustedStubs: ToolDefinition[] = [];
+  for (const digest of digests) {
+    const expectedSha = trustedByPath.get(digest.realPath);
+    if (expectedSha !== undefined && expectedSha === digest.sha256) {
+      trustedDigests.push(digest);
+    } else {
+      untrustedStubs.push(
+        untrustedStub(digest, expectedSha !== undefined, cwd),
+      );
+    }
+  }
+
+  const trustedDefs: ToolDefinition[] = [];
+  if (trustedDigests.length > 0) {
+    const inspected = await runRunner<{
+      tools: InspectedLocalTool[];
+      broken: { name: string; path: string; reason: string }[];
+    }>(
+      "inspect",
+      {
+        files: trustedDigests.map((d) => ({ name: d.name, path: d.realPath })),
+      },
+      { timeoutMs: INSPECT_TIMEOUT_MS },
+    );
+    if (inspected.ok) {
+      const byName = new Map(trustedDigests.map((d) => [d.name, d]));
+      const enriched: InspectedLocalTool[] = inspected.value.tools.map((t) => {
+        const digest = byName.get(t.name);
+        return {
+          ...t,
+          realPath: digest?.realPath ?? t.path,
+          sha256: digest?.sha256 ?? "",
+          changed: false,
+        };
+      });
+      trustedDefs.push(...buildLocalToolDefinitions(enriched, cwd));
+    }
+  }
+
+  return [...trustedDefs, ...untrustedStubs].sort((a, b) =>
+    a.name.localeCompare(b.name),
+  );
 }

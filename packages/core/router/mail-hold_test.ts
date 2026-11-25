@@ -20,8 +20,8 @@ import {
   MAIL_EXPIRY_MS,
   MAIL_LATE_MS,
   type MailApplied,
-  mailDecideHold,
   type MailHold,
+  mailDecideHold,
   mailHolds,
 } from "../../protocol/lophn-agent/mail.ts";
 import {
@@ -87,8 +87,8 @@ import {
   FAILURE_TEXTS,
   installRouterEnvironment,
   pendingMails,
-  type RouterDeps,
   ROUTER_COMMANDS,
+  type RouterDeps,
 } from "./mod.ts";
 
 // 늦게 온 mail과 만료다. 두 기계마다 실제 ledger schema, Router 명령, store, session directory, 받은 입력 기록을 두고 대기 목록의 두 route
@@ -144,7 +144,7 @@ const agents: AgentDirectory = {
           handle: id === REVIEWER ? "reviewer" : "skipper",
           name: "Reviewer",
           workspace: null,
-          skip: id === SKIPPER,
+          ...(id === SKIPPER ? { permissionMode: "full" as const } : {}),
           runtime: "lophn",
           apps: [],
           deny: [],
@@ -157,7 +157,6 @@ const agents: AgentDirectory = {
             handle: "lophn",
             name: "lophn",
             workspace: workspaceOfLophn(id),
-            skip: false,
             runtime: "lophn",
             apps: [],
             deny: [],
@@ -717,10 +716,10 @@ test("held mail의 Start now는 그때 그 컴퓨터의 터미널 입력 허락�
   assert.ok((await b.decide(A, revoked.mail, "run_now")).ok);
   assert.deepStrictEqual(
     b.db
-      .prepare("select skip from sessions order by created_seq")
+      .prepare("select permission_mode from sessions order by created_seq")
       .all()
-      .map((row) => row["skip"]),
-    [1, 0],
+      .map((row) => row["permission_mode"]),
+    ["full", "workspace"],
   );
 });
 
@@ -913,10 +912,10 @@ test("대기 중인 mail은 사람이 이 컴퓨터나 자기 기기의 화면�
   );
   assert.deepStrictEqual(
     b.db
-      .prepare("select skip from sessions order by created_seq")
+      .prepare("select permission_mode from sessions order by created_seq")
       .all()
-      .map((row) => row["skip"]),
-    [0, 0, 0],
+      .map((row) => row["permission_mode"]),
+    ["workspace", "workspace", "workspace"],
   );
 });
 

@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ok } from "../../../base/mod.ts";
 import type { McpServer } from "../../../protocol/lophn-agent/mod.ts";
+import type { StdioSpawn } from "./adapters/mcp-stdio.ts";
 import { createMcpToolkit } from "./mcp-toolkit.ts";
 import type { McpConnections } from "./mod.ts";
-import type { StdioSpawn } from "./adapters/mcp-stdio.ts";
 
 const workspace = {
   kind: "project",
@@ -219,4 +219,77 @@ test("보낸 뒤 기한 안에 답이 없는 MCP 호출은 uncertain으로 끝�
   const called = await pending;
 
   assert.deepEqual(called.ok && called.value.kind, "uncertain");
+});
+
+test("MCP tools/call이 401(auth_failed)이면 details.missing에 sign_in 안내를 담아 돌려준다", async () => {
+  const oauthServer: McpServer = {
+    name: "linear",
+    enabled: true,
+    call_timeout_ms: 60_000,
+    transport: "http",
+    http: {
+      url: "https://mcp.linear.app/mcp",
+      headers: {},
+      auth: {
+        kind: "oauth2",
+        issuer: "https://linear.app",
+        client_id: "cid",
+        client_credential: null,
+        scopes: [],
+      },
+    },
+  };
+  const connections = {
+    acquire: () => Promise.resolve(ok({})),
+    toolList: () =>
+      Promise.resolve(ok({ tools: [], hash: "h", protocol_version: "v" })),
+    call: () =>
+      Promise.resolve({
+        kind: "auth_failed",
+        message: "MCP server returned 401",
+      }),
+  } as unknown as McpConnections;
+  const kit = createMcpToolkit({
+    machine: (path: string) =>
+      Promise.resolve(
+        ok(
+          path === "/workspace-extension-settings/read"
+            ? {
+                workspace: workspace.id,
+                mcp_servers: [],
+                skills_off: [],
+                mcp_off: [],
+                hash: null,
+                as_of_seq: "0",
+                next_cursor: null,
+              }
+            : {
+                settings: [
+                  {
+                    key: "lophn-agent.extensions.mcp_servers",
+                    description: "t",
+                    type: {},
+                    chosen: [oauthServer],
+                  },
+                ],
+                folders: [],
+              },
+        ),
+      ) as never,
+    connections: {} as never,
+    create: () => connections,
+  }).toolkit("asg");
+
+  await kit.source("asg", { workspace });
+  const called = await kit.call("asg")({
+    server: "linear",
+    original: "list_issues",
+    input: {},
+  } as never);
+  assert.equal(called.ok, false);
+  if (!called.ok) {
+    assert.deepEqual(called.error.details, {
+      missing: { mcp: "linear", part: "sign_in" },
+    });
+  }
 });

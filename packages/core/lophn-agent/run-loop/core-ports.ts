@@ -812,6 +812,9 @@ export function createCorePorts(deps: CorePortsDeps): TurnPorts {
       status: executed.outcome.kind,
       code: executed.outcome.code,
       result: executed.result,
+      ...(executed.rejectedWithReason === undefined
+        ? {}
+        : { rejectedWithReason: executed.rejectedWithReason }),
     };
   }
 

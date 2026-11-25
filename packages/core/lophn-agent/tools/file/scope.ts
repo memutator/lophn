@@ -1,4 +1,5 @@
 import { lstat, realpath, stat } from "node:fs/promises";
+import { homedir } from "node:os";
 import {
   basename,
   dirname,
@@ -8,6 +9,7 @@ import {
   relative,
   sep,
 } from "node:path";
+import process from "node:process";
 import { err, errorCode, ok, type Result } from "../../../../base/mod.ts";
 import type { WorkspaceScope } from "../ports.ts";
 
@@ -18,13 +20,32 @@ import type { WorkspaceScope } from "../ports.ts";
 
 export type Mode = "read" | "write";
 
-type Resolved = {
+export type Resolved = {
   // 실제 경로. 이 경로로 읽고 쓴다.
   path: string;
   // 허용 폴더(실제 경로)와 그 안의 상대 경로. rewind 기록이 쓴다.
   root: string;
   relative: string;
 };
+
+export type ClassifiedFilePath = {
+  // 실제 경로(계획된 경로). 끊어진 symlink 등으로 풀 수 없으면 null.
+  path: string | null;
+  // 승인 카드와 session 폴더 열기에 쓰는 폴더(파일이면 부모 폴더, 폴더면 자신).
+  folder: string;
+  outsideWorkspace: boolean;
+  sensitive: boolean;
+  selfProtection: boolean;
+  resolved: Resolved | null;
+};
+
+export type ClassifyOptions = {
+  dataRoot?: string | null;
+  homeDir?: string;
+};
+
+const HOME_SENSITIVE_DIRS = [".ssh", ".aws", ".gnupg"] as const;
+const SAFE_ENV_BASENAMES = new Set([".env.example", ".env.sample"]);
 
 function forbidden(): Result<never> {
   return err({ code: "forbidden", message: "path is outside the workspace" });
@@ -82,8 +103,136 @@ async function entryOf(
     : { path: join(parent, basename(entry)), file: true };
 }
 
+function pathSegments(target: string): string[] {
+  return target.split(/[\\/]+/).filter((part) => part.length > 0);
+}
+
+function isSensitiveWorkspacePath(target: string, mode: Mode): boolean {
+  const segments = pathSegments(target);
+  if (mode === "write") {
+    for (let i = 0; i < segments.length - 1; i++) {
+      const curr = segments[i];
+      const next = segments[i + 1];
+      if (curr === ".git" && (next === "hooks" || next === "config")) {
+        return true;
+      }
+      if (curr === ".lophn" && next === "tools") {
+        return true;
+      }
+    }
+    return false;
+  }
+  const name = basename(target).toLowerCase();
+  if (SAFE_ENV_BASENAMES.has(name)) return false;
+  return /^\.env($|\.)/.test(name);
+}
+
+function isProtectedDataRootPath(dataRoot: string, target: string): boolean {
+  if (!inside(dataRoot, target)) return false;
+  const rel = relative(dataRoot, target);
+  if (rel === "") return false;
+  const [first] = pathSegments(rel);
+  if (first === undefined) return false;
+  const lower = first.toLowerCase();
+  if (lower === "agents" || lower === "permissions") return true;
+  if (/^settings(\..+)?\.json$/.test(lower)) return true;
+  if (/^secrets(\..+)?\.json$/.test(lower)) return true;
+  if (/^permissions(\..+)?\.json$/.test(lower)) return true;
+  return false;
+}
+
+async function isSelfProtectionPath(
+  target: string,
+  options?: ClassifyOptions,
+): Promise<boolean> {
+  const home = options?.homeDir ?? homedir();
+  if (home !== "") {
+    const homeVariants = new Set<string>([normalize(home)]);
+    const realHome = await real(home);
+    if (realHome !== null) homeVariants.add(realHome);
+    for (const homeBase of homeVariants) {
+      for (const dir of HOME_SENSITIVE_DIRS) {
+        const protectedDir = join(homeBase, dir);
+        if (inside(protectedDir, target)) return true;
+        const realProtected = await real(protectedDir);
+        if (realProtected !== null && inside(realProtected, target)) {
+          return true;
+        }
+      }
+    }
+  }
+  const rawDataRoot =
+    options?.dataRoot !== undefined ? options.dataRoot : process.env.LOPHN_HOME;
+  if (
+    rawDataRoot !== null &&
+    rawDataRoot !== undefined &&
+    isAbsolute(rawDataRoot)
+  ) {
+    const rootVariants = new Set<string>([normalize(rawDataRoot)]);
+    const realRoot = await real(rawDataRoot);
+    if (realRoot !== null) rootVariants.add(realRoot);
+    for (const root of rootVariants) {
+      if (isProtectedDataRootPath(root, target)) return true;
+    }
+  }
+  return false;
+}
+
+export async function classifyFilePath(
+  roots: Pick<
+    WorkspaceScope,
+    "read" | "write" | "base" | "results" | "onceTarget"
+  >,
+  path: string,
+  mode: Mode,
+  options?: ClassifyOptions,
+): Promise<ClassifiedFilePath> {
+  const base = roots.base ?? roots.read[0] ?? roots[mode][0];
+  if (base === undefined && !isAbsolute(path)) {
+    return {
+      path: null,
+      folder: ".",
+      outsideWorkspace: true,
+      sensitive: false,
+      selfProtection: false,
+      resolved: null,
+    };
+  }
+  const candidate = normalize(
+    isAbsolute(path) ? path : join(base as string, path),
+  );
+  const actual = await planned(candidate);
+  const checkTarget = actual ?? candidate;
+  const resolved = await resolveInWorkspace(roots, path, mode);
+  const outsideWorkspace = !resolved.ok;
+  const selfProtection =
+    (await isSelfProtectionPath(checkTarget, options)) ||
+    (actual !== null &&
+      checkTarget !== candidate &&
+      (await isSelfProtectionPath(candidate, options)));
+  const sensitiveWorkspace =
+    isSensitiveWorkspacePath(checkTarget, mode) ||
+    isSensitiveWorkspacePath(candidate, mode);
+  let folder = dirname(checkTarget);
+  if (actual !== null) {
+    const info = await stat(actual).catch(() => null);
+    if (info?.isDirectory()) folder = actual;
+  }
+  return {
+    path: actual,
+    folder,
+    outsideWorkspace,
+    sensitive: selfProtection || sensitiveWorkspace,
+    selfProtection,
+    resolved: resolved.ok ? resolved.value : null,
+  };
+}
+
 export async function resolveInWorkspace(
-  roots: Pick<WorkspaceScope, "read" | "write" | "base" | "results">,
+  roots: Pick<
+    WorkspaceScope,
+    "read" | "write" | "base" | "results" | "onceTarget"
+  >,
   path: string,
   mode: Mode,
 ): Promise<Result<Resolved>> {
@@ -93,7 +242,8 @@ export async function resolveInWorkspace(
     mode === "read" && roots.results !== undefined
       ? [...roots.read, `${roots.results}${sep}`]
       : roots[mode];
-  if (allowed.length === 0) return forbidden();
+  if (allowed.length === 0 && roots.onceTarget === undefined)
+    return forbidden();
   if (base === undefined && !isAbsolute(path)) return forbidden();
   const candidate = normalize(
     isAbsolute(path) ? path : join(base as string, path),
@@ -119,6 +269,28 @@ export async function resolveInWorkspace(
         path: actual,
         root: found.path,
         relative: relative(found.path, actual),
+      });
+    }
+  }
+  const once = roots.onceTarget;
+  if (once !== undefined && (mode === "read" || once.mode === "write")) {
+    const oncePath = (await planned(once.path)) ?? normalize(once.path);
+    const onceFolder = (await planned(once.folder)) ?? normalize(once.folder);
+    if (actual === oncePath) {
+      return ok({
+        path: actual,
+        root: onceFolder,
+        relative:
+          onceFolder === actual
+            ? ""
+            : relative(onceFolder, actual) || basename(actual),
+      });
+    }
+    if (mode === "read" && inside(oncePath, actual)) {
+      return ok({
+        path: actual,
+        root: oncePath,
+        relative: relative(oncePath, actual),
       });
     }
   }

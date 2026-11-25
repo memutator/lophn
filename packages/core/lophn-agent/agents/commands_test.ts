@@ -141,7 +141,7 @@ test("lophn은 지우거나 handle·avatar를 바꿀 수 없고, handle은 전�
     assert.equal(moved.error.code, "invalid_input");
 
     const humanOnly: Record<string, unknown> = {
-      skip: true,
+      permission_mode: "full",
       mcp_servers: [],
       apps: ["notes"],
       remote_apps: [
@@ -310,7 +310,7 @@ test("agent가 만든 agent는 부른 session의 workspace에 범위가 잡히�
             workspace_kind: kind,
             workspace_id: id,
             lifecycle: "open",
-            skip: 0,
+            permission_mode: "workspace",
             created_seq: "1",
             state_seq: "1",
           }),
@@ -495,7 +495,7 @@ test("agent.delete는 P12 범위(Home은 전체, workspace agent는 자기 범�
             workspace_kind: wsKind,
             workspace_id: wsId,
             lifecycle: "open",
-            skip: 0,
+            permission_mode: "workspace",
             created_seq: "1",
             state_seq: "1",
           }),

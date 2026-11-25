@@ -1,11 +1,7 @@
 import type { TurnMode } from "../../../protocol/lophn-agent/mod.ts";
 
-// turn을 시작할 때 mode를 정한다. unattended가 먼저다. skip이 먼저면 skip session이 받은 unattended
-// call의 turn이 표시를 떨어뜨려 사슬 아래가 attended가 된다(`project-docs/architecture/approval.md`).
-export function turnModeOf(
-  session: { skip: boolean },
-  input: { unattended: boolean },
-): TurnMode {
-  if (input.unattended) return "unattended";
-  return session.skip ? "skip" : "attended";
+// turn을 시작할 때 실행 맥락 mode를 정한다(attended | unattended).
+// 권한 단계(permission_mode)는 session이 따로 관리하므로 여기서 보지 않는다.
+export function turnModeOf(input: { unattended: boolean }): TurnMode {
+  return input.unattended ? "unattended" : "attended";
 }

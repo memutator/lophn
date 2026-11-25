@@ -13,6 +13,7 @@ import {
   seededRandom,
 } from "../../base/mod.ts";
 import { createProductRedactor } from "../../base/redaction/mod.ts";
+import { appDelete } from "../../protocol/apps/mod.ts";
 import type { Id } from "../../protocol/base/ids.ts";
 import type { Route } from "../../protocol/base/mod.ts";
 import {
@@ -32,35 +33,33 @@ import {
   type Requester,
   resolveMachine,
 } from "../../protocol/machine/requester.ts";
+import {
+  REMOTE_ALLOWED_ROUTES,
+  REMOTE_COMPUTER_CORE_ROUTES,
+  REMOTE_PERSON_ROUTES,
+} from "../../protocol/remote/mod.ts";
 import type {
   AuthenticatedContext,
   SchemaStep,
   Sql,
   Tx,
 } from "../../protocol/server/mod.ts";
-import {
-  REMOTE_ALLOWED_ROUTES,
-  REMOTE_COMPUTER_CORE_ROUTES,
-  REMOTE_PERSON_ROUTES,
-} from "../../protocol/remote/mod.ts";
-import type { RemoteMachines } from "../apps/calls/forward.ts";
 import { createWorkspaceNameRules } from "../agent-workspaces/workspace/session-directory.ts";
+import type { RemoteMachines } from "../apps/calls/forward.ts";
 import type { AgentDirectory } from "../lophn-agent/agents/directory.ts";
 import { createLophnInputTransport } from "../lophn-agent/run-loop/mod.ts";
+import { createConversationCommands } from "../lophn-agent/session/commands.ts";
 import {
   type BodyPrepare,
   redactBlocks,
 } from "../lophn-agent/session/message-body.ts";
+import { messageBodyFields } from "../lophn-agent/session/model.ts";
+import { createTeamEnd } from "../lophn-agent/session/team-commands.ts";
+import { SESSION_END_DEPS } from "../lophn-agent/workspaces/environment.ts";
 import {
   createReceivedRecorder,
   createSessionDirectory,
 } from "../lophn-agent/workspaces/mod.ts";
-import { SESSION_END_DEPS } from "../lophn-agent/workspaces/environment.ts";
-import { createTeamEnd } from "../lophn-agent/session/team-commands.ts";
-import { createConversationCommands } from "../lophn-agent/session/commands.ts";
-import { appDelete } from "../../protocol/apps/mod.ts";
-import { messageBodyFields } from "../lophn-agent/session/model.ts";
-import { createBlobRegistrar } from "../storage/blobs/register.ts";
 import { TEAMS, WIRINGS } from "../main/daemon/assembly.ts";
 import { assemble } from "../main/daemon/registration.ts";
 import { createCallBodyPreparer } from "../main/daemon/wiring/router.ts";
@@ -73,11 +72,12 @@ import {
   installRouterEnvironment,
   outboxPeers,
   pendingMails,
-  type RouterDeps,
   ROUTER_COMMANDS,
+  type RouterDeps,
 } from "../router/mod.ts";
 import { CredentialRegistry } from "../server/identity/mod.ts";
 import { type MemoryHandler, RouteRegistry } from "../server/mod.ts";
+import { createBlobRegistrar } from "../storage/blobs/register.ts";
 import { applyMigrations } from "../storage/migration/mod.ts";
 import { createAdmission } from "../supervision/responsiveness/mod.ts";
 import {
@@ -165,7 +165,7 @@ const agents: AgentDirectory = {
           handle: id === REVIEWER ? "reviewer" : "skipper",
           name: "Reviewer",
           workspace: null,
-          skip: id === SKIPPER,
+          ...(id === SKIPPER ? { permissionMode: "full" as const } : {}),
           runtime: "lophn",
           apps: [],
           deny: [],
@@ -178,7 +178,6 @@ const agents: AgentDirectory = {
             handle: "lophn",
             name: "lophn",
             workspace: workspaceOfLophn(id),
-            skip: false,
             runtime: "lophn",
             apps: [],
             deny: [],
@@ -670,10 +669,10 @@ test("터미널 입력 허락이 없는 컴퓨터가 보낸 mail로 열린 sessi
   await a.drain.wake(B);
   assert.deepStrictEqual(
     b.db
-      .prepare("select skip from sessions order by created_seq")
+      .prepare("select permission_mode from sessions order by created_seq")
       .all()
-      .map((row) => row["skip"]),
-    [0, 1],
+      .map((row) => row["permission_mode"]),
+    ["workspace", "full"],
   );
   assert.equal(a.count("mail_outbox"), 0);
 });

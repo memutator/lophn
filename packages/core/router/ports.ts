@@ -1,7 +1,10 @@
 import type { Result } from "../../base/mod.ts";
-import type { Tx } from "../../protocol/server/mod.ts";
 import type { Id } from "../../protocol/base/ids.ts";
-import type { ContentBlock } from "../../protocol/lophn-agent/content-block.ts";
+import type {
+  AgentRuntime,
+  Modality,
+  SessionOpenMode,
+} from "../../protocol/lophn-agent/agent-values.ts";
 import type {
   AgentCallRow,
   CallFailReason,
@@ -11,23 +14,21 @@ import type {
   CallState,
   MailDelivery,
 } from "../../protocol/lophn-agent/calls.ts";
-import type { Mail } from "../../protocol/lophn-agent/mail.ts";
+import type { ContentBlock } from "../../protocol/lophn-agent/content-block.ts";
+import type { NoticeKind } from "../../protocol/lophn-agent/input-tags.ts";
 import type {
-  AgentRuntime,
-  Modality,
-  SessionOpenMode,
-} from "../../protocol/lophn-agent/agent-values.ts";
+  InputDelivery,
+  RoutedInputKind,
+} from "../../protocol/lophn-agent/inputs.ts";
+import type { Mail } from "../../protocol/lophn-agent/mail.ts";
+import type { PermissionMode } from "../../protocol/lophn-agent/turn-values.ts";
 import type {
   AgentAddress,
   AgentAtWorkspace,
   AgentId,
 } from "../../protocol/lophn-agent/workspaces.ts";
-import type {
-  InputDelivery,
-  RoutedInputKind,
-} from "../../protocol/lophn-agent/inputs.ts";
+import type { Tx } from "../../protocol/server/mod.ts";
 import type { WorkflowOrigin } from "../../protocol/workflows/values.ts";
-import type { NoticeKind } from "../../protocol/lophn-agent/input-tags.ts";
 
 // Router가 바깥에서 받는 것들이다. Router는 feature module을 import하지 않고,
 // 구현은 main/daemon/wiring/router.ts가 끼운다.
@@ -105,6 +106,8 @@ export interface SessionDirectory {
     spawnedBy: Id<"ses"> | null,
     options?: {
       skipAllowed?: boolean;
+      // workflow participant 등 명시 권한 단계. 없으면 agent 정의와 전역 기본을 따른다.
+      permissionMode?: PermissionMode;
       // 다른 컴퓨터의 `team spawn --on`: 그 기계가 지은 id와 그 기계의 부모 session. 상한은 그 기계가 셌다.
       member?: { id: Id<"ses">; parent: Id<"ses"> };
       // session을 탭으로 열지 background로 돌릴지. 없으면 agent 정의와 내장 기본을 따른다.

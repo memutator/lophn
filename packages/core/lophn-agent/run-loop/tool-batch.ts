@@ -41,10 +41,14 @@ export type CallResult = {
   result: ToolResult;
   // 실제 진입 횟수. 미실행이면 0이다.
   entries: number;
+  // 사람이 이유를 달아 거절했는지.
+  rejectedWithReason?: boolean;
 };
 
 type BatchOutcome = {
   results: CallResult[];
+  // 이유 없는 거절로 남은 쓰기·바깥 호출을 멈췄는지.
+  stoppedByRejection: boolean;
 };
 
 // 새 진입을 막아야 하는 이유(미실행 code). 없으면 null이다.
@@ -74,6 +78,8 @@ const REASON_TEXT: Readonly<Record<string, string>> = {
     "The provider or connection was turned off before the call started.",
   earlier_call_failed:
     "An earlier call did not complete, so this call did not start.",
+  earlier_call_rejected:
+    "The person rejected an earlier call without a reason, so this call did not start.",
   repeated_call:
     "This exact call already failed the same way three times in a row, so it was not run again. Change the approach: different input, a different tool, or ask the person.",
 };
@@ -181,6 +187,9 @@ function toResult(
     code: done.code,
     result: done.result,
     entries,
+    ...(done.rejectedWithReason === undefined
+      ? {}
+      : { rejectedWithReason: done.rejectedWithReason }),
   };
 }
 
@@ -336,26 +345,46 @@ export async function runToolBatch(
     const results = await Promise.all(
       requests.map((_, index) => one(index, null)),
     );
-    return { results };
+    const stoppedByRejection = results.some(
+      (result) =>
+        result.status === "not_executed" &&
+        result.code === "rejected" &&
+        result.rejectedWithReason !== true,
+    );
+    return { results, stoppedByRejection };
   }
 
   const results: CallResult[] = [];
-  let skip: string | null = null;
+  let skipAll: string | null = null;
+  let skipWrites = false;
   for (let index = 0; index < requests.length; index++) {
-    const result = await one(index, skip);
-    results.push(result);
-    // 쓰기·external이 거절되거나 최종 실패·불명확이면 나머지는 시작하지 않는다. 읽기와 없는 tool의
-    // 실패는 뒤 동작을 막지 않는다.
     const effect = infos[index]?.effect;
+    const held =
+      skipAll ??
+      (skipWrites && effect !== undefined && effect !== "read"
+        ? "earlier_call_rejected"
+        : null);
+    const result = await one(index, held);
+    results.push(result);
+    if (result.status === "not_executed" && result.code === "rejected") {
+      // 이유 없는 거절은 이 응답의 남은 쓰기·바깥 호출을 멈추고 읽기와 무관한 호출은 막지 않는다.
+      // 이유 있는 거절은 그 이유를 model에 전하고 남은 호출을 그대로 이어 간다.
+      if (result.rejectedWithReason !== true) {
+        skipWrites = true;
+      }
+      continue;
+    }
+    // 쓰기·external이 최종 실패·불명확·거부되면 나머지는 시작하지 않는다. 읽기와 없는 tool의
+    // 실패는 뒤 동작을 막지 않는다.
     if (
-      skip === null &&
+      skipAll === null &&
       effect !== undefined &&
       effect !== "read" &&
       result.status !== "success" &&
       (result.entries > 0 || result.status === "failure")
     ) {
-      skip = "earlier_call_failed";
+      skipAll = "earlier_call_failed";
     }
   }
-  return { results };
+  return { results, stoppedByRejection: skipWrites };
 }

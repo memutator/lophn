@@ -1,5 +1,5 @@
 // `lophn agent list|card|create|update`: 부를 수 있는 agent 목록과 명함을 읽고(`--on`이면 다른 컴퓨터의 것), 정의를 만들고 고친다. agent는 handle(주소)로 가리킨다. 할당(권한)은 주지 못한다: 사람이 정한다.
-// `mcp_servers`·`skip`·`apps`·`extensions`·`permissions`을 받지 않는 것은 입력 schema의 몫이고, core route도 agent 자격이면 거절한다.
+// `mcp_servers`·`permission_mode`·`apps`·`extensions`·`permissions`을 받지 않는 것은 입력 schema의 몫이고, core route도 agent 자격이면 거절한다.
 import { z } from "zod";
 import { err, ok, type Result } from "../../base/mod.ts";
 import type { Id } from "../../protocol/base/ids.ts";
@@ -182,7 +182,7 @@ const create = defineCommand({
     .omit({
       workspace: true,
       mcp_servers: true,
-      skip: true,
+      permission_mode: true,
       apps: true,
       permissions: true,
     })
@@ -218,7 +218,7 @@ const update = defineCommand({
       handle: true,
       workspace: true,
       mcp_servers: true,
-      skip: true,
+      permission_mode: true,
       apps: true,
       permissions: true,
     })

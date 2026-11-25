@@ -4,6 +4,7 @@ import type {
   AgentId,
   AgentRuntime,
   HarnessConfig,
+  PermissionMode,
   SessionOpenMode,
   Workspace,
 } from "../../../protocol/lophn-agent/mod.ts";
@@ -27,7 +28,8 @@ export type AgentInfo = {
   name: string;
   // 범위 workspace. 없으면 전역이다.
   workspace: Workspace | null;
-  skip: boolean;
+  // agent 정의의 기본 권한 단계. 비어 있으면 전역 기본(approvals.default_mode)을 따른다.
+  permissionMode?: PermissionMode;
   // 정의의 runtime. 없으면 lophn이다.
   runtime: AgentRuntime;
   // 할당: 앱 slug와 permissions.deny 규칙. 사람만 쓰는 칸이다.
@@ -64,7 +66,9 @@ function infoOf(loaded: Loaded): AgentInfo {
     handle: handleOf(loaded),
     name: nameOf(loaded),
     workspace: workspaceOfAgent(loaded),
-    skip: loaded.definition?.skip === true,
+    ...(loaded.definition?.permission_mode === undefined
+      ? {}
+      : { permissionMode: loaded.definition.permission_mode }),
     runtime: loaded.definition?.runtime ?? "lophn",
     apps: loaded.definition?.apps ?? [],
     deny: loaded.definition?.permissions?.deny ?? [],

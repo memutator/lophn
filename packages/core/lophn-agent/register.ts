@@ -59,6 +59,11 @@ import { type ReadDefinition, type Tx } from "../../protocol/server/mod.ts";
 import type { KindLaunchSpec } from "../../protocol/supervision/mod.ts";
 import { createFileSettingsReader } from "../config/mod.ts";
 import {
+  followUpCommands,
+  followUpPorts,
+  followUpReads,
+} from "../follow-ups/mod.ts";
+import {
   callSignals,
   deleteAppCallsReceivedBy,
   failReceivedCall,
@@ -66,11 +71,6 @@ import {
   messageDirectory,
   messageRouter,
 } from "../router/mod.ts";
-import {
-  followUpCommands,
-  followUpPorts,
-  followUpReads,
-} from "../follow-ups/mod.ts";
 import { eraseBlobRefs } from "../storage/blobs/mod.ts";
 import {
   defineTxPort,
@@ -78,7 +78,6 @@ import {
   snapshotPort,
   turnAdmission,
 } from "../storage/ledger/mod.ts";
-import { loadSession, workspaceOf } from "./session/model.ts";
 import {
   type AgentDeps,
   type AgentFileSystem,
@@ -172,6 +171,7 @@ import {
   sessionSummaryRead,
   takeSteering,
 } from "./session/mod.ts";
+import { loadSession, workspaceOf } from "./session/model.ts";
 import {
   createRewindEffects,
   createSessionRewindCommands,
@@ -874,7 +874,7 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       conversationCommands.archive,
       conversationCommands.delete,
       conversationCommands.changeModel,
-      conversationCommands.changeSkip,
+      conversationCommands.changeMode,
       conversationCommands.fork,
       conversationCommands.requestCompact,
       conversationCommands.compact,

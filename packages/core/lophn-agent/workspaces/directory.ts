@@ -6,19 +6,19 @@ import {
   type SessionOpenMode,
   type Workspace,
 } from "../../../protocol/lophn-agent/mod.ts";
+import { DEFAULT_TEAM_LIMITS } from "../../../protocol/lophn-agent/team.ts";
 import type { Sql, Tx } from "../../../protocol/server/mod.ts";
+import { teamLimitsAt } from "../../config/setting-declarations.ts";
 import type { SessionDirectory, TargetSession } from "../../router/ports.ts";
+import { dataRootOf } from "../agents/mod.ts";
 import {
   type AgentSessionRow,
   loadSession,
   nextSessionSeq,
-  workspaceOf,
   SESSION_COLUMNS,
   sessionRowOf,
+  workspaceOf,
 } from "../session/model.ts";
-import { teamLimitsAt } from "../../config/setting-declarations.ts";
-import { DEFAULT_TEAM_LIMITS } from "../../../protocol/lophn-agent/team.ts";
-import { dataRootOf } from "../agents/mod.ts";
 import {
   checkSpawnSlot,
   endSession,
@@ -216,6 +216,9 @@ export function createSessionDirectory(
         // 다른 컴퓨터의 mail이 연 session은 다른 컴퓨터로 보내지 못한다. 부른 workspace는 이 기계의 것이 아니라 남기지 않는다.
         openedByMachine: opener.kind === "remote" ? opener.machine : null,
         skipAllowed: options?.skipAllowed,
+        ...(options?.permissionMode === undefined
+          ? {}
+          : { permissionMode: options.permissionMode }),
       });
       return started.ok ? ok(targetOf(started.value)) : started;
     },

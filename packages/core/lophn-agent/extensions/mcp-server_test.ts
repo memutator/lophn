@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import type { McpServer } from "../../../protocol/lophn-agent/mod.ts";
 import { secretSlotFlags } from "../../../protocol/lophn-agent/input-request.ts";
+import type { McpServer } from "../../../protocol/lophn-agent/mod.ts";
 import {
   mcpMissingSlot,
   mcpSecretDestinations,
@@ -106,5 +106,34 @@ test("MCP 연결 실패는 설정에서 역산한 빈 자리를 알리고 flag�
       protocol: "openai-chat-completions",
     }),
     '--display-name "River AI" --base-url https://api.river.ai/v1 --protocol openai-chat-completions',
+  );
+
+  // oauth2 또는 none HTTP server가 401(failed_auth)을 받으면 sign_in 안내 자리를 돌려준다.
+  const oauthServer = runtimeServerOfLayer(
+    {
+      name: "linear",
+      enabled: true,
+      call_timeout_ms: 60_000,
+      transport: "http",
+      http: {
+        url: "https://mcp.linear.app/mcp",
+        headers: {},
+        auth: {
+          kind: "oauth2",
+          issuer: "https://linear.app",
+          client_id: "cid",
+          client_credential: null,
+          scopes: [],
+        },
+      },
+    },
+    null,
+  );
+  assert.deepEqual(
+    mcpMissingSlot(oauthServer, {
+      state: "failed_auth",
+      missing_secret: null,
+    }),
+    { mcp: "linear", part: "sign_in" },
   );
 });

@@ -3,13 +3,13 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
-import { parseAgentFile } from "./definition-file.ts";
-import { agentHandleStep } from "./handle-step.ts";
 import {
   createIdSource,
   manualClock,
   seededRandom,
 } from "../../../base/mod.ts";
+import { parseAgentFile } from "./definition-file.ts";
+import { agentHandleStep } from "./handle-step.ts";
 
 // 이 step은 ids를 쓰지 않지만 DataStep은 deps를 늘 받는다.
 const stepDeps = {
@@ -25,7 +25,7 @@ test("옛 정의의 handle은 name이 되고 다른 칸·본문·lophn.md는 그
     const path = join(root, "agents", `${agent}.md`);
     await writeFile(
       path,
-      "---\nname: Code Reviewer\nskip: true\ndescription: reviews\n---\nBe careful.\n",
+      "---\nname: Code Reviewer\npermission_mode: full\ndescription: reviews\n---\nBe careful.\n",
     );
     const lophn = join(root, "agents", "lophn.md");
     await writeFile(lophn, "");
@@ -40,7 +40,7 @@ test("옛 정의의 handle은 name이 되고 다른 칸·본문·lophn.md는 그
       handle: "Code Reviewer",
       name: "Code Reviewer",
       description: "reviews",
-      skip: true,
+      permission_mode: "full",
       body: "Be careful.",
     });
     assert.equal(await readFile(lophn, "utf8"), "");

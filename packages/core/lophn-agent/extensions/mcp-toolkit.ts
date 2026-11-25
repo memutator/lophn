@@ -1,4 +1,5 @@
 import { err, ok, type Result } from "../../../base/mod.ts";
+import { settingsList } from "../../../protocol/config/mod.ts";
 import {
   type AgentId,
   type AgentWorkspace,
@@ -8,7 +9,16 @@ import {
   workspaceExtensionSettingsRead,
   workspaceKeyOf,
 } from "../../../protocol/lophn-agent/mod.ts";
-import { settingsList } from "../../../protocol/config/mod.ts";
+import { createListSettingsReader } from "../../config/mod.ts";
+import { type CoreCall, readOf } from "../run-loop/core-call.ts";
+import type { McpSourceOptions, McpToolkit } from "../run-loop/prepare.ts";
+import {
+  type McpRuntimeServer,
+  mcpMissingSlot,
+  mergeMcpLayers,
+  runtimeServerOfLayer,
+} from "./mcp-server.ts";
+import { mcpToolEffect } from "./mcp-tools.ts";
 import {
   checkMcpConfig,
   createMcpConnections,
@@ -18,17 +28,7 @@ import {
   type McpToolCall,
   type McpToolEntry,
 } from "./mod.ts";
-import {
-  type McpRuntimeServer,
-  mergeMcpLayers,
-  runtimeServerOfLayer,
-  mcpMissingSlot,
-} from "./mcp-server.ts";
-import { type CoreCall, readOf } from "../run-loop/core-call.ts";
-import { createListSettingsReader } from "../../config/mod.ts";
 import { globalMcpServersSetting } from "./settings.ts";
-import { mcpToolEffect } from "./mcp-tools.ts";
-import type { McpSourceOptions, McpToolkit } from "../run-loop/prepare.ts";
 
 // 제품 runtime의 외부 MCP tool 등록이다. 서버는 전역 설정(`lophn-agent.extensions.mcp_servers`), workspace 층(Home,
 // project, 앱), agent 정의 층에서 온다. 같은 이름은 마지막 층이 덮고 이름이 다르면 모두 쓴다. 연결과 재조회는 이 모듈 하나가
@@ -216,6 +216,7 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
       name: server.name,
       tools: [],
       reason,
+      trust: server.trust,
     });
     if (!server.enabled) return unreachable("disabled");
     const assignment = `grants-${crypto.randomUUID()}`;
@@ -254,6 +255,7 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
             effect: mcpToolEffect(tool),
           })),
           reason: null,
+          trust: server.trust,
         };
       }
       const needsSignIn = connections
@@ -339,14 +341,17 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
         const refused = (
           serverName: string,
           message: string,
+          override?: { state: string; missing_secret: string | null },
         ): Result<never> => {
           const server = knownOf(assignmentId).get(serverName);
-          const connection = connections
-            .views()
-            .find(
-              (one) =>
-                one.owner[0] === assignmentId && one.owner[1] === serverName,
-            );
+          const connection =
+            override ??
+            connections
+              .views?.()
+              .find(
+                (one) =>
+                  one.owner[0] === assignmentId && one.owner[1] === serverName,
+              );
           const slot =
             server === undefined || connection === undefined
               ? undefined
@@ -427,6 +432,13 @@ export function createMcpToolkit(deps: McpToolkitDeps): McpKit {
                 );
               }
               continue;
+            }
+            if (sent.kind === "auth_failed") {
+              setState(assignmentId, invoke.server, "failed");
+              return refused(invoke.server, sent.message, {
+                state: "failed_auth",
+                missing_secret: null,
+              });
             }
             if (sent.kind === "success") {
               return ok({ kind: "answered", result: sent.result });

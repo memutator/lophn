@@ -1,17 +1,17 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test } from "node:test";
 import { DatabaseSync } from "node:sqlite";
+import { test } from "node:test";
 import { ok } from "../../../base/mod.ts";
 import {
   type forkSession,
   isLophn,
   LOPHN_HOME_ID,
   lophnIdOf,
-  workspaceOfLophn,
   type Workspace,
+  workspaceOfLophn,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type {
   CommandDefinition,
@@ -22,11 +22,11 @@ import type {
 import { turnSchemaSteps } from "../run-loop/schema.ts";
 import { createConversationCommands } from "../session/commands.ts";
 import { revertSchemaSteps } from "../session/rewind/mod.ts";
+import { conversationTestSteps } from "../session/test-steps.ts";
 import { createSessionDirectory } from "./directory.ts";
 import { acceptsInput } from "./model.ts";
 import type { OpenDeps } from "./ports.ts";
 import { UNWIRED_END_DEPS, UNWIRED_WORKSPACE_DEPS } from "./unwired.ts";
-import { conversationTestSteps } from "../session/test-steps.ts";
 
 const PROJECT = "prj_00000000000000000000000001";
 const APP = "app_00000000000000000000000001";
@@ -68,7 +68,7 @@ function store() {
 }
 
 const archivedWorkspaces = new Set<string>();
-let reviewerSkip = false;
+let reviewerMode: "full" | undefined;
 const deps: OpenDeps = {
   projects: {
     project: (id) => ({ id, archived: archivedWorkspaces.has(id) }) as never,
@@ -92,7 +92,6 @@ const deps: OpenDeps = {
             handle: "scoped",
             name: "scoped",
             workspace: { kind: "app" as const, id: APP },
-            skip: false,
             runtime: "lophn" as const,
             apps: [],
             deny: [],
@@ -105,7 +104,9 @@ const deps: OpenDeps = {
               handle: "reviewer",
               workspace: null,
               name: "reviewer",
-              skip: reviewerSkip,
+              ...(reviewerMode === undefined
+                ? {}
+                : { permissionMode: reviewerMode }),
               runtime: "lophn" as const,
               apps: [],
               deny: [],
@@ -118,7 +119,6 @@ const deps: OpenDeps = {
                 handle: "lophn",
                 workspace: workspaceOfLophn(id),
                 name: "lophn",
-                skip: false,
                 runtime: "lophn" as const,
                 apps: [],
                 deny: [],
@@ -355,7 +355,7 @@ test("열린 session의 agent와 workspace는 바뀌지 않고, 정의가 없는
       workspace: { kind: "project", id: PROJECT },
     }).ok,
   );
-  reviewerSkip = true;
+  reviewerMode = "full";
   assert.ok(
     open(tx, {
       id: "ses_app",
@@ -363,10 +363,12 @@ test("열린 session의 agent와 workspace는 바뀌지 않고, 정의가 없는
       workspace: { kind: "app", id: APP },
     }).ok,
   );
-  reviewerSkip = false;
+  reviewerMode = undefined;
   assert.deepStrictEqual(
-    sql.get("select skip from sessions where id = 'ses_app'", [])?.["skip"],
-    1,
+    sql.get("select permission_mode from sessions where id = 'ses_app'", [])?.[
+      "permission_mode"
+    ],
+    "full",
   );
 
   // 같은 id로 다른 workspace나 다른 agent를 열면 conflict이고 행은 그대로다.
@@ -549,7 +551,6 @@ test("a built-in coding agent called into a project opens as a GUI tab member; H
                 handle: "claude",
                 workspace: null,
                 name: "Claude Code",
-                skip: false,
                 runtime: "claude-code" as const,
                 apps: [],
                 deny: [],
@@ -609,7 +610,6 @@ test("a built-in coding agent called into a project opens as a GUI tab member; H
                 handle: "builder-neon",
                 workspace: null,
                 name: "Builder Neon",
-                skip: false,
                 runtime: "antigravity" as const,
                 open: "tab" as const,
                 apps: [],
@@ -623,7 +623,6 @@ test("a built-in coding agent called into a project opens as a GUI tab member; H
                   handle: "reviewer",
                   workspace: null,
                   name: "Reviewer",
-                  skip: false,
                   runtime: "antigravity" as const,
                   apps: [],
                   deny: [],

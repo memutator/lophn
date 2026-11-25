@@ -11,12 +11,12 @@ import type {
 } from "../../protocol/approvals/mod.ts";
 import { destinationsSetting } from "../folder/destinations.ts";
 import { createSettingsRegistry } from "./registry.ts";
+import { type AskPerson, settingsUpdateHandler } from "./routes.ts";
 import {
   remoteAddressesSetting,
   shellSettingFolders,
   shellSettings,
 } from "./shell-settings.ts";
-import { type AskPerson, settingsUpdateHandler } from "./routes.ts";
 import { createSettingsStore } from "./store.ts";
 
 const SESSION = "ses_01hzzzzzzzzzzzzzzzzzzzzzzz";
@@ -130,7 +130,19 @@ test("agent 자격은 사람의 허락 없이 destination을 두지도 바꾸지
       [
         "the person must allow this change; ask from a session the person is in",
         { tool_call: TOOL_CALL },
-        answered({ kind: "denied", reason: "no_person" }),
+        answered({
+          kind: "denied",
+          denial: {
+            tool: "settings.update",
+            category: "setting",
+            target_summary: "settings",
+            reason_kind: "no_person",
+            rule_pattern: null,
+            message: "no person present",
+            recovery_hint: null,
+            recovery_action: null,
+          },
+        }),
       ],
       [
         "the request ended before the person answered",

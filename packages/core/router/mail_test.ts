@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { copyFile, mkdtemp, rm } from "node:fs/promises";
-import { DatabaseSync } from "node:sqlite";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { after, before, test } from "node:test";
 import {
   err,
@@ -11,12 +11,14 @@ import {
   ok,
   type Result,
 } from "../../base/mod.ts";
+import type { Id } from "../../protocol/base/ids.ts";
 import {
   type CallPolicy,
   DEFAULT_CALL_POLICY,
   isPrivate,
 } from "../../protocol/lophn-agent/call-policy.ts";
 import type {
+  CallFailReason,
   CallReply,
   RemoteAddress,
 } from "../../protocol/lophn-agent/calls.ts";
@@ -29,7 +31,23 @@ import {
   type MailApplied,
   mailSchema,
 } from "../../protocol/lophn-agent/mail.ts";
+import {
+  isLophn,
+  type Workspace,
+  workspaceOfLophn,
+} from "../../protocol/lophn-agent/workspaces.ts";
+import type { SchemaStep, Sql, Tx } from "../../protocol/server/mod.ts";
 import type { Participant } from "../../protocol/workflows/mod.ts";
+import { createWorkspaceNameRules } from "../agent-workspaces/workspace/session-directory.ts";
+import type { AgentDirectory } from "../lophn-agent/agents/directory.ts";
+import { interruptRunningTurns } from "../lophn-agent/run-loop/interrupt.ts";
+import type { CallSignals } from "../lophn-agent/run-loop/ports.ts";
+import { createSessionDirectory } from "../lophn-agent/workspaces/directory.ts";
+import { UNWIRED_END_DEPS } from "../lophn-agent/workspaces/unwired.ts";
+import { TEAMS, WIRINGS } from "../main/daemon/assembly.ts";
+import { assemble } from "../main/daemon/registration.ts";
+import { createMailInbox, type MailEntryDeps } from "../remote/mail-entry.ts";
+import { applyMigrations } from "../storage/migration/mod.ts";
 import { createWorkflowCommands } from "../workflows/commands.ts";
 import { parseDeclaration } from "../workflows/declaration.ts";
 import { planHandoff } from "../workflows/plan.ts";
@@ -41,37 +59,19 @@ import {
 } from "../workflows/remote.ts";
 import { createWorkflowService } from "../workflows/service.ts";
 import { loadInstance, loadLines } from "../workflows/store.ts";
-import {
-  isLophn,
-  type Workspace,
-  workspaceOfLophn,
-} from "../../protocol/lophn-agent/workspaces.ts";
-import type { SchemaStep, Sql, Tx } from "../../protocol/server/mod.ts";
-import { createWorkspaceNameRules } from "../agent-workspaces/workspace/session-directory.ts";
-import type { AgentDirectory } from "../lophn-agent/agents/directory.ts";
-import { createSessionDirectory } from "../lophn-agent/workspaces/directory.ts";
-import { UNWIRED_END_DEPS } from "../lophn-agent/workspaces/unwired.ts";
-import { TEAMS, WIRINGS } from "../main/daemon/assembly.ts";
-import { assemble } from "../main/daemon/registration.ts";
-import { applyMigrations } from "../storage/migration/mod.ts";
+import { callsMailApply, callsMailRefuse } from "./commands.ts";
 import {
   createMailOutbox,
   createMailSeen,
   pendingMails,
 } from "./mail-store.ts";
-import type { Id } from "../../protocol/base/ids.ts";
-import type { CallSignals } from "../lophn-agent/run-loop/ports.ts";
-import { interruptRunningTurns } from "../lophn-agent/run-loop/interrupt.ts";
-import type { CallFailReason } from "../../protocol/lophn-agent/calls.ts";
-import { createMailInbox, type MailEntryDeps } from "../remote/mail-entry.ts";
-import { callsMailApply, callsMailRefuse } from "./commands.ts";
-import type { RoutedInput } from "./ports.ts";
 import {
   ASK_ANSWERED_TOPIC,
   ASK_ENDED_TOPIC,
   LEFT_ROSTER_TEXT,
   TAKEN_RESTART_TEXTS,
 } from "./model.ts";
+import type { RoutedInput } from "./ports.ts";
 import { createRouter } from "./router.ts";
 import { createCallStore, memberDeliveryOf } from "./store.ts";
 
@@ -131,7 +131,7 @@ const agents: AgentDirectory = {
           handle: id === REVIEWER ? "reviewer" : "skipper",
           name: "Reviewer",
           workspace: null,
-          skip: id === SKIPPER,
+          ...(id === SKIPPER ? { permissionMode: "full" as const } : {}),
           runtime: "lophn",
           apps: [],
           deny: [],
@@ -144,7 +144,6 @@ const agents: AgentDirectory = {
             handle: "lophn",
             name: "lophn",
             workspace: workspaceOfLophn(id),
-            skip: false,
             runtime: "lophn",
             apps: [],
             deny: [],
@@ -817,10 +816,10 @@ test("mail이 연 session은 허락이 없으면 묻는 session이고 허락이 
   carry(a, b, true);
   assert.deepStrictEqual(
     b.db
-      .prepare("select skip from sessions order by created_seq")
+      .prepare("select permission_mode from sessions order by created_seq")
       .all()
-      .map((row) => row["skip"]),
-    [0, 1],
+      .map((row) => row["permission_mode"]),
+    ["workspace", "full"],
   );
 });
 

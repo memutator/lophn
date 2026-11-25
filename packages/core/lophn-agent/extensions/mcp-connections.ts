@@ -1,13 +1,9 @@
-import { err, ok, type Result } from "../../../base/mod.ts";
-import { sha256Hex } from "../../../base/mod.ts";
-import type { McpRuntimeServer } from "./mcp-server.ts";
+import { err, ok, type Result, sha256Hex } from "../../../base/mod.ts";
 import {
   type SecretDestination,
-  secretDestinationOf,
   type SecretFileSendInput,
+  secretDestinationOf,
 } from "../../../protocol/secrets/mod.ts";
-import { authHeaders } from "./mcp-auth.ts";
-import type { StdioSpawn, StdioSpawnInput } from "./adapters/mcp-stdio.ts";
 import {
   endpointReason,
   type HttpFetch,
@@ -15,6 +11,9 @@ import {
   redirectOriginRejected,
   rpcResultOf,
 } from "./adapters/mcp-http.ts";
+import type { StdioSpawn, StdioSpawnInput } from "./adapters/mcp-stdio.ts";
+import { authHeaders } from "./mcp-auth.ts";
+import type { McpRuntimeServer } from "./mcp-server.ts";
 
 // 바깥 MCP 연결 관리.
 // 연결은 assignment와 서버 이름의
@@ -142,6 +141,7 @@ export type McpConnectionsDeps = {
 
 type CallOutcome =
   | { kind: "success"; result: unknown }
+  | { kind: "auth_failed"; message: string }
   | { kind: "uncertain"; message: string }
   | { kind: "not_executed"; code: string }
   | { kind: "no_connection"; code: string };
@@ -806,6 +806,15 @@ export function createMcpConnections(deps: McpConnectionsDeps): McpConnections {
           // 답을 받았으니 "답 없이 이어진 재연결" 세기를 비운다. isError 본문도 model에 간다.
           entry.retryCount = 0;
           outcome = { kind: "success", result: response.value };
+        } else if (
+          response.error.code === "forbidden" ||
+          response.error.message.includes("401")
+        ) {
+          // HTTP 401·인증 거절이면 상태를 failed_auth로 옮겨 model이 sign-in 안내를 받게 한다.
+          entry.state = "failed_auth";
+          entry.error = response.error.message;
+          entry.missing = missingOf(response.error);
+          outcome = { kind: "auth_failed", message: response.error.message };
         } else {
           // 이미 전달했을 수 있으므로 모두 uncertain이다.
           outcome = { kind: "uncertain", message: response.error.message };

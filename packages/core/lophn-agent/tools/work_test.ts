@@ -80,3 +80,40 @@ test("browser 호출이 unavailable·conflict·not_found로 실패하면 model�
   assert.equal(await summary("file_read"), "tool is unavailable");
   assert.equal(await summary("file_write"), "tool target is not available");
 });
+
+test("app.take_in은 conflict·not_found·unavailable 이유 문장을 싣고 forbidden은 가린다", async () => {
+  const failing = (code: ErrorCode, message: string) =>
+    defineTool({
+      name: "app.take_in",
+      description: "fail",
+      effect: "write",
+      input: z.strictObject({}),
+      routes: [],
+      handler: () => Promise.resolve(err({ code, message })),
+    });
+  const summaryOf = async (code: ErrorCode, message: string) =>
+    (
+      await executeToolCall(
+        { listed: [failing(code, message)] } as unknown as ToolContext,
+        "app_take_in",
+        {},
+      )
+    ).result.summary;
+
+  assert.equal(
+    await summaryOf("conflict", "the app was built with @lophn/app-ui@2.13.0"),
+    "tool call conflicted: the app was built with @lophn/app-ui@2.13.0",
+  );
+  assert.equal(
+    await summaryOf("not_found", "the app is not in a sync folder"),
+    "tool target is not available: the app is not in a sync folder",
+  );
+  assert.equal(
+    await summaryOf("unavailable", "dependencies: dependency_install_failed"),
+    "tool is unavailable: dependencies: dependency_install_failed",
+  );
+  assert.equal(
+    await summaryOf("forbidden", "secret scope"),
+    "tool target is not available",
+  );
+});

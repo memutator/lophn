@@ -59,6 +59,9 @@ const FAILURE_SUMMARIES: Readonly<Record<string, string>> = {
 // 실패는 늦게 call의 실패로 온다). 이유를 못 받은 agent는 spawn을 되풀이한다.
 // `call send`(`--on` 포함)의 forbidden도 core가 쓴 고정 문장이다(call 정책, 팀 규칙, private, 받은 mail로 열린 session은 다른 컴퓨터로
 // 보내지 못함). 다른 컴퓨터로 보낸 call의 그 컴퓨터 쪽 실패는 늦게 call의 실패로 오고 이 답에 오지 않는다.
+// `app.take_in`은 home workspace 전용이고 conflict(`sdk_missing`·`dependency_missing`·`slug_in_use`)·not_found(동기화 폴더에
+// 없음·활성 release 없음·폴더 미설정)·unavailable(의존성 설치·staging 일시 실패) 문장은 core가 원인과 다음 할 일을 적어 돌려준다.
+// 이유를 못 받은 agent는 원인을 모른 채 take_in을 되풀이한다.
 // 그 밖의 code(forbidden 등)는 대상 이름·존재를 가리려 공통 문장으로 둔다.
 function carriesReason(name: string, code: string): boolean {
   return (
@@ -71,7 +74,9 @@ function carriesReason(name: string, code: string): boolean {
     (name === "tab.give" &&
       (code === "not_found" ||
         code === "forbidden" ||
-        code === "invalid_input"))
+        code === "invalid_input")) ||
+    (name === "app.take_in" &&
+      (code === "conflict" || code === "not_found" || code === "unavailable"))
   );
 }
 

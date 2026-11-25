@@ -1,0 +1,16 @@
+id: allowlist-coding-sessions-open
+version: 0.23.174
+platform_note: none
+title: "shell main renderer allowlist에 memory:coding_sessions/open을 추가한다"
+modules:
+  - packages/shell/main
+change: |
+  전: renderer가 custom harness agent 프로필을 GUI 탭으로 열 때 부르는 `memory:coding_sessions/open`이 `packages/shell/main/desktop/core/allowlist.ts`의 `RENDERER_MEMORY_ROUTES`에 빠져 `forbidden`으로 막혀 탭이 열리지 않았다.
+  후: `RENDERER_MEMORY_ROUTES`에 `"memory:coding_sessions/open"`을 추가해 renderer에서 custom harness 프로필을 `harness-gui` 탭으로 열 수 있게 한다.
+why: |
+  기존에는 `coding_sessions/open`을 모바일(remote allowlist)만 호출해 desktop renderer allowlist에 빠져 있었다.
+decisions:
+  - text: "`coding_sessions/open`은 이미 `SHELL_ROUTES`와 `remote/allowlist.ts`에 등록된 user 전용 route이므로 desktop renderer allowlist에도 추가한다."
+    by: agent
+checklist:
+  - "재패키징·재실행 후 project + 메뉴에서 Builder (Neon)을 클릭하면 Antigravity harness-gui 탭이 열리는지 확인한다"

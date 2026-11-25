@@ -85,6 +85,55 @@ const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 const ids = (store: ReturnType<typeof createWaitingStore>) =>
   store.get().entries.map((entry) => entry.id);
 
+test("이미 확인된 조건으로 새로 붙는 구독자는 다른 watch의 ready가 늦거나 빠졌어도 바로 ready를 받는다", async () => {
+  const listeners = new Set<(message: { kind: "ready" | "closed" }) => void>();
+  let watches = 0;
+  const client = createEventClient({
+    subscribe: () => () => {},
+    call: () => Promise.resolve({ ok: true, value: {} }),
+    watch: () => {
+      watches += 1;
+      return Promise.resolve();
+    },
+    onEvent: (fn) => {
+      const wrapped = fn as (message: { kind: "ready" | "closed" }) => void;
+      listeners.add(wrapped);
+      return () => {
+        listeners.delete(wrapped);
+      };
+    },
+  });
+
+  let firstReady = 0;
+  const stopA = client.subscribe({ types: ["StateChanged"] }, (msg) => {
+    if (msg.kind === "ready") firstReady += 1;
+  });
+  await settle();
+  assert.equal(watches, 1);
+  for (const fn of listeners) fn({ kind: "ready" });
+  assert.equal(firstReady, 1);
+
+  // 다른 조건의 watch가 나갔지만 아직 ready가 안 온(또는 유실된) 상태.
+  const stopB = client.subscribe({ types: ["WorkflowRenamed"] }, () => {});
+  await settle();
+  assert.equal(watches, 2);
+
+  // 이미 확인된 StateChanged로 새 구독자(예: WorkflowPanel)가 붙으면 막히지 않고 바로 ready를 받아야 한다.
+  let lateReady = 0;
+  const stopC = client.subscribe({ types: ["StateChanged"] }, (msg) => {
+    if (msg.kind === "ready") lateReady += 1;
+  });
+  await settle();
+  assert.equal(lateReady, 1);
+  // 조건이 안 바뀌는 구독 해제에서는 watch를 다시 보내지 않는다.
+  stopC();
+  await settle();
+  assert.equal(watches, 2);
+
+  stopB();
+  stopA();
+});
+
 test("다시 붙으면 snapshot이 대기 목록을 맞추고 사라진 요청은 남지 않는다", async () => {
   const source = createFakeSource({
     snapshots: [

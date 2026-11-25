@@ -60,10 +60,12 @@ function conditionKey(condition: EventCondition): string {
 export function createEventClient(core: CoreSource): EventClient {
   const subscribers = new Set<Subscriber>();
   let connected = false;
-  let appliedKey: string | null = null;
+  let sentKey: string | null = null;
+  // 서버의 ready로 확인된 조건 key. 이미 확인된 조건으로 새로 붙는 구독자는 다른 watch의 ready를 기다리지 않고 바로 읽는다.
+  let confirmedKeys = new Set<string>();
   let watchQueued = false;
-  // 보낸 watch마다 그 ready를 기다리는 구독자. 서버가 watch 순서대로 ready를 답한다.
-  let inflight: Subscriber[][] = [];
+  // 연결된 상태에서 보낸 watch마다 그 조건 key 묶음. 서버가 watch 순서대로 ready를 답한다.
+  let pendingWatches: Set<string>[] = [];
   let stopCore: (() => void) | null = null;
 
   function mergedConditions(): EventCondition[] {
@@ -83,7 +85,9 @@ export function createEventClient(core: CoreSource): EventClient {
   function disconnect() {
     if (!connected) return;
     connected = false;
-    inflight = [];
+    sentKey = null;
+    confirmedKeys.clear();
+    pendingWatches = [];
     for (const subscriber of [...subscribers]) {
       subscriber.synced = false;
       send(subscriber, { kind: "disconnected" });
@@ -97,13 +101,26 @@ export function createEventClient(core: CoreSource): EventClient {
 
   function receive(message: CoreEventMessage) {
     if (message.kind === "ready") {
-      // 연결이 막 붙은 ready는 모두 다시 읽는다. 붙은 뒤의 ready는 watch의 답이라 아직 맞추지 않은 구독자만 읽는다. 연결이 붙기
-      // 전에 보낸 watch의 답은 답할 watch를 몰라도 맞춘 구독자에게 다시 가지 않는다(창이 뜰 때 읽기가 두 번 몰리지 않게).
+      // 연결이 막 붙은 ready는 모두 다시 읽는다. 붙은 뒤의 ready는 watch의 답이라 확인된 조건의 미동기화 구독자만 읽는다.
       const first = !connected;
-      const answered = first ? undefined : (inflight.shift() ?? []);
       connected = true;
-      for (const subscriber of [...(answered ?? subscribers)]) {
-        if (subscribers.has(subscriber) && (first || !subscriber.synced)) {
+      if (first) {
+        confirmedKeys = new Set(mergedConditions().map(conditionKey));
+        pendingWatches = [];
+        for (const subscriber of [...subscribers]) {
+          if (subscribers.has(subscriber)) ready(subscriber);
+        }
+        return;
+      }
+      const confirmed = pendingWatches.shift();
+      confirmedKeys =
+        confirmed ?? new Set(mergedConditions().map(conditionKey));
+      for (const subscriber of [...subscribers]) {
+        if (
+          subscribers.has(subscriber) &&
+          !subscriber.synced &&
+          confirmedKeys.has(conditionKey(subscriber.condition))
+        ) {
           ready(subscriber);
         }
       }
@@ -131,12 +148,18 @@ export function createEventClient(core: CoreSource): EventClient {
     queueMicrotask(() => {
       watchQueued = false;
       const conditions = mergedConditions();
-      appliedKey = JSON.stringify(conditions.map(conditionKey));
-      if (connected) {
-        inflight.push([...subscribers].filter((one) => !one.synced));
-      }
+      const keys = new Set(conditions.map(conditionKey));
+      const nextKey = JSON.stringify([...keys]);
+      if (conditions.length > 0 && nextKey === sentKey) return;
+      sentKey = conditions.length === 0 ? null : nextKey;
+      const tracked = connected && conditions.length > 0 ? keys : null;
+      if (tracked !== null) pendingWatches.push(tracked);
       core.watch?.(conditions)?.catch(() => {
-        // 끊겼다면 main이 연결이 붙을 때 조건을 다시 걸고 ready를 민다.
+        // watch 호출이 실패하면 대기열에서 빼서 다음 구독자를 막지 않는다. 끊겼다면 재연결 ready가 다시 맞춘다.
+        if (tracked !== null) {
+          const at = pendingWatches.indexOf(tracked);
+          if (at !== -1) pendingWatches.splice(at, 1);
+        }
       });
     });
   }
@@ -157,21 +180,19 @@ export function createEventClient(core: CoreSource): EventClient {
     subscribe(condition, onMessage) {
       const subscriber: Subscriber = { condition, onMessage, synced: false };
       if (subscribers.size === 0) start();
-      const before = appliedKey;
       subscribers.add(subscriber);
-      const key = JSON.stringify(mergedConditions().map(conditionKey));
-      if (key !== before) {
+      const condKey = conditionKey(condition);
+      const nextKey = JSON.stringify(mergedConditions().map(conditionKey));
+      if (nextKey !== sentKey) {
         queueWatch();
-      } else if (connected && !watchQueued) {
-        // 합친 조건이 그대로면 main이 ready를 다시 밀지 않으니 이 구독자만 읽게 한다. 같은 조건을 건 watch의 ready가
-        // 아직 오는 중이면 그 ready를 기다린다(서버가 아직 조건을 걸지 않았을 수 있다).
-        const waiting = inflight.at(-1);
-        if (waiting) waiting.push(subscriber);
-        else {
-          queueMicrotask(() => {
-            if (subscribers.has(subscriber)) ready(subscriber);
-          });
-        }
+      }
+      // 이미 서버가 확인한 조건(예: 다른 구독자가 이미 걸어 둔 StateChanged)이면 다른 watch의 ready를 기다리지 않고 바로 읽는다.
+      if (connected && confirmedKeys.has(condKey)) {
+        queueMicrotask(() => {
+          if (subscribers.has(subscriber) && !subscriber.synced) {
+            ready(subscriber);
+          }
+        });
       }
       return () => {
         if (!subscribers.delete(subscriber)) return;
@@ -179,9 +200,16 @@ export function createEventClient(core: CoreSource): EventClient {
           stopCore?.();
           stopCore = null;
           connected = false;
-          inflight = [];
+          sentKey = null;
+          confirmedKeys.clear();
+          pendingWatches = [];
+          queueWatch();
+          return;
         }
-        queueWatch();
+        const afterKey = JSON.stringify(mergedConditions().map(conditionKey));
+        if (afterKey !== sentKey) {
+          queueWatch();
+        }
       };
     },
   };

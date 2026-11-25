@@ -89,6 +89,7 @@ export function ExportWorkflowDialog({
     [],
   );
   const [targetProject, setTargetProject] = useState("");
+  const [pickedProject, setPickedProject] = useState(false);
   const [targetName, setTargetName] = useState(workflow);
   const [overwrite, setOverwrite] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -138,6 +139,7 @@ export function ExportWorkflowDialog({
     setProjectsState("loading");
     setTargetProjects([]);
     setTargetProject("");
+    setPickedProject(false);
     setError(null);
     const data = hub.get(selectedMachine.ref);
     void Promise.all([data.grant(), data.projects.list()]).then(
@@ -165,7 +167,11 @@ export function ExportWorkflowDialog({
       return;
     }
     setTargetProject((prev) => {
-      if (prev !== "" && targetProjects.some((item) => item.id === prev)) {
+      if (
+        pickedProject &&
+        prev !== "" &&
+        targetProjects.some((item) => item.id === prev)
+      ) {
         return prev;
       }
       const matched =
@@ -174,7 +180,7 @@ export function ExportWorkflowDialog({
           : targetProjects.find((item) => item.identity === sourceIdentity);
       return matched?.id ?? targetProjects[0]!.id;
     });
-  }, [targetProjects, sourceIdentity]);
+  }, [targetProjects, sourceIdentity, pickedProject]);
 
   const confirmExport = async () => {
     if (
@@ -309,6 +315,7 @@ export function ExportWorkflowDialog({
                 onValueChange={(next) => {
                   setTargetKey(next);
                   setTargetProject("");
+                  setPickedProject(false);
                   setError(null);
                 }}
               />
@@ -346,6 +353,7 @@ export function ExportWorkflowDialog({
                       }))}
                       onValueChange={(next) => {
                         setTargetProject(next);
+                        setPickedProject(true);
                         setError(null);
                       }}
                     />

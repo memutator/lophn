@@ -178,6 +178,9 @@ type Link = {
   // 붙은 동안 보낸 watch마다 바꾼 구독자(모르면 undefined)를 보낸 차례로 둔다. 그 기계가 같은 차례로 `ready`를 답한다.
   // 붙기 전에 보낸 것은 넣지 않는다: 붙을 때 connection이 다시 건 watch의 `ready`는 모두의 것이다.
   asked: (MachineSubscriber | undefined)[];
+  // 현재 연결의 첫 `ready`를 이미 받았는가. `connection`이 `state: "ready"`를 낸 직후 동기 `onPeerReady`가 건 watch의 `asked`가
+  // 연결 자체의 첫 `ready`에 잘못 소비되지 않도록 구분한다.
+  initialReady: boolean;
   // 이 link로 들어오는 앱 event의 token bucket.
   eventLimiter: PeerEventLimiter;
 };
@@ -358,6 +361,7 @@ export function createLinks(deps: LinksDeps) {
       refused: false,
       shown: canonicalize({ status: "connecting", update: null, path: null }),
       asked: [],
+      initialReady: false,
       eventLimiter: {
         tokens: PEER_EVENT_BURST,
         lastMs: deps.clock.nowMs(),
@@ -368,7 +372,10 @@ export function createLinks(deps: LinksDeps) {
     void connection.watch(conditionsOf(body.id));
     connection.subscribe((state) => {
       // 끊긴 channel에 보낸 watch는 답이 오지 않는다. 다시 붙을 때의 `ready`를 누구 것으로 잘못 달지 않게 비운다.
-      if (state.state !== "ready") link.asked = [];
+      if (state.state !== "ready") {
+        link.asked = [];
+        link.initialReady = false;
+      }
       report(link);
     });
     connection.onEvent((message) => {
@@ -438,10 +445,14 @@ export function createLinks(deps: LinksDeps) {
           return;
         }
       } else if (message.kind === "ready") {
-        const asked = link.asked.shift();
-        // core 안 구독자가 건 watch의 `ready`는 창이 기다리는 것이 아니다.
-        if (asked?.capability === null) return;
-        watcher = asked?.watcher;
+        if (!link.initialReady) {
+          link.initialReady = true;
+        } else {
+          const asked = link.asked.shift();
+          // core 안 구독자가 건 watch의 `ready`는 창이 기다리는 것이 아니다.
+          if (asked?.capability === null) return;
+          watcher = asked?.watcher;
+        }
       }
       deps.publish({
         type: "MachineFrameReceived",

@@ -1021,6 +1021,8 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
         if (result.ok) setRunningWorkflows(result.value);
       });
   }, [projectId, source]);
+  const readWorkflowsRef = useRef(readWorkflows);
+  readWorkflowsRef.current = readWorkflows;
   useEffect(() => {
     setWorkflowList(null);
     setRunningWorkflows([]);
@@ -1030,6 +1032,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     }
   }, [workspaceId, source, readyWorkspace, readRunningWorkflows]);
   useStateChanged(["workflow_instances"], readRunningWorkflows);
+  useStateChanged(["projects"], () => readWorkflowsRef.current());
 
   // AI 제목 생성이나 Run 화면 rename으로 instance 제목이 바뀌면 열린 instance desk 이름과 run 탭 제목을 맞춘다.
   useEffect(() => {
@@ -1068,8 +1071,6 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
 
   // workflow 이름 변경·삭제 event는 workflow 목록을 다시 읽기 전에 layout desk를 원자적으로 맞춰
   // rename된 workflow desk가 `mergeVanished`로 Main에 합쳐지지 않게 한다.
-  const readWorkflowsRef = useRef(readWorkflows);
-  readWorkflowsRef.current = readWorkflows;
   useEffect(() => {
     if (projectId === null) return;
     return data.events.subscribe(

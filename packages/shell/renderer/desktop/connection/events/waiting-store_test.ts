@@ -265,7 +265,10 @@ test("팀 자식의 요청과 질문(to_parent)은 사람의 대기 목록에 �
 test("watch 실패와 starting 전이는 pendingWatches·sentKey를 오염시키지 않고 새 session 구독자가 ready를 받는다", async () => {
   const listeners = new Set<(message: { kind: "ready" | "closed" }) => void>();
   const stateListeners = new Set<
-    (state: { state: "starting" | "ready" | "stale"; confirmedAt: number | null }) => void
+    (state: {
+      state: "starting" | "ready" | "stale";
+      confirmedAt: number | null;
+    }) => void
   >();
   let failNext = false;
   let watches = 0;

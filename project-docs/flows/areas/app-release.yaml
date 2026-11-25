@@ -76,7 +76,7 @@ flows:
       - packages/core/apps/releases/sdk-permissions.ts
       - packages/core/apps/packages/store.ts
     steps:
-      - "machine 자격이 아니면 forbidden이다. 없는 앱과 범위 밖 앱도 forbidden이다"
+      - "machine 자격이 아니면 forbidden이다. 없는 앱과 범위 밖 앱은 not_found다"
       - "보관한 앱이면 conflict다"
       - "선언을 검증기로 다시 검사하고 canonical hash, manifest hash, bundle 안 declaration.json이 선언과 맞는지 본다"
       - "선언의 sdk_dependencies가 bundle manifest의 의존 목록과 같은지 본다. 다르면 invalid_input이다"
@@ -92,7 +92,11 @@ flows:
         observe: [response]
       - id: forbidden
         code: forbidden
-        when: "machine 자격이 아니거나, 없는 앱이거나 앱이 범위 밖이다"
+        when: "machine 자격이 아니다"
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "없는 앱이거나 앱이 범위 밖이다"
         observe: [response]
       - id: conflict
         code: conflict
@@ -287,7 +291,7 @@ flows:
       - packages/core/apps/releases/commands.ts
       - packages/core/apps/releases/activation/state.ts
     steps:
-      - "machine 자격을 본다. machine이 아니면 forbidden이다. release가 없거나 범위 밖이어도 forbidden이다"
+      - "machine 자격을 본다. machine이 아니면 forbidden이다. release가 없거나 범위 밖이면 not_found다"
       - "보관한 앱, prepared·superseded가 아닌 release, 이 앱의 진행 중 시도는 conflict다"
       - "superseded release(이전으로 돌아가기)는 지금 활성 release와 data schema가 같을 때만 연다. 다르면 invalid_input이다"
       - "release를 activating으로 바꾸고 시도 id와 이전 release를 기록한다. 같은 앱의 동의 줄은 모두 cancelled로 닫고 지운다"
@@ -306,7 +310,11 @@ flows:
         observe: [response]
       - id: forbidden
         code: forbidden
-        when: "machine 자격이 아니거나, release가 없거나 범위 밖(모두 forbidden)"
+        when: "machine 자격이 아니다"
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "release가 없거나 범위 밖이다"
         observe: [response]
       - id: unavailable
         code: unavailable
@@ -580,7 +588,7 @@ flows:
       - packages/core/apps/releases/commands.ts
       - packages/core/apps/releases/activation/
     steps:
-      - "사람 자격이 아니면 forbidden이다. 범위 밖 release도 forbidden이다"
+      - "사람 자격이 아니면 forbidden이다. 없거나 범위 밖 release는 not_found다"
       - "보관한 앱이면 conflict다. release가 superseded가 아니면 invalid_input이다"
       - "지금 활성 release와 data schema가 다르면 invalid_input이다(data를 거꾸로 돌리지 않는다)"
       - "이 앱에 시도가 돌고 있으면 conflict다"
@@ -599,7 +607,11 @@ flows:
         observe: [response]
       - id: forbidden
         code: forbidden
-        when: "사람 자격이 아니거나 release가 없거나 범위 밖(absent는 forbidden)"
+        when: "사람 자격이 아니다"
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "release가 없거나 범위 밖이다"
         observe: [response]
       - id: unavailable
         code: unavailable

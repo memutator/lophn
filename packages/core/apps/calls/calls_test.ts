@@ -118,6 +118,8 @@ function setup() {
     agentRemote: false,
     // 이 기계의 call 정책이 private으로 둔 앱.
     privateApps: new Set<Id<"app">>(),
+    // slug → app id 표.
+    slugs: new Map<string, Id<"app">>(),
     // 다른 기계로 넘긴 호출.
     forwarded: [] as Parameters<AppCallsDeps["forward"]>[0][],
   };
@@ -195,6 +197,7 @@ function setup() {
     apps: {
       activeRelease: () => ok(state.release),
       archived: () => ok(false),
+      bySlug: (slug) => ok(state.slugs.get(slug) ?? null),
     },
     ledger: ledger as InvocationLedger,
     link,
@@ -1058,11 +1061,12 @@ test("받은 remote call은 다른 기계로 다시 넘기지 않고 이 기계�
 });
 
 // 받는 기계의 Gate는 이 기계의 자료만 본다. 다른 컴퓨터의 agent와 앱은 private인 앱을 부르지 못하고(사람의 화면과 터미널은 부른다),
-// 누가 불러도 내놓지 않은 command는 부르지 못한다. 요청한 쪽의 name은 판정에 쓰지 않는다.
-test("다른 컴퓨터의 agent나 앱이 요청한 call은 private인 앱과 내놓지 않은 command에 닿지 못하고, 사람의 화면과 터미널은 private인 앱의 내놓은 command를 부른다", async () => {
+// 같은 앱이 다른 컴퓨터에서 자기 자신 command를 부르는 경우만 비공개 command를 부르고 그 밖은 내놓은 command만 부른다. 요청한 쪽의 name은 판정에 쓰지 않는다.
+test("다른 컴퓨터의 agent나 앱이 요청한 call은 private인 앱과 내놓지 않은 command에 닿지 못하고, 같은 앱의 자기 자신 원격 호출은 private이 아닐 때 비공개 command도 부른다", async () => {
   const t = setup();
   const app = newApp();
   const other = newApp();
+  const third = newApp();
   t.state.privateApps.add(app);
   const machine = ids.newId("mch") as Id<"mch">;
   const device = ids.newId("dev") as Id<"dev">;
@@ -1071,10 +1075,12 @@ test("다른 컴퓨터의 agent나 앱이 요청한 call은 private인 앱과 �
     terminal: { kind: "terminal" },
     // name이 무엇이든 agent는 agent다.
     agent: { kind: "agent", agent: "lophn_home", session: null, name: "human" },
-    app: { kind: "app", app: other },
+    app: { kind: "app", app: third },
   } as const;
   const via = (
-    requester: (typeof requesters)[keyof typeof requesters],
+    requester:
+      | (typeof requesters)[keyof typeof requesters]
+      | { kind: "app"; app: Id<"app"> },
     to: Id<"app">,
     name: string,
   ) =>
@@ -1101,6 +1107,17 @@ test("다른 컴퓨터의 agent나 앱이 요청한 call은 private인 앱과 �
     assert.equal(status(hidden), "gate_blocked", `${label} not public`);
     assert.equal(status(open), "succeeded", `${label} open app`);
   }
+  // 같은 앱이 다른 컴퓨터에서 자기 자신 비공개 command를 부르면 private이 아닐 때만 지난다.
+  assert.equal(
+    status(await via({ kind: "app", app: other }, other, "priv.r.get")),
+    "succeeded",
+    "same app non-public on open app",
+  );
+  assert.equal(
+    status(await via({ kind: "app", app }, app, "priv.r.get")),
+    "gate_blocked",
+    "same app non-public on private app",
+  );
   // 막힌 호출은 앱 process에 가지 않았고 remote caller로 기록에 남았다.
   assert.deepStrictEqual(
     t.sent.map((s) => [s.app, s.request.name]),
@@ -1111,6 +1128,7 @@ test("다른 컴퓨터의 agent나 앱이 요청한 call은 private인 앱과 �
       [other, "r.get"],
       [other, "r.get"],
       [other, "r.get"],
+      [other, "priv.r.get"],
     ],
   );
   assert.ok(
@@ -1119,6 +1137,69 @@ test("다른 컴퓨터의 agent나 앱이 요청한 call은 private인 앱과 �
     ),
   );
   assert.equal(t.state.forwarded.length, 0);
+});
+
+test("target.app에 앱 slug를 주면 이 기계의 app id로 풀어 local과 remote 호출을 넘기고 없는 slug는 not_found다", async () => {
+  const t = setup();
+  const monitor = newApp();
+  t.state.slugs.set("agent-monitor", monitor);
+  const parent = ids.newId("inv") as Id<"inv">;
+  (t.intake as unknown as { enter(f: unknown): void }).enter({
+    id: parent,
+    app: monitor,
+    release: REL,
+    mode: "live",
+    parent: null,
+    remote: false,
+    abandon: () => Promise.resolve(),
+  });
+  const remoteDone = await t.path.call(
+    {
+      target: { mode: "remote", machine: "vmi", app: "agent-monitor" },
+      kind: "command",
+      name: "r.get",
+      caller: {
+        kind: "app",
+        app: monitor,
+        release: REL,
+        parent_invocation: parent,
+      },
+    },
+    { actor: "app", app: monitor },
+  );
+  assert.ok(remoteDone.ok);
+  assert.deepStrictEqual(
+    t.state.forwarded.map((c) => c.target),
+    [{ machine: "vmi", app: monitor }],
+  );
+
+  const localDone = await t.path.call(
+    {
+      target: { mode: "live", app: "agent-monitor", release: null },
+      kind: "command",
+      name: "r.get",
+      caller: { kind: "person", view_session: "view-1" },
+    },
+    { actor: "user" },
+  );
+  assert.equal(status(localDone), "succeeded");
+  assert.equal(t.sent.at(-1)?.app, monitor);
+
+  const missing = await t.path.call(
+    {
+      target: { mode: "remote", machine: "vmi", app: "no-such-app" },
+      kind: "command",
+      name: "r.get",
+      caller: {
+        kind: "app",
+        app: monitor,
+        release: REL,
+        parent_invocation: parent,
+      },
+    },
+    { actor: "app", app: monitor },
+  );
+  assert.ok(!missing.ok && missing.error.code === "not_found");
 });
 
 test("앱 process의 parseProcessCall은 다섯 caller 종류에서 processCallRequestSchema와 같은 판정을 한다", () => {
@@ -1457,7 +1538,11 @@ function receiver(schema: string, node = "receiver") {
       find: () => ok(null),
       findPreview: () => Promise.resolve(ok(null)),
     },
-    apps: { activeRelease: () => ok(REL), archived: () => ok(false) },
+    apps: {
+      activeRelease: () => ok(REL),
+      archived: () => ok(false),
+      bySlug: () => ok(null),
+    },
     ledger: ledger as InvocationLedger,
     link,
     assignmentOf: () => err({ code: "internal", message: "unused" }),

@@ -43,11 +43,14 @@ export async function callAllowed(
   deps: CallGateDeps,
 ): Promise<Result<boolean>> {
   if (caller.kind === "program") return ok(true);
-  // 다른 컴퓨터가 넘긴 호출. 명단과 터미널 입력 허락은 입구(`apps/remote_call`)가 본다. 여기서는 이 기계가 내놓은 command만 지나가고,
+  // 다른 컴퓨터가 넘긴 호출. 명단과 터미널 입력 허락은 입구(`apps/remote_call`)가 본다. 여기서는 이 기계가 내놓은 command만 지나가고
+  // (같은 앱이 다른 컴퓨터에서 자기 자신 command를 부르는 것은 비공개 command도 지나간다),
   // 요청한 쪽이 agent나 앱이면 그 앱의 workspace가 private이 아니어야 한다. 사람의 화면과 터미널은 private도 부른다.
   // 요청한 쪽의 name과 agent 글은 다른 컴퓨터가 쓴 표시값이라 판정에 쓰지 않는다.
   if (caller.kind === "remote") {
-    if (!target.public) return ok(false);
+    const sameApp =
+      caller.requester.kind === "app" && caller.requester.app === target.app;
+    if (!target.public && !sameApp) return ok(false);
     const { kind } = caller.requester;
     return ok(
       !((kind === "agent" || kind === "app") && deps.isPrivate(target.app)),

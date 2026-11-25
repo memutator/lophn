@@ -67,6 +67,8 @@ export interface AppStates {
   /** 지금 활성 release. 앱이 없거나 활성 release가 없으면 null. */
   activeRelease(app: Id<"app">): Result<Id<"rel"> | null>;
   archived(app: Id<"app">): Result<boolean>;
+  /** 이 기계에 등록된 앱 slug를 불변 `app_` id로 푼다. 없으면 null. */
+  bySlug(slug: string): Result<Id<"app"> | null>;
 }
 
 export type AppCallsDeps = CallGateDeps & {
@@ -271,6 +273,17 @@ export function createAppCalls(deps: AppCallsDeps): {
     const caller = verified.value;
 
     const target = input.target;
+    let app: Id<"app">;
+    if (target.mode === "preview" || target.app.startsWith("app_")) {
+      app = target.app as Id<"app">;
+    } else {
+      const resolved = deps.apps.bySlug(target.app);
+      if (!resolved.ok) return resolved;
+      if (resolved.value === null) {
+        return err({ code: "not_found", message: "app not found" });
+      }
+      app = resolved.value;
+    }
     // 다른 기계의 앱은 command만, agent와 앱만 부른다(사람의 화면과 터미널은 `machines/call`로 간다). 이 기계의 앱처럼 조회·기록하지 않는다.
     if (target.mode === "remote") {
       if (
@@ -291,12 +304,11 @@ export function createAppCalls(deps: AppCallsDeps): {
       }
       return deps.forward({
         caller,
-        target: { machine: target.machine, app: target.app as Id<"app"> },
+        target: { machine: target.machine, app },
         name: input.name,
         input: input.input,
       });
     }
-    const app = target.app as Id<"app">;
     if (target.mode === "live") await intake.admit(app);
 
     const archived = deps.apps.archived(app);

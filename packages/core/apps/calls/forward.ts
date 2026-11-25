@@ -121,13 +121,16 @@ export function createRemoteForward(deps: RemoteForwardDeps): RemoteForward {
       const named = new Set(lines.map((entry) => entry.machine));
       computers = machines.computers().filter((one) => named.has(one.machine));
     } else {
-      const allowed = await callAllowed(
-        caller,
-        { app: target.app, tool: name, effect: "external", public: true },
-        deps,
-      );
-      if (!allowed.ok) return allowed;
-      if (!allowed.value) return ok(blocked());
+      // 같은 앱이 다른 컴퓨터의 자기 자신 command를 부르는 길은 다른 앱 연결(`app_connections`·`app.call` grant)이 아니다.
+      if (caller.app !== target.app) {
+        const allowed = await callAllowed(
+          caller,
+          { app: target.app, tool: name, effect: "external", public: true },
+          deps,
+        );
+        if (!allowed.ok) return allowed;
+        if (!allowed.value) return ok(blocked());
+      }
       computers = machines.computers();
     }
     const resolved = resolveMachine(target.machine, computers);

@@ -1,8 +1,9 @@
 // read route의 `reads` 검사. 실행: node tools/check-reads.ts
 // read route가 기대는 이름을 `changes`로 내는 route가 하나도 없으면 그 읽기는 영영 다시 읽히지 않는다.
 import { readdir } from "node:fs/promises";
+import { join } from "node:path";
 import process from "node:process";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import type { Route } from "../packages/protocol/base/route.ts";
 
@@ -19,8 +20,8 @@ const PUBLISHED_OUTSIDE_ROUTES = [
   "unseen",
 ];
 
-const ROOT = new URL("..", import.meta.url).pathname;
-const PROTOCOL = `${ROOT}packages/protocol`;
+const ROOT = fileURLToPath(new URL("..", import.meta.url));
+const PROTOCOL = join(ROOT, "packages", "protocol");
 
 function isRoute(value: unknown): value is Route {
   const route = value as Partial<Route> | null;
@@ -51,7 +52,7 @@ async function protocolRoutes(): Promise<Route[]> {
     .sort();
   const found = new Set<Route>();
   for (const file of files) {
-    const module = await import(pathToFileURL(`${PROTOCOL}/${file}`).href);
+    const module = await import(pathToFileURL(join(PROTOCOL, file)).href);
     collect(module, found, 3);
   }
   return [...found];

@@ -255,7 +255,7 @@ test("할당이 없는 agent는 다른 기계의 앱을 부르지 못한다: 그
   ]);
 });
 
-test("앱은 그 앱에 대한 app.call grant가 command를 덮을 때만 다른 기계의 앱을 부르고, 보내는 요청한 쪽은 그 앱이다", async () => {
+test("앱은 다른 앱에는 app.call grant가 command를 덮을 때만, 다른 컴퓨터의 자기 자신은 grant 없이도 부르고 보내는 요청한 쪽은 그 앱이다", async () => {
   for (const grants of [[], [grant(["other"])]]) {
     const t = setup({ grants });
     const result = await t.forward({
@@ -281,6 +281,24 @@ test("앱은 그 앱에 대한 app.call grant가 command를 덮을 때만 다른
       [
         { kind: "app", app: CALLER_APP },
         { app: APP, command: "add" },
+      ],
+    ],
+  );
+  // 자기 앱은 `app_connections`에 선언할 수 없으므로 grant 없이도 다른 컴퓨터의 자기 command를 부른다.
+  const self = setup({ grants: [] });
+  const selfDone = await self.forward({
+    caller: appCaller(),
+    target: { machine: "studio", app: CALLER_APP as never },
+    name: "monitor.view",
+    input: undefined,
+  });
+  assert.ok(selfDone.ok);
+  assert.deepEqual(
+    self.sent.map((one) => [one.by, one.call.body]),
+    [
+      [
+        { kind: "app", app: CALLER_APP },
+        { app: CALLER_APP, command: "monitor.view" },
       ],
     ],
   );
@@ -471,7 +489,11 @@ test("lophn <app> <command> --on <기계>는 apps/call_tool(remote)과 forward�
   const calls = createAppCalls({
     callers: { agentToolCall: () => ok({ agent: AGENT, workspace: null }) },
     // 다른 기계로 가는 호출은 이 기계의 앱 표, ledger, 앱 process를 쓰지 않는다.
-    apps: { activeRelease: () => ok(null), archived: () => ok(false) },
+    apps: {
+      activeRelease: () => ok(null),
+      archived: () => ok(false),
+      bySlug: () => ok(null),
+    },
     lookup: {},
     ledger: {},
     link: {},

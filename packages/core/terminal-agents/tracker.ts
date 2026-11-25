@@ -95,8 +95,6 @@ export type AgentTrackerDeps = {
     session: string;
     title: string | null;
     name: string | null;
-    /** 새 턴 시작(TurnStarted)이면 true다. 삭제 tombstone 해제는 새 턴 시작에만 허용한다. */
-    reopen?: boolean;
   }): void;
   /** session id를 처음 알게 됐다(foreground resume이나 hook). 저장본이 있으면 비어 있는 title·name을 채운다. */
   lookupSession?(info: {
@@ -803,7 +801,6 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
           session: entry.session,
           title: entry.title,
           name: entry.name,
-          ...(signal.type === "TurnStarted" ? { reopen: true } : {}),
         });
       }
     },

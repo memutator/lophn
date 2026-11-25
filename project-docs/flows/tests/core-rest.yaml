@@ -877,10 +877,6 @@ files:
     covers: [coding-session-sync:folded, coding-session-sync:withheld, coding-session-input:unavailable, acp-coding-tool-body:ok, acp-coding-tool-body:unavailable, coding-session-switch:invalid_input, coding-session-switch:forbidden, coding-session-switch:switched]
     note: "GUI handle의 snapshot·갱신·tool 본문 안의 알려진 secret(메시지 글, tool 출력)은 acp/snapshot·AcpUpdated·tool_body에서 가려지고, 알려진 secret을 다 모르면 snapshot은 unavailable이고 갱신은 나가지 않는다. switch는 confirmed: true 없이 invalid_input이고 agent 자격은 forbidden이며 둘 다 view를 바꾸지 않는다"
 
-  - path: packages/core/main/daemon/wiring/agent-delete_test.ts
-    covers: [agent-delete:deleted]
-    note: "agent.delete 시 해당 agent의 harness session을 AgentSessionStore에서 제거·tombstone 처리하고 일치하는 열린 GUI handle을 닫는 연쇄 정리를 본다"
-
   - path: packages/core/terminal-agents/agent_test.ts
     covers: [terminal-agent-track:running, terminal-agent-track:waiting, terminal-agent-track:idle, terminal-agent-track:unknown, terminal-agent-track:ignored, terminal-agent-notice:signaled, terminal-agent-notice:mark-dismissed, terminal-agent-notice:cancelled]
     note: "hook 줄 ingress(모르는 key, bind 안 된 key, 틀린 줄, 크기 초과는 버림, revoke 뒤 버림)와 coding agent 상태 tracker. Esc·Ctrl-C로 unknown, 다른 harness hook은 탭을 안 바꿈, 1.5초 안의 TurnStarted는 완료 알림을 취소, subagent가 끝나야 알림"

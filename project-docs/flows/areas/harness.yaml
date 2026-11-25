@@ -165,27 +165,25 @@ flows:
     docs: [architecture/agent-call.md]
 
   - id: coding-session-forget
-    title: 사람이 사이드바 Recent에서 터미널 coding session을 지우면 저장 목록에서 제거·tombstone하고 GUI 탭 팀원도 보관한다
+    title: 사람이 사이드바 Recent에서 터미널 coding session을 지우면 그 GUI 탭 팀원을 보관한다
     actor: person
     entries: [route:coding_sessions/forget]
     uses: [route:sessions/archive]
     boundary: [harness-host-core, agent-sessions]
     code:
       - packages/protocol/coding-agent/relay.ts
-      - packages/core/terminal-agents/session-store.ts
-      - packages/core/terminal-agents/service.ts
       - packages/core/main/daemon/wiring/terminal-agents.ts
       - packages/core/main/daemon/wiring/harness.ts
     steps:
-      - "사람 자격만 부른다. project(Home 포함)·harness·CLI session을 AgentSessionStore.remove로 지우고 deleted tombstone에 남겨 늦은 hook·snapshot으로 되살아나지 않게 하며 StateChanged{terminal_saved_sessions}를 낸다"
-      - "project workspace의 GUI harness이고 열린 팀원 session이 있으면 사람 자격으로 ArchiveSession(stop_turn)을 부른다. 받은 열린 call은 archive가 receiver_ended로 닫는다"
-      - "보관한 수를 돌려준다. 팀원이 없거나 Home·비-GUI harness면 0이다. 터미널과 그 CLI의 원본 대화는 그대로다"
+      - "사람 자격만 부른다. harness가 GUI harness가 아니면 invalid_input"
+      - "그 project·harness·CLI session의 열린 팀원 session을 찾아 사람 자격으로 ArchiveSession(stop_turn)을 부른다. 받은 열린 call은 archive가 receiver_ended로 닫는다"
+      - "보관한 수를 돌려준다. 팀원이 없으면 0이다. 터미널과 그 CLI의 대화는 그대로다"
     outcomes:
       - id: archived
         observe: [ledger:sessions, response]
       - id: invalid-input
         code: invalid_input
-        when: "입력이 schema에 어긋난다"
+        when: "harness가 GUI harness가 아니다"
         observe: [response]
       - id: forbidden
         code: forbidden
@@ -193,7 +191,7 @@ flows:
         observe: [response]
     crosses_process: false
     refs: [P6]
-    docs: [architecture/harness-gui.md, architecture/terminal-agent.md]
+    docs: [architecture/harness-gui.md]
 
   - id: gui-member-call
     title: project 터미널의 GUI 탭이 lophn 팀원 session으로 call을 받고 마지막 글로 답한다

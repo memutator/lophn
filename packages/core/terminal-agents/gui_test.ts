@@ -600,7 +600,6 @@ test("coding_sessions/switch rejects with conflict when stops changed since swit
       uploadImage: async () => null,
       readImage: async () => null,
       terminalChanged: () => {},
-      closeMatching: () => {},
       stop: () => {},
     },
     after: () => () => {},
@@ -892,7 +891,6 @@ test("createCodingSessions.list includes Home (project: home) terminals and filt
       uploadImage: async () => null,
       readImage: async () => null,
       terminalChanged: () => {},
-      closeMatching: () => {},
       stop: () => {},
     },
     after: () => () => {},
@@ -1019,7 +1017,7 @@ test("AcpSessionHandle.commit folds updates silently and fires snapshot once, dr
   assert.deepEqual(changedRefs, ["trm_commit", "trm_commit"]);
 });
 
-test("unified terminal-agent state: agy --gui registers with source: gui without hooks, preserves titles, and cascades forgetHarnessSessions", async () => {
+test("unified terminal-agent state: agy --gui registers with source: gui without hooks and preserves titles", async () => {
   const root = await mkdtemp(join(tmpdir(), "lophn-unified-agent-"));
   const prj = "prj_01BBBBBBBBBBBBBBBBBBBBBBBB";
   const terminalRef = "trm_01BBBBBBBBBBBBBBBBBBBBBBBB";
@@ -1110,11 +1108,6 @@ test("unified terminal-agent state: agy --gui registers with source: gui without
       title: "Antigravity",
       handoff: "restart",
     });
-    let closedCount = 0;
-    sessionHandle.onClose(() => {
-      closedCount += 1;
-    });
-
     // Opening agy --gui immediately patches runtime.agent with source: "gui" without any hook.
     agents.opened(openedHandle!);
     assert.equal(rt.agent?.source, "gui");
@@ -1150,20 +1143,9 @@ test("unified terminal-agent state: agy --gui registers with source: gui without
     sessionHandle.publish({ type: "session_reset" });
     assert.equal(rt.agent?.name, "Real Agy Title");
 
-    // Wait for store note, then cascade forgetHarnessSessions -> removes saved session + closes GUI handle.
+    // Wait for store note and confirm saved session + StateChanged notification.
     await new Promise((resolve) => setTimeout(resolve, 20));
     assert.equal((await store.list(prj)).length, 1);
-
-    await agents.forgetHarnessSessions([
-      {
-        project: prj,
-        harness: "antigravity",
-        external_session: "agy-conv-99",
-      },
-    ]);
-    assert.equal(closedCount, 1);
-    assert.equal(rt.agent, undefined);
-    assert.deepEqual(await store.list(prj), []);
     assert.ok(
       events.some(
         (e) =>

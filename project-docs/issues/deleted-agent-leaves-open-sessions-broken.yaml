@@ -1,0 +1,17 @@
+id: deleted-agent-leaves-open-sessions-broken
+title: lophn agent를 삭제해도 기존에 열린 session 탭과 알림 기록이 남아 관련 기능이 먹통이 된다
+kind: bug
+status: open
+topic: agent-definition
+modules:
+  - packages/core/main
+  - packages/shell/renderer
+now: |
+  `agent.delete`(`packages/core/main/daemon/wiring/agent-delete.ts`의 `eraseAgentRemnants`)가 ledger의 `sessions` 행을 지우고 `SessionEnded { reason: "deleted" }`를 발행하지만, 다음 두 곳이 정리되지 않는다.
+  1. desktop shell(`packages/shell/renderer/workspace/workspace-window.tsx`)에 `SessionEnded { reason: "deleted" }`나 삭제된 agent의 열린 `kind === "agent"` 탭(현재 창 및 저장된 다른 workspace layout)을 닫는 처리가 없어 삭제된 agent의 session 탭이 그대로 남는다.
+  2. 영구 알림 기록(`notices`, `packages/shell/renderer/desktop/connection/waiting/history.ts`)과 관련 진입 경로에 삭제된 agent·session 참조가 그대로 남아, 알림 기록에서 이동하거나 남아 있는 탭을 조작하면 `not_found` 등으로 기능이 동작하지 않는다.
+impact: |
+  사람이 lophn agent를 삭제한 뒤에도 기존에 열어 둔 session 탭이 화면에 그대로 남고, 알림 기록으로 이동하거나 해당 session 탭에서 조작하려 하면 먹통이 된다.
+fix: |
+  1. (추천, 중간) `SessionEnded { reason: "deleted" }`를 받는 shell(`workspace-window.tsx` 및 layout 정리)이 해당 session의 열린/저장된 `agent` 탭을 닫고, 알림 기록(`notices`) 및 이동 액션(`notice-action.ts`)에서 이미 삭제된 agent·session을 정리하거나 안전하게 안내한다. 잃는 것: 삭제된 agent의 과거 알림에서 대화로 바로 점프할 수는 없다.
+  2. (작음) 열린 탭과 알림 진입 시 `not_found`를 받아 빈 상태 안내·닫기 버튼만 표시한다. 잃는 것: 삭제 직후 열린 탭과 죽은 알림 줄이 화면에 계속 남아 사람이 직접 치워야 한다.

@@ -530,7 +530,6 @@ test("antigravity subagent filter ①②③ isolates child hooks from main sessi
     session: string;
     title: string | null;
     name: string | null;
-    reopen?: boolean;
   }> = [];
   const tracker = createAgentTracker({
     harnessOfProcess: (argv) => (argv[0] === "agy" ? "antigravity" : null),
@@ -574,7 +573,6 @@ test("antigravity subagent filter ①②③ isolates child hooks from main sessi
         session: info.session,
         title: info.title,
         name: info.name,
-        reopen: info.reopen,
       }),
     ...clock,
   });
@@ -649,7 +647,6 @@ test("antigravity subagent filter ①②③ isolates child hooks from main sessi
   assert.equal(latest.agent?.title, "new user conversation");
   assert.equal(latest.agent?.state, "running");
   assert.equal(seenSessions.at(-1)?.session, "user-new-2");
-  assert.equal(seenSessions.at(-1)?.reopen, true);
 });
 
 test("antigravity TurnEnded schedules a delayed summary DB re-read (~2000ms) and cancels it on gone()", async () => {

@@ -311,25 +311,6 @@ export const terminalAgentsWiring: WiringFactory = () => {
           resumable: (harness) =>
             harness in HARNESS_ADAPTERS &&
             HARNESS_ADAPTERS[harness as HarnessId].session.resume !== null,
-          // CLI 원본 대화 파일이 디스크에서 사라진 agy session은 Recent 목록에서 뺀다.
-          sessionExists: (harness, externalSession) => {
-            if (harness !== "antigravity") return true;
-            if (
-              !/^[A-Za-z0-9._:-]+$/.test(externalSession) ||
-              externalSession.includes("..")
-            ) {
-              return false;
-            }
-            return existsSync(
-              join(
-                homedir(),
-                ".gemini",
-                "antigravity-cli",
-                "conversations",
-                `${externalSession}.db`,
-              ),
-            );
-          },
         }),
         // GUI 탭이 사람이 붙인 그림을 쓰는 임시 폴더. 터미널을 닫아도 OS가 임시 폴더를 비운다.
         images: {
@@ -771,27 +752,19 @@ export const terminalAgentsWiring: WiringFactory = () => {
             key(codingSessionsForget),
             async (who, input) => {
               const body = codingSessionsForget.input.parse(input);
-              await agents.forgetSaved({
-                project: body.project,
-                harness: body.harness,
-                external_session: body.cli_session,
-              });
               const members = ctx.peek.harnessMembers;
-              if (
-                isGuiHarness(body.harness) &&
-                body.project !== HOME_TERMINAL_PROJECT &&
-                members !== undefined
-              ) {
-                const archived = await members.forget(who, {
-                  project: body.project,
-                  harness: RUNTIME_OF_GUI[body.harness],
-                  cli_session: body.cli_session,
+              if (!isGuiHarness(body.harness) || members === undefined) {
+                return err({
+                  code: "invalid_input",
+                  message: "not a chat coding agent",
                 });
-                return archived.ok
-                  ? ok({ archived: archived.value })
-                  : archived;
               }
-              return ok({ archived: 0 });
+              const archived = await members.forget(who, {
+                project: body.project,
+                harness: RUNTIME_OF_GUI[body.harness],
+                cli_session: body.cli_session,
+              });
+              return archived.ok ? ok({ archived: archived.value }) : archived;
             },
           ],
           [

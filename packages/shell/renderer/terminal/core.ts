@@ -68,7 +68,7 @@ export interface TerminalCore {
   list(): Promise<TerminalRuntime[] | null>;
   savedSessions(project: string): Promise<TerminalAgentSession[] | null>;
   renameSaved(input: RenameSaved): Promise<TerminalAgentSession[] | null>;
-  /** 사람이 Recent에서 지운 coding session을 저장 목록에서 빼고(tombstone) 연결된 팀원 session도 보관한다. CLI 원본 대화는 그대로다. */
+  /** 사람이 Recent에서 지운 coding session의 팀원 session을 보관한다(더는 부를 수 없다). 터미널과 CLI의 대화는 그대로다. */
   forgetSaved(input: {
     project: string;
     harness: string;

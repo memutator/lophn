@@ -99,17 +99,14 @@ test("사람이 붙인 session 이름은 hook 이름에 덮이지 않고, 이름
   }
 });
 
-test("null·빈 문자열·harness 기본 라벨은 기존 title·name을 덮지 않고, remove tombstone은 늦은 note를 막으며 sessionExists로 없는 agy DB를 거른다", async () => {
-  const root = await mkdtemp(join(tmpdir(), "lophn-agent-tombstone-"));
+test("null·빈 문자열·harness 기본 라벨은 기존 title·name을 덮지 않는다", async () => {
+  const root = await mkdtemp(join(tmpdir(), "lophn-agent-title-protect-"));
   try {
     let at = 1000;
-    const existingAgy = new Set(["conv-alive", "conv-deleted"]);
     const store = createAgentSessionStore({
       dataRoot: root,
       now: () => at,
       resumable: () => true,
-      sessionExists: (harness, id) =>
-        harness !== "antigravity" || existingAgy.has(id),
     });
 
     await store.note({
@@ -129,52 +126,6 @@ test("null·빈 문자열·harness 기본 라벨은 기존 title·name을 덮지
     });
     assert.equal(protectedList[0]?.title, "first prompt");
     assert.equal(protectedList[0]?.name, "Summary Title");
-
-    // remove는 항목을 지우고 tombstone을 기록해 늦은 note가 되살리지 못하게 한다.
-    await store.note({
-      ...note("conv-deleted", "bye prompt", "Bye Name"),
-      harness: "antigravity",
-    });
-    at = 4000;
-    await store.remove({
-      project: PRJ,
-      harness: "antigravity",
-      external_session: "conv-deleted",
-    });
-    assert.deepEqual(
-      (await store.list(PRJ)).map((s) => s.external_session),
-      ["conv-alive"],
-    );
-
-    // 일반 note는 tombstone 때문에 조용히 무시된다.
-    at = 5000;
-    await store.note({
-      ...note("conv-deleted", "late hook", "Late Name"),
-      harness: "antigravity",
-    });
-    assert.deepEqual(
-      (await store.list(PRJ)).map((s) => s.external_session),
-      ["conv-alive"],
-    );
-
-    // 사람이 직접 다시 열어 새 턴을 시작(reopen: true)할 때만 tombstone이 풀린다.
-    at = 6000;
-    await store.note({
-      ...note("conv-deleted", "reopened prompt", null),
-      harness: "antigravity",
-      reopen: true,
-    });
-    assert.deepEqual(
-      (await store.list(PRJ)).map((s) => s.external_session),
-      ["conv-deleted", "conv-alive"],
-    );
-
-    // 디스크에서 agy DB가 사라지면 list에서 빠진다.
-    existingAgy.delete("conv-alive");
-    assert.deepEqual(
-      (await store.list(PRJ)).map((s) => s.external_session),
-      ["conv-deleted"],
-    );
   } finally {
     await rm(root, { recursive: true, force: true });
   }

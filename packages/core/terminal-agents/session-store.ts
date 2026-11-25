@@ -1,5 +1,5 @@
 // <data root>/terminal-agents/sessions/<project>.json은 core만 쓴다. lophn 터미널에서 hook이나 GUI가 session id를 알려 준
-// coding agent session의 identity(harness·id·folder·cwd·첫 prompt·harness가 붙인 이름·시각)와 삭제 tombstone(`deleted`)만 남기고
+// coding agent session의 identity(harness·id·folder·cwd·첫 prompt·harness가 붙인 이름·시각)만 남기고
 // 실행 상태는 저장하지 않는다. 쓰기는 temp file 뒤 rename인 원자 교체다(폴더 0700, file 0600).
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
@@ -20,15 +20,8 @@ async function writeFileAtomic(file: string, content: string): Promise<void> {
 }
 
 const MAX_SESSIONS = 50;
-const MAX_DELETED = 500;
 
 type Stored = Omit<TerminalAgentSession, "resumable">;
-
-type DeletedEntry = {
-  harness: string;
-  external_session: string;
-  deleted_at: number;
-};
 
 export type SessionNote = {
   project: string;
@@ -39,11 +32,6 @@ export type SessionNote = {
   title: string | null;
   /** hook이나 ACP가 알려 준 harness의 session 이름. 없으면 null이다. */
   name: string | null;
-  /**
-   * 사람이 그 session을 직접 다시 열어 새 턴을 시작할 때만 true다.
-   * false/생략이면 삭제 tombstone이 찍힌 session은 조용히 건너뛰어 되살아나지 않게 막는다.
-   */
-  reopen?: boolean;
 };
 
 export interface AgentSessionStore {
@@ -60,15 +48,6 @@ export interface AgentSessionStore {
     harness: string;
     external_session: string;
     name: string | null;
-  }): Promise<TerminalAgentSession[]>;
-  /**
-   * (harness, external_session)을 목록에서 원자적으로 지우고 tombstone을 남긴다.
-   * 이후 늦게 도착하는 일반 `note()`는 이 session을 되살리지 못한다.
-   */
-  remove(input: {
-    project: string;
-    harness: string;
-    external_session: string;
   }): Promise<TerminalAgentSession[]>;
 }
 
@@ -100,44 +79,11 @@ function stored(value: unknown): Stored | null {
   };
 }
 
-function deletedEntry(value: unknown): DeletedEntry | null {
-  if (typeof value !== "object" || value === null) return null;
-  const item = value as Record<string, unknown>;
-  if (
-    typeof item.harness !== "string" ||
-    typeof item.external_session !== "string" ||
-    typeof item.deleted_at !== "number"
-  ) {
-    return null;
-  }
-  return {
-    harness: item.harness,
-    external_session: item.external_session,
-    deleted_at: item.deleted_at,
-  };
-}
-
-function sameSession(
-  item: { harness: string; external_session: string },
-  harness: string,
-  externalSession: string,
-): boolean {
-  return item.harness === harness && item.external_session === externalSession;
-}
-
-function serialize(sessions: Stored[], deleted: DeletedEntry[]): string {
-  return JSON.stringify(
-    deleted.length > 0 ? { sessions, deleted } : { sessions },
-  );
-}
-
 export function createAgentSessionStore(options: {
   dataRoot: string;
   now(): number;
   /** harness에 resume 규칙이 있는지. */
   resumable(harness: string): boolean;
-  /** 그 CLI session 원본이 디스크에 아직 남아 있는지. false면 `list`에서 뺀다. */
-  sessionExists?(harness: string, externalSession: string): boolean;
 }): AgentSessionStore {
   // 같은 project의 hook이 겹쳐도 읽고 쓰는 순서를 지켜 갱신을 잃지 않는다.
   const chains = new Map<string, Promise<unknown>>();
@@ -145,37 +91,25 @@ export function createAgentSessionStore(options: {
   const fileOf = (project: string) =>
     join(sessionsFolder(options.dataRoot), `${project}.json`);
 
-  async function read(
-    project: string,
-  ): Promise<{ sessions: Stored[]; deleted: DeletedEntry[] }> {
+  async function read(project: string): Promise<Stored[]> {
     try {
       const parsed: unknown = JSON.parse(
         await readFile(fileOf(project), "utf8"),
       );
-      const raw = parsed as { sessions?: unknown; deleted?: unknown } | null;
-      const sessions = Array.isArray(raw?.sessions)
-        ? raw.sessions.flatMap((item) => stored(item) ?? [])
+      const sessions = (parsed as { sessions?: unknown } | null)?.sessions;
+      return Array.isArray(sessions)
+        ? sessions.flatMap((item) => stored(item) ?? [])
         : [];
-      const deleted = Array.isArray(raw?.deleted)
-        ? raw.deleted.flatMap((item) => deletedEntry(item) ?? [])
-        : [];
-      return { sessions, deleted };
     } catch {
-      return { sessions: [], deleted: [] };
+      return [];
     }
   }
 
   const view = (sessions: Stored[]): TerminalAgentSession[] =>
-    sessions
-      .filter((item) =>
-        options.sessionExists === undefined
-          ? true
-          : options.sessionExists(item.harness, item.external_session),
-      )
-      .map((item) => ({
-        ...item,
-        resumable: options.resumable(item.harness),
-      }));
+    sessions.map((item) => ({
+      ...item,
+      resumable: options.resumable(item.harness),
+    }));
 
   function queue<T>(project: string, run: () => Promise<T>): Promise<T> {
     const result = (chains.get(project) ?? Promise.resolve()).then(run, run);
@@ -185,25 +119,16 @@ export function createAgentSessionStore(options: {
 
   return {
     async list(project) {
-      return view((await read(project)).sessions);
+      return view(await read(project));
     },
     note(note) {
       const run = async (): Promise<TerminalAgentSession[]> => {
         const at = options.now();
-        const { sessions, deleted } = await read(note.project);
-        const tombstoned = deleted.some((item) =>
-          sameSession(item, note.harness, note.external_session),
-        );
-        if (tombstoned && note.reopen !== true) {
-          return view(sessions);
-        }
-        const nextDeleted = tombstoned
-          ? deleted.filter(
-              (item) => !sameSession(item, note.harness, note.external_session),
-            )
-          : deleted;
-        const old = sessions.find((item) =>
-          sameSession(item, note.harness, note.external_session),
+        const sessions = await read(note.project);
+        const old = sessions.find(
+          (item) =>
+            item.harness === note.harness &&
+            item.external_session === note.external_session,
         );
         // null·빈 문자열·harness 기본 라벨은 기존 non-null 제목·이름을 절대 지우지 못한다.
         const incomingTitle = cleanAgentTitle(note.title, note.harness);
@@ -227,7 +152,7 @@ export function createAgentSessionStore(options: {
           .slice(0, MAX_SESSIONS);
         await writeFileAtomic(
           fileOf(note.project),
-          serialize(list, nextDeleted),
+          JSON.stringify({ sessions: list }),
         );
         return view(list);
       };
@@ -235,9 +160,11 @@ export function createAgentSessionStore(options: {
     },
     rename(input) {
       const run = async (): Promise<TerminalAgentSession[]> => {
-        const { sessions, deleted } = await read(input.project);
-        const old = sessions.find((item) =>
-          sameSession(item, input.harness, input.external_session),
+        const sessions = await read(input.project);
+        const old = sessions.find(
+          (item) =>
+            item.harness === input.harness &&
+            item.external_session === input.external_session,
         );
         if (old === undefined) return view(sessions);
         const list = sessions.map((item) =>
@@ -245,31 +172,9 @@ export function createAgentSessionStore(options: {
             ? { ...item, name: input.name, pinned: input.name !== null }
             : item,
         );
-        await writeFileAtomic(fileOf(input.project), serialize(list, deleted));
-        return view(list);
-      };
-      return queue(input.project, run);
-    },
-    remove(input) {
-      const run = async (): Promise<TerminalAgentSession[]> => {
-        const at = options.now();
-        const { sessions, deleted } = await read(input.project);
-        const list = sessions.filter(
-          (item) => !sameSession(item, input.harness, input.external_session),
-        );
-        const nextDeleted: DeletedEntry[] = [
-          {
-            harness: input.harness,
-            external_session: input.external_session,
-            deleted_at: at,
-          },
-          ...deleted.filter(
-            (item) => !sameSession(item, input.harness, input.external_session),
-          ),
-        ].slice(0, MAX_DELETED);
         await writeFileAtomic(
           fileOf(input.project),
-          serialize(list, nextDeleted),
+          JSON.stringify({ sessions: list }),
         );
         return view(list);
       };

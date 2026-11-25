@@ -1,0 +1,21 @@
+id: revert-misunderstood-agent-delete-session-cleanup
+version: 0.23.167
+platform_note: none
+title: "오해해서 넣은 Recent tombstone 삭제·agent.delete harness session 연쇄 삭제·agy DB 존재 필터를 되돌린다"
+modules:
+  - packages/protocol
+  - packages/core/terminal-agents
+  - packages/core/main
+  - packages/shell/renderer
+change: |
+  - `acp-harness-gui`에서 "agent를 삭제한 session이 계속 남아 있음"을 잘못 해석해 넣었던 세 변경을 되돌렸다:
+    1. `AgentSessionStore.remove`·`deleted` tombstone·`reopen`, `coding_sessions/forget`의 `home`/session-store 삭제 확장, `workspace-left-sidebar.tsx`의 Recent X `recentHidden` 제거를 원래대로 복원했다.
+    2. `agent-delete.ts`의 `harness_sessions` 연쇄 삭제(`forgetHarnessSessions`, `gui.closeMatching`, `agent-delete_test.ts`)를 되돌렸다.
+    3. `session-store.ts`·`wiring/terminal-agents.ts`의 agy `conversations/<id>.db` 존재 여부 필터(`sessionExists`)를 되돌렸다.
+  - 실제 문제(lophn agent 삭제 시 기존에 열린 session 탭과 알림 기록이 남아 먹통이 되는 버그)는 별도 이슈 `deleted-agent-leaves-open-sessions-broken`으로 등록했다.
+  - `acp-harness-gui`의 나머지 변경(공용 4계층 ACP 클라이언트·Antigravity dialect, replay 무누출·원자 commit, 프레임 묶음, 에코 비의존 steer·slash 3분류, subagent dock·brain child inspector, 단일 터미널 agent 상태 `source: "gui" | "pty"`, 제목 우선순위·지연 summary 재조회, agy `PreToolUse`/`PostToolUse` hook 및 subagent 필터)은 그대로 유지한다.
+why: |
+  원래 보고된 문제는 terminal coding agent의 Recent/DB 정리가 아니라 lophn agent 삭제 후 열린 session 탭과 알림 기록이 깨지는 문제였으므로, 잘못 추가한 세 변경을 되돌리고 실제 문제를 이슈로 분리 기록하기 위해서다.
+decisions:
+  - text: "Recent tombstone 삭제, agent.delete의 harness session 연쇄 삭제, agy DB 존재 필터 세 변경을 되돌리고 실제 lophn agent 삭제 시 열린 세션·알림 기록 먹통 문제는 이슈(`deleted-agent-leaves-open-sessions-broken`)로만 등록한다."
+    by: person

@@ -509,7 +509,7 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
     [props.agentDrafts],
   );
   const workflows = useHumanTurnWorkflows(props.source, projectId);
-  // Recent에서 지운 lophn session 줄만 창에 기억한다. 터미널 coding session은 core의 `coding_sessions/forget`으로 영구 삭제한다.
+  // 지운 줄은 session id와 터미널 key로 기억하고 둘 다 겹치지 않아 한 곳에 둔다.
   const recentHidden = useHiddenRecent(null);
   const workspaces = useMemo(
     () =>
@@ -1127,22 +1127,21 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
         onSession={open}
         onSessionTab={openSessionTab}
         onRemoveRecent={(workspace, item) => {
-          if (item.kind === "terminal") {
-            const project = terminalProjectOfRef(workspace.ref);
-            if (project === null) return;
-            const saved = props.terminals.find(
-              (row) => row.key === item.ref && row.saved !== null,
-            );
-            const terminal = dataOf(workspace.ref.machine ?? null).terminal;
-            if (saved?.saved == null || terminal?.core == null) return;
-            void terminal.core.forgetSaved({
-              project,
-              harness: saved.harness,
-              cli_session: saved.saved.externalSession,
-            });
+          recentHidden.hide(item.ref, item.at);
+          // 터미널 coding session을 지우면 그 GUI 탭이 맡던 팀원 session도 보관해 더는 불리지 않게 한다.
+          if (item.kind !== "terminal" || workspace.ref.kind !== "project") {
             return;
           }
-          recentHidden.hide(item.ref, item.at);
+          const saved = props.terminals.find(
+            (row) => row.key === item.ref && row.saved !== null,
+          );
+          const terminal = dataOf(workspace.ref.machine ?? null).terminal;
+          if (saved?.saved == null || terminal?.core == null) return;
+          void terminal.core.forgetSaved({
+            project: workspace.ref.id,
+            harness: saved.harness,
+            cli_session: saved.saved.externalSession,
+          });
         }}
         onRenameSession={renameSession}
         onStopSession={stopSession}

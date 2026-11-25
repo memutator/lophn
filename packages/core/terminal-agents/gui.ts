@@ -183,8 +183,6 @@ export type TabGui = {
     generation: number;
     state: string;
   }): void;
-  /** 그 harness·CLI session을 열고 있는 GUI handle을 모두 닫는다(`agent.delete` 연쇄 정리). */
-  closeMatching(harness: string, cliSession: string): void;
   stop(): void;
 };
 
@@ -578,17 +576,6 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
         runtime.generation !== tab.generation
       ) {
         tab.handle.close();
-      }
-    },
-
-    closeMatching(harness, cliSession) {
-      for (const tab of [...byTerminal.values()]) {
-        if (
-          tab.handle.harness === harness &&
-          tab.handle.state().session?.cli_session === cliSession
-        ) {
-          tab.handle.close();
-        }
       }
     },
 

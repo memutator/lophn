@@ -77,7 +77,7 @@ call·reply·알림 ─ Router(transport harness) ─ harness queue ─ 탭이 �
 - **열기.** 묶인 탭이 없는 팀원(탭을 닫았거나 core가 다시 켜졌거나, project에서 부른 내장 coding agent의 새 session)에게 입력이 오면 core가 그 project에 터미널을 열어 CLI session을 resume하거나 새로 띄운다. 열지 못하거나 60초 안에 GUI가 서지 않거나 GUI 전에 터미널이 끝나면 기다리던 call을 실패로 돌려준다. 늦게 서는 터미널은 끝날 때까지 그 팀원의 것이라 둘째 탭을 열지 않는다. 묶인 탭이 restart harness의 TUI를 보이는 동안은 새로 열지 않고 기다린다.
 - **background 모드.** 터미널 없는 실행(`terminal: null`, `harness_gui = 0`)도 같은 다섯 상주 어댑터 계약을 그대로 쓴다. `fetchCatalog`로 model·option 축을 조회해 `HarnessCatalogManager`에 캐시하고, 열린 탭이나 background handle이 model 목록을 받을 때마다 passive warming으로 캐시를 갱신한다.
 - **닫기.** core가 연 터미널은 project마다 한꺼번에 8개까지 일한다(GUI를 띄우는 중이거나 turn이 도는 탭만 센다. 쉬는 탭과 사람이 연 탭은 세지 않는다). 아홉째가 필요한 입력은 자리가 날 때까지 줄 서고(30분 안에 나지 않으면 실패로 돌려준다), 자리는 turn이 끝나거나 터미널이 끝나면 난다. core가 call을 받으려고 연 탭은 그 turn이 끝나고 queue가 비면 닫는다. 답을 기다리는 열린 call이 있거나 도는 workflow step을 맡은 session의 탭은 닫지 않는다(닫으면 답이 올 때마다 `--resume`으로 다시 띄운다). `team spawn`으로 열린 팀원(팀 상한이 따로 있다)과 사람이 그 탭에서 turn을 돌렸거나 터미널에 친 탭은 두고, 사람이 연 탭은 닫지 않는다. session은 남아 다음 call에 다시 열린다.
-- **끝내기.** 사람이 사이드바 Recent에서 그 터미널 coding session 줄을 지우면(`coding_sessions/forget`) 저장된 session 목록에서 지우고 tombstone을 남겨 되살아나지 않게 하며(사람의 CLI 원본 대화는 건드리지 않는다), project의 GUI 팀원 session도 함께 보관한다.
+- **끝내기.** 사람이 사이드바 Recent에서 그 터미널 coding session 줄을 지우면(`coding_sessions/forget`) 그 팀원 session을 보관한다.
 - **보이기.** 팀원 session은 그 터미널 탭이 자리다. 화면의 session 목록·snapshot·event, 앱의 session 목록, attention, Agent 탭 열기에는 나오지 않는다. agent가 읽는 `session list`·`team read`에는 그 탭의 상태(사람의 승인을 기다리면 waiting)와 제목으로 서고, 묶인 탭이 없으면 idle이다.
 
 **adapter 다섯의 모양.**
@@ -247,6 +247,7 @@ adapter마다 다른 설계는 이렇다. CLI 호출 이름은 reference에 있�
 
 열린 이슈는 topic이 `harness-gui`인 이슈다.
 
+- 사이드바 Recent의 x가 아직 `coding_sessions/forget`을 부르지 않는다(route만 있다). 그 전까지 팀원 행은 GUI로 연 대화(CLI session)마다 하나 남고 resume은 같은 행을 이어 늘지 않는다.
 - 사람이 없는 turn이 harness 자신의 승인 card에 닿으면 사람이 올 때까지 기다린다(자동 허락·거절 없음).
 - 팀원 길은 실제 CLI로 돌려 보지 않았다(test는 녹화 재생과 가짜 handle).
 

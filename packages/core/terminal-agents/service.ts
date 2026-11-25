@@ -198,7 +198,6 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
           external_session: info.session,
           title: info.title,
           name: info.name,
-          ...(info.reopen === true ? { reopen: true } : {}),
         })
         .then(() => changedSaved(runtime.project))
         .catch((cause) =>
@@ -447,7 +446,7 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
           })
           .catch(() => {});
       };
-      const noteFromState = (reopen = false) => {
+      const noteFromState = () => {
         observeCatalog();
         const session = handle.state().session;
         const cliSession = session?.cli_session ?? null;
@@ -459,7 +458,7 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
         }
         const title = cleanAgentTitle(session?.title, handle.harness);
         const key = `${cliSession}\0${title ?? ""}`;
-        if (!reopen && key === lastNoted) return;
+        if (key === lastNoted) return;
         lastNoted = key;
         const runtime = terminals.runtime(handle.terminal);
         if (runtime === null) return;
@@ -472,7 +471,6 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
             external_session: cliSession,
             title,
             name: title,
-            ...(reopen ? { reopen: true } : {}),
           })
           .then(() => changedSaved(runtime.project))
           .catch((cause) =>
@@ -494,8 +492,6 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
           ) {
             noteFromState();
             syncTerminalAgent(handle.terminal);
-          } else if (update.type === "turn_started") {
-            noteFromState(true);
           } else if (
             update.type === "turn_ended" &&
             handle.harness === "antigravity"
@@ -637,47 +633,6 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
           message: `the saved session could not be written: ${String(cause)}`,
         });
       }
-    },
-
-    async forgetSaved(input: {
-      project: string;
-      harness: string;
-      external_session: string;
-    }): Promise<void> {
-      await deps.store.remove(input);
-      for (const [ref, cached] of [...guiSaved.entries()]) {
-        if (
-          cached.harness === input.harness &&
-          cached.session === input.external_session
-        ) {
-          guiSaved.delete(ref);
-        }
-      }
-      changedSaved(input.project);
-    },
-
-    async forgetHarnessSessions(
-      items: readonly {
-        project: string;
-        harness: string;
-        external_session: string;
-      }[],
-    ): Promise<void> {
-      const projects = new Set<string>();
-      for (const item of items) {
-        await deps.store.remove(item);
-        for (const [ref, cached] of [...guiSaved.entries()]) {
-          if (
-            cached.harness === item.harness &&
-            cached.session === item.external_session
-          ) {
-            guiSaved.delete(ref);
-          }
-        }
-        gui.closeMatching(item.harness, item.external_session);
-        projects.add(item.project);
-      }
-      for (const projectRef of projects) changedSaved(projectRef);
     },
 
     // 앱이 멈춘 터미널 session의 coding agent를 그 harness의 끊기 key로 끊는다. 사람이 같은 key를 친 것과 같아서 tracker가 다음

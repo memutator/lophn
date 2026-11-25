@@ -1,6 +1,5 @@
-// Recent에서 지운 lophn session 줄을 기억한다. transcript는 건드리지 않고 목록에서만 뺀다.
+// Recent에서 지운 줄을 project마다 기억한다. transcript는 건드리지 않고 목록에서만 뺀다.
 // 새 움직임(at)이 지운 때보다 뒤면 다시 보인다.
-// 터미널 coding agent session은 여기 두지 않고 core의 `coding_sessions/forget`으로 영구 삭제(tombstone)한다.
 import { useCallback, useEffect, useState } from "react";
 
 const PREFIX = "lophn.recent.hidden.";

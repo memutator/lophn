@@ -1,9 +1,9 @@
 import { z } from "zod";
+import { permissionDenialSchema } from "../approvals/denial.ts";
 import { acpApprovalSubjectSchema } from "../approvals/gate-call.ts";
 import { idSchema } from "../base/ids.ts";
 import { jsonObjectSchema } from "../base/json-values.ts";
 import { atSchema } from "../base/values.ts";
-import { agentIdSchema } from "../lophn-agent/workspaces.ts";
 import {
   CALL_FAIL_REASONS,
   CALL_REPLIES,
@@ -14,6 +14,7 @@ import { contentBlockSchema } from "../lophn-agent/content-block.ts";
 import { inputDeliverySchema } from "../lophn-agent/inputs.ts";
 import { previewItemFields } from "../lophn-agent/session-rewinds.ts";
 import { TOOL_CALL_CATEGORIES } from "../lophn-agent/tool-values.ts";
+import { agentIdSchema } from "../lophn-agent/workspaces.ts";
 
 // ACP의 항목이다. session의 대화 줄 하나이고 `seq`(session 안의 순번, 1부터)로 순서를 정한다.
 // 화면이 그리는 모양이 아니라 agent가 낸 것의 모양이다. 흐름과 불변 조건은 architecture/acp.md다.
@@ -270,6 +271,12 @@ export const acpNoticeItemSchema = z.strictObject({
       command: z.string().min(1),
       text: z.string(),
       format: z.enum(["markdown", "preformatted"]),
+    }),
+    /** 권한·범위·모드·정책으로 막힌 tool 호출. 일반 실패와 구별해 이유·규칙·복구 동작을 보인다. */
+    z.strictObject({
+      type: z.literal("permission_denied"),
+      tool_call: id,
+      denial: permissionDenialSchema,
     }),
   ]),
 });

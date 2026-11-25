@@ -1,20 +1,21 @@
 import { z } from "zod";
-import { readCursorSchema, seqSchema } from "../base/values.ts";
-import { defineCommand, defineRead } from "../base/route.ts";
-import { idSchema } from "../base/ids.ts";
 import { withReadCommon } from "../base/envelope.ts";
-import { modelChoiceOutputSchema } from "./models.ts";
+import { idSchema } from "../base/ids.ts";
+import { defineCommand, defineRead } from "../base/route.ts";
+import { readCursorSchema, seqSchema } from "../base/values.ts";
 import { HARNESS_RUNTIMES } from "./agent-values.ts";
-import {
-  agentIdSchema,
-  workspaceSchema,
-  workspaceOutputSchema,
-} from "./workspaces.ts";
+import { modelChoiceOutputSchema } from "./models.ts";
 import {
   compactionOutputSchema,
   forkOriginOutputSchema,
   sessionTitleSchema,
 } from "./sessions.ts";
+import { permissionModeSchema } from "./turn-values.ts";
+import {
+  agentIdSchema,
+  workspaceOutputSchema,
+  workspaceSchema,
+} from "./workspaces.ts";
 
 // session 수명은 열림과 archive 둘이다. 지움은 상태가 아니라 record가 사라지는 것이다.
 // archive, delete, fork, rename, compact, change model은 모양이 같아 sessions.ts 것을 쓴다.
@@ -49,8 +50,8 @@ const workspaceSessionObject = z.object({
   // null이면 agent 기본값을 따른다. 다음 turn부터 resolve한다.
   model_selection: modelChoiceOutputSchema.nullable(),
   compaction: compactionOutputSchema.nullable(),
-  // 사람이 켠 동안 이 session의 turn은 허락을 묻지 않는다(deny는 막는다). 바꾸면 다음 turn부터 닿는다.
-  skip: z.boolean(),
+  // 이 session의 권한 단계. 사람만 바꾼다. 낮추면 다음 tool 호출부터 닿는다.
+  permission_mode: permissionModeSchema,
   // 다른 workspace의 session이 불러 열린 session이면 그 workspace. home에 열린 그런 session은 폴더를 읽지 않는다.
   called_from: workspaceOutputSchema.nullable(),
   // `team spawn`으로 열린 session이면 연 session(팀의 부모). 열 때 정해 바뀌지 않는다. null이면 팀 밖이거나 팀의 root다.

@@ -9,6 +9,10 @@ import {
 import { alwaysOnSet, alwaysOnStatus } from "../always-on/mod.ts";
 import { assignmentGet } from "../approvals/assignment.ts";
 import {
+  sessionGrantRevoke,
+  sessionPermissionsRead,
+} from "../approvals/permissions-view.ts";
+import {
   shareRequestDecide,
   shareRequestList,
 } from "../approvals/share-request.ts";
@@ -211,6 +215,7 @@ import {
 } from "../lophn-agent/session-rewinds.ts";
 import {
   archiveSession,
+  changeSessionMode,
   changeSessionModel,
   forkSession,
   renameSession,
@@ -270,7 +275,8 @@ import { devicesSetPush, rosterLeave } from "./routes.ts";
 //   허락이 있어도 못 받는다. 거르기는 core/remote/call.ts가 한다.
 // 모든 기기의 목록에 넣지 않는 것: 만들기·고치기·지우기(agent, job, 앱, project, workflow 정의), secret, provider·model 관리, 설정 쓰기, 기기와 명단(자기를 명단에서 빼는
 // `roster/leave`와 자기 push 설정 `devices/set_push`만 둔다),
-// `tabs/*`, `sessions/delete`(되돌릴 수 없다), `sessions/change-skip`(사람에게 묻지 않고 돌게 하는 권한 설정이다)은 넣지 않는다.
+// `tabs/*`, `sessions/delete`(되돌릴 수 없다), `permissions/trust-local-tool`, `permissions/untrust-local-tool`(로컬 스크립트 신뢰는 desktop 전용)은 넣지 않는다.
+// `sessions/change-mode`는 목록에 두되 원격 기기에서는 단계를 낮추는 것만 허락한다(올리기는 core가 forbidden).
 // 컴퓨터의 coding agent(`coding_sessions/*`)는 폰이 목록을 보고 view를 바꾸고 새로 연다. 폰이 시작한 switch도
 // `confirmed: true`가 있어야 한다(도는 turn이 끊긴다). 터미널은 `terminals/open|input`으로 열고 치고, 화면은 `terminal_view/*`로 본다.
 // `terminals/input`은 목록에 있어도 사람이 컴퓨터에서 이 기기의 터미널 입력을 켰을 때만 core가 받는다. 그 스위치
@@ -353,6 +359,9 @@ export const REMOTE_ALLOWED_ROUTES = [
   editQueued,
   moveQueued,
   changeSessionModel,
+  changeSessionMode,
+  sessionPermissionsRead,
+  sessionGrantRevoke,
   renameSession,
   forkSession,
   requestSessionCompact,
@@ -476,7 +485,7 @@ export const REMOTE_ALLOWED_ROUTES = [
 ] as const;
 
 // 터미널 입력을 허락받은 기기에만 여는 사람의 route다. 허락이 있어도 넣지 않는 것: 기기·pairing·명단 관리(`devices/*`, `roster/*`),
-// 터미널 입력 허락 바꾸기, `machine/rename`, `logins/*`, `sessions/delete`, `sessions/change-skip`, `tabs/*`, `host/*`,
+// 터미널 입력 허락 바꾸기, `machine/rename`, `logins/*`, `sessions/delete`, `permissions/trust-local-tool`, `permissions/untrust-local-tool`, `tabs/*`, `host/*`,
 // `terminal_sessions/*`, `apps/call_tool`, grant 바꾸기(`app_grants/*`의 쓰기), 할당 쓰기, `agent-mcp-auth/complete`(기다리는 호출이라 기기는
 // callback을 건네는 `callback`으로 끝낸다), 앱 OAuth의 client 값 넣기(`apps/oauth_client_set`).
 // 그 기계의 loopback으로 돌아오는 로그인(provider·MCP·앱 OAuth)은 열되 browser를 이 기계에 두지 않는다(callback handoff): 기기가 시작하면
@@ -633,6 +642,7 @@ export const REMOTE_ALLOWED_EVENTS = [
   "TurnEnded",
   "TurnRequestOpened",
   "TurnRequestClosed",
+  "PermissionDenied",
   "QuestionAsked",
   "QuestionResolved",
   "AcpUpdated",

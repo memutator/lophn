@@ -1,12 +1,21 @@
 import { z } from "zod";
-import { idSchema } from "../base/ids.ts";
 import { toolKeySchema } from "../apps/channel-values.ts";
+import { idSchema } from "../base/ids.ts";
 import { toolEffectSchema } from "../lophn-agent/tool-values.ts";
+import { permissionDenialSchema } from "./denial.ts";
+
+// 승인 카드 선택지 종류. judgmentSchema와 turn-request.ts가 함께 쓴다.
+export const TURN_REQUEST_CHOICES = [
+  "once",
+  "session",
+  "always",
+  "reject",
+] as const;
+export const turnRequestChoiceKindSchema = z.enum(TURN_REQUEST_CHOICES);
+export type TurnRequestChoiceKind = z.infer<typeof turnRequestChoiceKindSchema>;
 
 // Gate가 판정하는 호출 하나. kind로 가른다.
-// Gate는 core(`packages/core/approvals`)가 구현하는 IO 없는 순수 함수다:
-//   judge(call: GateCall, assignment: Assignment | null, shell: ShellRuleLayers, mode: TurnMode): Judgment
-// mode는 `lophn-agent/turn-values.ts`의 `TurnMode`다.
+// Gate는 core(`packages/core/approvals`)가 구현하는 IO 없는 순수 함수다.
 const projectCommandSummarySchema = z.strictObject({
   id: z.string().min(1),
   name: z.string().min(1),
@@ -27,10 +36,36 @@ const askedCallOptions = [
     server: z.string().min(1),
     tool: z.string().min(1),
     effect: toolEffectSchema,
+    read_only: z.boolean().optional(),
   }),
   z.strictObject({
     kind: z.literal("shell"),
     command: z.string().min(1),
+  }),
+  // 등록 폴더 밖이나 민감 경로(.env* 등) 파일 읽기.
+  z.strictObject({
+    kind: z.literal("file_read"),
+    path: z.string().min(1),
+    folder: z.string().min(1),
+    outside_workspace: z.boolean(),
+    sensitive: z.boolean(),
+  }),
+  // 파일 쓰기·편집·삭제. 폴더 밖이거나 민감 경로(.git/hooks/*, .lophn/tools/* 등)일 수 있다.
+  z.strictObject({
+    kind: z.literal("file_write"),
+    path: z.string().min(1),
+    folder: z.string().min(1),
+    outside_workspace: z.boolean(),
+    sensitive: z.boolean(),
+    action: z.enum(["write", "edit", "delete"]),
+  }),
+  // `.lophn/tools/*`·`<data root>/tools/*` 로컬 스크립트 실행. 처음이거나 sha256이 바뀌면 묻는다.
+  z.strictObject({
+    kind: z.literal("local_tool"),
+    name: z.string().min(1),
+    path: z.string().min(1),
+    sha256: z.string().min(1),
+    changed: z.boolean(),
   }),
   // agent가 사람의 허락이 드는 설정(선언 `approval: "person"`)을 바꾼다. lines는 core가 선언의 describe(before, after)로
   // 만든 영어 줄이고 카드가 줄이지 않고 그대로 보인다. always가 없다(always_patterns는 빈 목록).
@@ -62,10 +97,6 @@ const askedCallOptions = [
 // 사람에게 물을 수 있는 호출이다. 승인 카드(turn request)와 ACP 승인 subject가 이것만 쓴다.
 export const askedCallSchema = z.discriminatedUnion("kind", askedCallOptions);
 
-// Gate가 판정하는 호출 하나. kind로 가른다.
-// Gate는 core(`packages/core/approvals`)가 구현하는 IO 없는 순수 함수다:
-//   judge(call: GateCall, assignment: Assignment | null, shell: ShellRuleLayers, mode: TurnMode): Judgment
-// mode는 `lophn-agent/turn-values.ts`의 `TurnMode`다.
 export const gateCallSchema = z.discriminatedUnion("kind", askedCallOptions);
 export type GateCall = z.infer<typeof gateCallSchema>;
 export type AskedCall = z.infer<typeof askedCallSchema>;
@@ -100,26 +131,17 @@ export const acpApprovalSubjectSchema = z.discriminatedUnion("kind", [
 ]);
 export type AcpApprovalSubject = z.infer<typeof acpApprovalSubjectSchema>;
 
-// not_assigned는 할당에 없는 앱의 tool(extension_tool은 정의 `extensions`에 없는 extension), removed는 할당에서 뺀 tool
-// (extension_tool은 꺼졌거나 목록에서 빠진 tool), shell_rule은 shell 규칙(floor)이 막음. no_person은 사람이 있는 session에서만
-// 묻는 호출(setting)을 unattended turn이나 팀 자식이 한 것이다.
-export const DENY_REASONS = [
-  "not_assigned",
-  "removed",
-  "shell_rule",
-  "no_person",
-] as const;
-export const denyReasonSchema = z.enum(DENY_REASONS);
-export type DenyReason = z.infer<typeof denyReasonSchema>;
-
-// pattern은 reason이 shell_rule일 때 막은 규칙이고 나머지는 null이다.
 export const judgmentSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("run") }),
-  z.strictObject({ kind: z.literal("ask") }),
+  z.strictObject({
+    kind: z.literal("ask"),
+    reason: z.string().nullable(),
+    outside_rewind: z.boolean(),
+    allowed_choices: z.array(turnRequestChoiceKindSchema).min(1),
+  }),
   z.strictObject({
     kind: z.literal("deny"),
-    reason: denyReasonSchema,
-    pattern: z.string().nullable(),
+    denial: permissionDenialSchema,
   }),
 ]);
 export type Judgment = z.infer<typeof judgmentSchema>;

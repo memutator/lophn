@@ -1,11 +1,11 @@
 import { z } from "zod";
+import { toolNameSchema } from "../apps/channel-values.ts";
 import { idSchema } from "../base/ids.ts";
 import {
   agentAddressSchema,
   agentIdSchema,
   workspaceOutputSchema,
 } from "../lophn-agent/workspaces.ts";
-import { toolNameSchema } from "../apps/channel-values.ts";
 import { machineRefSchema } from "../machine/requester.ts";
 import { workflowInputValuesSchema } from "../workflows/inputs.ts";
 import {
@@ -93,6 +93,14 @@ export const JOB_ACTION_KINDS = [
   "workflow_start",
 ] as const;
 export type JobActionKind = (typeof JOB_ACTION_KINDS)[number];
+
+export const JOB_APPROVAL_PAUSED_REASONS = ["mode_escalated"] as const;
+export const jobApprovalPausedReasonSchema = z.enum(
+  JOB_APPROVAL_PAUSED_REASONS,
+);
+export type JobApprovalPausedReason = z.infer<
+  typeof jobApprovalPausedReasonSchema
+>;
 
 // 자유 JSON 칸은 z.json()이다. jsonValueSchema는 z.custom이라 z.toJSONSchema가 던지는데,
 // job tool 입력이 이 schema를 그대로 쓴다.

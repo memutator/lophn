@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { acpApprovalSubjectSchema } from "../approvals/gate-call.ts";
+import {
+  acpApprovalSubjectSchema,
+  TURN_REQUEST_CHOICES,
+  type TurnRequestChoiceKind,
+} from "../approvals/gate-call.ts";
 import { shellPatternSchema } from "../approvals/shell-rules.ts";
 import { idSchema } from "../base/ids.ts";
 import { atSchema } from "../base/values.ts";
@@ -57,11 +61,15 @@ export const acpPendingSchema = z.strictObject({
       id,
       subject: acpApprovalSubjectSchema,
       /**
-       * 이 카드가 낼 수 있는 범위. `session`은 그 CLI session 안에서만이고 `always`는 어디서나 영구 규칙이다
-       * (lophn은 할당 규칙, Codex "비슷한 명령", OpenCode·omp always).
+       * 이 카드가 낼 수 있는 범위. `session`은 이 대화 안에서만이고 `always`는 어디서나 영구 규칙이다
+       * (lophn은 통합 권한 규칙, Codex "비슷한 명령", OpenCode·omp always).
        */
-      choices: z.array(z.enum(["once", "session", "always", "reject"])),
+      choices: z.array(z.enum(TURN_REQUEST_CHOICES)),
       always_patterns: z.array(shellPatternSchema),
+      /** 왜 물었는지 한 줄 설명. */
+      reason: z.string().nullable().optional(),
+      /** 되돌리기(rewind) 기록 밖의 호출인지. */
+      outside_rewind: z.boolean().optional(),
     })
     .nullable(),
   /** 답을 기다리는 질문 묶음. 질문 내용을 모르면 questions가 null이다. */
@@ -75,13 +83,11 @@ export const acpPendingSchema = z.strictObject({
 });
 export type AcpPending = z.infer<typeof acpPendingSchema>;
 
-/** lophn core 승인 카드의 범위. `always`는 allow 규칙으로 더할 pattern이 있을 때만이고 `session`은 core에 없다. */
-export function acpCoreApprovalChoices(
-  alwaysPatterns: readonly string[],
-): NonNullable<AcpPending["approval"]>["choices"] {
-  return alwaysPatterns.length === 0
-    ? ["once", "reject"]
-    : ["once", "always", "reject"];
+/** lophn core 승인 카드의 범위. 요청이 계산한 `allowed_choices`를 그대로 돌려준다. */
+export function acpCoreApprovalChoices(request: {
+  readonly allowed_choices: readonly TurnRequestChoiceKind[];
+}): NonNullable<AcpPending["approval"]>["choices"] {
+  return [...request.allowed_choices];
 }
 
 /** 아직 저장되지 않은 model 호출 하나의 글(redaction을 거친 것). 저장되면 그 message 항목으로 바뀐다. */

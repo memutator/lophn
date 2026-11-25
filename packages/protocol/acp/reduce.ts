@@ -42,6 +42,11 @@ export function acpNoticeId(turn: string): string {
   return `end-${turn}`;
 }
 
+/** 권한 거부 알림 항목 id. 거부된 tool call마다 하나다. */
+export function acpPermissionDeniedId(toolCall: string): string {
+  return `denied-${toolCall}`;
+}
+
 /**
  * 끝난 turn의 두 시간. wall은 시작부터 끝까지이고, active를 모르면(coding agent) wall을 active로 쓴다.
  * 시작도 모르면 둘 다 0이다.

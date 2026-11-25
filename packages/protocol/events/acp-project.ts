@@ -1,20 +1,20 @@
-import type { AgentId } from "../lophn-agent/workspaces.ts";
 import {
   ACP_TOOL_BODY_LIMIT,
-  acpRemoteSenderName,
-  type AcpToolDetail,
-  type AcpToolItem,
   type AcpCard,
   type AcpReasoning,
+  type AcpToolDetail,
+  type AcpToolItem,
+  acpRemoteSenderName,
 } from "../acp/items.ts";
-import { acpNoticeId } from "../acp/reduce.ts";
+import { acpNoticeId, acpPermissionDeniedId } from "../acp/reduce.ts";
 import {
   type AcpPending,
   type AcpUpdate,
   acpCoreApprovalChoices,
 } from "../acp/state.ts";
-import type { AgentEvent } from "./agent.ts";
 import type { ContentBlock } from "../lophn-agent/content-block.ts";
+import type { AgentId } from "../lophn-agent/workspaces.ts";
+import type { AgentEvent } from "./agent.ts";
 
 // AgentEvent 하나를 ACP 갱신으로 바꾸는 순수 projection이다. event는 core Bus에서 나온 것이라 흘러나온 글
 // (`ModelOutputStreamed`)과 tool 제목(`display`)이 이미 redaction을 거쳤다. 이 함수는 redaction을 하지 않고
@@ -47,7 +47,7 @@ export interface AcpContext {
   } | null;
   /** 승인 결정 때 사람이 고른 범위와 거절 이유. 모르면 null. */
   decision(request: string): {
-    readonly choice: "once" | "always" | null;
+    readonly choice: "once" | "session" | "always" | null;
     readonly reason: string | null;
   } | null;
 }
@@ -315,7 +315,8 @@ export function acpUpdatesOf(
       ];
     }
     case "TurnRequestOpened": {
-      const { id, subject, always_patterns } = event.payload.request;
+      const { id, subject, always_patterns, reason, outside_rewind } =
+        event.payload.request;
       // harness 물음은 이 대화에 그리지 않는다. 답은 터미널에서 한다.
       return subject.kind === "harness"
         ? []
@@ -325,8 +326,10 @@ export function acpUpdatesOf(
               approval: {
                 id,
                 subject,
-                choices: acpCoreApprovalChoices(always_patterns),
+                choices: acpCoreApprovalChoices(event.payload.request),
                 always_patterns,
+                reason,
+                outside_rewind,
               },
             },
           ];
@@ -351,6 +354,29 @@ export function acpUpdatesOf(
           mode: null,
           seq,
           at: event.at,
+        },
+      ];
+    }
+    case "PermissionDenied": {
+      const { turn, tool_call, denial } = event.payload;
+      const id = acpPermissionDeniedId(tool_call);
+      const seq = context.seq(id);
+      if (seq === null) return [];
+      return [
+        {
+          type: "notice_added",
+          item: {
+            kind: "notice",
+            id,
+            seq,
+            at: event.at,
+            turn,
+            notice: {
+              type: "permission_denied",
+              tool_call,
+              denial,
+            },
+          },
         },
       ];
     }

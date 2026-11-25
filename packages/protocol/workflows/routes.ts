@@ -4,6 +4,7 @@ import { cleanUpModeSchema, followUpItemSchema } from "../base/follow-ups.ts";
 import { idSchema } from "../base/ids.ts";
 import { defineMemory, defineRead } from "../base/route.ts";
 import { readCursorSchema, seqSchema } from "../base/values.ts";
+import { permissionModeSchema } from "../lophn-agent/turn-values.ts";
 import { workflowInputValuesSchema } from "./inputs.ts";
 import {
   handResultSchema,
@@ -21,6 +22,7 @@ import {
 } from "./instances.ts";
 import {
   derivedStatusSchema,
+  participantKeySchema,
   sessionChoiceSchema,
   sessionOpenModeSchema,
   stepNameSchema,
@@ -70,6 +72,9 @@ export const workflowStart = defineMemory({
     inputs: workflowInputValuesSchema.optional(),
     open: sessionOpenModeSchema.optional(),
     step_open: z.record(stepNameSchema, sessionOpenModeSchema).optional(),
+    participant_modes: z
+      .record(participantKeySchema, permissionModeSchema)
+      .optional(),
   }),
   // flow는 넘기지 않아 handed가 null이다.
   output: z.object({

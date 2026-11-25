@@ -1,16 +1,16 @@
 import { z } from "zod";
+import { permissionDenialSchema, turnRequestSchema } from "../approvals/mod.ts";
+import { eventTypeSchema } from "../base/event.ts";
 import { idSchema } from "../base/ids.ts";
 import { atSchema, durationMsSchema } from "../base/values.ts";
-import { turnRequestSchema } from "../approvals/mod.ts";
 import { callFromOutputSchema } from "../lophn-agent/calls.ts";
 import { contentBlockSchema } from "../lophn-agent/content-block.ts";
+import { toolCallDisplaySchema } from "../lophn-agent/tool-values.ts";
+import { turnOutcomeOutputSchema } from "../lophn-agent/turn-values.ts";
 import {
   agentIdSchema,
   workspaceOutputSchema,
 } from "../lophn-agent/workspaces.ts";
-import { toolCallDisplaySchema } from "../lophn-agent/tool-values.ts";
-import { turnOutcomeOutputSchema } from "../lophn-agent/turn-values.ts";
-import { eventTypeSchema } from "../base/event.ts";
 
 // agent event는 session에서 일어나고 메모리로만 흐른다. seq가 없고 저장하지 않는다.
 // ToolCallStarted·ToolCallEnded, QuestionAsked·QuestionResolved, CompactStarted·CompactEnded는 core가 낸다.
@@ -189,6 +189,16 @@ const turnRequestClosed = defineAgentEvent(
   }),
 );
 
+// 권한·범위·모드·정책 거부가 일어났다. 대화 타임라인과 `/permissions`가 이 event로 "막힘"을 보인다.
+const permissionDenied = defineAgentEvent(
+  "PermissionDenied",
+  z.strictObject({
+    turn,
+    tool_call: toolCall,
+    denial: permissionDenialSchema,
+  }),
+);
+
 // 질문 내용은 싣지 않는다. session snapshot과 질문 read가 준다. to_parent는 팀 자식의 질문이라 부모가 답한다는 표시다.
 const questionAsked = defineAgentEvent(
   "QuestionAsked",
@@ -240,6 +250,7 @@ export const agentEventSchema = z.discriminatedUnion("type", [
   agentEventEnvelopeSchema(toolCallEnded),
   agentEventEnvelopeSchema(turnRequestOpened),
   agentEventEnvelopeSchema(turnRequestClosed),
+  agentEventEnvelopeSchema(permissionDenied),
   agentEventEnvelopeSchema(questionAsked),
   agentEventEnvelopeSchema(questionResolved),
   agentEventEnvelopeSchema(compactStarted),

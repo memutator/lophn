@@ -130,8 +130,9 @@ test("갱신은 두 번 접어도 같고 항목은 순번 순서이며 순번이
     ["msg_01h455vb4pex5v6nkc6gd5f002", 2],
     ["tcl_01h455vb4pex5v6nkc6gd5f001", 3],
     ["apr_01h455vb4pex5v6nkc6gd5f001", 4],
-    ["msg_01h455vb4pex5v6nkc6gd5f003", 5],
-    ["end-" + TURN, 6],
+    ["denied-tcl_01h455vb4pex5v6nkc6gd5f003", 5],
+    ["msg_01h455vb4pex5v6nkc6gd5f003", 6],
+    ["end-" + TURN, 7],
   ]);
   const queuedId = "msg_01h455vb4pex5v6nkc6gd5f003";
   const steered = new Set<string>();
@@ -238,6 +239,10 @@ test("갱신은 두 번 접어도 같고 항목은 순번 순서이며 순번이
           tool_call: "tcl_01h455vb4pex5v6nkc6gd5f002",
           subject: { kind: "shell", command: "ls" },
           always_patterns: [],
+          allowed_choices: ["once", "session", "reject"],
+          reason: "shell command needs approval",
+          outside_rewind: true,
+          to_parent: false,
           created_at: at(4),
         },
       },
@@ -246,6 +251,24 @@ test("갱신은 두 번 접어도 같고 항목은 순번 순서이며 순번이
       type: "TurnRequestClosed",
       at: at(5),
       payload: { request: "apr_01h455vb4pex5v6nkc6gd5f001", outcome: "allow" },
+    },
+    {
+      type: "PermissionDenied",
+      at: at(5),
+      payload: {
+        turn: TURN,
+        tool_call: "tcl_01h455vb4pex5v6nkc6gd5f003",
+        denial: {
+          tool: "shell.run",
+          category: "shell",
+          target_summary: "rm -rf ~",
+          reason_kind: "floor",
+          rule_pattern: "rm -rf ~",
+          message: "blocked by floor rule",
+          recovery_hint: null,
+          recovery_action: { kind: "none" },
+        },
+      },
     },
     {
       type: "MessageSteered",
@@ -282,8 +305,9 @@ test("갱신은 두 번 접어도 같고 항목은 순번 순서이며 순번이
     "2:message",
     "3:tool",
     "4:approval",
-    "5:message",
-    "6:notice",
+    "5:notice",
+    "6:message",
+    "7:notice",
   ]);
   assert.deepStrictEqual(once.queued, []);
   assert.equal(once.turn?.phase, "ended");

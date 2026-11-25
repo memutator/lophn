@@ -1,8 +1,9 @@
 import { z } from "zod";
-import { defineCommand, defineRead } from "../base/route.ts";
-import { idSchema } from "../base/ids.ts";
-import { atSchema, readCursorSchema } from "../base/values.ts";
 import { withReadCommon } from "../base/envelope.ts";
+import { idSchema } from "../base/ids.ts";
+import { defineCommand, defineRead } from "../base/route.ts";
+import { atSchema, readCursorSchema } from "../base/values.ts";
+import { permissionModeSchema } from "../lophn-agent/turn-values.ts";
 import {
   agentAtWorkspaceOutputSchema,
   workspaceSchema,
@@ -10,11 +11,12 @@ import {
 import {
   jobActionInputSchema,
   jobActionSchema,
+  jobApprovalPausedReasonSchema,
   jobAtSchema,
+  jobEventSchema,
   jobEverySchema,
   jobIdSchema,
   jobRunIdSchema,
-  jobEventSchema,
   jobRunStateSchema,
   jobSkipReasonSchema,
   jobTitleSchema,
@@ -48,6 +50,12 @@ export const jobRecordSchema = z.object({
   missed_policy: missedPolicySchema,
   enabled: z.boolean(),
   approved_at: atSchema.nullable(),
+  // workflow_start job이 승인 시점에 고정한 participant별 권한 단계다.
+  participant_modes: z
+    .record(z.string().min(1), permissionModeSchema)
+    .optional(),
+  // 승인 뒤 기억된 단계가 올라가(full 등) 재승인 전까지 멈춘 이유다.
+  approval_paused_reason: jobApprovalPausedReasonSchema.nullable().optional(),
   next_due_at: atSchema.nullable(), // 꺼져 있거나 승인 전이면 null
   // 주인 기계. 만든 기계의 id이고, 이 칸이 없던 때의 job은 새 판의 첫 claim이 찍을 때까지 null이다.
   machine: idSchema("mch").nullable(),

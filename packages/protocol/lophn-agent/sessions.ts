@@ -1,9 +1,10 @@
 import { z } from "zod";
-import { atSchema, seqSchema } from "../base/values.ts";
-import { defineCommand, defineRead } from "../base/route.ts";
-import { idSchema } from "../base/ids.ts";
 import { withReadCommon } from "../base/envelope.ts";
+import { idSchema } from "../base/ids.ts";
+import { defineCommand, defineRead } from "../base/route.ts";
+import { atSchema, seqSchema } from "../base/values.ts";
 import { modelChoiceOutputSchema, modelChoiceSchema } from "./models.ts";
+import { permissionModeSchema } from "./turn-values.ts";
 
 // Session은 agent 하나와 workspace 하나(없으면 home)에 고정된다.
 // agent나 workspace를 바꾸는 command가 없다. 사람이 session을 치우는 길은 archive와 delete다.
@@ -306,20 +307,29 @@ export const changeSessionModel = defineCommand({
   errors: ["invalid_input", "not_found", "conflict", "unauthorized"],
 });
 
-export const changeSessionSkip = defineCommand({
+export const changeSessionMode = defineCommand({
   resource: "sessions",
-  method: "change-skip",
-  name: "ChangeSessionSkip",
-  changes: [],
-  input: z.strictObject({ session: idSchema("ses"), skip: z.boolean() }),
+  method: "change-mode",
+  name: "ChangeSessionMode",
+  changes: [{ name: "sessions", id: (_input, output) => output.id }],
+  input: z.strictObject({
+    session: idSchema("ses"),
+    mode: permissionModeSchema,
+  }),
   output: z.object({
     id: idSchema("ses"),
-    skip: z.boolean(),
+    permission_mode: permissionModeSchema,
     state_seq: seqSchema,
   }),
   compare: z.strictObject({ state_seq: seqSchema }),
   actors: ["user"],
-  errors: ["invalid_input", "not_found", "conflict", "unauthorized"],
+  errors: [
+    "invalid_input",
+    "not_found",
+    "conflict",
+    "unauthorized",
+    "forbidden",
+  ],
 });
 
 const readErrors = [
@@ -366,6 +376,6 @@ export const SESSION_COMMANDS = [
   compactSession,
   failSessionCompact,
   changeSessionModel,
-  changeSessionSkip,
+  changeSessionMode,
   sessionSummary,
 ] as const;

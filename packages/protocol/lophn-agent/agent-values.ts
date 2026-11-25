@@ -9,6 +9,7 @@ import {
   modelChoiceOutputSchema,
   modelChoiceSchema,
 } from "./models.ts";
+import { permissionModeSchema } from "./turn-values.ts";
 import { CODING_BUILTINS } from "./workspaces.ts";
 
 export * from "./agent-avatar.ts";
@@ -207,7 +208,7 @@ const toolPicksSchema = z.array(nonblankSchema).refine(unique, {
 // 사람만 쓰는 칸이다. protocol/shell을 import하지 못해 id 꼴만 쓴다.
 const browserProfileSchema = idSchema("bpf");
 
-// 정의 칸. 모든 agent가 같은 칸을 갖는다. lophn의 name·avatar·`runtime: custom` 잠금, `tools`·`skills`와 runtime의 짝, 사람만 쓰는 칸(`mcp_servers`, `apps`, `remote_apps`, `extensions`, `permissions`, `browser_profile`, `skip`)의
+// 정의 칸. 모든 agent가 같은 칸을 갖는다. lophn의 name·avatar·`runtime: custom` 잠금, `tools`·`skills`와 runtime의 짝, 사람만 쓰는 칸(`mcp_servers`, `apps`, `remote_apps`, `extensions`, `permissions`, `browser_profile`, `permission_mode`)의
 // 거절은 저장하는 쪽(core)이 본다.
 const frontmatterFields = {
   handle: agentHandleSchema,
@@ -229,7 +230,7 @@ const frontmatterFields = {
   remote_apps: remoteAppsSchema.optional(),
   permissions: permissionsSchema.optional(),
   browser_profile: browserProfileSchema.optional(),
-  skip: z.boolean().optional(),
+  permission_mode: permissionModeSchema.optional(),
 };
 const frontmatterOutputFields = {
   handle: agentHandleSchema,
@@ -251,7 +252,7 @@ const frontmatterOutputFields = {
   remote_apps: remoteAppsSchema.optional(),
   permissions: permissionsSchema.optional(),
   browser_profile: browserProfileSchema.optional(),
-  skip: z.boolean().optional(),
+  permission_mode: permissionModeSchema.optional(),
 };
 
 // AgentDefinition: 정의 파일 하나의 값. 본문이 그 agent의 지침이다.

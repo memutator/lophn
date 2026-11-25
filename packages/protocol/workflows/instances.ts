@@ -6,6 +6,7 @@ import {
   callStateSchema,
   mailDeliverySchema,
 } from "../lophn-agent/calls.ts";
+import { permissionModeSchema } from "../lophn-agent/turn-values.ts";
 import { workspaceOutputSchema } from "../lophn-agent/workspaces.ts";
 import {
   workflowInputsSchema,
@@ -97,6 +98,9 @@ export const workflowInstanceSchema = z
     started_by: startedBySchema,
     code_snapshot: z.string().min(1).nullable().optional(),
     open_mode: sessionOpenModeSchema.nullable().optional(),
+    participant_modes: z
+      .record(participantKeySchema, permissionModeSchema)
+      .optional(),
     created_at: atSchema,
     finished_at: atSchema.nullable(),
     state_seq: seqSchema,

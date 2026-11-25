@@ -1,15 +1,15 @@
 import { z } from "zod";
-import { defineCommand, defineMemory, defineRead } from "../base/route.ts";
-import { idSchema } from "../base/ids.ts";
-import { sha256Schema } from "../base/values.ts";
 import { withReadCommon } from "../base/envelope.ts";
+import { idSchema } from "../base/ids.ts";
+import { defineCommand, defineMemory, defineRead } from "../base/route.ts";
+import { sha256Schema } from "../base/values.ts";
 import { secretNameSchema } from "../secrets/secrets.ts";
+import { SKILLS_OFF_MAX, skillNameSchema } from "./skill-settings.ts";
 import {
   agentIdSchema,
   type Workspace,
   workspaceSchema,
 } from "./workspaces.ts";
-import { skillNameSchema, SKILLS_OFF_MAX } from "./skill-settings.ts";
 
 const nonempty = z.string().regex(/\S/);
 const nameSchema = z.string().regex(/^[A-Za-z0-9_-]{1,32}$/);
@@ -69,10 +69,16 @@ const layerHttpSchema = z.strictObject({
   auth: layerAuthSchema,
 });
 
+// 외부 MCP 서버의 신뢰 수준. 비신뢰(기본값) 서버의 읽기 전용이 아닌 tool은 묻는다. 사람만 바꾼다.
+export const MCP_TRUST_LEVELS = ["trusted", "untrusted"] as const;
+export const mcpTrustSchema = z.enum(MCP_TRUST_LEVELS);
+export type McpTrust = z.infer<typeof mcpTrustSchema>;
+
 const layerServerFields = {
   name: nameSchema,
   enabled: z.boolean(),
   call_timeout_ms: z.number().int().min(1000).max(600_000),
+  trust: mcpTrustSchema.optional(),
 };
 export const mcpServerSchema = z.discriminatedUnion("transport", [
   z.strictObject({
@@ -320,6 +326,7 @@ const mcpToolServerSchema = z.strictObject({
   name: nameSchema,
   tools: z.array(mcpToolSchema).max(2048),
   reason: z.enum(["disabled", "sign_in", "unreachable"]).nullable(),
+  trust: mcpTrustSchema.optional(),
 });
 export type McpToolServer = z.infer<typeof mcpToolServerSchema>;
 

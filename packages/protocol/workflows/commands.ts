@@ -4,6 +4,7 @@ import { defineCommand } from "../base/route.ts";
 import { seqSchema } from "../base/values.ts";
 import { remoteAddressSchema } from "../lophn-agent/calls.ts";
 import { mailSchema } from "../lophn-agent/mail.ts";
+import { permissionModeSchema } from "../lophn-agent/turn-values.ts";
 import { agentAddressSchema } from "../lophn-agent/workspaces.ts";
 import { workflowInputValuesSchema } from "./inputs.ts";
 import {
@@ -96,6 +97,9 @@ export const workflowInstanceCreate = defineCommand({
     started_by: startedBySchema,
     code_snapshot: z.string().min(1).nullable().optional(),
     open_mode: sessionOpenModeSchema.nullable().optional(),
+    participant_modes: z
+      .record(participantKeySchema, permissionModeSchema)
+      .optional(),
     handoff: handoffPlanSchema.nullable(), // null이면 flow다. 넘기지 않는다
   }),
   output: z.object({

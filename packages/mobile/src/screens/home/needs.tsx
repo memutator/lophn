@@ -2,10 +2,11 @@
 // HomeScreen). A permission request is answered here with Deny and Allow once, on its own computer; everything else opens
 // in that computer's Inbox.
 import { t } from "@lophn/i18n";
-import { Button, Card, Pre, Text } from "@lophn/ui-native";
+import { Button, Card, Pre, StatusMark, Text } from "@lophn/ui-native";
 import { Check, X } from "lucide-react-native";
 import { type ReactNode, useEffect, useState } from "react";
 import { Pressable, View } from "react-native";
+import type { TurnRequestChoiceKind } from "../../../../protocol/approvals/turn-request.ts";
 import {
   type CardView,
   type ComputerLines,
@@ -19,6 +20,10 @@ import {
   type Who,
 } from "../../data/mod.ts";
 import { ago, Face, LOPHN } from "../../parts/mod.ts";
+import {
+  type InboxPermissionDetails,
+  inboxPermissionDetails,
+} from "../session/permissions-model.ts";
 import { DenySheet } from "../session/sheets.tsx";
 
 /** How many cards Home shows; the rest are one tap away under Inbox. */
@@ -111,18 +116,23 @@ function NeedCard({
   ]
     .filter((part) => part !== null && part !== "")
     .join(" · ");
+  const permission =
+    entry.kind === "permission"
+      ? inboxPermissionDetails(entry.request, view)
+      : null;
   const head = (
     <Head
       who={found?.row.who ?? null}
-      title={view.title}
+      title={permission !== null ? permission.title : view.title}
       age={ago(entry.receivedAt)}
     />
   );
-  if (entry.kind === "permission" && view.choices.includes("once")) {
+  if (entry.kind === "permission" && permission !== null && permission.choices.length > 0) {
     return (
       <PermissionCard
         entry={entry}
         view={view}
+        details={permission}
         meta={meta}
         head={head}
         inbox={inbox}
@@ -187,23 +197,25 @@ function Description({ children }: { children: string }) {
 function PermissionCard({
   entry,
   view,
+  details,
   meta,
   head,
   inbox,
 }: {
   entry: WaitingEntry & { kind: "permission" };
   view: CardView;
+  details: InboxPermissionDetails;
   meta: string;
   head: ReactNode;
   inbox: Inbox;
 }) {
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
-  const command = view.factsPinned
-    ? view.facts.find((fact) => fact.style === "code")
+  const command = details.factsPinned
+    ? details.facts.find((fact) => fact.style === "code")
     : undefined;
   const [denying, setDenying] = useState(false);
-  async function decide(choice: "once" | "reject", reason?: string) {
+  async function decide(choice: TurnRequestChoiceKind, reason?: string) {
     setBusy(true);
     setFailed(false);
     const done = await inbox.decide(entry, choice, reason);
@@ -213,41 +225,89 @@ function PermissionCard({
       setBusy(false);
     }
   }
+  const hasDeny = details.choices.includes("reject");
+  const hasSession = details.choices.includes("session");
+  const hasAlways = details.choices.includes("always");
+  const hasOnce = details.choices.includes("once");
   return (
     <Card tone="base" style={cardStyle}>
       {head}
       <Meta>{meta}</Meta>
+      {details.outsideRewind && (
+        <View style={{ marginTop: 6 }}>
+          <StatusMark tone="warning" label="Outside rewind" />
+        </View>
+      )}
+      {details.reason !== null && <Description>{details.reason}</Description>}
       {command !== undefined ? (
         <View style={{ marginTop: 8 }}>
-          <Pre>{command.value}</Pre>
+          <Pre wrap>{command.value}</Pre>
         </View>
       ) : (
-        <Description>{view.description}</Description>
+        details.reason === null && <Description>{details.description}</Description>
+      )}
+      {details.alwaysPatterns.length > 0 && (
+        <View style={{ marginTop: 8, gap: 4 }}>
+          <Text variant="caption" tone="muted">
+            {t("waiting.label.fact-always")}
+          </Text>
+          <Pre wrap>{details.alwaysPatterns.join("\n")}</Pre>
+        </View>
       )}
       {failed && (
         <Text variant="note" tone="critical" style={{ marginTop: 8 }}>
           {t("waiting.notice.decide-failed")}
         </Text>
       )}
-      <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
-        <Button
-          block
-          icon={X}
-          disabled={busy}
-          onPress={() => (view.requester === null ? void decide("reject") : setDenying(true))}
-        >
-          {t("waiting.button.deny")}
-        </Button>
-        <Button
-          block
-          variant="primary"
-          icon={Check}
-          disabled={busy}
-          onPress={() => decide("once")}
-        >
-          {t("waiting.button.allow-once")}
-        </Button>
-      </View>
+      {(hasSession || hasAlways) && (
+        <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
+          {hasSession && (
+            <Button
+              block
+              icon={Check}
+              disabled={busy}
+              onPress={() => void decide("session")}
+            >
+              {t("conversation.button.approval-allow-session")}
+            </Button>
+          )}
+          {hasAlways && (
+            <Button
+              block
+              icon={Check}
+              disabled={busy}
+              onPress={() => void decide("always")}
+            >
+              {t("waiting.button.allow-always")}
+            </Button>
+          )}
+        </View>
+      )}
+      {(hasDeny || hasOnce) && (
+        <View style={{ flexDirection: "row", gap: 8, marginTop: hasSession || hasAlways ? 8 : 10 }}>
+          {hasDeny && (
+            <Button
+              block
+              icon={X}
+              disabled={busy}
+              onPress={() => (view.requester === null ? void decide("reject") : setDenying(true))}
+            >
+              {t("waiting.button.deny")}
+            </Button>
+          )}
+          {hasOnce && (
+            <Button
+              block
+              variant="primary"
+              icon={Check}
+              disabled={busy}
+              onPress={() => void decide("once")}
+            >
+              {t("waiting.button.allow-once")}
+            </Button>
+          )}
+        </View>
+      )}
       <DenySheet
         open={denying}
         agent={view.requester ?? ""}

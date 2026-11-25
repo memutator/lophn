@@ -102,6 +102,7 @@ export {
 } from "./every.tsx";
 export * from "./local-apps.ts";
 export * from "./ops.ts";
+export * from "./permissions.ts";
 export * from "./places.ts";
 export * from "./search.ts";
 export * from "./setup.ts";

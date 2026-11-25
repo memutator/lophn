@@ -21,6 +21,7 @@ import { Pressable, ScrollView, View } from "react-native";
 import type { AcpCommandOpens } from "../../../../protocol/acp/mod.ts";
 import { HOME_TERMINAL_PROJECT } from "../../../../protocol/coding-agent/terminals.ts";
 import { textBlocks } from "../../../../protocol/lophn-agent/content-block.ts";
+import type { PermissionMode } from "../../../../protocol/lophn-agent/turn-values.ts";
 import { codingBuiltinOf } from "../../../../protocol/lophn-agent/workspaces.ts";
 import { duration, useSecondTick } from "../../../../shell/renderer/conversation/activity/elapsed.ts";
 import type { ToolCallView } from "../../../../shell/renderer/conversation/activity/model.ts";
@@ -56,6 +57,7 @@ import {
   useNames,
   useSampleConversation,
   useSessionDraft,
+  useSessionPermissions,
   useWorkspaces,
   type WorkspaceView,
 } from "../../data/mod.ts";
@@ -63,6 +65,11 @@ import { DIM, Face, LOPHN, OfflineBanner, type Look, useUnreachable } from "../.
 import { ContinueAsChat, harnessAvatar, TerminalSession } from "../coding/index.tsx";
 import { Pending } from "./ask.tsx";
 import { attachedAbove, useAttachments } from "./attach.tsx";
+import {
+  canDowngradeMode,
+  isPermissionMode,
+  permissionModeLabel,
+} from "./permissions-model.ts";
 import {
   AttachSheet,
   ChildSheet,
@@ -99,6 +106,7 @@ const OPENS: ReadonlySet<AcpCommandOpens | null> = new Set([
   null,
   "model",
   "effort",
+  "mode",
   "permissions",
   "context",
   "status",
@@ -328,7 +336,9 @@ function ChatScreen({
       meta,
       mode: null,
       openPicker: () => setSheet({ kind: "model" }),
-      openMode: () => {},
+      openMode: () => {
+        if (relayed === null) void openPermissions();
+      },
       chooseModel: (model) => picker.onPick({ provider: "", modelName: model }),
       chooseOptions: (model, options) =>
         void source.act(session, { type: "set_model", session, key: actKey("model"), model, options }),
@@ -366,8 +376,9 @@ function ChatScreen({
       case "rewind":
         if (lastUser !== null) setSheet({ kind: "rewind", message: lastUser.id, excerpt: lastUser.text });
         return;
+      case "mode":
       case "permissions":
-        void openPermissions();
+        if (relayed === null) void openPermissions();
         return;
       default:
         setSheet({ kind: "context" });
@@ -540,7 +551,30 @@ function ChatScreen({
     found?.desk == null
       ? under
       : t("mobile.session.label.where-desk", { agent: who.name, workspace: workspaceName, desk: found.desk });
-  const modeLabel = meta?.modes.find((mode) => mode.id === meta.mode)?.label ?? null;
+  const sessionPermissions = useSessionPermissions(
+    sheet?.kind === "permissions" && relayed === null ? session : null,
+  );
+  const currentMode: PermissionMode | null = isPermissionMode(meta?.mode)
+    ? meta.mode
+    : (sessionPermissions.data?.mode ?? null);
+  const modeLabel = permissionModeLabel(currentMode ?? meta?.mode, meta?.modes);
+
+  const downgradeMode = async (next: PermissionMode): Promise<boolean> => {
+    if (relayed !== null || readOnly || !canDowngradeMode(currentMode, next)) {
+      return false;
+    }
+    const result = await source.act(session, {
+      type: "set_mode",
+      session,
+      key: actKey("mode"),
+      mode: next,
+    });
+    if (result.ok) {
+      void conversation.reload();
+      sessionPermissions.reload();
+    }
+    return result.ok;
+  };
   const project = lophn?.workspace?.kind === "project" ? lophn.workspace.id : (relayed === null || relayed.project === HOME_TERMINAL_PROJECT ? null : relayed.project);
   // A relayed coding session's pictures go to its terminal's temporary folder on the computer (the source's `uploadImage`).
   const pictures = caps.images;
@@ -767,7 +801,11 @@ function ChatScreen({
         open={sheet?.kind === "permissions"}
         agent={who.name}
         mode={modeLabel}
+        currentMode={currentMode}
+        canDowngrade={!readOnly && relayed === null && currentMode !== null && unreachable === null}
+        onDowngradeMode={downgradeMode}
         view={sheet?.kind === "permissions" ? sheet.view : null}
+        sessionPermissions={sessionPermissions}
         onClose={close}
       />
       <ContextSheet open={sheet?.kind === "context"} meta={meta} onClose={close} />

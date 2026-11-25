@@ -9,6 +9,7 @@ import {
   Button,
   Fact,
   QuestionCard,
+  StatusMark,
   Text,
 } from "@lophn/ui-native";
 import { Check, ExternalLink, KeyRound, LogIn, TriangleAlert, X } from "lucide-react-native";
@@ -33,9 +34,15 @@ import {
 import { inputRequestTitle } from "../../../../shell/renderer/conversation/input-request-card/title.ts";
 import { type Conversation, type SignInStarted, useSetup } from "../../data/mod.ts";
 import { SignInCode, SignInHandoff, signInFailure, useSecretField } from "../settings/setup-parts.tsx";
+import { approvalFactsOf, approvalTitleOf } from "./permissions-model.ts";
 import { DenySheet } from "./sheets.tsx";
 
 type Choice = ApprovalCardRequest["choices"][number];
+
+type MobileApprovalRequest = ApprovalCardRequest & {
+  readonly reason?: string | null;
+  readonly outside_rewind?: boolean;
+};
 
 const CHOICE_LABEL = {
   once: "conversation.button.approval-allow-once",
@@ -44,41 +51,14 @@ const CHOICE_LABEL = {
   reject: "conversation.button.approval-deny",
 } as const;
 
-/** The request's facts as the desktop card lists them: the command, the changes, the setting change, or the tool and its effect. */
-function factsOf(request: ApprovalCardRequest): { label: string; value: string; fit?: boolean }[] {
-  const { subject } = request;
-  const facts: { label: string; value: string; fit?: boolean }[] =
-    subject.kind === "shell"
-      ? [{ label: t("conversation.label.approval-command"), value: subject.command }]
-      : subject.kind === "file_change"
-        ? [
-            {
-              label: t("conversation.label.approval-changes"),
-              value: subject.changes.map(changeText).join("\n"),
-            },
-          ]
-        : subject.kind === "plan"
-          ? [{ label: t("conversation.label.plan"), value: subject.plan }]
-          : subject.kind === "setting"
-            ? // core's lines as they are: the name and the whole path, one change per line.
-              [{ label: t("conversation.label.approval-changes"), value: subject.lines.join("\n") }]
-            : [
-                { label: t("conversation.label.approval-target"), value: targetOf(subject) },
-                { label: t("conversation.label.approval-effect"), value: effectOf(subject) ?? "" },
-              ];
-  if (request.choices.includes("always") && request.always_patterns.length > 0) {
-    facts.push({
-      label: t("conversation.label.approval-always"),
-      value: request.always_patterns.join("\n"),
-      fit: true,
-    });
-  }
-  return facts;
+/** The request's facts as the desktop card lists them: command, files, local tools, settings, or tool and effect. */
+function factsOf(request: MobileApprovalRequest): { label: string; value: string; fit?: boolean }[] {
+  return approvalFactsOf(request, { changeText, targetOf, effectOf });
 }
 
 /**
- * A permission request. The buttons are the source's `choices`: the other answers side by side, then Allow once, the most
- * common, full width nearest the thumb.
+ * A permission request. The buttons follow the source's `choices` (including `session` when allowed): extra scopes and
+ * Deny sit above Allow once, which stays full width nearest the thumb.
  */
 function Approval({
   agent,
@@ -86,7 +66,7 @@ function Approval({
   decide,
 }: {
   agent: string;
-  request: ApprovalCardRequest;
+  request: MobileApprovalRequest;
   decide: (choice: Choice, reason?: string) => Promise<boolean>;
 }) {
   const [busy, setBusy] = useState(false);
@@ -99,11 +79,35 @@ function Approval({
     setBusy(false);
     setFailed(!done);
   };
-  // The desktop card draws the choices right to left so Allow once ends nearest the hand; here it gets its own row.
-  const others = [...request.choices].reverse().filter((choice) => choice !== "once");
+  const scopes = (["session", "always"] as const).filter((choice) => request.choices.includes(choice));
+  const hasDeny = request.choices.includes("reject");
+  const hasOnce = request.choices.includes("once");
+  const reason = request.reason != null && request.reason.trim() !== "" ? request.reason : null;
+  const outsideRewind = request.outside_rewind === true;
+  const renderChoice = (choice: Choice) => (
+    <Button
+      key={choice}
+      block
+      icon={choice === "reject" ? X : Check}
+      disabled={busy}
+      onPress={() => (choice === "reject" ? setDenying(true) : void press(choice))}
+    >
+      {t(CHOICE_LABEL[choice])}
+    </Button>
+  );
   return (
     <AskCard>
-      <AskTitle icon={TriangleAlert}>{titleOf(request.subject, agent)}</AskTitle>
+      <AskTitle icon={TriangleAlert}>{approvalTitleOf(request.subject, agent, titleOf)}</AskTitle>
+      {outsideRewind && (
+        <View style={{ marginTop: 8 }}>
+          <StatusMark tone="warning" label="Outside rewind" />
+        </View>
+      )}
+      {reason !== null && (
+        <Text variant="note" tone="secondary" style={{ marginTop: 8 }}>
+          {reason}
+        </Text>
+      )}
       {factsOf(request).map((fact) => (
         <Fact key={fact.label} {...fact} />
       ))}
@@ -112,22 +116,26 @@ function Approval({
           {t("conversation.notice.decide-failed")}
         </Text>
       )}
-      {others.length > 0 && (
-        <View style={{ flexDirection: "row", gap: 8, marginTop: 14 }}>
-          {others.map((choice) => (
-            <Button
-              key={choice}
-              block
-              icon={choice === "reject" ? X : Check}
-              disabled={busy}
-              onPress={() => (choice === "reject" ? setDenying(true) : void press(choice))}
-            >
-              {t(CHOICE_LABEL[choice])}
-            </Button>
-          ))}
-        </View>
+      {scopes.length === 2 ? (
+        <>
+          <View style={{ flexDirection: "row", gap: 8, marginTop: 14 }}>
+            {scopes.map(renderChoice)}
+          </View>
+          {hasDeny && (
+            <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
+              {renderChoice("reject")}
+            </View>
+          )}
+        </>
+      ) : (
+        (hasDeny || scopes.length > 0) && (
+          <View style={{ flexDirection: "row", gap: 8, marginTop: 14 }}>
+            {hasDeny && renderChoice("reject")}
+            {scopes.map(renderChoice)}
+          </View>
+        )
       )}
-      {request.choices.includes("once") && (
+      {hasOnce && (
         <View style={{ flexDirection: "row", marginTop: 8 }}>
           <Button block variant="primary" icon={Check} disabled={busy} onPress={() => void press("once")}>
             {t(CHOICE_LABEL.once)}
@@ -139,9 +147,9 @@ function Approval({
         agent={agent}
         busy={busy}
         onClose={() => setDenying(false)}
-        onDeny={(reason) => {
+        onDeny={(reasonText) => {
           setDenying(false);
-          void press("reject", reason);
+          void press("reject", reasonText);
         }}
       />
     </AskCard>

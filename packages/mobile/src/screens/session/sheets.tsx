@@ -4,6 +4,7 @@
 import { t } from "@lophn/i18n";
 import {
   Button,
+  Card,
   Divider,
   Icon,
   Input,
@@ -14,7 +15,9 @@ import {
   Row,
   SegmentedControl,
   Sheet,
+  StatusMark,
   Switch,
+  Tag,
   Text,
 } from "@lophn/ui-native";
 import {
@@ -39,6 +42,7 @@ import {
 import { useContext, useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 import { type AcpChildState, type AcpSessionMeta, EMPTY_ACP_CHILD_STATE } from "../../../../protocol/acp/mod.ts";
+import { PERMISSION_MODES, type PermissionMode } from "../../../../protocol/lophn-agent/turn-values.ts";
 import { elapsedText } from "../../../../shell/renderer/conversation/activity/elapsed.ts";
 import type { ToolCallView } from "../../../../shell/renderer/conversation/activity/model.ts";
 import { inputText, outputText } from "../../../../shell/renderer/conversation/activity/tool-body-text.ts";
@@ -59,10 +63,16 @@ import {
 } from "../../../../shell/renderer/conversation/status-view/status-summary.ts";
 import { createLayoutCache, layoutOf } from "../../../../shell/renderer/conversation/thread-layout.ts";
 import { vendorOf } from "../../../../shell/renderer/parts/vendor-icon/vendors.ts";
-import { type Candidate, useProjectFiles } from "../../data/mod.ts";
-import { Face, type Look, VendorIcon } from "../../parts/mod.ts";
+import { type Candidate, type SessionPermissionsState, useProjectFiles } from "../../data/mod.ts";
+import { ago, Face, type Look, VendorIcon } from "../../parts/mod.ts";
 import { AttachPicks } from "./attach.tsx";
 import { toolIcon } from "./parts.tsx";
+import {
+  canDowngradeMode,
+  PERMISSION_MODE_DESCRIPTIONS,
+  PERMISSION_MODE_LABELS,
+  permissionDenialDisplay,
+} from "./permissions-model.ts";
 import { Row as ThreadRowView, rowsOf, ThreadContext } from "./thread.tsx";
 
 const pad = { paddingHorizontal: 20 } as const;
@@ -616,23 +626,171 @@ export function DenySheet({
   );
 }
 
-/** Read only: the permission mode and the apps the agent may use. Changing them is done on the computer. */
+/**
+ * Session permissions overview: 4-stage mode (downgrade-only on phone), workspace + opened outside folders,
+ * rules summary + active session grants (each revocable), assigned apps / MCP server trust / local tools,
+ * and recent blocked calls.
+ */
 export function PermissionsSheet({
   open,
   agent,
   mode,
+  currentMode,
+  canDowngrade,
+  onDowngradeMode,
   view,
+  sessionPermissions,
   onClose,
 }: {
   open: boolean;
   agent: string;
   mode: string | null;
+  currentMode: PermissionMode | null;
+  canDowngrade: boolean;
+  onDowngradeMode?: (next: PermissionMode) => Promise<boolean>;
   view: PermissionsView | null;
+  sessionPermissions: SessionPermissionsState;
   onClose: () => void;
 }) {
+  const [changingMode, setChangingMode] = useState<PermissionMode | null>(null);
+  const [modeError, setModeError] = useState<string | null>(null);
+  useEffect(() => {
+    if (open) {
+      setChangingMode(null);
+      setModeError(null);
+    }
+  }, [open]);
+
+  const data = sessionPermissions.data;
+  const activeMode = currentMode ?? data?.mode ?? null;
+
+  const chooseMode = async (candidate: PermissionMode) => {
+    if (
+      !canDowngrade ||
+      onDowngradeMode === undefined ||
+      changingMode !== null ||
+      !canDowngradeMode(activeMode, candidate)
+    ) {
+      return;
+    }
+    setChangingMode(candidate);
+    setModeError(null);
+    const ok = await onDowngradeMode(candidate);
+    setChangingMode(null);
+    if (!ok) setModeError("Couldn't lower the permission mode. Try again.");
+  };
+
   return (
     <Sheet open={open} onClose={onClose} title={t("conversation.label.permissions-of", { agent })}>
-      {mode !== null && <Row lead={<Icon icon={ShieldCheck} />} title={t("conversation.label.permission-mode")} end={mode} />}
+      {/* 1. 4-stage permission mode (downgrade-only on phone) */}
+      <Label>{t("conversation.label.permission-mode")}</Label>
+      {activeMode !== null ? (
+        <>
+          {PERMISSION_MODES.map((stage) => {
+            const isCurrent = stage === activeMode;
+            const lower = canDowngrade && onDowngradeMode !== undefined && canDowngradeMode(activeMode, stage);
+            const higher = !isCurrent && !canDowngradeMode(activeMode, stage);
+            return (
+              <View key={stage} style={{ opacity: higher ? 0.45 : 1 }}>
+                <Row
+                  lead={<Icon icon={ShieldCheck} />}
+                  title={PERMISSION_MODE_LABELS[stage]}
+                  sub={PERMISSION_MODE_DESCRIPTIONS[stage]}
+                  wrap
+                  end={
+                    isCurrent ? (
+                      <Icon icon={Check} />
+                    ) : lower ? (
+                      <Tag>{changingMode === stage ? "Lowering…" : "Lower"}</Tag>
+                    ) : higher ? (
+                      <Tag>On computer</Tag>
+                    ) : undefined
+                  }
+                  onPress={lower && changingMode === null ? () => void chooseMode(stage) : undefined}
+                />
+              </View>
+            );
+          })}
+          {modeError !== null && (
+            <Text variant="note" tone="critical" style={{ ...pad, paddingTop: 4 }}>
+              {modeError}
+            </Text>
+          )}
+          <Text variant="caption" tone="muted" style={{ ...pad, paddingTop: 4 }}>
+            You can lower this session's mode on your phone. Raising it must be done on the computer.
+          </Text>
+        </>
+      ) : (
+        mode !== null && (
+          <Row lead={<Icon icon={ShieldCheck} />} title={t("conversation.label.permission-mode")} end={mode} />
+        )
+      )}
+
+      {/* 2. Workspace + opened outside folders */}
+      {data !== null && (
+        <>
+          <Divider spacing={12} />
+          <Label>Folders</Label>
+          {data.workspace_folders.length === 0 && data.opened_folders.length === 0 ? (
+            <Text variant="small" tone="muted" style={pad}>
+              No workspace folders.
+            </Text>
+          ) : (
+            <>
+              {data.workspace_folders.map((folder) => (
+                <Row key={`ws:${folder}`} lead={<Icon icon={FolderOpen} />} title={folder} wrap />
+              ))}
+              {data.opened_folders.map((folder) => (
+                <Row
+                  key={`open:${folder}`}
+                  lead={<Icon icon={FolderOpen} />}
+                  title={folder}
+                  end={<Tag>This session</Tag>}
+                  wrap
+                />
+              ))}
+            </>
+          )}
+
+          {/* 3. Rules summary & active session grants */}
+          <Divider spacing={12} />
+          <Label>Rules & session grants</Label>
+          <Text variant="caption" tone="muted" style={{ ...pad, paddingBottom: 6 }}>
+            {`Floor: ${data.floor_count} · Global: ${data.global_rules.length} · Project: ${data.project_rules.length}`}
+          </Text>
+          {data.session_grants.length === 0 ? (
+            <Text variant="small" tone="muted" style={pad}>
+              No temporary grants in this session.
+            </Text>
+          ) : (
+            data.session_grants.map((grant) => (
+              <Row
+                key={grant.id}
+                title={grant.label}
+                sub={`${grant.category} · ${grant.pattern}`}
+                wrap
+                end={
+                  <Button
+                    size="sm"
+                    disabled={sessionPermissions.revoking === grant.id}
+                    onPress={() => void sessionPermissions.revokeGrant(grant.id)}
+                  >
+                    Revoke
+                  </Button>
+                }
+              />
+            ))
+          )}
+          {sessionPermissions.revokeError !== null && (
+            <Text variant="note" tone="critical" style={{ ...pad, paddingTop: 4 }}>
+              {sessionPermissions.revokeError}
+            </Text>
+          )}
+        </>
+      )}
+
+      {/* 4. Assigned apps, MCP trust, and local tools */}
+      <Divider spacing={12} />
       <Label>{t("conversation.label.permissions-may", { agent })}</Label>
       {view !== null && view.apps.length === 0 && (
         <Text variant="small" tone="muted" style={pad}>
@@ -651,9 +809,95 @@ export function PermissionsSheet({
           wrap
         />
       ))}
-      <Text variant="caption" tone="muted" style={{ ...pad, paddingTop: 12 }}>
-        {t("conversation.notice.permissions-mcp")}
-      </Text>
+
+      {data !== null && data.mcp_servers.length > 0 && (
+        <>
+          <Label>MCP servers</Label>
+          {data.mcp_servers.map((server) => (
+            <Row
+              key={server.name}
+              title={server.name}
+              end={
+                <Tag>
+                  {!server.enabled ? "Disabled" : server.trust === "trusted" ? "Trusted" : "Untrusted"}
+                </Tag>
+              }
+            />
+          ))}
+        </>
+      )}
+
+      {data !== null && data.local_tools.length > 0 && (
+        <>
+          <Label>Local tools</Label>
+          {data.local_tools.map((tool) => (
+            <Row
+              key={tool.path}
+              title={tool.name}
+              sub={tool.path}
+              wrap
+              end={<Tag>{tool.trusted ? "Trusted" : "Untrusted"}</Tag>}
+            />
+          ))}
+        </>
+      )}
+
+      {data === null && sessionPermissions.status === "loading" && (
+        <Text variant="caption" tone="muted" style={{ ...pad, paddingTop: 12 }}>
+          Loading session permissions…
+        </Text>
+      )}
+      {data === null && sessionPermissions.status === "failed" && (
+        <Text variant="caption" tone="muted" style={{ ...pad, paddingTop: 12 }}>
+          {t("conversation.notice.permissions-mcp")}
+        </Text>
+      )}
+
+      {/* 5. Recent denials */}
+      {data !== null && (
+        <>
+          <Divider spacing={12} />
+          <Label>Recent blocked calls</Label>
+          {data.recent_denials.length === 0 ? (
+            <Text variant="small" tone="muted" style={{ ...pad, paddingBottom: 12 }}>
+              No blocked calls in this session.
+            </Text>
+          ) : (
+            <View style={{ ...pad, gap: 8, paddingBottom: 12 }}>
+              {data.recent_denials.map((item) => {
+                const info = permissionDenialDisplay(item.denial);
+                return (
+                  <Card key={item.id} tone="base" style={{ paddingVertical: 10, paddingHorizontal: 12, gap: 4 }}>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 8,
+                      }}
+                    >
+                      <StatusMark tone="serious" label={info.badge} />
+                      <Text variant="caption" tone="muted">
+                        {ago(item.at)}
+                      </Text>
+                    </View>
+                    <Text variant="caption" tone="muted" mono numberOfLines={1}>
+                      {info.target}
+                    </Text>
+                    <Text variant="detail">{info.reason}</Text>
+                    {info.rulePattern !== null && <Pre wrap>{info.rulePattern}</Pre>}
+                    {info.recoveryHint !== null && (
+                      <Text variant="note" tone="muted">
+                        {info.recoveryHint}
+                      </Text>
+                    )}
+                  </Card>
+                );
+              })}
+            </View>
+          )}
+        </>
+      )}
     </Sheet>
   );
 }

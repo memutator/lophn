@@ -1,9 +1,10 @@
 // Inbox, Now: what waits on the person, in the desktop waiting model's kinds, answered where it stands.
 import { t } from "@lophn/i18n";
-import { Band, Button, Pre, Text } from "@lophn/ui-native";
+import { Band, Button, Pre, StatusMark, Tag, Text } from "@lophn/ui-native";
 import { Check, ChevronRight, Play, X } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { View } from "react-native";
+import type { TurnRequestChoiceKind } from "../../../../protocol/approvals/turn-request.ts";
 import { useNav } from "../../app/nav.ts";
 import {
   type CardView,
@@ -20,6 +21,11 @@ import {
   type WorkspaceView,
 } from "../../data/mod.ts";
 import { ago, Character, DIM, LOPHN } from "../../parts/mod.ts";
+import {
+  type InboxFact,
+  inboxPermissionDetails,
+  jobApprovalModeInfo,
+} from "../session/permissions-model.ts";
 import { DenySheet } from "../session/sheets.tsx";
 import { Asker, Buttons, Item, useAnswering } from "./item.tsx";
 import {
@@ -132,7 +138,8 @@ function useSessionTitle(entry: WaitingEntry) {
 }
 
 /** The command or other detail of a request, in full: a long command is wrapped, never cut. */
-function Facts({ facts }: { facts: CardView["facts"] }) {
+function Facts({ facts }: { facts: readonly InboxFact[] }) {
+  if (facts.length === 0) return null;
   return (
     <View style={{ marginTop: 8, gap: 8 }}>
       {facts.map((fact, at) => (
@@ -168,52 +175,72 @@ function PermissionItem({
   locked,
 }: { entry: Kind<"permission"> } & Shared) {
   const view = cardOf(entry, names);
+  const details = inboxPermissionDetails(entry.request, view);
   const answering = useAnswering();
   const openSession = useSessionTitle(entry);
-  const answer = (choice: "once" | "always" | "reject", reason?: string) =>
+  const answer = (choice: TurnRequestChoiceKind, reason?: string) =>
     answering.send(() => inbox.decide(entry, choice, reason));
   const [denying, setDenying] = useState(false);
   const disabled = locked || answering.busy;
   return (
     <Item
       face={<Asker agent={entry.agent} />}
-      title={view.title}
+      title={details.title}
       onTitle={openSession}
       age={ago(entry.receivedAt, Date.now())}
-      text={view.description}
+      text={details.reason ?? details.description}
       meta={metaOf(entry, view, workspaces)}
       error={answering.error}
     >
-      <Facts facts={view.facts} />
-      {view.choices.length > 0 && (
+      {details.outsideRewind && (
+        <View style={{ marginTop: 6 }}>
+          <StatusMark tone="warning" label="Outside rewind" />
+        </View>
+      )}
+      <Facts facts={details.facts} />
+      {details.choices.length > 0 && (
         <Buttons>
-          <Button
-            size="sm"
-            icon={X}
-            disabled={disabled}
-            onPress={() => (view.requester === null ? void answer("reject") : setDenying(true))}
-          >
-            {t("waiting.button.deny")}
-          </Button>
-          {view.choices.includes("always") && (
+          {details.choices.includes("reject") && (
+            <Button
+              size="sm"
+              icon={X}
+              disabled={disabled}
+              onPress={() => (view.requester === null ? void answer("reject") : setDenying(true))}
+            >
+              {t("waiting.button.deny")}
+            </Button>
+          )}
+          {details.choices.includes("session") && (
             <Button
               size="sm"
               icon={Check}
               disabled={disabled}
-              onPress={() => answer("always")}
+              onPress={() => void answer("session")}
+            >
+              {t("conversation.button.approval-allow-session")}
+            </Button>
+          )}
+          {details.choices.includes("always") && (
+            <Button
+              size="sm"
+              icon={Check}
+              disabled={disabled}
+              onPress={() => void answer("always")}
             >
               {t("waiting.button.allow-always")}
             </Button>
           )}
-          <Button
-            size="sm"
-            variant="primary"
-            icon={Check}
-            disabled={disabled}
-            onPress={() => answer("once")}
-          >
-            {t("waiting.button.allow-once")}
-          </Button>
+          {details.choices.includes("once") && (
+            <Button
+              size="sm"
+              variant="primary"
+              icon={Check}
+              disabled={disabled}
+              onPress={() => void answer("once")}
+            >
+              {t("waiting.button.allow-once")}
+            </Button>
+          )}
         </Buttons>
       )}
       <DenySheet
@@ -506,6 +533,7 @@ function JobApprovalItem({
       : t("waiting.notice.job-approval", {
           schedule: scheduleText(job.every!, job.at),
         });
+  const { modeEscalated, participantModes } = jobApprovalModeInfo(job);
   return (
     <Item
       face={<Asker agent={entry.agent} />}
@@ -516,6 +544,41 @@ function JobApprovalItem({
       meta={view.description}
       error={answering.error}
     >
+      {modeEscalated && (
+        <View style={{ marginTop: 8, gap: 4 }}>
+          <StatusMark tone="warning" label="Paused · re-approval required" />
+          <Text variant="note" tone="secondary">
+            Remembered workflow permission mode escalated to Full access. Review the participant modes below before approving.
+          </Text>
+        </View>
+      )}
+      {participantModes.length > 0 && (
+        <View style={{ marginTop: 8, gap: 4 }}>
+          <Text variant="caption" tone="muted">
+            Participant permission modes
+          </Text>
+          {participantModes.map((row) => (
+            <View
+              key={row.participant}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 8,
+              }}
+            >
+              <Text variant="note" mono style={{ flexShrink: 1 }}>
+                {row.participant}
+              </Text>
+              {row.isFull ? (
+                <StatusMark tone="warning" label={row.label} />
+              ) : (
+                <Tag>{row.label}</Tag>
+              )}
+            </View>
+          ))}
+        </View>
+      )}
       <Buttons>
         <Button
           size="sm"

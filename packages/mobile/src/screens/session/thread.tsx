@@ -8,6 +8,7 @@ import {
   Act,
   AgentTurn,
   Button,
+  Card,
   EditCard,
   ErrorLine,
   FileChip,
@@ -36,6 +37,7 @@ import {
 import { createContext, memo, type ReactNode, useContext, useEffect, useState } from "react";
 import { Pressable, View } from "react-native";
 import type { AcpWriting } from "../../../../protocol/acp/mod.ts";
+import type { PermissionDenial } from "../../../../protocol/approvals/denial.ts";
 import type { ToolCallView } from "../../../../shell/renderer/conversation/activity/model.ts";
 import type {
   AgentTabSource,
@@ -56,8 +58,25 @@ import { useInbox } from "../../data/mod.ts";
 import { Face, type Look } from "../../parts/mod.ts";
 import { duration, elapsedText, useSecondTick } from "../../../../shell/renderer/conversation/activity/elapsed.ts";
 import { Line } from "./parts.tsx";
+import { approvalTargetOf, permissionDenialDisplay } from "./permissions-model.ts";
 
 // ---- rows
+
+/**
+ * Permission-denied timeline item emitted by `thread-layout.ts` from `AcpNoticeItem.notice.type === "permission_denied"`.
+ * Accepts both kebab-case and snake-case kind so mobile stays compatible across Wave 2/3 integration with desktop-ui.
+ */
+export interface ThreadPermissionDenied {
+  readonly kind: "permission-denied" | "permission_denied";
+  readonly id: string;
+  readonly at: string;
+  readonly toolCall?: string;
+  readonly tool_call?: string;
+  readonly denial: PermissionDenial;
+  readonly turn?: string | null;
+}
+
+export type MobileThreadEntry = ThreadEntry | ThreadPermissionDenied;
 
 export type ThreadRow =
   | { readonly kind: "user"; readonly id: string; readonly message: ThreadMessage }
@@ -65,22 +84,22 @@ export type ThreadRow =
   | {
       readonly kind: "turn";
       readonly id: string;
-      readonly entries: readonly ThreadEntry[];
+      readonly entries: readonly MobileThreadEntry[];
       readonly live: AcpWriting | null;
     }
   /** An entry outside any agent turn: a turn that ended before the agent said anything, a notice outside a turn, my shell command, a rewound range. */
-  | { readonly kind: "entry"; readonly id: string; readonly entry: ThreadEntry }
+  | { readonly kind: "entry"; readonly id: string; readonly entry: MobileThreadEntry }
   | { readonly kind: "outgoing"; readonly id: string; readonly outgoing: Outgoing }
   | { readonly kind: "queued"; readonly id: string; readonly queued: QueuedView };
 
 /** Entries in order to rows. `nested` is a rewound range: read only, without edit cards (those edits went back). */
 export function rowsOf(
-  entries: readonly ThreadEntry[],
+  entries: readonly MobileThreadEntry[],
   live: AcpWriting | null,
   nested = false,
 ): ThreadRow[] {
   const rows: ThreadRow[] = [];
-  let group: ThreadEntry[] | null = null;
+  let group: MobileThreadEntry[] | null = null;
   // A turn's key is the separator before it, which stays put when its first entry is saved or the snapshot is read again.
   let after = "start";
   const flush = () => {
@@ -107,6 +126,8 @@ export function rowsOf(
         break;
       case "info":
       case "command-output":
+      case "permission-denied":
+      case "permission_denied":
         if (entry.turn === null) separate({ kind: "entry", id: entry.id, entry });
         else (group ??= []).push(entry);
         break;
@@ -118,7 +139,7 @@ export function rowsOf(
         (group ??= []).push(entry);
     }
   }
-  const tail = group as ThreadEntry[] | null;
+  const tail = group as MobileThreadEntry[] | null;
   if (live !== null && (live.text !== "" || live.reasoning !== "")) {
     rows.push({ kind: "turn", id: `turn-${after}`, entries: tail ?? [], live });
   } else if (tail !== null) flush();
@@ -351,7 +372,7 @@ function QueuedMessage({ queued }: { queued: QueuedView }) {
 
 // ---- an agent turn
 
-function Turn({ entries, live }: { entries: readonly ThreadEntry[]; live: AcpWriting | null }) {
+function Turn({ entries, live }: { entries: readonly MobileThreadEntry[]; live: AcpWriting | null }) {
   const { agent } = useActions();
   return (
     <AgentTurn face={<Face look={agent.avatar} size={20} />} name={agent.name}>
@@ -371,7 +392,7 @@ function Live({ live }: { live: AcpWriting }) {
 }
 
 /** The text of the turn's last message that has any, for the end line's copy button. */
-function copyTextOf(entries: readonly ThreadEntry[]): string {
+function copyTextOf(entries: readonly MobileThreadEntry[]): string {
   for (let at = entries.length - 1; at >= 0; at -= 1) {
     const entry = entries[at]!;
     if (entry.kind === "message") {
@@ -555,7 +576,7 @@ function Decision({ result }: { result: ApprovalResultView }) {
   ]
     .filter((part) => part !== null)
     .join(" · ");
-  const target = targetOf(result.subject);
+  const target = approvalTargetOf(result.subject, targetOf);
   return (
     <Line
       icon={ShieldCheck}
@@ -652,7 +673,35 @@ function CommandOutput({ entry }: { entry: Extract<ThreadEntry, { kind: "command
   );
 }
 
-function TurnEnd({ entry, said }: { entry: Extract<ThreadEntry, { kind: "turn-end" }>; said?: readonly ThreadEntry[] }) {
+function PermissionDeniedCard({ denial }: { denial: PermissionDenial }) {
+  const info = permissionDenialDisplay(denial);
+  return (
+    <Card tone="base" style={{ paddingVertical: 10, paddingHorizontal: 12, gap: 6 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+        <StatusMark tone="serious" label={info.badge} />
+        <Text variant="caption" tone="muted" mono numberOfLines={1} style={{ flexShrink: 1 }}>
+          {info.target}
+        </Text>
+      </View>
+      <Text variant="detail">{info.reason}</Text>
+      {info.rulePattern !== null && (
+        <View style={{ gap: 2 }}>
+          <Text variant="caption" tone="muted">
+            Matched rule
+          </Text>
+          <Pre wrap>{info.rulePattern}</Pre>
+        </View>
+      )}
+      {info.recoveryHint !== null && (
+        <Text variant="note" tone="muted">
+          {info.recoveryHint}
+        </Text>
+      )}
+    </Card>
+  );
+}
+
+function TurnEnd({ entry, said }: { entry: Extract<ThreadEntry, { kind: "turn-end" }>; said?: readonly MobileThreadEntry[] }) {
   const { readOnly, canFork, onFork } = useActions();
   if (entry.outcome === "failed") {
     return <StatusMark tone="serious" label={t("conversation.label.status-stopped")} />;
@@ -682,7 +731,7 @@ function TurnEnd({ entry, said }: { entry: Extract<ThreadEntry, { kind: "turn-en
   );
 }
 
-function TurnEntry({ entry, said }: { entry: ThreadEntry; said: readonly ThreadEntry[] }) {
+function TurnEntry({ entry, said }: { entry: MobileThreadEntry; said: readonly MobileThreadEntry[] }) {
   const { openDiff } = useActions();
   switch (entry.kind) {
     case "message":
@@ -718,6 +767,9 @@ function TurnEntry({ entry, said }: { entry: ThreadEntry; said: readonly ThreadE
       return <InfoLine entry={entry} />;
     case "command-output":
       return <CommandOutput entry={entry} />;
+    case "permission-denied":
+    case "permission_denied":
+      return <PermissionDeniedCard denial={entry.denial} />;
     case "shell":
     case "hidden":
       return null;
@@ -795,7 +847,7 @@ function Hidden({ entry }: { entry: Extract<ThreadEntry, { kind: "hidden" }> }) 
   );
 }
 
-function LooseEntry({ entry }: { entry: ThreadEntry }) {
+function LooseEntry({ entry }: { entry: MobileThreadEntry }) {
   switch (entry.kind) {
     case "turn-end":
       return <TurnEnd entry={entry} />;
@@ -803,6 +855,9 @@ function LooseEntry({ entry }: { entry: ThreadEntry }) {
       return <InfoLine entry={entry} />;
     case "command-output":
       return <CommandOutput entry={entry} />;
+    case "permission-denied":
+    case "permission_denied":
+      return <PermissionDeniedCard denial={entry.denial} />;
     case "shell":
       return <Shell entry={entry} />;
     case "hidden":

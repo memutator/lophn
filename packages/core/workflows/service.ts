@@ -40,6 +40,7 @@ import {
   type workflowReport,
   type workflowResume,
   type workflowRetry,
+  type workflowSetDefaults,
   type workflowStart,
   type workflowStop,
 } from "../../protocol/workflows/mod.ts";
@@ -57,6 +58,7 @@ import {
   flowStepsOf,
   parseDeclaration,
   participantsOf,
+  patchWorkflowDeclarationYaml,
   stepsOf,
 } from "./declaration.ts";
 import { planHandoff, retryContinueBody } from "./plan.ts";
@@ -725,6 +727,7 @@ export function createWorkflowService(deps: {
         const override = input.step_open?.[s.name];
         return override !== undefined ? { ...s, open: override } : s;
       });
+      const effectiveOpen = input.open ?? parsed.declaration.open;
       const created = await store.create({
         id,
         project: project.value.id,
@@ -733,7 +736,7 @@ export function createWorkflowService(deps: {
         input: input.text,
         ...(validatedInputs !== undefined ? { inputs: validatedInputs } : {}),
         ...(codeSnapshot !== undefined ? { code_snapshot: codeSnapshot } : {}),
-        ...(input.open !== undefined ? { open_mode: input.open } : {}),
+        ...(effectiveOpen !== undefined ? { open_mode: effectiveOpen } : {}),
         participants: participantsOf(parsed.declaration),
         steps: flowSteps,
         started_by: by,
@@ -785,7 +788,12 @@ export function createWorkflowService(deps: {
       return override !== undefined ? { ...s, open: override } : s;
     });
     const participants = participantsOf(parsed.declaration);
-    const step = input.step ?? steps[0]!.name;
+    const defaultStep =
+      parsed.declaration.default_step !== undefined &&
+      steps.some((s) => s.name === parsed.declaration.default_step)
+        ? parsed.declaration.default_step
+        : steps[0]!.name;
+    const step = input.step ?? defaultStep;
     if (!steps.some((s) => s.name === step)) {
       return fail("not_found", "step not found");
     }
@@ -1804,6 +1812,43 @@ export function createWorkflowService(deps: {
     return {};
   }
 
+  async function enrichEntry(
+    project: { id: Id<"prj">; name: string },
+    file: Parameters<typeof entryOf>[2],
+    sdkInfo: Awaited<ReturnType<typeof resolveFlowSdkInfo>>,
+  ) {
+    const entry = entryOf(
+      project.id,
+      `${project.name}/${file.name}`,
+      file,
+      sdkInfo,
+    );
+    if (
+      entry.kind !== "agent" ||
+      entry.steps === null ||
+      entry.participants === null ||
+      agents?.defaultOpen === undefined
+    ) {
+      return entry;
+    }
+    const participants = entry.participants;
+    const steps = await Promise.all(
+      entry.steps.map(async (step) => {
+        if (step.open !== undefined) return step;
+        const by = participants[step.by];
+        if (by === undefined || "kind" in by) {
+          return { ...step, open: "tab" as const };
+        }
+        const resolved = await agents.defaultOpen!({
+          agent: by.agent,
+          workspace: by.workspace ?? { project: project.id },
+        });
+        return resolved === undefined ? step : { ...step, open: resolved };
+      }),
+    );
+    return { ...entry, steps };
+  }
+
   return {
     programExited,
     upsertCheckpoint,
@@ -1835,40 +1880,7 @@ export function createWorkflowService(deps: {
       if (!listed.ok) return listed;
       const sdkInfo = await resolveFlowSdkInfo();
       const workflows = await Promise.all(
-        listed.value.map(async (file) => {
-          const entry = entryOf(
-            project.value.id,
-            `${project.value.name}/${file.name}`,
-            file,
-            sdkInfo,
-          );
-          if (
-            entry.kind !== "agent" ||
-            entry.steps === null ||
-            entry.participants === null ||
-            agents?.defaultOpen === undefined
-          ) {
-            return entry;
-          }
-          const participants = entry.participants;
-          const steps = await Promise.all(
-            entry.steps.map(async (step) => {
-              if (step.open !== undefined) return step;
-              const by = participants[step.by];
-              if (by === undefined || "kind" in by) {
-                return { ...step, open: "tab" as const };
-              }
-              const resolved = await agents.defaultOpen!({
-                agent: by.agent,
-                workspace: by.workspace ?? { project: project.value.id },
-              });
-              return resolved === undefined
-                ? step
-                : { ...step, open: resolved };
-            }),
-          );
-          return { ...entry, steps };
-        }),
+        listed.value.map((file) => enrichEntry(project.value, file, sdkInfo)),
       );
       if (agents === undefined) {
         return ok({ workflows });
@@ -2040,6 +2052,111 @@ export function createWorkflowService(deps: {
         name: input.name,
         files_written: imported.value.files_written,
       });
+    },
+
+    async setDefaults(
+      input: z.output<typeof workflowSetDefaults.input>,
+    ): Promise<Result<z.output<typeof workflowSetDefaults.output>>> {
+      if (
+        input.default_step === undefined &&
+        input.open === undefined &&
+        (input.step_open === undefined ||
+          Object.keys(input.step_open).length === 0) &&
+        (input.inputs === undefined || Object.keys(input.inputs).length === 0)
+      ) {
+        return fail("invalid_input", "no default changes provided");
+      }
+      const project = await projects.resolve(input.project);
+      if (!project.ok) return project;
+      if (typeof files.writeDeclaration !== "function") {
+        return fail(
+          "unavailable",
+          "workflow declaration write is not configured",
+        );
+      }
+      const listed = await files.list(project.value.id);
+      if (!listed.ok) return listed;
+      const file = listed.value.find((f) => f.name === input.workflow);
+      if (file === undefined) return fail("not_found", "workflow not found");
+      if (file.declaration === null) {
+        return fail("conflict", "workflow.yaml is missing");
+      }
+      const parsed = parseDeclaration(file);
+      if (!parsed.ok) return fail("conflict", parsed.problem.message);
+
+      if (file.flow) {
+        if (input.default_step !== undefined) {
+          return fail("invalid_input", "a flow has no default_step");
+        }
+        if (
+          input.step_open !== undefined &&
+          Object.keys(input.step_open).length > 0
+        ) {
+          return fail("invalid_input", "a flow has no per-step open defaults");
+        }
+      }
+
+      if (
+        input.inputs !== undefined &&
+        Object.keys(input.inputs).length > 0 &&
+        agents !== undefined
+      ) {
+        const declarations = parsed.declaration.inputs ?? {};
+        const needsCallable = Object.entries(input.inputs).some(
+          ([key, value]) =>
+            declarations[key]?.type === "agent" &&
+            value !== null &&
+            value !== undefined,
+        );
+        if (needsCallable) {
+          const callable = await agents.listCallable(project.value.id);
+          if (!callable.ok) return callable;
+          const allowed = new Set(callable.value.map((a) => a.name));
+          for (const [key, value] of Object.entries(input.inputs)) {
+            if (
+              declarations[key]?.type === "agent" &&
+              value !== null &&
+              value !== undefined
+            ) {
+              if (typeof value !== "string" || !allowed.has(value)) {
+                return fail(
+                  "invalid_input",
+                  `inputs.${key}: unknown or uncallable agent '${String(value)}'`,
+                );
+              }
+            }
+          }
+        }
+      }
+
+      const patched = patchWorkflowDeclarationYaml(file.declaration, {
+        ...(input.default_step !== undefined
+          ? { default_step: input.default_step }
+          : {}),
+        ...(input.open !== undefined ? { open: input.open } : {}),
+        ...(input.step_open !== undefined
+          ? { step_open: input.step_open }
+          : {}),
+        ...(input.inputs !== undefined ? { inputs: input.inputs } : {}),
+      });
+      if (!patched.ok) return patched;
+
+      const updatedFile = { ...file, declaration: patched.value };
+      const rechecked = parseDeclaration(updatedFile);
+      if (!rechecked.ok) {
+        return fail("invalid_input", rechecked.problem.message);
+      }
+
+      const written = await files.writeDeclaration(
+        project.value.id,
+        input.workflow,
+        patched.value,
+      );
+      if (!written.ok) return written;
+
+      const sdkInfo = await resolveFlowSdkInfo();
+      const entry = await enrichEntry(project.value, updatedFile, sdkInfo);
+      return ok({ entry });
     },
 
     start,

@@ -199,6 +199,18 @@ label.choice:not([data-picked]) .stepName {
   border-radius: var(--radius-sm);
 }
 
+.choiceAction {
+  flex: none;
+  margin-left: auto;
+}
+
+.controlRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
 .tipTarget:focus-visible {
   outline: var(--border-focus-width) solid var(--color-focus);
   outline-offset: var(--border-focus-offset);

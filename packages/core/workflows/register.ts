@@ -9,6 +9,7 @@ import {
   workflowReport,
   workflowResume,
   workflowRetry,
+  workflowSetDefaults,
   workflowStart,
   workflowStop,
   workflowTitleRequestTake,
@@ -59,6 +60,7 @@ export function createLedgerRegistration(
       workflowDelete,
       workflowExport,
       workflowImport,
+      workflowSetDefaults,
       workflowTitleRequestTake,
     ],
   };

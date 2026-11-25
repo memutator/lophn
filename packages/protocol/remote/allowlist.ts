@@ -256,6 +256,7 @@ import {
   workflowList,
   workflowResume,
   workflowRetry,
+  workflowSetDefaults,
   workflowStart,
   workflowStop,
 } from "../workflows/routes.ts";
@@ -564,8 +565,9 @@ export const REMOTE_PERSON_ROUTES = [
   projectFilesCreate,
   projectFilesRename,
   projectFilesRemove,
-  // workflow 정의 폴더 가져오기(다른 컴퓨터로 내보내기 대상. 허락받은 기기만)
+  // workflow 정의 폴더 가져오기·기본값 저장(허락받은 기기만)
   workflowImport,
+  workflowSetDefaults,
   // 늘 켜 두기(다른 컴퓨터의 Settings › Remote › Keep running). 화면 없는 기계는 가서 켤 곳이 없다
   alwaysOnStatus,
   alwaysOnSet,

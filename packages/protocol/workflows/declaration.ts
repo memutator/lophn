@@ -41,6 +41,8 @@ export const workflowDeclarationSchema = z.looseObject({
     .string()
     .regex(/^\d+\.\d+\.\d+$/)
     .optional(),
+  default_step: stepNameSchema.optional(),
+  open: sessionOpenModeSchema.optional(),
   inputs: workflowInputsSchema.optional(),
   outputs: workflowOutputsSchema.optional(),
   agent: z.string().min(1).optional(),

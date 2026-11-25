@@ -937,5 +937,45 @@ export function createWorkflowFiles(dataRoot: string): WorkflowFiles {
         await rm(stageDir, { recursive: true, force: true }).catch(() => {});
       }
     },
+
+    async writeDeclaration(project, name, declaration) {
+      if (!workflowNameSchema.safeParse(name).success) {
+        return err({ code: "invalid_input", message: "invalid workflow name" });
+      }
+      const dir = workflowFolder(dataRoot, project, name);
+      const verified = await verifyInsideWorkflowsRoot(project, dir);
+      if (!verified.ok) return verified;
+      const declPath = `${dir}/${WORKFLOW_DECLARATION_FILE}`;
+      let mode = 0o600;
+      try {
+        const info = await lstat(declPath);
+        if (info.isSymbolicLink()) {
+          return err({
+            code: "forbidden",
+            message: `${WORKFLOW_DECLARATION_FILE} is a symbolic link`,
+          });
+        }
+        mode = info.mode & 0o777;
+      } catch (e) {
+        if (errorCode(e) !== "ENOENT") {
+          return err({
+            code: "unavailable",
+            message: `could not read ${WORKFLOW_DECLARATION_FILE}`,
+          });
+        }
+      }
+      const tmpPath = `${declPath}.tmp-${randomBytes(6).toString("hex")}`;
+      try {
+        await writeFile(tmpPath, declaration, { encoding: "utf8", mode });
+        await rename(tmpPath, declPath);
+        return ok(undefined);
+      } catch {
+        await rm(tmpPath, { force: true }).catch(() => {});
+        return err({
+          code: "unavailable",
+          message: `could not write ${WORKFLOW_DECLARATION_FILE}`,
+        });
+      }
+    },
   };
 }

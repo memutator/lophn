@@ -13,6 +13,7 @@ import {
   workflowCheckpointSchema,
   workflowChildSummarySchema,
   workflowEditInputSchema,
+  workflowEntrySchema,
   workflowInstanceSchema,
   workflowInstanceSummarySchema,
   workflowLineSchema,
@@ -346,6 +347,28 @@ export const workflowTitleRequestTake = defineMemory({
   errors: ["unauthorized", "forbidden", "unavailable"],
 });
 
+export const workflowSetDefaults = defineMemory({
+  resource: "workflows",
+  method: "set-defaults",
+  name: "SetWorkflowDefaults",
+  changes: [],
+  input: z.strictObject({
+    project: idSchema("prj"),
+    workflow: workflowNameSchema,
+    default_step: stepNameSchema.nullable().optional(),
+    open: sessionOpenModeSchema.nullable().optional(),
+    step_open: z
+      .record(stepNameSchema, sessionOpenModeSchema.nullable())
+      .optional(),
+    inputs: z.record(z.string().min(1), z.unknown()).optional(),
+  }),
+  output: z.object({
+    entry: workflowEntrySchema,
+  }),
+  actors: ["user"],
+  errors: [...readErrors, "conflict"],
+});
+
 export const WORKFLOW_ROUTES = [
   workflowList,
   workflowStart,
@@ -354,6 +377,7 @@ export const WORKFLOW_ROUTES = [
   workflowDelete,
   workflowExport,
   workflowImport,
+  workflowSetDefaults,
   workflowReport,
   workflowEdit,
   workflowRetry,

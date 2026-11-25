@@ -43,6 +43,7 @@ import {
   workflowReport,
   workflowResume,
   workflowRetry,
+  workflowSetDefaults,
   workflowStart,
   workflowStop,
   workflowTitleRequestTake,
@@ -1411,6 +1412,12 @@ export const workflowsWiring: WiringFactory = () => {
             route(workflowImport),
             handler((i: Parameters<typeof built.importWorkflow>[0]) =>
               built.importWorkflow(i),
+            ),
+          ],
+          [
+            route(workflowSetDefaults),
+            handler((i: Parameters<typeof built.setDefaults>[0]) =>
+              built.setDefaults(i),
             ),
           ],
           [

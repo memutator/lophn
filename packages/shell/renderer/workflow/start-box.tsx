@@ -7,7 +7,7 @@ import { t } from "@lophn/i18n";
 import { Field, Input, SegmentedControl, Textarea } from "@lophn/ui/input";
 import { Tooltip } from "@lophn/ui/overlay";
 import { Button } from "@lophn/ui/primitives";
-import { type ReactNode, useState } from "react";
+import { type MouseEvent, type ReactNode, useState } from "react";
 
 import {
   resolveInputDefaults,
@@ -99,11 +99,64 @@ function SettingsToggle({
   );
 }
 
+/** 선언 기본값과 현재 입력값이 같은지 비교한다. */
+function sameInputDefault(
+  field: WorkflowInputField,
+  saved: unknown,
+  current: unknown,
+): boolean {
+  if (field.type === "multiselect") {
+    const left = Array.isArray(saved) ? saved : [];
+    const right = Array.isArray(current) ? current : [];
+    return (
+      left.length === right.length &&
+      left.every((item, index) => item === right[index])
+    );
+  }
+  if (field.type === "boolean") {
+    return (saved === true) === (current === true);
+  }
+  if (saved === undefined) {
+    return current === undefined || current === "";
+  }
+  return Object.is(saved, current);
+}
+
+/** 기본값으로 저장할 값으로 정규화한다. 빈 값으로 지웠으면 null(default 삭제), 유효하지 않으면 undefined. */
+function defaultPayloadFor(
+  field: WorkflowInputField,
+  current: unknown,
+  callableAgents: readonly CallableAgentOptionView[],
+): { valid: true; value: unknown } | { valid: false } {
+  if (current === undefined || current === "") {
+    if (field.type === "string" || field.type === "text") {
+      return current === undefined
+        ? { valid: true, value: null }
+        : field.default === undefined
+          ? { valid: false }
+          : { valid: true, value: null };
+    }
+    return field.default === undefined
+      ? { valid: false }
+      : { valid: true, value: null };
+  }
+  const checked = validateWorkflowInputs(
+    { field: { ...field, required: false, when: undefined } },
+    { field: current },
+    callableAgents.length > 0
+      ? { callableAgents: new Set(callableAgents.map((item) => item.name)) }
+      : {},
+  );
+  if (!checked.ok) return { valid: false };
+  return { valid: true, value: checked.value["field"] ?? null };
+}
+
 export function StartBox({
   entry,
   callableAgents = [],
   faceOf,
   onStart,
+  onSaveDefault,
 }: {
   entry: WorkflowEntryView;
   callableAgents?: readonly CallableAgentOptionView[];
@@ -119,6 +172,13 @@ export function StartBox({
       readonly stepOpen?: Record<string, SessionOpenMode>;
     },
   ) => Promise<boolean>;
+  /** 바뀐 항목 하나를 workflow.yaml 기본값으로 저장한다. */
+  onSaveDefault?: (patch: {
+    readonly default_step?: string | null;
+    readonly open?: SessionOpenMode | null;
+    readonly step_open?: Readonly<Record<string, SessionOpenMode | null>>;
+    readonly inputs?: Readonly<Record<string, unknown>>;
+  }) => Promise<boolean>;
 }) {
   const isFlow = entry.kind === "flow";
   const steps = entry.steps ?? [];
@@ -126,6 +186,13 @@ export function StartBox({
   const stages = stagesOf(steps);
   const declarations = entry.inputs ?? {};
   const inputKeys = Object.keys(declarations);
+  const savedDefaults = resolveInputDefaults(declarations);
+  const savedStartStep =
+    entry.default_step !== undefined &&
+    steps.some((item) => item.name === entry.default_step)
+      ? entry.default_step
+      : (steps[0]?.name ?? "");
+  const savedFlowOpen: "default" | SessionOpenMode = entry.open ?? "default";
 
   // 입력은 `steps`가 가리키는 step이 있는 첫 단계에 붙는다. 가리키는 step이 없으면 run 전체의 설정이다.
   const panelOfInput = (key: string): string => {
@@ -140,9 +207,9 @@ export function StartBox({
 
   const [title, setTitle] = useState("");
   const [text, setText] = useState("");
-  const [startStep, setStartStep] = useState(steps[0]?.name ?? "");
+  const [startStep, setStartStep] = useState(savedStartStep);
   const [flowOpen, setFlowOpen] = useState<"default" | SessionOpenMode>(
-    "default",
+    savedFlowOpen,
   );
   const [stepOpenOverrides, setStepOpenOverrides] = useState<
     Record<string, SessionOpenMode>
@@ -168,6 +235,7 @@ export function StartBox({
   });
   const [resetCount, setResetCount] = useState(0);
   const [starting, setStarting] = useState(false);
+  const [savingDefaultKey, setSavingDefaultKey] = useState<string | null>(null);
   const ready = entry.startable && text.trim() !== "" && !starting;
   const locked = !entry.startable || starting;
 
@@ -179,6 +247,40 @@ export function StartBox({
       members.some((index) => steps[index].name === startStep),
     ),
   );
+
+  const saveDefault = (
+    key: string,
+    patch: Parameters<NonNullable<typeof onSaveDefault>>[0],
+    onSaved?: () => void,
+  ) => {
+    if (onSaveDefault === undefined || savingDefaultKey !== null) return;
+    setSavingDefaultKey(key);
+    void onSaveDefault(patch)
+      .then((ok) => {
+        if (ok) onSaved?.();
+      })
+      .finally(() => setSavingDefaultKey(null));
+  };
+
+  const defaultButton = (
+    key: string,
+    onClick: (event: MouseEvent<HTMLButtonElement>) => void,
+  ) => {
+    const busy = savingDefaultKey === key;
+    return (
+      <Button
+        size="sm"
+        variant="ghost"
+        disabled={locked || savingDefaultKey !== null}
+        onClick={onClick}
+        data-set-default={key}
+      >
+        {busy
+          ? t("workflow.button.saving-default")
+          : t("workflow.button.set-default")}
+      </Button>
+    );
+  };
 
   const togglePanel = (panel: string) =>
     setOpenPanels((prev) => {
@@ -229,6 +331,25 @@ export function StartBox({
       })
       .filter((item) => item !== "");
 
+  const renderInputAction = (key: string): ReactNode => {
+    if (onSaveDefault === undefined) return null;
+    const field = declarations[key];
+    if (field === undefined) return null;
+    const current = displayedValues[key];
+    if (sameInputDefault(field, savedDefaults[key], current)) return null;
+    const payload = defaultPayloadFor(field, current, callableAgents);
+    if (!payload.valid) return null;
+    return defaultButton(`input:${key}`, () =>
+      saveDefault(`input:${key}`, { inputs: { [key]: payload.value } }, () => {
+        setValues((prev) => {
+          const next = { ...prev };
+          delete next[key];
+          return next;
+        });
+      }),
+    );
+  };
+
   const inputsForm = (keys: readonly string[]): ReactNode =>
     keys.some((key) => visible.has(key)) ? (
       <InputsForm
@@ -240,6 +361,7 @@ export function StartBox({
         disabled={locked}
         keys={keys}
         onChange={changeInput}
+        renderFieldAction={renderInputAction}
       />
     ) : null;
 
@@ -301,8 +423,8 @@ export function StartBox({
         if (started) {
           setTitle("");
           setText("");
-          setStartStep(steps[0]?.name ?? "");
-          setFlowOpen("default");
+          setStartStep(savedStartStep);
+          setFlowOpen(savedFlowOpen);
           setStepOpenOverrides({});
           setValues(resolveInputDefaults(declarations));
           setErrors({});
@@ -465,6 +587,23 @@ export function StartBox({
                               onChange={() => setStartStep(cell.name)}
                             />
                             <StepLine cell={cell} faceOf={faceOf} />
+                            {onSaveDefault !== undefined &&
+                            stage === 0 &&
+                            cell.name === startStep &&
+                            startStep !== savedStartStep ? (
+                              <span className={styles.choiceAction}>
+                                {defaultButton(
+                                  `default_step:${cell.name}`,
+                                  (event) => {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    saveDefault(`default_step:${cell.name}`, {
+                                      default_step: cell.name,
+                                    });
+                                  },
+                                )}
+                              </span>
+                            ) : null}
                           </label>
                         ) : (
                           <div
@@ -494,27 +633,51 @@ export function StartBox({
                             }
                             help={t("workflow.note.step-session")}
                           >
-                            <SegmentedControl
-                              size="sm"
-                              label={t("workflow.label.step-session")}
-                              value={stepOpenOf(steps[index])}
-                              options={[
-                                { value: "tab", label: openLabel("tab") },
-                                {
-                                  value: "background",
-                                  label: openLabel("background"),
-                                },
-                              ].map((option) => ({
-                                ...option,
-                                disabled: locked,
-                              }))}
-                              onValueChange={(value) =>
-                                setStepOpen(
-                                  steps[index],
-                                  value as SessionOpenMode,
-                                )
-                              }
-                            />
+                            <div className={styles.controlRow}>
+                              <SegmentedControl
+                                size="sm"
+                                label={t("workflow.label.step-session")}
+                                value={stepOpenOf(steps[index])}
+                                options={[
+                                  { value: "tab", label: openLabel("tab") },
+                                  {
+                                    value: "background",
+                                    label: openLabel("background"),
+                                  },
+                                ].map((option) => ({
+                                  ...option,
+                                  disabled: locked,
+                                }))}
+                                onValueChange={(value) =>
+                                  setStepOpen(
+                                    steps[index],
+                                    value as SessionOpenMode,
+                                  )
+                                }
+                              />
+                              {onSaveDefault !== undefined &&
+                              stepOpenOverrides[steps[index].name] !== undefined
+                                ? defaultButton(
+                                    `step_open:${steps[index].name}`,
+                                    () => {
+                                      const stepName = steps[index].name;
+                                      const mode = stepOpenOverrides[stepName];
+                                      if (mode === undefined) return;
+                                      saveDefault(
+                                        `step_open:${stepName}`,
+                                        { step_open: { [stepName]: mode } },
+                                        () => {
+                                          setStepOpenOverrides((prev) => {
+                                            const next = { ...prev };
+                                            delete next[stepName];
+                                            return next;
+                                          });
+                                        },
+                                      );
+                                    },
+                                  )
+                                : null}
+                            </div>
                           </Field>
                         </div>
                       ))}
@@ -569,22 +732,34 @@ export function StartBox({
                     label={t("workflow.label.session-open")}
                     help={t("workflow.note.session-open-flow")}
                   >
-                    <SegmentedControl
-                      size="sm"
-                      label={t("workflow.label.session-open")}
-                      value={flowOpen}
-                      options={[
-                        {
-                          value: "default",
-                          label: t("workflow.label.session-open-default"),
-                        },
-                        { value: "tab", label: openLabel("tab") },
-                        { value: "background", label: openLabel("background") },
-                      ].map((option) => ({ ...option, disabled: locked }))}
-                      onValueChange={(value) =>
-                        setFlowOpen(value as "default" | SessionOpenMode)
-                      }
-                    />
+                    <div className={styles.controlRow}>
+                      <SegmentedControl
+                        size="sm"
+                        label={t("workflow.label.session-open")}
+                        value={flowOpen}
+                        options={[
+                          {
+                            value: "default",
+                            label: t("workflow.label.session-open-default"),
+                          },
+                          { value: "tab", label: openLabel("tab") },
+                          {
+                            value: "background",
+                            label: openLabel("background"),
+                          },
+                        ].map((option) => ({ ...option, disabled: locked }))}
+                        onValueChange={(value) =>
+                          setFlowOpen(value as "default" | SessionOpenMode)
+                        }
+                      />
+                      {onSaveDefault !== undefined && flowOpen !== savedFlowOpen
+                        ? defaultButton("open", () =>
+                            saveDefault("open", {
+                              open: flowOpen === "default" ? null : flowOpen,
+                            }),
+                          )
+                        : null}
+                    </div>
                   </Field>
                 </div>
               ) : null}

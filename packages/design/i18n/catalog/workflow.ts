@@ -1,5 +1,7 @@
 export const workflow = {
   "workflow.button.settings": "Settings",
+  "workflow.button.set-default": "Set as default",
+  "workflow.button.saving-default": "Saving…",
   "workflow.button.start-here": "Start here",
   "workflow.heading.other-sessions": "Other sessions",
   "workflow.heading.run-input": "Request and inputs",
@@ -79,6 +81,8 @@ export const workflow = {
   "workflow.error.load-failed": "Couldn't load the workflows.",
   "workflow.error.resume-failed": "Couldn't resume this workflow. Try again.",
   "workflow.error.retry-failed": "Couldn't retry this step. Try again.",
+  "workflow.error.save-default-failed":
+    "Couldn't save the default to workflow.yaml. Try again.",
   "workflow.error.start-failed": "Couldn't start the workflow. Try again.",
   "workflow.error.start-invalid-inputs":
     "Check the input fields and try again.",
@@ -258,6 +262,7 @@ export const workflow = {
   "workflow.title.read-failed": "Couldn't refresh {workflow}",
   "workflow.title.resume-failed": "Couldn't resume {workflow}",
   "workflow.title.retry-failed": "Couldn't retry {workflow}",
+  "workflow.title.save-default-failed": "Couldn't save default for {workflow}",
   "workflow.title.start-failed": "Couldn't start {workflow}",
   "workflow.title.stop-failed": "Couldn't stop {workflow}",
 } as const;

@@ -47,6 +47,11 @@ export type WorkflowFiles = {
     files: readonly WorkflowExportFile[],
     options?: { overwrite?: boolean },
   ): Promise<Result<{ files_written: number }>>;
+  writeDeclaration?(
+    project: Id<"prj">,
+    name: string,
+    declaration: string,
+  ): Promise<Result<void>>;
 };
 
 // workflow 이름 변경·삭제 시 ledger(workflow_instances·flow_sdk_reviews·jobs), 창 layout, event 반영 port.

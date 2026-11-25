@@ -84,6 +84,10 @@ export interface WorkflowEntryView {
   readonly inputs?: WorkflowInputsDeclaration;
   /** 선언적 출력 스키마. */
   readonly outputs?: WorkflowOutputsDeclaration;
+  /** 기본 시작 step 이름(없으면 첫 step). */
+  readonly default_step?: string;
+  /** flow workflow의 기본 세션 열기 방식(없으면 각 호출/agent 기본값). */
+  readonly open?: "tab" | "background";
   /** 선언의 참가자(key → agent handle이나 사람). 틀린 선언이면 null이다. */
   readonly participants: Readonly<
     Record<
@@ -516,6 +520,15 @@ export interface WorkspaceSource {
     }[];
     readonly overwrite?: boolean;
   }): Promise<ReadResult<{ readonly files_written: number }>>;
+  /** workflow.yaml의 기본값(default_step, open, steps.*.open, inputs.*.default)을 갱신한다. */
+  setWorkflowDefaults?(input: {
+    readonly project: string;
+    readonly workflow: string;
+    readonly default_step?: string | null;
+    readonly open?: "tab" | "background" | null;
+    readonly step_open?: Readonly<Record<string, "tab" | "background" | null>>;
+    readonly inputs?: Readonly<Record<string, unknown>>;
+  }): Promise<ReadResult<{ readonly entry: WorkflowEntryView }>>;
   /** 팔레트 파일 묶음. 문서로 잡힌 파일만 탭으로 열 수 있다. */
   files(project: string): Promise<ReadResult<readonly FileRow[]>>;
   /** workspace(project)의 desk layout 읽기와 저장. */

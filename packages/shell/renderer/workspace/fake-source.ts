@@ -1522,6 +1522,9 @@ export function fakeWorkspaceSource(
     { path: FAKE_NOTES_FOLDER, nodes: clone(NOTES) },
   ];
   // 시작과 멈춤이 이 목록을 바꾼다. 실제 core와 같은 규칙만 흉내 낸다.
+  const workflowEntries: WorkflowEntryView[] = [
+    ...(options.workflows ?? FAKE_WORKFLOWS),
+  ];
   let instances: WorkflowInstanceDetailView[] = [
     ...(options.workflowInstances ?? FAKE_WORKFLOW_INSTANCES),
   ];
@@ -1671,7 +1674,7 @@ export function fakeWorkspaceSource(
     workflows: () =>
       Promise.resolve({
         ok: true,
-        value: options.workflows ?? FAKE_WORKFLOWS,
+        value: [...workflowEntries],
         callableAgents: options.callableAgents ?? FAKE_CALLABLE_AGENTS,
       }),
     workflowInstances: (filter) =>
@@ -1696,9 +1699,7 @@ export function fakeWorkspaceSource(
       );
     },
     startWorkflow({ workflow, title, text, step, inputs }) {
-      const entry = (options.workflows ?? FAKE_WORKFLOWS).find(
-        (item) => item.key === workflow,
-      );
+      const entry = workflowEntries.find((item) => item.key === workflow);
       if (entry === undefined) {
         return Promise.resolve({ ok: false, message: "not_found" });
       }
@@ -1710,7 +1711,12 @@ export function fakeWorkspaceSource(
       if (isFlow && step !== undefined) {
         return Promise.resolve({ ok: false, message: "invalid_input" });
       }
-      const first = isFlow ? null : (step ?? entry.steps[0]?.name);
+      const defaultStart =
+        entry.default_step !== undefined &&
+        entry.steps.some((item) => item.name === entry.default_step)
+          ? entry.default_step
+          : entry.steps[0]?.name;
+      const first = isFlow ? null : (step ?? defaultStart);
       if (!isFlow && !entry.steps.some((item) => item.name === first)) {
         return Promise.resolve({ ok: false, message: "not_found" });
       }
@@ -1907,6 +1913,56 @@ export function fakeWorkspaceSource(
       }),
     importWorkflow: ({ files }) =>
       Promise.resolve({ ok: true, value: { files_written: files.length } }),
+    setWorkflowDefaults({ workflow, default_step, open, step_open, inputs }) {
+      const found = workflowEntries.find((item) => item.name === workflow);
+      if (found === undefined) {
+        return Promise.resolve({ ok: false, message: "not_found" });
+      }
+      const nextInputs =
+        inputs === undefined || found.inputs === undefined
+          ? found.inputs
+          : Object.fromEntries(
+              Object.entries(found.inputs).map(([key, field]) => {
+                if (!(key in inputs)) return [key, field];
+                const val = inputs[key];
+                if (val === null || val === undefined) {
+                  const { default: _removed, ...rest } = field;
+                  return [key, rest];
+                }
+                return [key, { ...field, default: val }];
+              }),
+            );
+      const nextSteps =
+        step_open === undefined || found.steps === null
+          ? found.steps
+          : found.steps.map((step) => {
+              if (!(step.name in step_open)) return step;
+              const mode = step_open[step.name];
+              if (mode === null) {
+                const { open: _removed, ...rest } = step;
+                return rest;
+              }
+              return { ...step, open: mode };
+            });
+      const updated: WorkflowEntryView = {
+        ...found,
+        ...(default_step === undefined
+          ? {}
+          : default_step === null
+            ? { default_step: undefined }
+            : { default_step }),
+        ...(open === undefined
+          ? {}
+          : open === null
+            ? { open: undefined }
+            : { open }),
+        ...(nextInputs === undefined ? {} : { inputs: nextInputs }),
+        steps: nextSteps,
+      };
+      const index = workflowEntries.findIndex((item) => item.name === workflow);
+      if (index >= 0) workflowEntries[index] = updated;
+      return Promise.resolve({ ok: true, value: { entry: updated } });
+    },
     files: () => Promise.resolve({ ok: true, value: [] }),
     layout: fakeLayoutSource(),
   };

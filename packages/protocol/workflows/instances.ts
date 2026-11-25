@@ -385,6 +385,8 @@ export const workflowEntrySchema = z
       .nullable(),
     inputs: workflowInputsSchema.optional(),
     outputs: workflowOutputsSchema.optional(),
+    default_step: stepNameSchema.optional(),
+    open: sessionOpenModeSchema.optional(),
     participants: z.record(participantKeySchema, participantSchema).nullable(),
     steps: z
       .array(

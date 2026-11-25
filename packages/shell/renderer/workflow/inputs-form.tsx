@@ -1,6 +1,6 @@
 // workflow.yaml의 선언적 inputs 폼. protocol의 resolveInputDefaults·evaluateInputWhen을 그대로 써서
 // core의 validateWorkflowInputs와 같은 가시성·기본값 규칙으로 9종 입력 칸을 그린다.
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { Checkbox, Field, Input, Select, Textarea } from "@lophn/ui/input";
 import { Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
@@ -100,6 +100,8 @@ export interface InputsFormProps {
   /** 이 key의 칸만 그린다(step마다 자기 입력을 나눠 보일 때). 없으면 모두 그린다. 보일지는 여전히 전체 값으로 정한다. */
   keys?: readonly string[];
   onChange: (key: string, value: unknown) => void;
+  /** 기본값과 다른 필드 옆/아래에 표시할 인라인 행동(예: 기본값으로 저장). */
+  renderFieldAction?: (key: string) => ReactNode;
 }
 
 export function InputsForm({
@@ -110,6 +112,7 @@ export function InputsForm({
   disabled = false,
   keys,
   onChange,
+  renderFieldAction,
 }: InputsFormProps) {
   const [numberDrafts, setNumberDrafts] = useState<
     Readonly<Record<string, string>>
@@ -126,10 +129,17 @@ export function InputsForm({
         const label = fieldLabel(key, field);
         const value = values[key];
         const error = errors[key];
-        switch (field.type) {
-          case "string":
-            return (
-              <div key={key} className={styles.item} data-input-field={key}>
+        const action = renderFieldAction?.(key);
+        const actionRow =
+          action === undefined || action === null ? null : (
+            <div className={styles.fieldAction} data-input-action={key}>
+              {action}
+            </div>
+          );
+        const control = (() => {
+          switch (field.type) {
+            case "string":
+              return (
                 <Field label={label} help={field.description} error={error}>
                   <Input
                     type="text"
@@ -139,11 +149,9 @@ export function InputsForm({
                     onChange={(event) => onChange(key, event.target.value)}
                   />
                 </Field>
-              </div>
-            );
-          case "text":
-            return (
-              <div key={key} className={styles.item} data-input-field={key}>
+              );
+            case "text":
+              return (
                 <Field label={label} help={field.description} error={error}>
                   <Textarea
                     rows={3}
@@ -153,19 +161,17 @@ export function InputsForm({
                     onChange={(event) => onChange(key, event.target.value)}
                   />
                 </Field>
-              </div>
-            );
-          case "number": {
-            const shown =
-              numberDrafts[key] !== undefined
-                ? numberDrafts[key]
-                : typeof value === "number"
-                  ? String(value)
-                  : typeof value === "string"
-                    ? value
-                    : "";
-            return (
-              <div key={key} className={styles.item} data-input-field={key}>
+              );
+            case "number": {
+              const shown =
+                numberDrafts[key] !== undefined
+                  ? numberDrafts[key]
+                  : typeof value === "number"
+                    ? String(value)
+                    : typeof value === "string"
+                      ? value
+                      : "";
+              return (
                 <Field label={label} help={field.description} error={error}>
                   <Input
                     type="number"
@@ -190,30 +196,26 @@ export function InputsForm({
                     }}
                   />
                 </Field>
-              </div>
-            );
-          }
-          case "boolean":
-            return (
-              <div
-                key={key}
-                className={styles.group}
-                data-input-field={key}
-                data-invalid={error !== undefined || undefined}
-              >
-                <Checkbox
-                  label={label}
-                  checked={value === true}
-                  disabled={disabled}
-                  onCheckedChange={(checked) => onChange(key, checked)}
-                />
-                <Message help={field.description} error={error} />
-              </div>
-            );
-          case "select": {
-            const options = normalizeOptions(field.options);
-            return (
-              <div key={key} className={styles.item} data-input-field={key}>
+              );
+            }
+            case "boolean":
+              return (
+                <div
+                  className={styles.group}
+                  data-invalid={error !== undefined || undefined}
+                >
+                  <Checkbox
+                    label={label}
+                    checked={value === true}
+                    disabled={disabled}
+                    onCheckedChange={(checked) => onChange(key, checked)}
+                  />
+                  <Message help={field.description} error={error} />
+                </div>
+              );
+            case "select": {
+              const options = normalizeOptions(field.options);
+              return (
                 <Field label={label} help={field.description} error={error}>
                   <Select
                     value={typeof value === "string" ? value : ""}
@@ -226,55 +228,55 @@ export function InputsForm({
                     disabled={disabled}
                   />
                 </Field>
-              </div>
-            );
-          }
-          case "multiselect": {
-            const options = normalizeOptions(field.options);
-            const selected = Array.isArray(value)
-              ? value.filter((item): item is string => typeof item === "string")
-              : [];
-            const selectedSet = new Set(selected);
-            const toggle = (optionValue: string, checked: boolean) => {
-              const nextSet = new Set(selectedSet);
-              if (checked) nextSet.add(optionValue);
-              else nextSet.delete(optionValue);
-              const ordered = options
-                .map((opt) => opt.value)
-                .filter((val) => nextSet.has(val));
-              onChange(key, ordered);
-            };
-            return (
-              <fieldset
-                key={key}
-                className={styles.fieldset}
-                data-input-field={key}
-                data-invalid={error !== undefined || undefined}
-              >
-                <legend className={styles.legend}>{label}</legend>
-                <div className={styles.options}>
-                  {options.map((opt) => (
-                    <Checkbox
-                      key={opt.value}
-                      label={opt.label}
-                      checked={selectedSet.has(opt.value)}
-                      disabled={disabled}
-                      onCheckedChange={(checked) => toggle(opt.value, checked)}
-                    />
-                  ))}
-                </div>
-                <Message help={field.description} error={error} />
-              </fieldset>
-            );
-          }
-          case "agent": {
-            if (callableAgents.length > 0) {
-              const options = callableAgents.map((agent) => ({
-                value: agent.name,
-                label: agent.label ?? agent.name,
-              }));
+              );
+            }
+            case "multiselect": {
+              const options = normalizeOptions(field.options);
+              const selected = Array.isArray(value)
+                ? value.filter(
+                    (item): item is string => typeof item === "string",
+                  )
+                : [];
+              const selectedSet = new Set(selected);
+              const toggle = (optionValue: string, checked: boolean) => {
+                const nextSet = new Set(selectedSet);
+                if (checked) nextSet.add(optionValue);
+                else nextSet.delete(optionValue);
+                const ordered = options
+                  .map((opt) => opt.value)
+                  .filter((val) => nextSet.has(val));
+                onChange(key, ordered);
+              };
               return (
-                <div key={key} className={styles.item} data-input-field={key}>
+                <fieldset
+                  className={styles.fieldset}
+                  data-invalid={error !== undefined || undefined}
+                >
+                  <legend className={styles.legend}>{label}</legend>
+                  <div className={styles.options}>
+                    {options.map((opt) => (
+                      <Checkbox
+                        key={opt.value}
+                        label={opt.label}
+                        checked={selectedSet.has(opt.value)}
+                        disabled={disabled}
+                        onCheckedChange={(checked) =>
+                          toggle(opt.value, checked)
+                        }
+                      />
+                    ))}
+                  </div>
+                  <Message help={field.description} error={error} />
+                </fieldset>
+              );
+            }
+            case "agent": {
+              if (callableAgents.length > 0) {
+                const options = callableAgents.map((agent) => ({
+                  value: agent.name,
+                  label: agent.label ?? agent.name,
+                }));
+                return (
                   <Field label={label} help={field.description} error={error}>
                     <Select
                       value={typeof value === "string" ? value : ""}
@@ -287,11 +289,9 @@ export function InputsForm({
                       disabled={disabled}
                     />
                   </Field>
-                </div>
-              );
-            }
-            return (
-              <div key={key} className={styles.item} data-input-field={key}>
+                );
+              }
+              return (
                 <Field label={label} help={field.description} error={error}>
                   <Input
                     type="text"
@@ -311,12 +311,10 @@ export function InputsForm({
                     }}
                   />
                 </Field>
-              </div>
-            );
-          }
-          case "path":
-            return (
-              <div key={key} className={styles.item} data-input-field={key}>
+              );
+            }
+            case "path":
+              return (
                 <Field label={label} help={field.description} error={error}>
                   <Input
                     type="text"
@@ -336,11 +334,9 @@ export function InputsForm({
                     }}
                   />
                 </Field>
-              </div>
-            );
-          case "project":
-            return (
-              <div key={key} className={styles.item} data-input-field={key}>
+              );
+            case "project":
+              return (
                 <Field label={label} help={field.description} error={error}>
                   <Input
                     type="text"
@@ -361,9 +357,15 @@ export function InputsForm({
                     }}
                   />
                 </Field>
-              </div>
-            );
-        }
+              );
+          }
+        })();
+        return (
+          <div key={key} className={styles.item} data-input-field={key}>
+            {control}
+            {actionRow}
+          </div>
+        );
       })}
     </div>
   );

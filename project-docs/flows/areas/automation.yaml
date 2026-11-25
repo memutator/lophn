@@ -1763,6 +1763,37 @@ flows:
     risk: [data-loss]
     docs: [architecture/workflow.md, architecture/remote.md]
 
+  - id: workflow-set-defaults
+    title: workflow.yaml의 기본값(default_step, open, steps.*.open, inputs.*.default)을 주석을 유지하며 갱신한다
+    actor: person
+    entries: [route:workflows/set-defaults]
+    boundary: [workflows, core-api]
+    code: [packages/core/workflows/declaration.ts, packages/core/workflows/service.ts, packages/core/main/daemon/wiring/workflows-files.ts, packages/core/main/daemon/wiring/workflows.ts]
+    steps:
+      - 변경 대상 필드를 검증하고 YAML AST로 주석·anchor를 보존해 workflow.yaml에 원자적으로 쓴 뒤 갱신된 WorkflowEntry를 돌려준다
+    outcomes:
+      - id: saved
+        observe: [disk:workflow.yaml, response]
+      - id: not-found
+        code: not_found
+        when: project, workflow, 대상 step 또는 대상 input key가 없다
+        observe: [response]
+      - id: invalid-input
+        code: invalid_input
+        when: 변경할 항목이 없거나 flow에 step 기본값을 넣었거나 갱신된 선언 검증에 실패한다
+        observe: [response]
+      - id: conflict
+        code: conflict
+        when: 기존 workflow.yaml이 없거나 파싱에 실패한다
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: workflow 폴더나 workflow.yaml이 symlink이거나 원격 쓰기 허락이 없다
+        observe: [response]
+    crosses_process: false
+    risk: [data-loss]
+    docs: [architecture/workflow.md]
+
   - id: workflow-instance-rename
     title: 사람이 workflow instance의 제목을 바꾼다
     actor: person

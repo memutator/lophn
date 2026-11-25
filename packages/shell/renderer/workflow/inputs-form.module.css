@@ -58,3 +58,9 @@
 .errorIcon {
   flex: none;
 }
+
+.fieldAction {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-2);
+}

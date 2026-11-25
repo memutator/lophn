@@ -15,6 +15,7 @@ import {
   workflowRename,
   workflowResume,
   workflowRetry,
+  workflowSetDefaults,
   workflowStart,
 } from "../../../protocol/workflows/routes.ts";
 import type { FileReply, FilesApi } from "../../ipc/files.ts";
@@ -413,6 +414,10 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
           problem: entry.problem,
           ...(entry.inputs === undefined ? {} : { inputs: entry.inputs }),
           ...(entry.outputs === undefined ? {} : { outputs: entry.outputs }),
+          ...(entry.default_step === undefined
+            ? {}
+            : { default_step: entry.default_step }),
+          ...(entry.open === undefined ? {} : { open: entry.open }),
           participants: entry.participants ?? null,
           steps: entry.steps,
           artifacts: entry.artifacts,
@@ -688,6 +693,60 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
       }
       const value = reply.value as { files_written: number };
       return { ok: true, value: { files_written: value.files_written } };
+    },
+
+    async setWorkflowDefaults({
+      project: projectId,
+      workflow,
+      default_step,
+      open,
+      step_open,
+      inputs,
+    }) {
+      const reply = await core.call({
+        kind: workflowSetDefaults.kind,
+        resource: workflowSetDefaults.resource,
+        method: workflowSetDefaults.method,
+        body: {
+          project: projectId,
+          workflow,
+          ...(default_step === undefined ? {} : { default_step }),
+          ...(open === undefined ? {} : { open }),
+          ...(step_open === undefined ? {} : { step_open }),
+          ...(inputs === undefined ? {} : { inputs }),
+        },
+      });
+      if (!reply.ok) {
+        return { ok: false, message: reply.error?.code ?? "internal" };
+      }
+      const raw = (
+        reply.value as {
+          entry: WorkflowListValue["workflows"][number];
+        }
+      ).entry;
+      return {
+        ok: true,
+        value: {
+          entry: {
+            key: raw.key,
+            project: raw.project,
+            name: raw.name,
+            invalid: raw.state === "invalid",
+            startable: raw.startable,
+            kind: raw.kind,
+            problem: raw.problem,
+            ...(raw.inputs === undefined ? {} : { inputs: raw.inputs }),
+            ...(raw.outputs === undefined ? {} : { outputs: raw.outputs }),
+            ...(raw.default_step === undefined
+              ? {}
+              : { default_step: raw.default_step }),
+            ...(raw.open === undefined ? {} : { open: raw.open }),
+            participants: raw.participants ?? null,
+            steps: raw.steps,
+            artifacts: raw.artifacts,
+          },
+        },
+      };
     },
 
     // 팔레트 파일 묶음. files.list의 원본 파일 중 문서로 잡힌 것만 탭으로 열 수 있다.

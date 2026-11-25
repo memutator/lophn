@@ -266,6 +266,7 @@ export function WorkflowPage(props: WorkflowPageProps): ReactElement {
               callableAgents={definitions.callableAgents}
               faceOf={faceOf}
               onStart={state.start}
+              onSaveDefault={state.saveDefaults}
             />
             <section className={styles.section}>
               {instances === null && showRunsLoading ? (

@@ -50,6 +50,12 @@ export interface UseWorkflow {
   retry(step?: string): void;
   resume(useLatestCode?: boolean): void;
   rename(title: string): void;
+  saveDefaults?: (patch: {
+    readonly default_step?: string | null;
+    readonly open?: "tab" | "background" | null;
+    readonly step_open?: Readonly<Record<string, "tab" | "background" | null>>;
+    readonly inputs?: Readonly<Record<string, unknown>>;
+  }) => Promise<boolean>;
 }
 
 export function useWorkflow({
@@ -233,5 +239,33 @@ export function useWorkflow({
         if (result.ok) reload();
       });
     },
+    ...(source.setWorkflowDefaults === undefined
+      ? {}
+      : {
+          async saveDefaults(patch) {
+            if (entry === null || source.setWorkflowDefaults === undefined) {
+              return false;
+            }
+            const result = await source.setWorkflowDefaults({
+              project: entry.project,
+              workflow: entry.name,
+              ...patch,
+            });
+            if (!result.ok) {
+              setNotice({
+                title: t("workflow.title.save-default-failed", { workflow }),
+                body: t("workflow.error.save-default-failed"),
+              });
+              return false;
+            }
+            setNotice(null);
+            setDefinitions((prev) =>
+              prev.state === "ready"
+                ? { ...prev, entry: result.value.entry }
+                : prev,
+            );
+            return true;
+          },
+        }),
   };
 }

@@ -1,4 +1,5 @@
-import { parse } from "yaml";
+import { isMap, isScalar, parse, parseDocument } from "yaml";
+import { err, ok, type Result } from "../../base/mod.ts";
 import type { Id } from "../../protocol/base/mod.ts";
 import {
   declarationStepSchema,
@@ -7,6 +8,7 @@ import {
   FLOW_STEP_BY,
   type InstanceStep,
   type Participant,
+  type SessionOpenMode,
   validateInputDeclaration,
   type WorkflowDeclaration,
   type WorkflowEntry,
@@ -232,6 +234,7 @@ export function entryOf(
       startable: problem === null,
       problem,
       ...io,
+      ...(declaration.open !== undefined ? { open: declaration.open } : {}),
       participants:
         declaration.participants !== undefined
           ? participantsOf(declaration)
@@ -244,6 +247,12 @@ export function entryOf(
       })),
     };
   }
+  const parsedSteps = stepsOf(declaration);
+  const defaultStep =
+    declaration.default_step !== undefined &&
+    parsedSteps.some((s) => s.name === declaration.default_step)
+      ? declaration.default_step
+      : undefined;
   return {
     ...base,
     state: "ok",
@@ -253,8 +262,10 @@ export function entryOf(
     startable: true,
     problem: null,
     ...io,
+    ...(defaultStep !== undefined ? { default_step: defaultStep } : {}),
+    ...(declaration.open !== undefined ? { open: declaration.open } : {}),
     participants: participantsOf(declaration),
-    steps: stepsOf(declaration).map((s) => {
+    steps: parsedSteps.map((s) => {
       const participants = participantsOf(declaration);
       const by = participants[s.by];
       const human = by !== undefined && "kind" in by && by.kind === "human";
@@ -275,4 +286,95 @@ export function entryOf(
       };
     }),
   };
+}
+
+export type WorkflowDefaultsPatch = {
+  default_step?: string | null;
+  open?: SessionOpenMode | null;
+  step_open?: Record<string, SessionOpenMode | null>;
+  inputs?: Record<string, unknown>;
+};
+
+// workflow.yaml의 주석·anchor·줄 순서를 보존하면서 기본값 칸(default_step, open, steps.*.open, inputs.*.default)만 갱신한다.
+export function patchWorkflowDeclarationYaml(
+  rawYaml: string,
+  patch: WorkflowDefaultsPatch,
+): Result<string> {
+  const doc = parseDocument(rawYaml, { schema: "core" });
+  if (doc.errors.length > 0 || !isMap(doc.contents)) {
+    return err({
+      code: "conflict",
+      message: "workflow.yaml could not be parsed",
+    });
+  }
+  const root = doc.contents;
+
+  if (patch.default_step === null) {
+    doc.delete("default_step");
+  } else if (patch.default_step !== undefined) {
+    const stepsNode = root.get("steps", true);
+    if (!isMap(stepsNode) || !stepsNode.has(patch.default_step)) {
+      return err({
+        code: "not_found",
+        message: `step '${patch.default_step}' not found`,
+      });
+    }
+    const firstKey = stepsNode.items[0]?.key;
+    const firstStep = isScalar(firstKey) ? String(firstKey.value) : null;
+    if (firstStep === patch.default_step) {
+      doc.delete("default_step");
+    } else {
+      doc.set("default_step", patch.default_step);
+    }
+  }
+
+  if (patch.open === null) {
+    doc.delete("open");
+  } else if (patch.open !== undefined) {
+    doc.set("open", patch.open);
+  }
+
+  if (patch.step_open !== undefined) {
+    const stepsNode = root.get("steps", true);
+    if (!isMap(stepsNode)) {
+      return err({ code: "not_found", message: "steps not found" });
+    }
+    for (const [stepName, mode] of Object.entries(patch.step_open)) {
+      const stepNode = stepsNode.get(stepName, true);
+      if (!isMap(stepNode)) {
+        return err({
+          code: "not_found",
+          message: `step '${stepName}' not found`,
+        });
+      }
+      if (mode === null) {
+        stepNode.delete("open");
+      } else {
+        stepNode.set("open", mode);
+      }
+    }
+  }
+
+  if (patch.inputs !== undefined) {
+    const inputsNode = root.get("inputs", true);
+    if (!isMap(inputsNode)) {
+      return err({ code: "not_found", message: "inputs not found" });
+    }
+    for (const [key, value] of Object.entries(patch.inputs)) {
+      const fieldNode = inputsNode.get(key, true);
+      if (!isMap(fieldNode)) {
+        return err({
+          code: "not_found",
+          message: `input '${key}' not found`,
+        });
+      }
+      if (value === null || value === undefined) {
+        fieldNode.delete("default");
+      } else {
+        fieldNode.set("default", value);
+      }
+    }
+  }
+
+  return ok(doc.toString({ lineWidth: 0 }));
 }

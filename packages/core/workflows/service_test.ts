@@ -1737,10 +1737,10 @@ test("ExportWorkflow and ImportWorkflow round-trip workflow folders, skip symlin
           publishImported: (project, name) =>
             importedEvents.push(`${project}:${name}`),
         },
-        ids: createIdSource({
-          clock: { now: () => AT } as never,
-          random: {} as never,
-        }),
+        ids: {
+          newId: (prefix: string) =>
+            `${prefix}_01hzzzzzzzzzzzzzzzzzzzzzze` as never,
+        },
         logger,
       });
 
@@ -1837,6 +1837,198 @@ test("ExportWorkflow and ImportWorkflow round-trip workflow folders, skip symlin
   } finally {
     await rm(rootA, { recursive: true, force: true });
     await rm(rootB, { recursive: true, force: true });
+    await rm(outside, { recursive: true, force: true });
+  }
+});
+
+test("SetWorkflowDefaults preserves YAML comments and anchors, validates inputs/symlinks, and StartWorkflow uses saved default_step", async () => {
+  const root = await mkdtemp(join(tmpdir(), "lophn-wf-defaults-"));
+  const outside = await mkdtemp(join(tmpdir(), "lophn-wf-defaults-out-"));
+  try {
+    const wfDir = join(root, "projects", PRJ, "workflows", "cleanroom");
+    await mkdir(wfDir, { recursive: true });
+    const initialYaml = [
+      "# top comment must stay",
+      "inputs:",
+      "  mode:",
+      "    type: select",
+      "    default: auto",
+      "    options:",
+      "      - auto",
+      "      - never",
+      "participants:",
+      "  a: { agent: lophn }",
+      "  b: { agent: lophn }",
+      "steps:",
+      "  first:",
+      "    by: a",
+      "    prompt: &shared_prompt |",
+      "      do work",
+      "    next: [end]",
+      "  second:",
+      "    by: b",
+      "    prompt: *shared_prompt",
+      "    next: [end]",
+      "",
+    ].join("\n");
+    const declPath = join(wfDir, "workflow.yaml");
+    await writeFile(declPath, initialYaml, "utf8");
+
+    const files = createWorkflowFiles(root);
+    const db = new DatabaseSync(":memory:");
+    try {
+      db.exec(workflowsSchemaSteps[0]!.sql);
+      db.exec(workflowLinesSchemaSteps[0]!.sql);
+      db.exec(WORKFLOW_INPUTS_SCHEMA_STEP.sql);
+      const sql = createSql(db, () => true);
+      const tx = {
+        sql,
+        now: () => AT,
+        newId: (prefix: string) => `${prefix}_01hzzzzzzzzzzzzzzzzzzzzzzd`,
+        port: () => ({ push: () => {} }),
+      } as unknown as Tx;
+      const delivered: { session: string; input: RoutedInput }[] = [];
+      const router = createRouter({
+        directory: {
+          find: () => null,
+          resolveAddress: () => ok(lophnAtWorkspace),
+          archive: () => ok(false),
+          membersOn: () => [],
+          membersFrom: () => [],
+          membersUnder: () => [],
+          setWorkflowOrigin: () => {},
+          openMember: () => err({ code: "forbidden", message: "none" }),
+          open: () =>
+            ok({
+              session: SES_A,
+              transport: "lophn",
+              agent: lophnAtWorkspace,
+              accepting: true,
+              open: true,
+              spawned_by: null,
+              opened_by_machine: null,
+              runs_on: null,
+            } as never),
+          app: () => null,
+          accepts: () => null,
+          listOpen: () => [],
+          projectOfIdentity: () => null,
+          identityOfProject: () => ok("pri_test"),
+          appIdOf: () => err({ code: "not_found", message: "none" }),
+        },
+        store: {} as never,
+        outbox: {} as never,
+        seen: {} as never,
+        self: () => "mch_self",
+        steps: {} as never,
+        announce: () => {},
+        callPolicy: () => DEFAULT_CALL_POLICY,
+        transport: {
+          deliver: (_tx, to, input) => {
+            delivered.push({ session: to.session, input });
+            return ok(undefined);
+          },
+          cancel: () => ok(undefined),
+          withdraw: () => ok(undefined),
+        },
+      });
+      const commands = createWorkflowCommands(() => ok(router));
+      const ctx = { actor: "machine" } as never;
+      const svc = createWorkflowService({
+        files,
+        projects: {
+          resolve: () =>
+            Promise.resolve(ok({ id: PRJ as Id<"prj">, name: "demo" })),
+          nameOf: () => Promise.resolve(ok("demo")),
+        },
+        turns: {
+          stopSession: () => Promise.resolve(ok(undefined)),
+          stepTurn: () => Promise.resolve(ok(null)),
+          openOutgoingCalls: () => Promise.resolve(ok(0)),
+        },
+        remote: {
+          computer: () => err({ code: "not_found", message: "none" }),
+          workspace: () => err({ code: "not_found", message: "none" }),
+          isPrivate: () => false,
+          receivedStep: () => Promise.resolve(ok(null)),
+          report: () => Promise.resolve(ok(undefined)),
+          handOf: () => ok(null),
+        },
+        logger,
+        store: {
+          create: (input) =>
+            Promise.resolve(commands.create.handle(tx, ctx, input, {})),
+          apply: (input, compare) =>
+            Promise.resolve(commands.apply.handle(tx, ctx, input, compare)),
+          read: () =>
+            Promise.resolve(err({ code: "not_found", message: "none" })),
+          running: () => Promise.resolve(ok([])),
+        },
+        flows: {
+          launch: () => Promise.resolve(ok(undefined)),
+          stop: () => Promise.resolve(ok(undefined)),
+        },
+        ids: {
+          newId: (prefix: string) =>
+            `${prefix}_01hzzzzzzzzzzzzzzzzzzzzzze` as never,
+        },
+      });
+
+      const saved = await svc.setDefaults({
+        project: PRJ as Id<"prj">,
+        workflow: "cleanroom",
+        default_step: "second",
+        step_open: { second: "tab" },
+        inputs: { mode: "never" },
+      });
+      assert.ok(saved.ok);
+      assert.equal(saved.value.entry.default_step, "second");
+      assert.equal(saved.value.entry.inputs?.["mode"]?.default, "never");
+      assert.equal(
+        saved.value.entry.steps?.find((s) => s.name === "second")?.open,
+        "tab",
+      );
+
+      const rewritten = await readFile(declPath, "utf8");
+      assert.ok(rewritten.includes("# top comment must stay"));
+      assert.ok(rewritten.includes("&shared_prompt"));
+      assert.ok(rewritten.includes("*shared_prompt"));
+
+      // invalid select option은 거절하고 파일은 그대로 유지한다.
+      const invalid = await svc.setDefaults({
+        project: PRJ as Id<"prj">,
+        workflow: "cleanroom",
+        inputs: { mode: "bogus" },
+      });
+      assert.ok(!invalid.ok);
+      assert.equal(invalid.error.code, "invalid_input");
+
+      // step을 생략하고 시작하면 저장된 default_step(second)으로 시작한다.
+      const started = await svc.start(
+        { workflow: "demo/cleanroom", text: "go" },
+        { kind: "user" },
+      );
+      assert.ok(started.ok);
+      assert.equal(started.value.handed?.step, "second");
+
+      // symlink workflow.yaml 쓰기는 forbidden으로 차단한다.
+      const outsideYaml = join(outside, "workflow.yaml");
+      await writeFile(outsideYaml, initialYaml, "utf8");
+      const symDir = join(root, "projects", PRJ, "workflows", "linked");
+      await mkdir(symDir, { recursive: true });
+      await symlink(outsideYaml, join(symDir, "workflow.yaml"));
+      const symRes = await svc.setDefaults({
+        project: PRJ as Id<"prj">,
+        workflow: "linked",
+        inputs: { mode: "never" },
+      });
+      assert.ok(!symRes.ok);
+      assert.equal(symRes.error.code, "forbidden");
+    } finally {
+      db.close();
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
     await rm(outside, { recursive: true, force: true });
   }
 });

@@ -1,0 +1,29 @@
+id: workflow-inline-defaults
+version: 0.23.173
+platform_note: none
+title: Save workflow start settings inline as workflow.yaml defaults
+modules:
+  - packages/protocol
+  - packages/core/workflows
+  - packages/core/main
+  - packages/design
+  - packages/shell/renderer
+change: |
+  Added `default_step` and top-level `open` to `workflow.yaml` declarations and `WorkflowEntry`,
+  and added the `workflows/set-defaults` (`SetWorkflowDefaults`) route that updates `default_step`,
+  `open`, `steps.<step>.open`, and `inputs.<key>.default` directly in `workflow.yaml` via YAML AST
+  editing (`parseDocument`) while preserving comments, anchors, and formatting.
+  In `StartBox`, changing the first-stage start step choice, any input field value, or a step/flow
+  session open mode from its saved default reveals an inline `Set as default` button that writes
+  the change directly to `workflow.yaml` and refreshes the entry without clearing the current draft.
+why: |
+  StartBox settings only applied to a single run and reset on start, leaving no simple UI path to
+  update workflow defaults without opening and hand-editing `workflow.yaml`.
+decisions:
+  - text: |
+      Persist saved defaults directly into `workflow.yaml` (preserving comments and anchors with
+      YAML AST editing) and introduce a top-level `default_step` field rather than reordering
+      `steps` keys or storing a separate local override. Keeping `workflow.yaml` as the single
+      source of truth ensures UI, CLI, jobs, agents, and export/import agree, while `default_step`
+      avoids breaking YAML anchors across steps.
+    by: person

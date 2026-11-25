@@ -50,6 +50,31 @@ export function titleOf(subject: ApprovalSubject, agent: string): string {
         agent,
         tool: subject.tool,
       });
+    case "file_read":
+      return t(
+        subject.sensitive
+          ? "conversation.title.approval-file-read-sensitive"
+          : subject.outside_workspace
+            ? "conversation.title.approval-file-read-outside"
+            : "conversation.title.approval-file-read",
+        { agent },
+      );
+    case "file_write":
+      return t(
+        subject.sensitive
+          ? "conversation.title.approval-file-write-sensitive"
+          : subject.outside_workspace
+            ? "conversation.title.approval-file-write-outside"
+            : "conversation.title.approval-file-write",
+        { agent, action: subject.action },
+      );
+    case "local_tool":
+      return t(
+        subject.changed
+          ? "conversation.title.approval-local-tool-changed"
+          : "conversation.title.approval-local-tool",
+        { agent, name: subject.name },
+      );
   }
 }
 
@@ -102,21 +127,19 @@ export function targetOf(subject: ApprovalSubject): string {
         ? subject.action
         : `${subject.action} ${target.name}`;
     }
+    case "file_read":
+    case "file_write":
+      return subject.path;
+    case "local_tool":
+      return `${subject.name} (${subject.path})`;
     case "plan":
       return "";
   }
 }
 
-/** tool의 효과 글. shell, file·설정·project command는 효과를 따로 말하지 않는다. */
+/** tool의 효과 글. shell, file·설정·project command·로컬 tool은 효과를 따로 말하지 않는다. */
 export function effectOf(subject: ApprovalSubject): string | null {
-  if (
-    subject.kind === "shell" ||
-    subject.kind === "file_change" ||
-    subject.kind === "plan" ||
-    subject.kind === "setting" ||
-    subject.kind === "project_command" ||
-    subject.kind === "project_command_definition"
-  ) {
+  if (subject.kind !== "app_tool" && subject.kind !== "mcp_tool") {
     return null;
   }
   return t(EFFECTS[subject.effect]);

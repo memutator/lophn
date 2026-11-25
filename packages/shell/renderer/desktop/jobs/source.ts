@@ -1,6 +1,7 @@
 // Jobs가 읽고 쓰는 통로. 화면은 이 interface만 보고 core route 이름은 core-source.ts만 안다.
 // 화면이 쓰는 칸만 담는다. project 창의 job panel도 이 통로와 model.ts를 그대로 쓴다.
 import type { JobRunState } from "../../../../protocol/jobs/values.ts";
+import type { PermissionMode } from "../../../../protocol/lophn-agent/turn-values.ts";
 import type { AgentId } from "../../../../protocol/lophn-agent/workspaces.ts";
 import type { SourceResult } from "../../source-result.ts";
 
@@ -66,6 +67,10 @@ export interface JobView {
   readonly enabled: boolean;
   /** null이면 사람의 등록 승인을 기다린다(대기 목록에서 승인한다). */
   readonly approved_at: string | null;
+  /** 승인할 때 기억한 workflow 참가자별 권한 단계. */
+  readonly participant_modes?: Readonly<Record<string, PermissionMode>>;
+  /** workflow 권한 단계가 ④(full)로 올라가 재승인을 기다리며 멈춘 이유. */
+  readonly approval_paused_reason?: "mode_escalated" | null;
   readonly next_due_at: string | null;
   /** 주인 기계의 id. 아직 찍지 않은 job은 null이다. */
   readonly machine: string | null;

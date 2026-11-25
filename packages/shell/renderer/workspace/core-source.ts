@@ -4,7 +4,17 @@
 // 옮긴 것이다. layout 저장·복원은 preload의 lophnLayout이 있을 때만 main 통로를 쓴다.
 // bridge가 없으면 읽지 못함으로 답하고 작업대는 빈 배치로 시작한다.
 
+import {
+  DEFAULT_MODE_SETTING_KEY,
+  WORKFLOW_MODES_SETTING_KEY,
+  workflowModesSettingSchema,
+} from "../../../protocol/approvals/permission-rules.ts";
 import { jobList } from "../../../protocol/jobs/jobs.ts";
+import {
+  DEFAULT_PERMISSION_MODE,
+  type PermissionMode,
+  permissionModeSchema,
+} from "../../../protocol/lophn-agent/turn-values.ts";
 import { projectApi } from "../../../protocol/projects/project-api.ts";
 import { workflowInstanceRename } from "../../../protocol/workflows/commands.ts";
 import {
@@ -21,6 +31,7 @@ import {
 import type { FileReply, FilesApi } from "../../ipc/files.ts";
 import { commandCall } from "../command-call.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
+import { chooseSetting, readEffective } from "../desktop/settings/declared.ts";
 import {
   readProjects,
   windowFolderPicker,
@@ -442,23 +453,25 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
       );
       return {
         ok: true as const,
-        value: read.value.map((entry): WorkflowInstanceSummaryView => ({
-          id: entry.id,
-          project: entry.project,
-          workflow: entry.workflow,
-          ...(entry.title === undefined ? {} : { title: entry.title }),
-          state: entry.state,
-          current: entry.current,
-          input: entry.input,
-          ...(entry.inputs === undefined ? {} : { inputs: entry.inputs }),
-          started_by: startedByOf(entry.started_by, titles),
-          created_at: entry.created_at,
-          finished_at: entry.finished_at,
-          last_line: entry.last_line,
-          ...(entry.derived_status === undefined
-            ? {}
-            : { derived_status: entry.derived_status }),
-        })),
+        value: read.value.map(
+          (entry): WorkflowInstanceSummaryView => ({
+            id: entry.id,
+            project: entry.project,
+            workflow: entry.workflow,
+            ...(entry.title === undefined ? {} : { title: entry.title }),
+            state: entry.state,
+            current: entry.current,
+            input: entry.input,
+            ...(entry.inputs === undefined ? {} : { inputs: entry.inputs }),
+            started_by: startedByOf(entry.started_by, titles),
+            created_at: entry.created_at,
+            finished_at: entry.finished_at,
+            last_line: entry.last_line,
+            ...(entry.derived_status === undefined
+              ? {}
+              : { derived_status: entry.derived_status }),
+          }),
+        ),
       };
     },
 
@@ -517,6 +530,7 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
       inputs,
       open,
       step_open,
+      participant_modes,
     }) {
       const reply = await core.call({
         kind: workflowStart.kind,
@@ -530,6 +544,7 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
           ...(inputs === undefined ? {} : { inputs }),
           ...(open === undefined ? {} : { open }),
           ...(step_open === undefined ? {} : { step_open }),
+          ...(participant_modes === undefined ? {} : { participant_modes }),
         },
       });
       if (!reply.ok) {
@@ -546,6 +561,47 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
             ? {}
             : { title: started.instance.title }),
         },
+      };
+    },
+
+    async readWorkflowModes(projectId, workflowName) {
+      const read = await readEffective(core, [WORKFLOW_MODES_SETTING_KEY]);
+      if (!read.ok) return { ok: false, message: read.code };
+      const parsed = workflowModesSettingSchema.safeParse(
+        read.value.get(WORKFLOW_MODES_SETTING_KEY),
+      );
+      const map = parsed.success ? parsed.data : {};
+      return { ok: true, value: map[`${projectId}/${workflowName}`] ?? {} };
+    },
+
+    async saveWorkflowModes(projectId, workflowName, modes) {
+      const read = await readEffective(core, [WORKFLOW_MODES_SETTING_KEY]);
+      if (!read.ok) return { ok: false, message: read.code };
+      const parsed = workflowModesSettingSchema.safeParse(
+        read.value.get(WORKFLOW_MODES_SETTING_KEY),
+      );
+      const current = parsed.success ? parsed.data : {};
+      const next = {
+        ...current,
+        [`${projectId}/${workflowName}`]: { ...modes },
+      };
+      const saved = await chooseSetting(core, WORKFLOW_MODES_SETTING_KEY, next);
+      return saved.ok
+        ? { ok: true, value: null }
+        : { ok: false, message: saved.code };
+    },
+
+    async readDefaultMode() {
+      const read = await readEffective(core, [DEFAULT_MODE_SETTING_KEY]);
+      if (!read.ok) return { ok: false, message: read.code };
+      const parsed = permissionModeSchema.safeParse(
+        read.value.get(DEFAULT_MODE_SETTING_KEY),
+      );
+      return {
+        ok: true,
+        value: parsed.success
+          ? (parsed.data as PermissionMode)
+          : DEFAULT_PERMISSION_MODE,
       };
     },
 

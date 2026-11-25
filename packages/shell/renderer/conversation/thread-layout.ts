@@ -1,11 +1,7 @@
 // ACP 상태(`AcpState`)를 화면 줄(`ThreadView`)로 늘어놓는다. 순서는 항목의 `seq`가 정하고 이 함수는 시각을 보지
 // 않는다. snapshot과 갱신을 접은 상태가 같으면 줄도 같아서 turn이 끝나고 snapshot을 다시 읽어도 줄이 튀지
 // 않는다. 하는 일은 이어진 tool call 묶기와 항목 종류를 줄 종류로 옮기는 것뿐이다.
-import {
-  blocksSummary,
-  blocksText,
-  type ContentBlock,
-} from "../../../protocol/lophn-agent/content-block.ts";
+
 import type {
   AcpChildState,
   AcpEntry,
@@ -14,6 +10,11 @@ import type {
   AcpState,
   AcpToolItem,
 } from "../../../protocol/acp/mod.ts";
+import {
+  blocksSummary,
+  blocksText,
+  type ContentBlock,
+} from "../../../protocol/lophn-agent/content-block.ts";
 import type { ToolCallView } from "./activity/model.ts";
 import { groupToolCalls } from "./activity/tool-groups.ts";
 import type {
@@ -164,6 +165,16 @@ function entryOf(item: AcpItem): ThreadEntry | null {
           command: notice.command,
           text: notice.text,
           format: notice.format,
+          turn: item.turn,
+        };
+      }
+      if (notice.type === "permission_denied") {
+        return {
+          kind: "permission-denied",
+          id: item.id,
+          at: item.at,
+          toolCall: notice.tool_call,
+          denial: notice.denial,
           turn: item.turn,
         };
       }

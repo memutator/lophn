@@ -312,11 +312,14 @@ export function OverviewTab(props: OverviewTabProps) {
                   : list(definition.tools ?? [])}
             </GlanceRow>
           ) : null}
-          <GlanceRow name="skip" label={t("agents.label.field-skip")}>
-            {definition.skip === true ? (
-              t("agents.label.value-on")
+          <GlanceRow
+            name="permission_mode"
+            label={t("agents.label.field-permission-mode")}
+          >
+            {definition.permission_mode !== undefined ? (
+              t(`agents.label.permission-mode-${definition.permission_mode}`)
             ) : (
-              <Muted>{t("agents.label.value-off")}</Muted>
+              <Muted>{t("agents.label.permission-mode-default")}</Muted>
             )}
           </GlanceRow>
         </dl>

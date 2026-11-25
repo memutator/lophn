@@ -13,9 +13,9 @@ import { ProfileMark } from "../../browser/browser-chrome.tsx";
 import { useBrowserProfiles } from "../../browser/profiles.tsx";
 import { VendorIcon, vendorOf } from "../../parts/vendor-icon/vendor-icon.tsx";
 import { scopeLabel } from "./agent-card.tsx";
+import styles from "./agent-glance.module.css";
 import { formatHarnessModel, modelLabelOf } from "./model-picker-data.ts";
 import type { AgentListRow, ModelsView } from "./source.ts";
-import styles from "./agent-glance.module.css";
 
 /** custom이 memory를 쓰려면 이 tool을 골라야 한다(`architecture/agent-definition.md`의 memory). */
 export const MEMORY_TOOL = "agent.memory";
@@ -205,7 +205,9 @@ export function CardGlance({
             runtime !== "custom"
               ? null
               : t("agents.label.glance-tools", { count: glance.tools.length }),
-            glance.skip ? t("agents.label.glance-skip") : null,
+            glance.permissionMode === undefined
+              ? null
+              : t(`agents.label.permission-mode-${glance.permissionMode}`),
           ]}
         />
       </GlanceRow>

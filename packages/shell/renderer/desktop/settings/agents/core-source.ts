@@ -20,7 +20,11 @@ import {
   isLophn,
   workspaceOfLophn,
 } from "../../../../../protocol/lophn-agent/workspaces.ts";
+import type { FilesApi } from "../../../../ipc/files.ts";
 import type { FolderPickerApi } from "../../../../ipc/folder-picker.ts";
+import type { InstructionsApi } from "../../../../ipc/instructions.ts";
+import type { OpenExternalApi } from "../../../../ipc/open-external.ts";
+import type { SecretInputOpenApi } from "../../../../ipc/secret-input.ts";
 import {
   cancelMcpSignIn,
   readGlobalModel,
@@ -28,16 +32,11 @@ import {
   windowFiles,
   windowInstructions,
 } from "../../../workspace/agents/core-extensions.ts";
+import { createLink } from "../../../workspace/agents/core-link.ts";
 import { coreAgentsSource } from "../../../workspace/agents/core-source.ts";
 import { secretsOf } from "../../../workspace/agents/mcp-secrets.ts";
-import { createLink } from "../../../workspace/agents/core-link.ts";
-import type { InstructionsApi } from "../../../../ipc/instructions.ts";
-import type { FilesApi } from "../../../../ipc/files.ts";
 import type { CoreSource } from "../../connection/connection.ts";
 import { windowFolderPicker } from "../../workspaces/projects/core-source.ts";
-import { chooseSetting } from "../declared.ts";
-import type { OpenExternalApi } from "../../../../ipc/open-external.ts";
-import type { SecretInputOpenApi } from "../../../../ipc/secret-input.ts";
 import {
   call,
   command,
@@ -45,14 +44,15 @@ import {
   windowLinkOpener,
   windowSecretInputOpener,
 } from "../core-call.ts";
+import { chooseSetting } from "../declared.ts";
 import {
-  applySetting,
   type AuthStateValue,
+  applySetting,
   MCP_SERVERS,
   type McpServerValue,
   readExtensionSettings,
-  secretOf,
   SKILL_FOLDERS,
+  secretOf,
 } from "../extension-settings.ts";
 import type {
   AgentsSettingsSource,
@@ -227,6 +227,7 @@ export function extensionsViewOf(
         detail: detailOf(server),
         layer: "global" as const,
         on: server.enabled,
+        trust: server.trust ?? "untrusted",
         status: statusOf(server, states, logins),
         ...(auth === null
           ? {}
@@ -441,6 +442,22 @@ export function coreAgentsSettingsSource(
         MCP_SERVERS,
         current.value.servers.map((server) =>
           server.name === name ? { ...server, enabled } : server,
+        ),
+        random,
+      );
+    },
+
+    async setServerTrust(name, trust) {
+      const current = await readExtensionSettings(core);
+      if (!current.ok) return current;
+      if (!current.value.servers.some((server) => server.name === name)) {
+        return { ok: false, code: "not_found" } satisfies SourceResult<null>;
+      }
+      return applySetting(
+        core,
+        MCP_SERVERS,
+        current.value.servers.map((server) =>
+          server.name === name ? { ...server, trust } : server,
         ),
         random,
       );

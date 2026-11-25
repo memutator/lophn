@@ -37,7 +37,7 @@ export type FieldName =
   | "skills"
   | "mcp"
   | "extensions"
-  | "skip"
+  | "permission_mode"
   | "browser_profile"
   | "card";
 
@@ -60,7 +60,7 @@ const FIELD_OF: Readonly<Record<string, FieldName>> = {
   mcp_off: "mcp",
   mcp_servers: "mcp",
   extensions: "extensions",
-  skip: "skip",
+  permission_mode: "permission_mode",
   browser_profile: "browser_profile",
 };
 
@@ -83,7 +83,7 @@ const TAB_OF_FIELD: Readonly<Record<FieldName, Group>> = {
   tools: "sees",
   mcp: "sees",
   extensions: "sees",
-  skip: "sees",
+  permission_mode: "sees",
   instructions: "works",
   skills: "works",
   memory: "works",

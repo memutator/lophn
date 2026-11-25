@@ -25,6 +25,9 @@ function permission(n: number): TurnRequest {
     tool_call: CALL,
     subject: { kind: "shell", command: "git push origin main" },
     always_patterns: ["git push *"],
+    allowed_choices: ["once", "session", "always", "reject"],
+    reason: null,
+    outside_rewind: true,
     to_parent: false,
     created_at: AT,
   };

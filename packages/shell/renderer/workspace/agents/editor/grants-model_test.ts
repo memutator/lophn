@@ -2,7 +2,15 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { GrantApp } from "../source.ts";
-import { appEntryOf, appsFor, setEntry } from "./grants-model.ts";
+import {
+  appEntryOf,
+  appsFor,
+  isAsk,
+  isRemoved,
+  setEntry,
+  withToolAsk,
+  withToolRemoved,
+} from "./grants-model.ts";
 
 test("agent가 일하는 앱의 비공개 tool만 붙일 수 있고 public tool은 어느 앱 것이든 붙일 수 있다", () => {
   const tool = (name: string, isPublic: boolean) => ({
@@ -50,4 +58,16 @@ test("다른 기계에 할당한 같은 앱 id의 줄은 이 기계의 줄과 �
   assert.deepStrictEqual(setEntry([remote], local), [remote, local]);
   const edited = { ...local, removed_tools: ["y"] };
   assert.deepStrictEqual(setEntry([remote, local], edited), [remote, edited]);
+});
+
+test("ask_tools와 removed_tools는 서로 겹치지 않는다", () => {
+  const base = { app: "app_mine", removed_tools: ["delete_expense"] };
+  const asked = withToolAsk(base, "delete_expense", true);
+  assert.equal(isAsk(asked, "delete_expense"), true);
+  assert.equal(isRemoved(asked, "delete_expense"), false);
+
+  const removedAgain = withToolRemoved(asked, "delete_expense", true);
+  assert.equal(isRemoved(removedAgain, "delete_expense"), true);
+  assert.equal(isAsk(removedAgain, "delete_expense"), false);
+  assert.equal(removedAgain.ask_tools, undefined);
 });

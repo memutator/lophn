@@ -4,7 +4,10 @@
 import { appList } from "../../../../../../protocol/apps/apps.ts";
 import { agentList } from "../../../../../../protocol/lophn-agent/agent-definitions.ts";
 import { CALL_POLICY_SETTING_KEY } from "../../../../../../protocol/lophn-agent/call-policy.ts";
-import { mcpAuthState } from "../../../../../../protocol/lophn-agent/mcp-settings.ts";
+import {
+  type McpTrust,
+  mcpAuthState,
+} from "../../../../../../protocol/lophn-agent/mcp-settings.ts";
 import { modelDefaultRead } from "../../../../../../protocol/lophn-agent/models.ts";
 import { skillsRead } from "../../../../../../protocol/lophn-agent/skill-settings.ts";
 import { lophnIdOf } from "../../../../../../protocol/lophn-agent/workspaces.ts";
@@ -16,7 +19,6 @@ import {
   GLOBAL_SKILLS,
 } from "../../../../workspace/agents/fake-source.ts";
 import { fakeAnswer } from "../../../connection/events/fake-source.ts";
-import { callPolicyValueOf } from "../core-source.ts";
 import {
   type AuthStateValue,
   MCP_SERVERS,
@@ -27,6 +29,7 @@ import {
   type FakeCore,
   fakeCore,
 } from "../../testdata/fake-core.ts";
+import { callPolicyValueOf } from "../core-source.ts";
 import type {
   AgentsSettingsSource,
   InstructionsFile,
@@ -43,6 +46,7 @@ type AgentsCall =
   | readonly ["add-server"]
   | readonly ["create-server", string]
   | readonly ["server", string, boolean]
+  | readonly ["server-trust", string, McpTrust]
   | readonly ["sign-in", string]
   | readonly ["cancel-sign-in", string]
   | readonly ["enter-secret", string, string];
@@ -266,6 +270,15 @@ export function fakeAgents(options: FakeAgentsOptions = {}) {
       if (failed) return Promise.resolve(failed);
       setServers(
         servers.map((row) => (row.name === name ? { ...row, enabled } : row)),
+      );
+      return Promise.resolve(ok());
+    },
+    setServerTrust(name, trust) {
+      calls.push(["server-trust", name, trust]);
+      const failed = fail("server");
+      if (failed) return Promise.resolve(failed);
+      setServers(
+        servers.map((row) => (row.name === name ? { ...row, trust } : row)),
       );
       return Promise.resolve(ok());
     },

@@ -121,7 +121,8 @@ export function useTabHostSlices(input: TabHostSlicesInput) {
             sidebarAgents.agents.find((row) => row.assignment === agent)
               ?.avatar,
           dotOf: (session) => lophnSessionDot(sessionStates, session),
-          openSettings: () => onSettings("tools"),
+          openSettings: (target) =>
+            onSettings(target === "rules" ? "shell-rules" : "tools"),
           openConnections: () => onSettings("providers"),
           openSession: (session, open) => {
             const row = rowOfSession(session);

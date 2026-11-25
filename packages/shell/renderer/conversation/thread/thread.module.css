@@ -217,6 +217,70 @@
   color: var(--color-text-secondary);
 }
 
+/* 권한·범위·모드·정책으로 막힌 호출("막힘" 블록). 일반 실패와 색·테두리로 구별한다. */
+.blocked {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+  padding: var(--space-4) var(--space-5);
+  border: var(--border-width) solid var(--color-border-base);
+  border-left: var(--border-focus-width) solid var(--status-warning-icon);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-subtle);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.blockedText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: var(--space-0);
+}
+
+.blockedHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.blockedTarget {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+  overflow-wrap: anywhere;
+}
+
+.blockedReason {
+  margin: var(--space-0);
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.blockedRule {
+  margin: var(--space-0);
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  overflow-wrap: anywhere;
+}
+
+.blockedNote {
+  margin: var(--space-0);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.blockedError {
+  margin: var(--space-0);
+  color: var(--status-critical-text);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
 .panelNote {
   margin: var(--space-0);
   color: var(--color-text-muted);

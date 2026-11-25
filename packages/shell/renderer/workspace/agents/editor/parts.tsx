@@ -13,6 +13,7 @@ import {
   type CharacterAvatar,
   DEFAULT_AGENT_CHARACTER,
 } from "../../../../../protocol/lophn-agent/agent-values.ts";
+import type { McpTrust } from "../../../../../protocol/lophn-agent/mcp-settings.ts";
 import { actionIcons } from "../../../icons/mod.ts";
 import { Avatar, type AvatarLook } from "../../../parts/avatar/avatar.tsx";
 import type {
@@ -141,8 +142,12 @@ interface McpListProps {
   readonly onCancelSignIn?: (row: McpRow) => void;
   /** 이 화면이 시작해 기다리는 server 이름. 이 줄은 [Cancel]을 그린다. */
   readonly signingIn?: readonly string[];
-  /** server가 가리키는 secret 한 자리의 값을 넣거나 바꾼다. 없으면 값 단추를 그리지 않는다. */
+  /** server가 가리키는 secret 한 자리의 값을 넣거나 바꾼다. 없으면 값 단추가 없다. */
   readonly onSetSecret?: (row: McpRow, secret: McpSecret) => void;
+  /** MCP server의 신뢰 수준을 바꾼다. 없으면 배지만 보인다. */
+  readonly onSetTrust?: (row: McpRow, trust: McpTrust) => void;
+  /** 이 줄의 신뢰 수준을 여기서 바꿀 수 있는가. 없으면 onSetTrust가 있는 모든 줄에서 바꿀 수 있다. */
+  readonly canSetTrust?: (row: McpRow) => boolean;
 }
 
 /** MCP server 목록. 이름 옆 점이 연결 상태다. OAuth server는 로그인하지 않았으면 오른쪽에 [Sign in]이 있다. */
@@ -156,12 +161,18 @@ export function McpList({
   onCancelSignIn,
   signingIn = [],
   onSetSecret,
+  onSetTrust,
+  canSetTrust,
 }: McpListProps) {
   return (
     <ul className={styles.toggleList}>
       {items.map((item) => {
         const on = item.on && !offNames.includes(item.name);
         const text = statusText(on, item.status);
+        const trust: McpTrust = item.trust ?? "untrusted";
+        const editableTrust =
+          onSetTrust !== undefined &&
+          (canSetTrust === undefined || canSetTrust(item));
         const login = on ? item.login : undefined;
         const canSignIn =
           login !== undefined &&
@@ -175,6 +186,7 @@ export function McpList({
             key={`${item.layer}/${item.name}`}
             className={`${styles.toggleRow} ${styles.mcpRow}`}
             data-mcp={item.name}
+            data-mcp-trust={trust}
           >
             <span className={styles.toggleMain}>
               <span className={styles.toggleName}>
@@ -190,6 +202,13 @@ export function McpList({
                   aria-label={text}
                 />
                 {item.name}
+                <span className={styles.chip} data-trust-badge={trust}>
+                  {t(
+                    trust === "trusted"
+                      ? "agents.label.mcp-trusted"
+                      : "agents.label.mcp-untrusted",
+                  )}
+                </span>
               </span>
               <span className={styles.toggleDetail}>
                 {text === "" ? item.detail : `${item.detail} · ${text}`}
@@ -201,6 +220,25 @@ export function McpList({
               <span />
             )}
             <span className={styles.toggleCell}>
+              {editableTrust ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  data-action="toggle-trust"
+                  onClick={() =>
+                    onSetTrust(
+                      item,
+                      trust === "trusted" ? "untrusted" : "trusted",
+                    )
+                  }
+                >
+                  {t(
+                    trust === "trusted"
+                      ? "agents.button.mcp-untrust"
+                      : "agents.button.mcp-trust",
+                  )}
+                </Button>
+              ) : null}
               {onSetSecret === undefined
                 ? null
                 : (item.secrets ?? []).map((secret) => (

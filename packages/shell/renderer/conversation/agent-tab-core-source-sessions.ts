@@ -3,7 +3,20 @@
 import { t } from "@lophn/i18n";
 
 import { assignmentGet } from "../../../protocol/approvals/assignment.ts";
+import {
+  DEFAULT_PERMISSION_RULES_SETTING,
+  PERMISSION_RULES_SETTING_KEY,
+  type PermissionRuleCategory,
+  permissionRulesSettingSchema,
+} from "../../../protocol/approvals/permission-rules.ts";
+import {
+  localToolTrust,
+  localToolUntrust,
+  sessionGrantRevoke,
+  sessionPermissionsRead,
+} from "../../../protocol/approvals/permissions-view.ts";
 import { appGet } from "../../../protocol/apps/apps.ts";
+import { settingsList, settingsUpdate } from "../../../protocol/config/file.ts";
 import { sessionSnapshotsList } from "../../../protocol/events/snapshot.ts";
 import { agentRead } from "../../../protocol/lophn-agent/agent-definitions.ts";
 import {
@@ -21,6 +34,7 @@ import type {
   Workspace,
 } from "../../../protocol/lophn-agent/workspaces.ts";
 import { projectApi } from "../../../protocol/projects/project-api.ts";
+import { newId } from "../prefixed-id.ts";
 import { codingFaceOf } from "../workspace/agents/coding-face.ts";
 import {
   dropValue,
@@ -83,7 +97,7 @@ async function appNameOf(env: Env, app: string): Promise<string> {
   return read.ok ? read.value.app.name : app;
 }
 
-/** 할당한 앱마다 이름과 뺀 tool. MCP server는 설정한 층이 할당이라 줄이 없다. */
+/** 할당한 앱마다 이름과 뺀 tool, 부를 때마다 물을 tool. */
 async function readApps(
   env: Env,
 ): Promise<SourceResult<PermissionsView["apps"]>> {
@@ -97,17 +111,105 @@ async function readApps(
           ? await appNameOf(env, entry.app)
           : (entry.name ?? entry.app),
       removed: entry.removed_tools,
+      ...(entry.ask_tools === undefined || entry.ask_tools.length === 0
+        ? {}
+        : { ask: entry.ask_tools }),
     });
   }
   return { ok: true, value: apps };
 }
 
-/** `/permissions`와 입력칸 아래 요약. */
+/** `/permissions`와 입력칸 아래 요약. session이 있으면 `permissions/read`까지 함께 읽는다. */
 export async function readPermissions(
   env: Env,
+  session: string | null,
 ): Promise<SourceResult<PermissionsView>> {
-  const apps = await readApps(env);
-  return apps.ok ? { ok: true, value: { apps: apps.value } } : apps;
+  const [apps, sessionPerm] = await Promise.all([
+    readApps(env),
+    session === null
+      ? Promise.resolve(null)
+      : env.read(sessionPermissionsRead, { session }),
+  ]);
+  if (!apps.ok) return apps;
+  return {
+    ok: true,
+    value: {
+      apps: apps.value,
+      ...(sessionPerm !== null && sessionPerm.ok
+        ? { session: sessionPerm.value }
+        : {}),
+    },
+  };
+}
+
+export async function revokeSessionGrantOf(
+  env: Env,
+  session: string,
+  grant: string,
+): Promise<SourceResult<void>> {
+  return dropValue(await env.read(sessionGrantRevoke, { session, grant }));
+}
+
+export async function trustLocalToolOf(
+  env: Env,
+  path: string,
+  sha256: string,
+): Promise<SourceResult<void>> {
+  return dropValue(await env.read(localToolTrust, { path, sha256 }));
+}
+
+export async function untrustLocalToolOf(
+  env: Env,
+  path: string,
+): Promise<SourceResult<void>> {
+  return dropValue(await env.read(localToolUntrust, { path }));
+}
+
+export async function addAllowRuleOf(
+  env: Env,
+  category: PermissionRuleCategory,
+  pattern: string,
+): Promise<SourceResult<void>> {
+  const listed = await env.read(settingsList, {
+    keys: [PERMISSION_RULES_SETTING_KEY],
+  });
+  if (!listed.ok) return listed;
+  const entry = listed.value.settings.find(
+    (one) => one.key === PERMISSION_RULES_SETTING_KEY,
+  );
+  const raw =
+    entry !== undefined && "chosen" in entry
+      ? entry.chosen
+      : entry !== undefined && "default" in entry
+        ? entry.default
+        : DEFAULT_PERMISSION_RULES_SETTING;
+  const parsed = permissionRulesSettingSchema.safeParse(raw);
+  const current = parsed.success
+    ? parsed.data
+    : DEFAULT_PERMISSION_RULES_SETTING;
+  const next = {
+    ...current,
+    global: [
+      ...current.global,
+      {
+        id: newId("rul", env.now()),
+        category,
+        pattern,
+        action: "allow" as const,
+        source: "global" as const,
+      },
+    ],
+  };
+  const updated = await env.read(settingsUpdate, {
+    changes: [
+      { key: PERMISSION_RULES_SETTING_KEY, action: "set", value: next },
+    ],
+  });
+  if (!updated.ok) return updated;
+  if (updated.value.rejected.length > 0) {
+    return { ok: false, code: "invalid_input" };
+  }
+  return { ok: true, value: undefined };
 }
 
 // ---------------------------------------------------------------- 얼굴 읽기

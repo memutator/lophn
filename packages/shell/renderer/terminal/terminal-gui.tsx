@@ -853,7 +853,7 @@ export function GuiSwitch({
               openFile: (path: string) => agentView.openFile(path, tab.key),
               runCommand: agentView.runCommand,
               artifacts: agentView.artifacts,
-              openAgentSettings: (target: "skills" | "mcp") =>
+              openAgentSettings: (target: "skills" | "mcp" | "rules") =>
                 agentView.openSettings(target),
               openConnections: agentView.openConnections,
             }),

@@ -509,7 +509,9 @@ export function coreAgentsSource(
       apps: definition.apps?.length ?? 0,
       remoteApps: definition.remote_apps?.length ?? 0,
       tools: definition.tools ?? [],
-      skip: definition.skip === true,
+      ...(definition.permission_mode === undefined
+        ? {}
+        : { permissionMode: definition.permission_mode }),
     };
   };
 

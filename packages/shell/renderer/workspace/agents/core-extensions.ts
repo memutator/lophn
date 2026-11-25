@@ -170,6 +170,7 @@ async function rowsWithLogins(
       detail: detailOf(server),
       layer: entry.layer,
       on,
+      trust: server.trust ?? "untrusted",
       status:
         login === undefined
           ? null

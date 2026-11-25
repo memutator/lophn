@@ -26,14 +26,16 @@ import {
 } from "./model.ts";
 import type { JobsSource, JobView } from "./source.ts";
 
-// 꺼짐 → 대상 보관·없음 → 놓친 차례를 기다림 → 다음 차례 순서로 하나만 보인다.
+// 꺼짐 → 재승인 필요(권한 상승) → 대상 보관·없음 → 놓친 차례를 기다림 → 다음 차례 순서로 하나만 보인다.
 const stateText = (job: JobView): string =>
-  job.runs_here && job.enabled && job.target_unavailable === true
-    ? t("jobs.label.paused-target-unavailable")
-    : job.runs_here && job.enabled && job.last_run?.state === "held"
-      ? t("jobs.label.waiting-decision")
-      : ((job.runs_here && job.enabled ? sourceGoneText(job) : null) ??
-        nextText(job, new Date()));
+  job.runs_here && job.approval_paused_reason === "mode_escalated"
+    ? t("jobs.label.paused-mode-escalated")
+    : job.runs_here && job.enabled && job.target_unavailable === true
+      ? t("jobs.label.paused-target-unavailable")
+      : job.runs_here && job.enabled && job.last_run?.state === "held"
+        ? t("jobs.label.waiting-decision")
+        : ((job.runs_here && job.enabled ? sourceGoneText(job) : null) ??
+          nextText(job, new Date()));
 
 export function JobRows({
   project,
@@ -109,6 +111,15 @@ export function JobRows({
                       {stateText(job)}
                     </>
                   )}
+                  {job.approval_paused_reason === "mode_escalated" ? (
+                    <>
+                      {" "}
+                      <StatusMark
+                        tone="warning"
+                        label={t("jobs.label.paused-mode-escalated-badge")}
+                      />
+                    </>
+                  ) : null}
                   {job.target_unavailable === true ? (
                     <>
                       {" "}

@@ -1,8 +1,10 @@
 // agent가 만든 job의 등록 승인. 한 번 승인하면 그 job은 정한 주기로 사람 없이 돈다. [Reject]는 job을 지운다.
 // 정한 항목은 `jobs` 변경 뒤 목록을 다시 읽을 때 빠진다.
-import { useEffect, useState } from "react";
-import { Button } from "@lophn/ui/primitives";
+
 import { t } from "@lophn/i18n";
+import { Button } from "@lophn/ui/primitives";
+import { useEffect, useState } from "react";
+import type { PermissionMode } from "../../../../../../protocol/lophn-agent/turn-values.ts";
 import { useMachineNameOf } from "../../../jobs/machine-names.ts";
 import { intervalText, scheduleText } from "../../../jobs/model.ts";
 import { useMachinesView } from "../../../machines/context.tsx";
@@ -118,10 +120,21 @@ export function JobApprovalCard({
     setBusy(false);
   }
 
+  const modeEntries = Object.entries(entry.job.participant_modes ?? {}) as [
+    string,
+    PermissionMode,
+  ][];
+  const modeEscalated = entry.job.approval_paused_reason === "mode_escalated";
+
   return (
     <article className={styles.request} data-job-approval={entry.id}>
       <Head view={view} agent={entry.agent} />
       <div className={styles.reason}>
+        {modeEscalated ? (
+          <p className={styles.error} data-mode-escalated="">
+            {t("waiting.notice.job-mode-escalated")}
+          </p>
+        ) : null}
         <p className={styles.desc}>
           {trigger !== null
             ? t(
@@ -155,6 +168,19 @@ export function JobApprovalCard({
           </p>
         ) : null}
       </div>
+      {modeEntries.length > 0 ? (
+        <dl className={styles.facts} data-job-modes="">
+          <dt>{t("waiting.label.job-modes")}</dt>
+          <dd>
+            {modeEntries
+              .map(
+                ([participant, mode]) =>
+                  `${participant}: ${t(`settings.label.mode-${mode}`)}`,
+              )
+              .join(" · ")}
+          </dd>
+        </dl>
+      ) : null}
       {failed ? (
         <p className={styles.error}>{t("waiting.notice.decide-failed")}</p>
       ) : null}

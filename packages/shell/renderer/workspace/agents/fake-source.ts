@@ -18,7 +18,6 @@ import {
 import {
   isLophn,
   lophnIdOf,
-  type Workspace,
   workspaceOfLophn,
 } from "../../../../protocol/lophn-agent/workspaces.ts";
 import type { ReadResult } from "../source.ts";
@@ -677,7 +676,9 @@ export function createFakeAgentsSource(
           (one) => one.machine !== undefined,
         ).length,
         tools: definition.tools ?? [],
-        skip: definition.skip === true,
+        ...(definition.permission_mode === undefined
+          ? {}
+          : { permissionMode: definition.permission_mode }),
       },
     };
   };

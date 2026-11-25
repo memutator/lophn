@@ -1,8 +1,8 @@
 // 대기 항목 하나를 카드가 그릴 값으로 바꾸는 순수 함수. 문구는 turn request의 subject와 activation 동의에서
 // program이 만든다(요청한 agent가 쓴 설명 칸은 없다).
 import { formatRelativeTime, t } from "@lophn/i18n";
-import type { TurnRequest } from "../../../../../protocol/approvals/turn-request.ts";
 import type { ShareRequest } from "../../../../../protocol/approvals/share-request.ts";
+import type { TurnRequest } from "../../../../../protocol/approvals/turn-request.ts";
 import type { ActivationConsent } from "../../../../../protocol/apps/activation/consent.ts";
 import type { PhoneCapability } from "../../../../../protocol/apps/phone-request.ts";
 import type { JobHold } from "../../../../../protocol/jobs/jobs.ts";
@@ -71,6 +71,8 @@ export interface CardView {
   readonly first: boolean;
   /** activation 카드가 같이 승인할 앱 공유 요청. */
   readonly share: ShareView | null;
+  /** 되돌리기(rewind) 기록 밖의 호출인지. */
+  readonly outsideRewind?: boolean;
   readonly choices: readonly WaitingChoice[];
 }
 
@@ -168,19 +170,9 @@ function appText(app: string, names: InboxNames): string {
   );
 }
 
-/** 도구 물음의 대상 한 줄. shell은 명령 자체가 세부라 대상 칸이 없다. */
+/** 도구 물음의 대상 한 줄. */
 function toolTarget(
-  subject: Exclude<
-    TurnRequest["subject"],
-    {
-      kind:
-        | "shell"
-        | "harness"
-        | "setting"
-        | "project_command"
-        | "project_command_definition";
-    }
-  >,
+  subject: Extract<TurnRequest["subject"], { kind: "app_tool" | "mcp_tool" }>,
   names: InboxNames,
 ): string {
   return subject.kind === "app_tool"
@@ -194,21 +186,37 @@ function toolTarget(
       });
 }
 
+function extraRequestFacts(request: TurnRequest): Fact[] {
+  const out: Fact[] = [];
+  if (request.reason !== null && request.reason !== "") {
+    out.push({
+      label: t("waiting.label.fact-reason"),
+      value: request.reason,
+      style: "text",
+    });
+  }
+  return out;
+}
+
 function permissionView(request: TurnRequest, names: InboxNames) {
   const subject = request.subject;
   const choices = turnChoicesOf(request);
+  const extra = extraRequestFacts(request);
+  const outsideRewind = request.outside_rewind;
   switch (subject.kind) {
     case "shell":
       return {
         title: t("waiting.title.shell"),
         description: t("waiting.notice.shell"),
         factsPinned: true,
+        outsideRewind,
         facts: [
           {
             label: t("waiting.label.fact-command"),
             value: subject.command,
             style: "code" as const,
           },
+          ...extra,
           ...(request.always_patterns.length === 0
             ? []
             : [
@@ -221,20 +229,89 @@ function permissionView(request: TurnRequest, names: InboxNames) {
         ],
         choices,
       };
+    case "file_read":
+      return {
+        title: t("waiting.title.file-read"),
+        description: request.reason ?? t("waiting.notice.file-read"),
+        factsPinned: true,
+        outsideRewind,
+        facts: [
+          {
+            label: t("waiting.label.fact-path"),
+            value: subject.path,
+            style: "code" as const,
+          },
+          {
+            label: t("waiting.label.fact-folder"),
+            value: subject.folder,
+            style: "text" as const,
+          },
+        ],
+        choices,
+      };
+    case "file_write":
+      return {
+        title: t("waiting.title.file-write"),
+        description: request.reason ?? t("waiting.notice.file-write"),
+        factsPinned: true,
+        outsideRewind,
+        facts: [
+          {
+            label: t("waiting.label.fact-path"),
+            value: subject.path,
+            style: "code" as const,
+          },
+          {
+            label: t("waiting.label.fact-folder"),
+            value: subject.folder,
+            style: "text" as const,
+          },
+        ],
+        choices,
+      };
+    case "local_tool":
+      return {
+        title: t("waiting.title.local-tool", { name: subject.name }),
+        description: t(
+          subject.changed
+            ? "waiting.notice.local-tool-changed"
+            : "waiting.notice.local-tool",
+        ),
+        factsPinned: true,
+        outsideRewind,
+        facts: [
+          {
+            label: t("waiting.label.fact-path"),
+            value: subject.path,
+            style: "code" as const,
+          },
+          {
+            label: t("waiting.label.fact-sha256"),
+            value: subject.sha256.slice(0, 16),
+            style: "code" as const,
+          },
+          ...extra,
+        ],
+        choices,
+      };
     // 바뀜이 사람이 정할 거리 전부라 늘 보인다. 줄은 core가 만든 그대로(전체 경로)다.
     case "setting":
       return {
         title: t("waiting.title.setting"),
         description: t("waiting.notice.setting"),
         factsPinned: true,
-        facts: subject.lines.map((line, at) => ({
-          label:
-            subject.lines.length === 1
-              ? t("waiting.label.fact-change")
-              : t("waiting.label.fact-change-nth", { n: at + 1 }),
-          value: line,
-          style: "text" as const,
-        })),
+        outsideRewind,
+        facts: [
+          ...subject.lines.map((line, at) => ({
+            label:
+              subject.lines.length === 1
+                ? t("waiting.label.fact-change")
+                : t("waiting.label.fact-change-nth", { n: at + 1 }),
+            value: line,
+            style: "text" as const,
+          })),
+          ...extra,
+        ],
         choices,
       };
     case "project_command":
@@ -242,6 +319,7 @@ function permissionView(request: TurnRequest, names: InboxNames) {
         title: t("waiting.title.project-command", { name: subject.name }),
         description: t("waiting.notice.project-command"),
         factsPinned: true,
+        outsideRewind,
         facts: [
           {
             label: t("waiting.label.fact-command"),
@@ -266,6 +344,7 @@ function permissionView(request: TurnRequest, names: InboxNames) {
                   style: "text" as const,
                 },
               ]),
+          ...extra,
         ],
         choices,
       };
@@ -295,6 +374,7 @@ function permissionView(request: TurnRequest, names: InboxNames) {
               : t("waiting.title.project-command-remove", { name }),
         description: t("waiting.notice.project-command-definition"),
         factsPinned: true,
+        outsideRewind,
         facts: [
           ...(subject.before === null
             ? []
@@ -314,6 +394,7 @@ function permissionView(request: TurnRequest, names: InboxNames) {
                   style: "code" as const,
                 },
               ]),
+          ...extra,
         ],
         choices,
       };
@@ -332,7 +413,8 @@ function permissionView(request: TurnRequest, names: InboxNames) {
               ? t("waiting.notice.tool-write", { target })
               : t("waiting.notice.tool-external", { target }),
         factsPinned: false,
-        facts: toolFacts(target, subject.effect),
+        outsideRewind,
+        facts: [...toolFacts(target, subject.effect), ...extra],
         choices,
       };
     }
@@ -342,7 +424,8 @@ function permissionView(request: TurnRequest, names: InboxNames) {
         title: t("waiting.title.mcp-tool", { tool: subject.tool }),
         description: t("waiting.notice.mcp-tool", { target }),
         factsPinned: false,
-        facts: toolFacts(target, subject.effect),
+        outsideRewind,
+        facts: [...toolFacts(target, subject.effect), ...extra],
         choices,
       };
     }
@@ -351,6 +434,7 @@ function permissionView(request: TurnRequest, names: InboxNames) {
         title: t("waiting.title.coding"),
         description: t("waiting.notice.coding"),
         factsPinned: false,
+        outsideRewind: false,
         facts: [],
         choices: [],
       };

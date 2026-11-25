@@ -215,3 +215,13 @@ label.choice:not([data-picked]) .stepName {
   outline: var(--border-focus-width) solid var(--color-focus);
   outline-offset: var(--border-focus-offset);
 }
+
+.modeList {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-4);
+}
+
+.modeRow {
+  min-width: var(--space-0);
+}

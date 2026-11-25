@@ -1,19 +1,21 @@
-// Sees 탭(무엇을 보나): 범위 · Browser profile · MCP servers · custom이 고르는 tool · Skip permissions · 앱 할당.
+// Sees 탭(무엇을 보나): 범위 · Browser profile · MCP servers · custom이 고르는 tool · Permission mode · 앱 할당.
 // 앱 할당은 바로 저장되고(editor가 그린 apps 조각) 나머지는 [Save]로 저장한다. harness는 자기 tool과 MCP를 써서
 // 그 두 칸 대신 그렇다는 한 줄이 선다.
-import { type ReactNode, useState } from "react";
-import {
-  Checkbox,
-  Field,
-  Input,
-  SegmentedControl,
-  Select,
-} from "@lophn/ui/input";
-import { Button } from "@lophn/ui/primitives";
+
 import { t } from "@lophn/i18n";
+import { Field, Input, SegmentedControl, Select } from "@lophn/ui/input";
+import { Button } from "@lophn/ui/primitives";
+import { type ReactNode, useState } from "react";
 
 import type { AgentWorkspace } from "../../../../../protocol/lophn-agent/agent-values.ts";
-import type { McpServer } from "../../../../../protocol/lophn-agent/mcp-settings.ts";
+import type {
+  McpServer,
+  McpTrust,
+} from "../../../../../protocol/lophn-agent/mcp-settings.ts";
+import {
+  PERMISSION_MODES,
+  type PermissionMode,
+} from "../../../../../protocol/lophn-agent/turn-values.ts";
 import { workspaceOfLophn } from "../../../../../protocol/lophn-agent/workspaces.ts";
 import { useBrowserProfiles } from "../../../browser/profiles.tsx";
 import { actionIcons } from "../../../icons/mod.ts";
@@ -22,6 +24,7 @@ import { runtimeLabel } from "../agent-glance.tsx";
 import { secretsOf } from "../mcp-secrets.ts";
 import type { AgentDraft } from "../source.ts";
 import type { McpLogin, McpRow, McpSecret } from "../views.ts";
+import styles from "./agent-editor.module.css";
 import {
   type AgentFacts,
   type FormProps,
@@ -32,10 +35,10 @@ import { Group, Issues } from "./form-kit.tsx";
 import { McpList } from "./parts.tsx";
 import { ServerForm } from "./server-form.tsx";
 import { ToolPicks } from "./tool-picks.tsx";
-import styles from "./agent-editor.module.css";
 
-// Select는 빈 값을 못 쓴다. 기본 profile(정의에 칸이 없다)의 값이다.
+// Select는 빈 값을 못 쓴다. 기본 profile·전역 권한 기본(정의에 칸이 없다)의 값이다.
 const DEFAULT_PROFILE_VALUE = "default";
+const DEFAULT_MODE_VALUE = "default";
 
 /** 정의 층 MCP server를 목록 줄로 바꾼다. 로그인 상태는 저장된 정의의 server에만 있다. */
 export function ownServers(
@@ -53,6 +56,7 @@ export function ownServers(
           : server.http.url,
       layer: "agent",
       on: server.enabled,
+      trust: server.trust ?? "untrusted",
       status:
         login === undefined
           ? null
@@ -196,6 +200,16 @@ export function SeesTab(props: SeesTabProps) {
               onCancelSignIn={props.onCancelSignIn}
               signingIn={props.signingIn}
               onSetSecret={props.onSetSecret}
+              canSetTrust={(row) => row.layer === "agent"}
+              onSetTrust={(row, trust: McpTrust) => {
+                if (row.layer !== "agent") return;
+                set(
+                  "mcp_servers",
+                  (definition.mcp_servers ?? []).map((server) =>
+                    server.name === row.name ? { ...server, trust } : server,
+                  ),
+                );
+              }}
               onToggle={(name, on) => {
                 if (own.some((row) => row.name === name)) {
                   set(
@@ -267,15 +281,37 @@ export function SeesTab(props: SeesTabProps) {
         </Group>
       ) : null}
 
-      <Group name="skip" heading={t("agents.heading.skip")}>
-        <Checkbox
-          size="sm"
-          label={t("agents.label.skip-start")}
-          checked={definition.skip === true}
-          onCheckedChange={(on) => set("skip", on ? true : undefined)}
-        />
-        <p className={styles.note}>{t("agents.notice.skip-help")}</p>
-        <Issues issues={issues("skip")} />
+      <Group
+        name="permission_mode"
+        heading={t("agents.heading.permission-mode")}
+      >
+        <Field
+          label={t("agents.label.field-permission-mode")}
+          help={t("agents.notice.permission-mode-help")}
+        >
+          <Select
+            options={[
+              {
+                value: DEFAULT_MODE_VALUE,
+                label: t("agents.label.permission-mode-default"),
+              },
+              ...PERMISSION_MODES.map((mode) => ({
+                value: mode,
+                label: t(`agents.label.permission-mode-${mode}`),
+              })),
+            ]}
+            value={definition.permission_mode ?? DEFAULT_MODE_VALUE}
+            onValueChange={(value) =>
+              set(
+                "permission_mode",
+                value === DEFAULT_MODE_VALUE
+                  ? undefined
+                  : (value as PermissionMode),
+              )
+            }
+          />
+        </Field>
+        <Issues issues={issues("permission_mode")} />
       </Group>
 
       <section className={styles.apps} data-field="apps">

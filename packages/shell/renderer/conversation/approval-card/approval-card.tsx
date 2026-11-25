@@ -1,6 +1,11 @@
 // composer 위 승인 카드와 결정 뒤 대화에 남는 접힌 줄. 확인 창 없이 카드에서 바로 결정한다.
 // 선택지는 Allow once, Always allow(더할 규칙이 있을 때만), Deny다. [Deny]는 이유 칸을 열고 비워도 된다.
 // 카드를 닫거나 가만히 두는 것은 결정이 아니다.
+
+import { t } from "@lophn/i18n";
+import { StatusMark } from "@lophn/ui/feedback";
+import { Button, Icon, Kbd } from "@lophn/ui/primitives";
+import { iconPixels } from "@lophn/ui/shared";
 import {
   type KeyboardEvent,
   type ReactElement,
@@ -8,18 +13,14 @@ import {
   useRef,
   useState,
 } from "react";
-import { Button, Icon, Kbd } from "@lophn/ui/primitives";
-import { StatusMark } from "@lophn/ui/feedback";
-import { iconPixels } from "@lophn/ui/shared";
-import { t } from "@lophn/i18n";
 import { actionIcons, editorIcons } from "../../icons/mod.ts";
 import type {
   ApprovalCardRequest,
   ApprovalResultView,
 } from "../agent-tab-source.ts";
+import styles from "./approval-card.module.css";
 import { ReasonRow } from "./reason-row.tsx";
 import { changeText, effectOf, targetOf, titleOf } from "./subject-text.ts";
-import styles from "./approval-card.module.css";
 
 type Choice = ApprovalCardRequest["choices"][number];
 
@@ -35,6 +36,8 @@ interface ApprovalCardProps {
   /** 카드가 나올 때 [Allow once]로 초점을 옮긴다. composer에 글이 있으면 사람의 입력을 빼앗지 않는다. */
   focusOnMount: boolean;
 }
+
+const MOUNT_ENTER_GUARD_MS = 400;
 
 export function ApprovalCard({
   agent,
@@ -54,6 +57,12 @@ export function ApprovalCard({
   const reasonInput = useRef<HTMLInputElement>(null);
   const wasDeny = useRef(denying);
   const focusedOnMount = useRef(false);
+  // 카드가 뜬 직후 400ms 동안 Enter를 막아 메시지 전송 직후 실수로 승인되는 일을 막는다.
+  const mountedAt = useRef(Date.now());
+
+  useEffect(() => {
+    mountedAt.current = Date.now();
+  }, [request.id]);
 
   async function decide(choice: Choice, why?: string) {
     setBusy(true);
@@ -64,9 +73,11 @@ export function ApprovalCard({
   }
 
   const { choices } = request;
+  const canSession = choices.includes("session");
   const canAlways = choices.includes("always");
   const keyHint = {
     once: t("conversation.label.approval-key-once"),
+    session: t("conversation.label.approval-key-session"),
     always: t("conversation.label.approval-key-always"),
     reject: t("conversation.label.approval-key-deny"),
   } as const;
@@ -85,7 +96,7 @@ export function ApprovalCard({
     wasDeny.current = denyOpen;
   }, [denyOpen]);
 
-  // 이 카드 안에 초점이 있을 때만 듣는다. 버튼 위의 Enter는 버튼이 스스로 받는다.
+  // 이 카드 안에 초점이 있을 때만 듣는다. 마운트 직후 400ms 동안은 Enter를 무시한다.
   const keyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (event.nativeEvent.isComposing || event.repeat) return;
     if (event.key === "Escape") {
@@ -98,6 +109,14 @@ export function ApprovalCard({
     if (busy) return;
     if (
       event.key === "Enter" &&
+      Date.now() - mountedAt.current < MOUNT_ENTER_GUARD_MS
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    if (
+      event.key === "Enter" &&
       (event.metaKey || event.ctrlKey) &&
       event.shiftKey &&
       !event.altKey
@@ -106,6 +125,20 @@ export function ApprovalCard({
         event.preventDefault();
         event.stopPropagation();
         void decide("always");
+      }
+      return;
+    }
+    if (
+      event.key === "Enter" &&
+      event.shiftKey &&
+      !event.metaKey &&
+      !event.ctrlKey &&
+      !event.altKey
+    ) {
+      if (!denyOpen && canSession) {
+        event.preventDefault();
+        event.stopPropagation();
+        void decide("session");
       }
       return;
     }
@@ -122,7 +155,7 @@ export function ApprovalCard({
     event.preventDefault();
     event.stopPropagation();
     if (denyOpen) void decide("reject", reason.trim() || undefined);
-    else void decide("once");
+    else if (choices.includes("once")) void decide("once");
   };
 
   return (
@@ -136,7 +169,12 @@ export function ApprovalCard({
       <div className={styles.approval}>
         <p className={styles.title}>
           <Icon icon={editorIcons.problem} pixels={iconPixels("base")} />
-          {titleOf(subject, agent)}
+          <span>{titleOf(subject, agent)}</span>
+          {request.outside_rewind === true ? (
+            <span className={styles.outsideRewind} data-outside-rewind="">
+              {t("conversation.label.approval-outside-rewind")}
+            </span>
+          ) : null}
         </p>
         <dl className={styles.facts}>
           {subject.kind === "shell" ? (
@@ -144,6 +182,28 @@ export function ApprovalCard({
               <dt>{t("conversation.label.approval-command")}</dt>
               <dd>
                 <pre className={styles.pre}>{subject.command}</pre>
+              </dd>
+            </>
+          ) : subject.kind === "file_read" || subject.kind === "file_write" ? (
+            <>
+              <dt>{t("conversation.label.approval-path")}</dt>
+              <dd>
+                <code className={styles.pattern}>{subject.path}</code>
+              </dd>
+              <dt>{t("conversation.label.approval-folder")}</dt>
+              <dd>{subject.folder}</dd>
+            </>
+          ) : subject.kind === "local_tool" ? (
+            <>
+              <dt>{t("conversation.label.approval-script")}</dt>
+              <dd>
+                <code className={styles.pattern}>{subject.path}</code>
+              </dd>
+              <dt>{t("conversation.label.approval-sha256")}</dt>
+              <dd>
+                <code className={styles.pattern}>
+                  {subject.sha256.slice(0, 16)}
+                </code>
               </dd>
             </>
           ) : subject.kind === "file_change" ? (
@@ -224,6 +284,18 @@ export function ApprovalCard({
               <dd>{effect}</dd>
             </>
           )}
+          {request.reason == null || request.reason === "" ? null : (
+            <>
+              <dt>{t("conversation.label.approval-reason-why")}</dt>
+              <dd data-approval-reason="">{request.reason}</dd>
+            </>
+          )}
+          {request.outside_rewind === true ? (
+            <>
+              <dt>{t("conversation.label.approval-outside-rewind")}</dt>
+              <dd>{t("conversation.label.approval-outside-rewind-note")}</dd>
+            </>
+          ) : null}
           {!canAlways || request.always_patterns.length === 0 ? null : (
             <>
               <dt>{t("conversation.label.approval-always")}</dt>
@@ -296,11 +368,13 @@ export function ApprovalCard({
                 aria-keyshortcuts={
                   choice === "once"
                     ? "Enter"
-                    : choice === "always"
-                      ? "Control+Shift+Enter Meta+Shift+Enter"
-                      : choice === "reject"
-                        ? "Escape"
-                        : undefined
+                    : choice === "session"
+                      ? "Shift+Enter"
+                      : choice === "always"
+                        ? "Control+Shift+Enter Meta+Shift+Enter"
+                        : choice === "reject"
+                          ? "Escape"
+                          : undefined
                 }
                 onClick={() =>
                   choice === "reject" ? setDenyOpen(true) : decide(choice)
@@ -308,9 +382,7 @@ export function ApprovalCard({
               >
                 <span className={styles.labelWithKey}>
                   {CHOICE_LABEL[choice]()}
-                  {choice === "session" ? null : (
-                    <Kbd keys={[keyHint[choice]]} />
-                  )}
+                  <Kbd keys={[keyHint[choice]]} />
                 </span>
               </Button>
             ))}

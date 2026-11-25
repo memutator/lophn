@@ -2,6 +2,7 @@
 // useCoreRead로 읽은 답을 풀고, Agents 통로(agents/core-source.ts)가 쓰기 직전에 다시 읽는다. 모양은 contract
 // (`lophn-agent.extensions.skill_folders`·`lophn-agent.extensions.mcp_servers` 설정 정의)에서
 // 이 화면이 읽는 field만 옮긴 것이다. credential 값은 어디에도 없고 보관 이름과 저장 여부만 있다.
+import type { McpTrust } from "../../../../protocol/lophn-agent/mcp-settings.ts";
 import type { CoreSource } from "../connection/connection.ts";
 import { chooseSetting, readEffective } from "./declared.ts";
 import type {
@@ -18,6 +19,7 @@ export const MCP_SERVERS = "lophn-agent.extensions.mcp_servers";
 export interface McpServerValue {
   name: string;
   enabled: boolean;
+  trust?: McpTrust;
   transport: "stdio" | "http";
   stdio?: { executable: string };
   http?: {

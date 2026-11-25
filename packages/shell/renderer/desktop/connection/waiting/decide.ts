@@ -1,5 +1,7 @@
 // 사람의 결정을 route로 보낸다. 항목을 목록에서 빼는 것은 이 호출이 아니라 TurnRequestClosed·
 // ActivationConsentClosed·QuestionResolved와 snapshot 읽기다. 대화 쪽 core source도 같은 호출을 쓴다.
+
+import { shareRequestDecide } from "../../../../../protocol/approvals/share-request.ts";
 import {
   type TurnRequest,
   type TurnRequestChoice,
@@ -7,24 +9,23 @@ import {
 } from "../../../../../protocol/approvals/turn-request.ts";
 import { activationConsent } from "../../../../../protocol/apps/activation/consent.ts";
 import { noticeDismiss } from "../../../../../protocol/apps/notice.ts";
-import { shareRequestDecide } from "../../../../../protocol/approvals/share-request.ts";
 import {
   jobApprove,
   jobDecideHold,
 } from "../../../../../protocol/jobs/jobs.ts";
-import { mailDecideHold } from "../../../../../protocol/lophn-agent/mail.ts";
 import {
   type AskAnswer,
-  askAnswer,
   type AskQuestion,
+  askAnswer,
   askRead,
 } from "../../../../../protocol/lophn-agent/ask-tool.ts";
+import { mailDecideHold } from "../../../../../protocol/lophn-agent/mail.ts";
 import { commandCall } from "../../../command-call.ts";
 import { newId } from "../../../prefixed-id.ts";
 import type { CoreSource } from "../connection.ts";
 import type { WaitingEntry } from "../events/waiting-store.ts";
 
-/** once·always·reject는 turn request의 선택지이고 allow는 activation 동의만 쓴다. */
+/** once·session·always·reject는 turn request의 선택지이고 allow는 activation 동의만 쓴다. */
 export type WaitingChoice = TurnRequestChoice["kind"] | "allow";
 
 /** 거절 이유는 한 줄 500자 안으로 맞춘다. 비면 이유가 없다. */
@@ -45,13 +46,11 @@ export function turnChoiceOf(
     : { kind: "reject", reason: why };
 }
 
-/** 카드가 둘 단추. always는 더해질 규칙 줄(shell request만 가진다)이 있을 때만 있다. 대화 화면도 이것으로 고른다. */
+/** 카드가 둘 단추. 요청이 계산한 `allowed_choices`를 그대로 쓴다. */
 export function turnChoicesOf(
-  request: Pick<TurnRequest, "always_patterns">,
+  request: Pick<TurnRequest, "allowed_choices">,
 ): readonly TurnRequestChoice["kind"][] {
-  return request.always_patterns.length > 0
-    ? ["once", "always", "reject"]
-    : ["once", "reject"];
+  return request.allowed_choices;
 }
 
 /** 결정 직후 남는 줄의 상태. */

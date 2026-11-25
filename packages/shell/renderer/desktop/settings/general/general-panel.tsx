@@ -1,24 +1,24 @@
 // Settings › General. 요소가 선언한 설정 항목을 타입(불리언, 숫자 범위, 선택지, 목록)대로 보고 바꾼다.
 // 사람이 정한 값만 저장하고 기본값과 나눠 보인다. 틀린 값은 거절 이유를 줄 아래에 보이고 저장된 값은
 // 그대로다. 필수 설정이 비어 있으면 panel 위쪽 toast가 알린다.
-import { type KeyboardEvent, useState } from "react";
-import { Button, Icon, IconButton } from "@lophn/ui/primitives";
-import { Field, Input, Select, Switch } from "@lophn/ui/input";
-import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
-import { Toast } from "@lophn/ui/overlay";
-import { iconPixels } from "@lophn/ui/shared";
-import { t } from "@lophn/i18n";
 
-import { actionIcons, connectionFailedIcon } from "../../../icons/mod.ts";
-import type { SettingsPane } from "../model.ts";
+import { t } from "@lophn/i18n";
+import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
+import { Field, Input, Select, Switch } from "@lophn/ui/input";
+import { Toast } from "@lophn/ui/overlay";
+import { Button, Icon, IconButton } from "@lophn/ui/primitives";
+import { iconPixels } from "@lophn/ui/shared";
+import { type KeyboardEvent, useState } from "react";
 import { settingsList } from "../../../../../protocol/config/file.ts";
+import { actionIcons, connectionFailedIcon } from "../../../icons/mod.ts";
 import { useCoreRead } from "../../connection/core-read.ts";
 import { entriesOf as settingEntriesOf } from "../declared.ts";
-import type { SettingChange, SettingEntry, SettingsSource } from "../source.ts";
+import type { SettingsPane } from "../model.ts";
 import styles from "../settings.module.css";
+import type { SettingChange, SettingEntry, SettingsSource } from "../source.ts";
 import {
-  choiceLabel,
   type Control,
+  choiceLabel,
   controlOf,
   currentValue,
   defaultText,
@@ -283,7 +283,7 @@ function Control({
           key={String(value)}
           options={control.options.map((option) => ({
             value: option,
-            label: choiceLabel(option),
+            label: choiceLabel(option, entry.key),
           }))}
           defaultValue={typeof value === "string" ? value : undefined}
           onValueChange={(next) => void change(next)}

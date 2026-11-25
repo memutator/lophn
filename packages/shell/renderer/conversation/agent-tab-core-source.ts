@@ -7,12 +7,24 @@
 // unavailable이다.
 import { acpDraft, acpSend, acpSnapshot } from "../../../protocol/acp/mod.ts";
 import { providerRead } from "../../../protocol/lophn-agent/providers.ts";
-import type {
-  AgentTabSource,
-  AgentTabSourceFactory,
-  SourceResult,
-} from "./agent-tab-source.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
+import {
+  createBodiesMemo,
+  readEnvelope,
+  readToolCallBody,
+} from "./agent-tab-core-source-bodies.ts";
+import { cancelCallOf, readCallState } from "./agent-tab-core-source-calls.ts";
+import {
+  answerQuestions,
+  editQueuedMessage,
+  moveQueuedMessage,
+  removeQueuedMessage,
+  retryTurn,
+  sendContent,
+  sendQueuedNow,
+  stopSessionOf,
+  stopTurnOf,
+} from "./agent-tab-core-source-commands.ts";
 import {
   type AgentTarget,
   createEnv,
@@ -20,32 +32,21 @@ import {
   type Env,
   type Gate,
 } from "./agent-tab-core-source-env.ts";
-import { cancelCallOf, readCallState } from "./agent-tab-core-source-calls.ts";
+import {
+  createImageSource,
+  type ImageSource,
+} from "./agent-tab-core-source-images.ts";
 import {
   cancelInputRequest,
   readInputRequest,
 } from "./agent-tab-core-source-request.ts";
 import {
-  answerQuestions,
-  editQueuedMessage,
-  moveQueuedMessage,
-  removeQueuedMessage,
-  retryTurn,
-  sendQueuedNow,
-  sendContent,
-  stopSessionOf,
-  stopTurnOf,
-} from "./agent-tab-core-source-commands.ts";
-import {
-  createImageSource,
-  type ImageSource,
-} from "./agent-tab-core-source-images.ts";
-import { searchMessages } from "./agent-tab-core-source-search.ts";
-import {
   previewRewind,
   readRewindPoints,
 } from "./agent-tab-core-source-rewind.ts";
+import { searchMessages } from "./agent-tab-core-source-search.ts";
 import {
+  addAllowRuleOf,
   archiveSessionOf,
   createFaceCache,
   deleteSessionOf,
@@ -53,12 +54,15 @@ import {
   readFace,
   readPermissions,
   readSessions,
+  revokeSessionGrantOf,
+  trustLocalToolOf,
+  untrustLocalToolOf,
 } from "./agent-tab-core-source-sessions.ts";
-import {
-  createBodiesMemo,
-  readEnvelope,
-  readToolCallBody,
-} from "./agent-tab-core-source-bodies.ts";
+import type {
+  AgentTabSource,
+  AgentTabSourceFactory,
+  SourceResult,
+} from "./agent-tab-source.ts";
 
 interface AgentCoreDeps {
   /** 지금 시각(ms). */
@@ -108,7 +112,12 @@ function createSource(
     toolCallBody: (toolCall, part) =>
       readToolCallBody(env, memo, toolCall, part),
 
-    permissions: () => readPermissions(env),
+    permissions: (session) => readPermissions(env, session),
+    revokeSessionGrant: (session, grant) =>
+      revokeSessionGrantOf(env, session, grant),
+    trustLocalTool: (path, sha256) => trustLocalToolOf(env, path, sha256),
+    untrustLocalTool: (path) => untrustLocalToolOf(env, path),
+    addAllowRule: (category, pattern) => addAllowRuleOf(env, category, pattern),
 
     act: (_session, input) => env.read(acpSend, input),
     send: (input) => sendContent(env, input),
@@ -142,7 +151,7 @@ function createSource(
     archiveSession: (session, options) =>
       archiveSessionOf(env, session, options),
     ...(deps.device === true
-      ? { fixedMode: true as const }
+      ? { downgradeOnlyMode: true as const }
       : { deleteSession: (session) => deleteSessionOf(env, session) }),
 
     rewindPoints: (session) => readRewindPoints(env, session),

@@ -13,6 +13,7 @@ import {
   useMemo,
 } from "react";
 import type { AcpWriting } from "../../../protocol/acp/mod.ts";
+import type { RecoveryAction } from "../../../protocol/approvals/denial.ts";
 import { runToastAction } from "../desktop/connection/toasts/toast-actions.ts";
 import { EditCard } from "./activity/file-edit-card.tsx";
 import type { ViewDetail } from "./activity/model.ts";
@@ -64,6 +65,7 @@ import { HiddenRange } from "./session-rewind/hidden-range.tsx";
 import { CallBlock } from "./thread/call-block.tsx";
 import { CommandOutput } from "./thread/command-output.tsx";
 import { InfoRow } from "./thread/info-row.tsx";
+import { PermissionDeniedBlock } from "./thread/permission-denied.tsx";
 import { ProviderError } from "./thread/provider-error.tsx";
 import type { ProviderKeyFix } from "./thread/provider-key.ts";
 import { ReceivedMessage } from "./thread/received-message.tsx";
@@ -134,6 +136,8 @@ interface AgentThreadProps {
   artifacts: ArtifactsSlice | undefined;
   /** provider 오류 줄의 [Enter key]. 읽기 전용 대화에는 없다. 부르는 쪽이 값을 안정되게 쥔다. */
   providerKey?: ProviderKeyFix | undefined;
+  /** 막힘 블록의 복구 동작. 상태만 바꾸고 도구를 다시 돌리지 않는다. */
+  onRecoverDenial?: ((action: RecoveryAction) => Promise<boolean>) | undefined;
   /** 화면이 key로 대화를 scroll하는 길. */
   scroll?: Ref<ThreadScrollHandle>;
 }
@@ -217,6 +221,7 @@ function AgentThreadView(props: AgentThreadProps): ReactElement {
       props.onOpenChild,
       props.onStopShell,
       props.providerKey,
+      props.onRecoverDenial,
       // session store가 snapshot을 읽은 뒤에야 true가 된다.
       props.memberOpened,
     ],
@@ -564,6 +569,19 @@ function itemsOf(
             source={props.source}
             canRetry={props.can.retry}
             providerKey={props.providerKey}
+          />,
+        );
+        break;
+      case "permission-denied":
+        add(
+          entry,
+          <PermissionDeniedBlock
+            key={entry.id}
+            toolCall={entry.toolCall}
+            denial={entry.denial}
+            onRecover={
+              nested || props.readOnly ? undefined : props.onRecoverDenial
+            }
           />,
         );
         break;

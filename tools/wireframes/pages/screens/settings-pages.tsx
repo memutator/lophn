@@ -1,12 +1,12 @@
 // Settings의 새 설계 page. 모두 인자 없이 한 상태를 그린다.
 
-import { SettingsFrame } from "./settings-frame.tsx";
-import { click, find, press, type, wait } from "../../mock/drive.ts";
-import type { Bookmark } from "../../../../packages/shell/ipc/browser.ts";
 import { appPanelBindingId } from "../../../../packages/protocol/shell/keybindings.ts";
+import type { Bookmark } from "../../../../packages/shell/ipc/browser.ts";
 import { APP_BUDGET } from "../../../../packages/shell/renderer/desktop/dev-mock/ids.ts";
-import { sampleSyncMachines } from "../../../../packages/shell/renderer/desktop/settings/sync/testdata/fake-source.ts";
 import { sampleDevices } from "../../../../packages/shell/renderer/desktop/settings/remote/testdata/fake-source.ts";
+import { sampleSyncMachines } from "../../../../packages/shell/renderer/desktop/settings/sync/testdata/fake-source.ts";
+import { click, find, press, type, wait } from "../../mock/drive.ts";
+import { SettingsFrame } from "./settings-frame.tsx";
 
 /** Settings 머리의 [Back]. 누르면 Settings를 열기 전 화면으로 돌아간다. */
 export const SettingsBack = () => <SettingsFrame pane="agents" />;
@@ -87,7 +87,7 @@ export const SettingsCoding = () => <SettingsFrame pane="coding" />;
 /** Settings › Shell rules. */
 export const SettingsShellRules = () => <SettingsFrame pane="shell-rules" />;
 
-/** Settings › Shell rules: Global 절의 더하기 줄에 pattern을 치고 Ask를 고른 상태. */
+/** Settings › Permission rules: Global 절의 더하기 줄에 pattern을 치고 Ask를 고른 상태. */
 export const SettingsShellRulesAdd = () => (
   <SettingsFrame
     pane="shell-rules"
@@ -95,7 +95,9 @@ export const SettingsShellRulesAdd = () => (
       () =>
         type('[data-layer="global"] [data-add-rule] input', "npm publish *"),
       () =>
-        press('[data-layer="global"] [data-add-rule] button[role="combobox"]'),
+        press(
+          '[data-layer="global"] [data-add-rule] [data-rule-action] button[role="combobox"]',
+        ),
       () => click('[role="option"]', "Ask"),
     ]}
   />

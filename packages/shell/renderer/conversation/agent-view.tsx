@@ -3,8 +3,8 @@
 // AgentTabSource로만 말하고 탭을 열고 닫는 일, 파일과 설정으로 가는 일은 host가 한다.
 
 import { formatRelativeTime, t } from "@lophn/i18n";
-import { Button, IconButton } from "@lophn/ui/primitives";
 import { Dialog, type MenuItem } from "@lophn/ui/overlay";
+import { Button, IconButton } from "@lophn/ui/primitives";
 import {
   type ReactNode,
   useCallback,
@@ -20,14 +20,25 @@ import type {
   AcpSessionMeta,
 } from "../../../protocol/acp/mod.ts";
 import { EMPTY_ACP_CHILD_STATE } from "../../../protocol/acp/mod.ts";
+import type { RecoveryAction } from "../../../protocol/approvals/denial.ts";
+import type { PermissionRuleCategory } from "../../../protocol/approvals/permission-rules.ts";
 import {
   blocksSummary,
   type ContentBlock,
   textBlocks,
 } from "../../../protocol/lophn-agent/content-block.ts";
+import {
+  isModeDowngrade,
+  PERMISSION_MODES,
+  type PermissionMode,
+} from "../../../protocol/lophn-agent/turn-values.ts";
+import { useStateChanged } from "../desktop/connection/core-read.ts";
+import { useSessions } from "../desktop/connection/events/hooks.tsx";
+import { useScopeMachine } from "../desktop/machines/scope.tsx";
 import { actionIcons } from "../icons/mod.ts";
 import { newId } from "../prefixed-id.ts";
-import { useSessions } from "../desktop/connection/events/hooks.tsx";
+import { ToolDetailsContext } from "./activity/tool-line.tsx";
+import { type FocusRoutes, useFocusRoutes } from "./agent-keys.ts";
 import {
   type AgentTabData,
   useAgentTabData,
@@ -43,12 +54,6 @@ import type {
   ThreadEntry,
 } from "./agent-tab-source.ts";
 import { AgentThread } from "./agent-thread.tsx";
-import {
-  providerKeyFix,
-  providerOfModel,
-  useProviderAuthKind,
-} from "./thread/provider-key.ts";
-import { type FocusRoutes, useFocusRoutes } from "./agent-keys.ts";
 import styles from "./agent-view.module.css";
 import {
   capabilitiesOf,
@@ -63,12 +68,6 @@ import {
   subagentsOf,
   textOfParts,
 } from "./agent-view-model.ts";
-import { ToolDetailsContext } from "./activity/tool-line.tsx";
-import { type DesktopParts, DesktopPartsProvider } from "./desktop-parts.ts";
-import type { ArtifactsSlice } from "./message-list/artifact-text.tsx";
-import { useThreadBookmarks } from "./thread-index/bookmarks.ts";
-import { ThreadIndexContext } from "./thread-index/context.ts";
-import { threadIndexOf } from "./thread-index/model.ts";
 import { ApprovalCard } from "./approval-card/approval-card.tsx";
 import { PlanCard } from "./approval-card/plan-card.tsx";
 import { fileBlock } from "./attachments.ts";
@@ -90,23 +89,23 @@ import {
   startSend,
   waitsInQueue,
 } from "./delivery-state.ts";
-import type { DraftStore } from "./drafts.ts";
+import { type DesktopParts, DesktopPartsProvider } from "./desktop-parts.ts";
 import { ChildView } from "./dock/child-view.tsx";
 import { ComposerDock, type DockCardId } from "./dock/composer-dock.tsx";
+import type { DraftStore } from "./drafts.ts";
 import { ConversationFindBar } from "./find/conversation-find.tsx";
 import { useConversationFind } from "./find/use-conversation-find.ts";
 import { AgentHeader } from "./header/agent-header.tsx";
 import { forkAndOpen } from "./header/fork.ts";
-import { FillShellProvider, RunCodeProvider } from "./message-list/run-code.ts";
-import type { ThreadScrollHandle } from "./message-list/thread-scroll.tsx";
-import type { ThreadPosition } from "./message-list/virtual-rows.ts";
-import { PermissionsView } from "./permissions-view/permissions-view.tsx";
 import {
   InputRequestCard,
   openInputRequestWindow,
 } from "./input-request-card/input-request-card.tsx";
-import { useStateChanged } from "../desktop/connection/core-read.ts";
-import { useScopeMachine } from "../desktop/machines/scope.tsx";
+import type { ArtifactsSlice } from "./message-list/artifact-text.tsx";
+import { FillShellProvider, RunCodeProvider } from "./message-list/run-code.ts";
+import type { ThreadScrollHandle } from "./message-list/thread-scroll.tsx";
+import type { ThreadPosition } from "./message-list/virtual-rows.ts";
+import { PermissionsView } from "./permissions-view/permissions-view.tsx";
 import { QuestionCard } from "./question-card/question-card.tsx";
 import { RewindPanel } from "./session-rewind/rewind-panel.tsx";
 import type { SlashEntryView } from "./slash-menu/types.ts";
@@ -114,6 +113,14 @@ import { slashScreenOf } from "./slash-rule.ts";
 import { StatusFooter } from "./status-view/status-footer.tsx";
 import type { StatusData } from "./status-view/status-summary.ts";
 import { StatusView } from "./status-view/status-view.tsx";
+import {
+  providerKeyFix,
+  providerOfModel,
+  useProviderAuthKind,
+} from "./thread/provider-key.ts";
+import { useThreadBookmarks } from "./thread-index/bookmarks.ts";
+import { ThreadIndexContext } from "./thread-index/context.ts";
+import { threadIndexOf } from "./thread-index/model.ts";
 import { createLayoutCache, layoutOf } from "./thread-layout.ts";
 import { windowPathOf, windowReadImage } from "./window-paths.ts";
 
@@ -127,8 +134,8 @@ export interface AgentViewHost {
   artifacts?: ArtifactsSlice;
   /** 권한 요약과 `/permissions`의 [Edit]가 Agents 화면의 Permissions로 간다. */
   openPermissions?: () => void;
-  /** `/skills`·`/mcp`가 Settings › Agents로 간다. */
-  openAgentSettings?: (target: "skills" | "mcp") => void;
+  /** `/skills`·`/mcp`·권한 규칙이 Settings의 해당 화면으로 간다. */
+  openAgentSettings?: (target: "skills" | "mcp" | "rules") => void;
   /** Fork가 만든 session을 같은 agent의 새 탭(앱 공간에서는 같은 칸)으로 연다. */
   openForked: (session: string) => void;
   /** 다른 session(맡긴 call을 받은 session, 보낸 쪽 session)을 그 session의 창에서 연다. */
@@ -604,6 +611,100 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
     return read.ok;
   };
 
+  const changePermissionMode = async (
+    mode: PermissionMode,
+  ): Promise<boolean> => {
+    if (session === null) return false;
+    if (
+      source.downgradeOnlyMode === true &&
+      meta?.mode !== null &&
+      meta?.mode !== undefined &&
+      (PERMISSION_MODES as readonly string[]).includes(meta.mode) &&
+      !isModeDowngrade(meta.mode as PermissionMode, mode)
+    ) {
+      return false;
+    }
+    const result = await act(session, {
+      type: "set_mode",
+      session,
+      key: actKey("mode"),
+      mode,
+    });
+    if (result.ok && permissions !== null) void loadPermissions();
+    return result.ok;
+  };
+
+  const revokeSessionGrant = async (grantId: string): Promise<boolean> => {
+    if (session === null || source.revokeSessionGrant === undefined) {
+      return false;
+    }
+    const result = await source.revokeSessionGrant(session, grantId);
+    if (result.ok) await loadPermissions();
+    else fail();
+    return result.ok;
+  };
+
+  const trustLocalTool = async (
+    path: string,
+    sha256: string,
+  ): Promise<boolean> => {
+    if (source.trustLocalTool === undefined) return false;
+    const result = await source.trustLocalTool(path, sha256);
+    if (result.ok && permissions !== null) await loadPermissions();
+    else if (!result.ok) fail();
+    return result.ok;
+  };
+
+  const untrustLocalTool = async (path: string): Promise<boolean> => {
+    if (source.untrustLocalTool === undefined) return false;
+    const result = await source.untrustLocalTool(path);
+    if (result.ok && permissions !== null) await loadPermissions();
+    else if (!result.ok) fail();
+    return result.ok;
+  };
+
+  const recoverDenial = async (action: RecoveryAction): Promise<boolean> => {
+    switch (action.kind) {
+      case "none":
+        return false;
+      case "edit_rule":
+        host.openAgentSettings?.("rules");
+        return host.openAgentSettings !== undefined;
+      case "assign_app":
+        host.openPermissions?.();
+        return host.openPermissions !== undefined;
+      case "change_mode": {
+        if (action.suggested_mode === undefined) return false;
+        return changePermissionMode(action.suggested_mode);
+      }
+      case "trust_local_tool": {
+        if (action.tool_path === undefined || action.sha256 === undefined) {
+          return false;
+        }
+        return trustLocalTool(action.tool_path, action.sha256);
+      }
+      case "trust_mcp":
+      case "sign_in_mcp":
+        host.openAgentSettings?.("mcp");
+        return host.openAgentSettings !== undefined;
+      case "add_allow_rule": {
+        if (
+          action.suggested_pattern === undefined ||
+          source.addAllowRule === undefined
+        ) {
+          return false;
+        }
+        const category = ruleCategoryOf(action.category);
+        const result = await source.addAllowRule(
+          category,
+          action.suggested_pattern,
+        );
+        if (result.ok && permissions !== null) void loadPermissions();
+        return result.ok;
+      }
+    }
+  };
+
   // rewind가 끝났다. 대화를 다시 읽고, 쓰던 글이 없으면 고른 시점의 원문을 입력칸에 채운다.
   const rewound = (message: string) => {
     void data.reload();
@@ -935,6 +1036,30 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
     (item) => item.actor === "user" && item.delivery === "next_turn",
   );
   const queued = thread?.queued ?? [];
+  const nextCycleMode = (): string | null => {
+    if (meta === null || meta.modes.length < 2) return null;
+    if (source.downgradeOnlyMode === true) {
+      const current = meta.mode;
+      if (
+        current === null ||
+        !(PERMISSION_MODES as readonly string[]).includes(current)
+      ) {
+        return null;
+      }
+      const lower = meta.modes.filter(
+        (candidate) =>
+          (PERMISSION_MODES as readonly string[]).includes(candidate.id) &&
+          isModeDowngrade(
+            current as PermissionMode,
+            candidate.id as PermissionMode,
+          ),
+      );
+      return lower.at(-1)?.id ?? null;
+    }
+    const at = meta.modes.findIndex((mode) => mode.id === meta.mode);
+    return meta.modes[(at + 1) % meta.modes.length]?.id ?? null;
+  };
+
   const modeReady =
     session !== null &&
     !readOnly &&
@@ -980,17 +1105,19 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
     "agent.cycle-mode": {
       run: () => {
         if (session === null || meta === null) return;
-        const at = meta.modes.findIndex((mode) => mode.id === meta.mode);
-        const next = meta.modes[(at + 1) % meta.modes.length];
-        if (next === undefined) return;
+        const next = nextCycleMode();
+        if (next === null) return;
         void act(session, {
           type: "set_mode",
           session,
           key: actKey("mode"),
-          mode: next.id,
+          mode: next,
         });
       },
-      when: () => modeReady && keys.current?.slashOpen === false,
+      when: () =>
+        modeReady &&
+        nextCycleMode() !== null &&
+        keys.current?.slashOpen === false,
     },
     // 다음 turn 줄의 첫 글을 지금 올린다(줄의 [Send now]와 같은 길). 줄이 없으면 입력칸의 글을 steer로 보낸다.
     "agent.send-now": {
@@ -1091,6 +1218,9 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
     onOpenRef: useLatest((ref: EvidenceRef) => {
       if (ref.kind === "file") host.openFile?.(ref.target);
     }),
+    onRecoverDenial: useLatest((action: RecoveryAction) =>
+      recoverDenial(action),
+    ),
   };
 
   if (agent === undefined) {
@@ -1379,6 +1509,29 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
                 permissions={permissions}
                 onClose={() => setLayer(null)}
                 onEdit={host.openPermissions}
+                onOpenRules={
+                  host.openAgentSettings === undefined
+                    ? undefined
+                    : () => host.openAgentSettings?.("rules")
+                }
+                onChangeMode={modeReady ? changePermissionMode : undefined}
+                downgradeOnlyMode={source.downgradeOnlyMode === true}
+                onRevokeGrant={
+                  source.revokeSessionGrant === undefined
+                    ? undefined
+                    : revokeSessionGrant
+                }
+                onTrustLocalTool={
+                  source.trustLocalTool === undefined
+                    ? undefined
+                    : trustLocalTool
+                }
+                onUntrustLocalTool={
+                  source.untrustLocalTool === undefined
+                    ? undefined
+                    : untrustLocalTool
+                }
+                onRecoverDenial={recoverDenial}
               />
             ) : null}
           </div>
@@ -1589,6 +1742,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
                 : {
                     current: meta.mode,
                     choices: meta.modes,
+                    downgradeOnly: source.downgradeOnlyMode === true,
                     onChange: (mode) =>
                       void act(session, {
                         type: "set_mode",
@@ -1630,6 +1784,28 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             onDraft={(patch) => drafts.save(key, patch)}
             onLoadPermissions={loadPermissions}
             onEditPermissions={host.openPermissions}
+            onOpenRules={
+              host.openAgentSettings === undefined
+                ? undefined
+                : () => host.openAgentSettings?.("rules")
+            }
+            onChangePermissionMode={
+              modeReady ? changePermissionMode : undefined
+            }
+            onRevokeSessionGrant={
+              source.revokeSessionGrant === undefined
+                ? undefined
+                : revokeSessionGrant
+            }
+            onTrustLocalTool={
+              source.trustLocalTool === undefined ? undefined : trustLocalTool
+            }
+            onUntrustLocalTool={
+              source.untrustLocalTool === undefined
+                ? undefined
+                : untrustLocalTool
+            }
+            onRecoverDenial={recoverDenial}
             onSend={(delivery) => void send(delivery)}
             onShell={(command) => void runShell(command)}
             onStop={() => void stop()}
@@ -1689,6 +1865,26 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
       </ToolDetailsContext.Provider>
     </DesktopPartsProvider>
   );
+}
+
+/** 거부 범주를 통합 규칙 범주로 옮긴다. */
+function ruleCategoryOf(
+  category: RecoveryAction["category"],
+): PermissionRuleCategory {
+  switch (category) {
+    case "file_read":
+    case "file_write":
+    case "file_outside":
+    case "file_sensitive":
+      return "file";
+    case "app_tool":
+    case "mcp_tool":
+    case "local_tool":
+    case "shell":
+      return category;
+    default:
+      return "shell";
+  }
 }
 
 /** 이 창에서 열 수 없는 명령을 `/` 창에 보이지 않는다. Settings › Agents로 가는 길이 없으면 `/skills`·`/mcp`다. */

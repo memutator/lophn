@@ -1,15 +1,17 @@
 // 할당 화면. 사람이 이 agent에게 앱을 붙이고, 앱을 펼쳐 tool마다 넣거나 뺀다. 바꾼 것은 바로 entries로 나간다.
 // MCP server는 설정한 층이 곧 할당이라 이 화면에 줄이 없다.
-import { type ReactNode, useEffect, useState } from "react";
-import { Button, Icon } from "@lophn/ui/primitives";
+
+import type { MessageKey } from "@lophn/i18n";
+import { t } from "@lophn/i18n";
 import { Switch } from "@lophn/ui/input";
 import { Menu } from "@lophn/ui/overlay";
+import { Button, Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
-import { t } from "@lophn/i18n";
-import type { MessageKey } from "@lophn/i18n";
+import { type ReactNode, useEffect, useState } from "react";
 
 import type { AssignmentEntry } from "../../../../../protocol/approvals/assignment.ts";
 import type { ToolEffect } from "../../../../../protocol/lophn-agent/tool-values.ts";
+import { shortId } from "../../../desktop/connection/waiting/model.ts";
 import {
   machineItemOf,
   useMachinesView,
@@ -19,15 +21,16 @@ import {
   MachineStatus,
   statusParts,
 } from "../../../desktop/machines/status.tsx";
-import { shortId } from "../../../desktop/connection/waiting/model.ts";
 import { actionIcons, commonIcons } from "../../../icons/mod.ts";
 import { readComputerApps } from "../core-grants.ts";
 import type { GrantApp, GrantCatalog } from "../source.ts";
 import {
   appEntryOf,
   dropEntries,
+  isAsk,
   isRemoved,
   setEntry,
+  withToolAsk,
   withToolRemoved,
 } from "./grants-model.ts";
 import styles from "./grants-panel.module.css";
@@ -44,14 +47,17 @@ interface Target {
   readonly detail: string;
   readonly effect: ToolEffect;
   readonly removed: boolean;
+  readonly ask: boolean;
 }
 
 function GrantRow({
   target,
   onRemoved,
+  onAsk,
 }: {
   target: Target;
   onRemoved: (removed: boolean) => void;
+  onAsk: (ask: boolean) => void;
 }) {
   return (
     <li
@@ -63,6 +69,17 @@ function GrantRow({
         <span className={styles.detail}>{target.detail}</span>
       </span>
       <span className={styles.chip}>{t(EFFECT_LABEL[target.effect])}</span>
+      <span
+        className={`${styles.toggleCell} ${styles.hiddenLabel}`}
+        data-grant-ask={target.name}
+      >
+        <Switch
+          label={t("agents.label.grant-ask-toggle", { tool: target.name })}
+          checked={!target.removed && target.ask}
+          disabled={target.removed}
+          onCheckedChange={(on) => onAsk(on)}
+        />
+      </span>
       <span className={`${styles.toggleCell} ${styles.hiddenLabel}`}>
         <Switch
           label={target.name}
@@ -79,6 +96,9 @@ function RowHead() {
     <li className={styles.head} aria-hidden="true">
       <span>{t("agents.label.grant-col-name")}</span>
       <span>{t("agents.label.grant-col-effect")}</span>
+      <span className={styles.headRight}>
+        {t("agents.label.grant-col-ask")}
+      </span>
       <span>{t("agents.label.grant-col-allowed")}</span>
     </li>
   );
@@ -299,6 +319,7 @@ export function GrantsPanel({
                       detail: tool.detail,
                       effect: tool.effect,
                       removed: isRemoved(entry, tool.tool),
+                      ask: isAsk(entry, tool.tool),
                     }}
                     onRemoved={(removed) =>
                       onChange(
@@ -306,6 +327,11 @@ export function GrantsPanel({
                           entries,
                           withToolRemoved(entry, tool.tool, removed),
                         ),
+                      )
+                    }
+                    onAsk={(ask) =>
+                      onChange(
+                        setEntry(entries, withToolAsk(entry, tool.tool, ask)),
                       )
                     }
                   />
@@ -437,12 +463,21 @@ export function GrantsPanel({
                             detail: tool.detail,
                             effect: tool.effect,
                             removed: isRemoved(entry, tool.tool),
+                            ask: isAsk(entry, tool.tool),
                           }}
                           onRemoved={(removed) =>
                             onChange(
                               setEntry(
                                 entries,
                                 withToolRemoved(entry, tool.tool, removed),
+                              ),
+                            )
+                          }
+                          onAsk={(ask) =>
+                            onChange(
+                              setEntry(
+                                entries,
+                                withToolAsk(entry, tool.tool, ask),
                               ),
                             )
                           }

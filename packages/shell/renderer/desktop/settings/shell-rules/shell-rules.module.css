@@ -68,3 +68,53 @@
 .note {
   margin-bottom: var(--space-4);
 }
+
+.categoryGroup {
+  list-style: none;
+  padding: var(--space-0);
+}
+
+.categoryHeader {
+  padding: var(--space-3) var(--space-0) var(--space-1);
+  font-size: var(--type-small-size);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.categoryList {
+  margin: var(--space-0);
+  padding: var(--space-0);
+  list-style: none;
+}
+
+.ruleHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.broadBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-sm);
+  border: var(--border-width) solid var(--color-status-warning);
+  color: var(--color-status-warning);
+  font-size: var(--type-small-size);
+  font-weight: var(--font-weight-medium);
+}
+
+.broadNote {
+  font-size: var(--type-small-size);
+  color: var(--color-status-warning);
+}
+
+.addFields {
+  display: grid;
+  grid-template-columns: minmax(120px, 160px) minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: end;
+}

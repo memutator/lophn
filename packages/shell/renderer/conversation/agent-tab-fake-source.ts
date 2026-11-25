@@ -30,8 +30,13 @@ import {
   EMPTY_ACP_STATE,
   reduceAcp,
 } from "../../../protocol/acp/mod.ts";
+import type { SessionPermissionsOutput } from "../../../protocol/approvals/permissions-view.ts";
 import type { AgentValueLayer } from "../../../protocol/lophn-agent/agent-definitions.ts";
 import { blocksText } from "../../../protocol/lophn-agent/content-block.ts";
+import {
+  DEFAULT_PERMISSION_MODE,
+  type PermissionMode,
+} from "../../../protocol/lophn-agent/turn-values.ts";
 import { lophnIdOf } from "../../../protocol/lophn-agent/workspaces.ts";
 import {
   CLI_COMMANDS,
@@ -1715,10 +1720,65 @@ function sceneData(scene: AgentTabScene): SceneData {
 
 const PERMISSIONS_VIEW: PermissionsView = {
   apps: [
-    { name: "Eval board", removed: [] },
-    { name: "Expense tracker", removed: ["delete_expense"] },
+    { name: "Eval board", removed: [], ask: ["start_run"] },
+    { name: "Expense tracker", removed: ["delete_expense"], ask: [] },
   ],
 };
+
+function fakeSessionPermissions(
+  session: string,
+  mode: PermissionMode,
+): SessionPermissionsOutput {
+  return {
+    session,
+    mode,
+    workspace_folders: ["/Users/me/work/phroner"],
+    opened_folders: ["/Users/me/notes"],
+    floor_count: 25,
+    global_rules: [
+      {
+        id: "rul_global_1",
+        category: "shell",
+        pattern: "git status*",
+        action: "allow",
+        source: "global",
+      },
+    ],
+    project_rules: [
+      {
+        id: "rul_proj_1",
+        category: "shell",
+        pattern: "npm run *",
+        action: "allow",
+        source: "project",
+      },
+    ],
+    session_grants: [
+      {
+        id: "grt_01h455vb4pex5v6nkc6gd5f001",
+        session,
+        category: "shell",
+        pattern: "rm -r docs/reports/*",
+        label: "rm -r docs/reports/*",
+        created_at: at(40),
+      },
+    ],
+    mcp_servers: [
+      { name: "linear", trust: "trusted", enabled: true },
+      { name: "github", trust: "untrusted", enabled: true },
+    ],
+    local_tools: [
+      {
+        name: "export-csv",
+        path: "/Users/me/work/phroner/.lophn/tools/export-csv.sh",
+        sha256:
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        trusted: true,
+      },
+    ],
+    recent_denials: [],
+  };
+}
 
 const REWIND_PREVIEW: RewindPreviewView = {
   files: [
@@ -1878,7 +1938,7 @@ interface MetaOptions {
   readonly picker: FakePicker;
   readonly status: Partial<AcpUsage>;
   readonly title: string | null;
-  readonly mode: "ask" | "skip";
+  readonly mode: PermissionMode;
   /** harness가 dock의 것(toggle, goal, role, 사용 한도, context 분해)을 싣는다. */
   readonly dock?: boolean;
   /** 어느 harness인가. role은 omp만 가진다. 기본은 claude다. */
@@ -1892,8 +1952,10 @@ function lophnMeta(options: MetaOptions): AcpSessionMeta {
     capabilities: EVERYTHING,
     ...modelsOf(options.picker),
     modes: [
-      { id: "ask", label: "Ask when needed", description: null },
-      { id: "skip", label: "Skip permissions", description: null },
+      { id: "read_only", label: "Read only", description: null },
+      { id: "ask", label: "Ask everything", description: null },
+      { id: "workspace", label: "Auto-edit workspace", description: null },
+      { id: "full", label: "Full auto", description: null },
     ],
     mode: options.mode,
     commands: [...LOPHN_COMMANDS],
@@ -2187,7 +2249,10 @@ export function createFakeAgentTabSource(
   const data = sceneData(options.scene ?? "report");
   const envelopes = new Map(Object.entries(data.envelopes ?? {}));
   /** 새 session이 처음 갖는 session 기능. */
-  const freshMeta = (title: string | null, mode: "ask" | "skip" = "ask") =>
+  const freshMeta = (
+    title: string | null,
+    mode: PermissionMode = DEFAULT_PERMISSION_MODE,
+  ) =>
     (data.harness === true ? harnessMeta : lophnMeta)({
       picker: options.picker ?? {},
       status: options.status ?? {},
@@ -2248,7 +2313,10 @@ export function createFakeAgentTabSource(
       SESSION_MAIN,
       withMeta(
         data.state,
-        freshMeta(data.title, options.scene === "skip" ? "skip" : "ask"),
+        freshMeta(
+          data.title,
+          options.scene === "skip" ? "full" : DEFAULT_PERMISSION_MODE,
+        ),
       ),
     );
     // archive한 session도 report 장면과 같은 기록을 보인다.
@@ -2266,6 +2334,16 @@ export function createFakeAgentTabSource(
     );
   }
 
+  const sessionPerms = new Map<string, SessionPermissionsOutput>();
+  const sessionPermsOf = (session: string): SessionPermissionsOutput => {
+    const mode = (stateOf(session).session?.mode ??
+      DEFAULT_PERMISSION_MODE) as PermissionMode;
+    const existing = sessionPerms.get(session);
+    if (existing !== undefined) return { ...existing, mode };
+    const initial = fakeSessionPermissions(session, mode);
+    sessionPerms.set(session, initial);
+    return initial;
+  };
   const listeners = new Set<() => void>();
   // harness 탭의 지금 CLI session. `open_session`이 바꾼다.
   let cliCurrent = CLI_CURRENT;
@@ -2717,7 +2795,65 @@ export function createFakeAgentTabSource(
       return found === undefined ? fail("not_found") : ok(found);
     },
 
-    permissions: () => ok(PERMISSIONS_VIEW),
+    permissions: (session) =>
+      ok({
+        ...PERMISSIONS_VIEW,
+        ...(session && data.harness !== true
+          ? { session: sessionPermsOf(session) }
+          : {}),
+      }),
+    revokeSessionGrant(session, grant) {
+      const current = sessionPermsOf(session);
+      sessionPerms.set(session, {
+        ...current,
+        session_grants: current.session_grants.filter((g) => g.id !== grant),
+      });
+      notify();
+      return DONE;
+    },
+    trustLocalTool(path, sha256) {
+      for (const [id, current] of sessionPerms) {
+        sessionPerms.set(id, {
+          ...current,
+          local_tools: current.local_tools.map((item) =>
+            item.path === path ? { ...item, sha256, trusted: true } : item,
+          ),
+        });
+      }
+      notify();
+      return DONE;
+    },
+    untrustLocalTool(path) {
+      for (const [id, current] of sessionPerms) {
+        sessionPerms.set(id, {
+          ...current,
+          local_tools: current.local_tools.map((item) =>
+            item.path === path ? { ...item, trusted: false } : item,
+          ),
+        });
+      }
+      notify();
+      return DONE;
+    },
+    addAllowRule(category, pattern) {
+      for (const [id, current] of sessionPerms) {
+        sessionPerms.set(id, {
+          ...current,
+          global_rules: [
+            ...current.global_rules,
+            {
+              id: nextId("rul"),
+              category,
+              pattern,
+              action: "allow",
+              source: "global",
+            },
+          ],
+        });
+      }
+      notify();
+      return DONE;
+    },
 
     act,
     uploadImage(image) {

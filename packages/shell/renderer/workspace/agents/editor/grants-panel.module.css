@@ -104,9 +104,13 @@
 .head {
   display: grid;
   grid-template-columns: 1fr calc(var(--space-12) + var(--space-4))
-    var(--space-11);
+    var(--space-11) var(--space-11);
   align-items: center;
   gap: var(--space-5);
+}
+
+.headRight {
+  text-align: right;
 }
 
 .row {

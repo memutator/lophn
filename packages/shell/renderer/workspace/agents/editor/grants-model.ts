@@ -52,12 +52,44 @@ export const appEntryOf = (
 export const isRemoved = (entry: AssignmentEntry, tool: string): boolean =>
   entry.removed_tools.includes(tool);
 
-/** tool 하나를 뺐거나 다시 넣은 앱 entry. removed_tools에 겹쳐 들지 않는다. */
+export const isAsk = (entry: AssignmentEntry, tool: string): boolean =>
+  entry.ask_tools?.includes(tool) === true;
+
+/** tool 하나를 뺐거나 다시 넣은 앱 entry. removed_tools와 ask_tools는 겹치지 않는다. */
 export function withToolRemoved(
   entry: AssignmentEntry,
   tool: string,
   removed: boolean,
 ): AssignmentEntry {
   const rest = entry.removed_tools.filter((one) => one !== tool);
-  return { ...entry, removed_tools: removed ? [...rest, tool] : rest };
+  const nextRemoved = removed ? [...rest, tool] : rest;
+  if (!removed || entry.ask_tools === undefined) {
+    return { ...entry, removed_tools: nextRemoved };
+  }
+  const nextAsk = entry.ask_tools.filter((one) => one !== tool);
+  const { ask_tools: _old, ...base } = entry;
+  return {
+    ...base,
+    removed_tools: nextRemoved,
+    ...(nextAsk.length > 0 ? { ask_tools: nextAsk } : {}),
+  };
+}
+
+/** tool 하나의 실행 전 묻기(ask)를 켜거나 끈 앱 entry. ask를 켜면 removed_tools에서 뺀다. */
+export function withToolAsk(
+  entry: AssignmentEntry,
+  tool: string,
+  ask: boolean,
+): AssignmentEntry {
+  const restAsk = (entry.ask_tools ?? []).filter((one) => one !== tool);
+  const nextAsk = ask ? [...restAsk, tool] : restAsk;
+  const nextRemoved = ask
+    ? entry.removed_tools.filter((one) => one !== tool)
+    : entry.removed_tools;
+  const { ask_tools: _old, ...base } = entry;
+  return {
+    ...base,
+    removed_tools: nextRemoved,
+    ...(nextAsk.length > 0 ? { ask_tools: nextAsk } : {}),
+  };
 }

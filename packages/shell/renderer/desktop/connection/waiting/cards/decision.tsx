@@ -1,9 +1,10 @@
 // 결정 단추와 거절 이유 칸. 단추는 오른쪽 끝에 모이고 주 행동이 맨 오른쪽이다. 선택지는 card 값이 준 것을
 // 그대로 그린다(화면이 따로 판정하지 않는다).
-import { useState } from "react";
-import { Button } from "@lophn/ui/primitives";
-import { Field, Textarea } from "@lophn/ui/input";
+
 import { t } from "@lophn/i18n";
+import { Field, Textarea } from "@lophn/ui/input";
+import { Button } from "@lophn/ui/primitives";
+import { useState } from "react";
 import { actionIcons } from "../../../../icons/mod.ts";
 import type { WaitingChoice } from "../decide.ts";
 import styles from "../waiting.module.css";
@@ -15,12 +16,19 @@ export type OnDecide = (
 ) => Promise<boolean>;
 
 // 허락 단추의 왼쪽에서 오른쪽 순서. 맨 오른쪽이 주 행동이다.
-const ALLOW_ORDER: readonly WaitingChoice[] = ["always", "once", "allow"];
+const ALLOW_ORDER: readonly WaitingChoice[] = [
+  "always",
+  "session",
+  "once",
+  "allow",
+];
 
 function allowLabel(choice: WaitingChoice): string {
   switch (choice) {
     case "always":
       return t("waiting.button.allow-always");
+    case "session":
+      return t("waiting.button.allow-session");
     case "once":
       return t("waiting.button.allow-once");
     default:

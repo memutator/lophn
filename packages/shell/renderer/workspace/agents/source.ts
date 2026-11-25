@@ -30,6 +30,7 @@ import type {
   UserModelRecord,
 } from "../../../../protocol/lophn-agent/models.ts";
 import type { ToolEffect } from "../../../../protocol/lophn-agent/tool-values.ts";
+import type { PermissionMode } from "../../../../protocol/lophn-agent/turn-values.ts";
 import type { ReadResult } from "../source.ts";
 import type {
   InstructionsFile,
@@ -96,7 +97,7 @@ export interface AgentGlance {
   readonly remoteApps: number;
   /** custom이 고른 tool 이름. */
   readonly tools: readonly string[];
-  readonly skip: boolean;
+  readonly permissionMode?: PermissionMode;
 }
 
 /** Agents 탭 본문 한 번에 필요한 값. */
@@ -151,8 +152,8 @@ export interface AgentDraft {
   readonly skills_off?: readonly string[];
   readonly mcp_off?: readonly McpOff[];
   readonly mcp_servers?: readonly McpServer[];
-  /** 새 session을 skip으로 시작한다. 사람만 쓴다. */
-  readonly skip?: boolean;
+  /** 새 session의 기본 권한 단계. 없으면 전역 기본(`approvals.default_mode`)을 따른다. 사람만 쓴다. */
+  readonly permission_mode?: PermissionMode;
   /** 이 agent가 여는 browser 탭의 profile(core의 browser profile 목록의 id). 없으면 기본이다. 사람만 쓴다. */
   readonly browser_profile?: string;
   readonly body: string;

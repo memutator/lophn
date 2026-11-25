@@ -95,6 +95,12 @@ function turnRequest(
       tool_call: id("tcl", n),
       subject,
       always_patterns: alwaysPatterns,
+      allowed_choices:
+        alwaysPatterns.length > 0
+          ? ["once", "session", "always", "reject"]
+          : ["once", "session", "reject"],
+      reason: null,
+      outside_rewind: subject.kind === "shell",
       to_parent: false,
       created_at: ago(minutes),
     },

@@ -1,7 +1,7 @@
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { Button } from "@lophn/ui/primitives";
-import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
 import { t } from "@lophn/i18n";
+import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
+import { Button } from "@lophn/ui/primitives";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 import { settingsList } from "../../../../../protocol/config/file.ts";
 import {
@@ -11,24 +11,24 @@ import {
 import { skillsRead } from "../../../../../protocol/lophn-agent/skill-settings.ts";
 import { secretStatus } from "../../../../../protocol/secrets/secret-file.ts";
 import { actionIcons } from "../../../icons/mod.ts";
+import { McpList, SkillList } from "../../../workspace/agents/editor/parts.tsx";
+import { ServerForm } from "../../../workspace/agents/editor/server-form.tsx";
 import { useCoreRead } from "../../connection/core-read.ts";
+import { extensionsViewOf, serverSecretNames } from "../agents/core-source.ts";
+import type {
+  AgentsSettingsSource,
+  McpRow,
+  SourceResult,
+} from "../agents/settings-source.ts";
 import { effectiveOf } from "../declared.ts";
 import {
   authStateInput,
   authStatesOf,
   extensionSettingsOf,
   MCP_SERVERS,
-  secretStatesOf,
   SKILL_FOLDERS,
+  secretStatesOf,
 } from "../extension-settings.ts";
-import { extensionsViewOf, serverSecretNames } from "../agents/core-source.ts";
-import { ServerForm } from "../../../workspace/agents/editor/server-form.tsx";
-import { McpList, SkillList } from "../../../workspace/agents/editor/parts.tsx";
-import type {
-  AgentsSettingsSource,
-  McpRow,
-  SourceResult,
-} from "../agents/settings-source.ts";
 import styles from "./extensions.module.css";
 
 interface ExtensionsPanelProps {
@@ -231,6 +231,9 @@ export function ExtensionsPanel({ source }: ExtensionsPanelProps): ReactNode {
                 onCancelSignIn={(row) => void cancelSignIn(row)}
                 onSetSecret={(row, secret) =>
                   void act(() => source.enterServerSecret(row, secret))
+                }
+                onSetTrust={(row, trust) =>
+                  void act(() => source.setServerTrust(row.name, trust))
                 }
                 onToggle={(name, on) =>
                   void act(() => source.setServerEnabled(name, on))

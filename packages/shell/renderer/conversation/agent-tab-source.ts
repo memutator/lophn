@@ -8,7 +8,10 @@ import type {
   AcpTask,
   AcpWriting,
 } from "../../../protocol/acp/mod.ts";
+import type { PermissionDenial } from "../../../protocol/approvals/denial.ts";
 import type { AcpApprovalSubject } from "../../../protocol/approvals/gate-call.ts";
+import type { PermissionRuleCategory } from "../../../protocol/approvals/permission-rules.ts";
+import type { SessionPermissionsOutput } from "../../../protocol/approvals/permissions-view.ts";
 import type { TurnRequest } from "../../../protocol/approvals/turn-request.ts";
 import type { CharacterAvatar } from "../../../protocol/lophn-agent/agent-values.ts";
 // Agent 탭이 core에 묻고 쓰는 통로와 그 화면 값. 화면 부품(thread, cards, composer, sessions)은 모두 이 타입 위에 선다.
@@ -284,10 +287,14 @@ export interface ApprovalCardRequest {
   /** `apr_…` */
   readonly id: string;
   readonly subject: ApprovalSubject;
-  /** 이 카드가 낼 수 있는 범위. `session`은 그 CLI session 안에서만이고 `always`는 영구 규칙이다. */
+  /** 이 카드가 낼 수 있는 범위. `session`은 이 대화 안에서만이고 `always`는 영구 규칙이다. */
   readonly choices: readonly ("once" | "session" | "always" | "reject")[];
   /** Always allow가 영구로 더할 pattern. */
   readonly always_patterns: string[];
+  /** 왜 물었는지 한 줄 설명. */
+  readonly reason?: string | null;
+  /** 되돌리기(rewind) 기록 밖의 호출인지. */
+  readonly outside_rewind?: boolean;
 }
 
 /** 결정 뒤 대화에 남는 줄. cancelled(원래 일이 끝남)는 거절이 아니다. */
@@ -484,6 +491,14 @@ export interface ThreadHidden extends EntryBase {
   readonly entries: readonly ThreadEntry[];
 }
 
+/** 권한·범위·모드·정책으로 막힌 tool 호출. 일반 실패와 구별해 이유·규칙·복구 동작을 보인다. */
+export interface ThreadPermissionDenied extends EntryBase {
+  readonly kind: "permission-denied";
+  readonly toolCall: string;
+  readonly denial: PermissionDenial;
+  readonly turn: string | null;
+}
+
 export type ThreadEntry =
   | ThreadMessage
   | ThreadTools
@@ -495,6 +510,7 @@ export type ThreadEntry =
   | ThreadApprovalResult
   | ThreadTurnEnd
   | ThreadProviderError
+  | ThreadPermissionDenied
   | ThreadInfo
   | ThreadShell
   | ThreadCommandOutput
@@ -556,11 +572,14 @@ export interface ThreadView {
 
 /** `/permissions`와 입력칸 아래 요약이 여는 보기. */
 export interface PermissionsView {
-  /** 할당한 앱과 그 앱에서 뺀 tool. MCP server는 설정한 층이 할당이라 줄이 없다. */
+  /** 할당한 앱과 그 앱에서 뺀 tool, 부를 때마다 물을 tool. */
   readonly apps: readonly {
     readonly name: string;
     readonly removed: readonly string[];
+    readonly ask?: readonly string[];
   }[];
+  /** session 권한 스냅샷(단계, 폴더, 규칙·세션 허락, MCP·로컬 tool, 최근 거부). session이 없거나 못 읽으면 없다. */
+  readonly session?: SessionPermissionsOutput;
 }
 
 // ---- rewind ----
@@ -657,8 +676,22 @@ export interface AgentTabSource {
     part: "input" | "output",
   ): Promise<SourceResult<ToolCallBodyView>>;
 
-  /** `/permissions`와 입력칸 아래 요약. ACP가 다루지 않는 lophn의 할당 보기다. */
+  /** `/permissions`와 입력칸 아래 요약. session이 있으면 `permissions/read`까지 함께 읽는다. */
   permissions(session: string | null): Promise<SourceResult<PermissionsView>>;
+  /** `/permissions`에서 "이 대화 동안" 허락을 개별 해제한다. */
+  revokeSessionGrant?(
+    session: string,
+    grant: string,
+  ): Promise<SourceResult<void>>;
+  /** 로컬 tool 스크립트를 신뢰 목록에 더한다. */
+  trustLocalTool?(path: string, sha256: string): Promise<SourceResult<void>>;
+  /** 로컬 tool 스크립트를 신뢰 목록에서 뺀다. */
+  untrustLocalTool?(path: string): Promise<SourceResult<void>>;
+  /** 전역 `approvals.permission_rules`에 allow 규칙 하나를 더한다. */
+  addAllowRule?(
+    category: PermissionRuleCategory,
+    pattern: string,
+  ): Promise<SourceResult<void>>;
 
   // 쓰기
   send(input: SendInput): Promise<SourceResult<void>>;
@@ -749,8 +782,10 @@ export interface AgentTabSource {
    * (기기 자격으로 부르는 다른 기계의 범위: 기기는 `sessions/delete`를 부르지 못한다).
    */
   deleteSession?(session: string): Promise<SourceResult<void>>;
-  /** 권한 mode를 바꾸지 못한다(기기 자격은 `sessions/change-skip`을 부르지 못한다). 입력칸의 mode 메뉴가 없다. */
+  /** 권한 mode를 바꾸지 못한다. 입력칸의 mode 메뉴가 없다. */
   readonly fixedMode?: true;
+  /** 다른 기기에서는 현재 권한 단계보다 낮은 단계로만 바꿀 수 있다(full로 올리지 못한다). */
+  readonly downgradeOnlyMode?: true;
   // rewind. 확인은 대화 화면 안의 panel이고 확인 창은 없다.
   /** 시점으로 고를 수 있는 사람 메시지(steer는 아니다), 오래된 순. 숨긴 구간 밖이다. */
   rewindPoints(session: string): Promise<SourceResult<readonly string[]>>;

@@ -1,15 +1,19 @@
 // agent 층에서 MCP server를 더하는 form. 이름·연결 방식·실행이나 주소·로그인 방식과 OAuth의 issuer·client id·scopes만
 // 받고 key·token·client secret 값은 받지 않는다. 값은 더한 뒤 보호 입력으로 받는다(ProtectedKeyNote). 설정 화면의
 // 전역 server 추가도 이 form을 쓴다.
-import { useEffect, useRef, useState } from "react";
-import { Button } from "@lophn/ui/primitives";
-import { Field, Input, Select, Textarea } from "@lophn/ui/input";
-import { t } from "@lophn/i18n";
 
-import type { McpServer } from "../../../../../protocol/lophn-agent/mcp-settings.ts";
+import { t } from "@lophn/i18n";
+import { Field, Input, Select, Textarea } from "@lophn/ui/input";
+import { Button } from "@lophn/ui/primitives";
+import { useEffect, useRef, useState } from "react";
+
+import type {
+  McpServer,
+  McpTrust,
+} from "../../../../../protocol/lophn-agent/mcp-settings.ts";
 import { actionIcons } from "../../../icons/mod.ts";
-import { ProtectedKeyNote } from "./parts.tsx";
 import styles from "./agent-editor.module.css";
+import { ProtectedKeyNote } from "./parts.tsx";
 
 type Transport = "stdio" | "http";
 type Auth = "none" | "bearer" | "api_key" | "oauth2";
@@ -44,6 +48,7 @@ function serverOf(
   fields: {
     name: string;
     transport: Transport;
+    trust: McpTrust;
     executable: string;
     args: string;
     url: string;
@@ -57,6 +62,7 @@ function serverOf(
   const base = {
     name: fields.name,
     enabled: true,
+    trust: fields.trust,
     call_timeout_ms: CALL_TIMEOUT_MS,
   };
   if (fields.transport === "stdio") {
@@ -110,6 +116,7 @@ export function ServerForm({
 }: ServerFormProps) {
   const [name, setName] = useState("");
   const [transport, setTransport] = useState<Transport>("stdio");
+  const [trust, setTrust] = useState<McpTrust>("untrusted");
   const [executable, setExecutable] = useState("");
   const [args, setArgs] = useState("");
   const [url, setUrl] = useState("");
@@ -193,6 +200,21 @@ export function ServerForm({
             ]}
             value={transport}
             onValueChange={(value) => setTransport(value as Transport)}
+          />
+        </Field>
+      </div>
+      <div data-server-field="trust">
+        <Field
+          label={t("agents.label.mcp-trust")}
+          help={t("agents.notice.mcp-trust-help")}
+        >
+          <Select
+            options={[
+              { value: "untrusted", label: t("agents.label.mcp-untrusted") },
+              { value: "trusted", label: t("agents.label.mcp-trusted") },
+            ]}
+            value={trust}
+            onValueChange={(value) => setTrust(value as McpTrust)}
           />
         </Field>
       </div>
@@ -325,6 +347,7 @@ export function ServerForm({
               serverOf(scope, {
                 name,
                 transport,
+                trust,
                 executable,
                 args,
                 url,

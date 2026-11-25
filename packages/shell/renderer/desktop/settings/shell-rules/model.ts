@@ -1,21 +1,51 @@
-// Shell rules의 순수 규칙: 설정 값에서 한 층의 한 줄만 고친 새 값을 만든다. 고친 층 밖의 줄은 그대로 둔다.
+// Permission rules의 순수 규칙: 설정 값에서 한 층의 한 줄만 고친 새 값을 만든다. 고친 층 밖의 줄은 그대로 둔다.
 import type { MessageKey } from "@lophn/i18n";
 
 import {
-  SHELL_RULE_ACTIONS,
-  type ShellRulesSetting,
-} from "../../../../../protocol/approvals/shell-rules.ts";
-import type { ShellRule, ShellRuleAction, ShellRuleLayer } from "./source.ts";
+  PERMISSION_RULE_ACTIONS,
+  PERMISSION_RULE_CATEGORIES,
+  type PermissionRule,
+  type PermissionRuleAction,
+  type PermissionRuleCategory,
+  type PermissionRulesSetting,
+} from "../../../../../protocol/approvals/permission-rules.ts";
+import type { ShellRuleLayer } from "./source.ts";
 
 export const ACTION_OPTIONS: readonly {
-  readonly value: ShellRuleAction;
+  readonly value: PermissionRuleAction;
   readonly label: MessageKey;
-}[] = SHELL_RULE_ACTIONS.map((value) => ({
+}[] = PERMISSION_RULE_ACTIONS.map((value) => ({
   value,
   label: `settings.label.shell-action-${value}` as const,
 }));
 
-function rulesOf(value: ShellRulesSetting, layer: ShellRuleLayer) {
+export const CATEGORY_OPTIONS: readonly {
+  readonly value: PermissionRuleCategory;
+  readonly label: MessageKey;
+}[] = PERMISSION_RULE_CATEGORIES.map((value) => ({
+  value,
+  label: `settings.label.rule-category-${value}` as const,
+}));
+
+export function categoryLabelKey(category: PermissionRuleCategory): MessageKey {
+  return `settings.label.rule-category-${category}`;
+}
+
+/**
+ * 지나치게 넓은 shell 허용 규칙을 경고 표시로만 가려낸다(자동으로 지우지 않는다).
+ * 예: `*`, `rm -rf *`, `sudo *`, `sh *`, `bash *`, `curl *`, `mv *`, `chmod *` 등.
+ */
+const BROAD_SHELL_PATTERN =
+  /^(?:\*+|\s*|(?:sudo|su|sh|bash|zsh|dash|eval|env|curl|wget|mv|chmod|chown|dd)\b(?:\s*\*|\s+-|\s*$)|mkfs\S*\*?|rm\s+(?:-(?:[a-z]*[rf][a-z]*|\s+)*\*|-\S*[rf]\S*\s+\*|\*))/i;
+
+export function isBroadShellPattern(rule: PermissionRule): boolean {
+  if (rule.category !== "shell" || rule.action !== "allow") return false;
+  const trimmed = rule.pattern.trim();
+  if (trimmed === "*" || trimmed === "**") return true;
+  return BROAD_SHELL_PATTERN.test(trimmed);
+}
+
+function rulesOf(value: PermissionRulesSetting, layer: ShellRuleLayer) {
   return layer.kind === "global"
     ? value.global
     : (value.projects[layer.project] ?? []);
@@ -23,10 +53,10 @@ function rulesOf(value: ShellRulesSetting, layer: ShellRuleLayer) {
 
 // 규칙이 모두 지워진 project는 키도 지운다. 지운 project의 id가 설정에 남아 목록에 계속 뜨지 않게 한다.
 function withRules(
-  value: ShellRulesSetting,
+  value: PermissionRulesSetting,
   layer: ShellRuleLayer,
-  rules: ShellRule[],
-): ShellRulesSetting {
+  rules: PermissionRule[],
+): PermissionRulesSetting {
   if (layer.kind === "global") return { ...value, global: rules };
   const { [layer.project]: _old, ...others } = value.projects;
   return {
@@ -37,18 +67,18 @@ function withRules(
 }
 
 export function withAdded(
-  value: ShellRulesSetting,
+  value: PermissionRulesSetting,
   layer: ShellRuleLayer,
-  rule: ShellRule,
-): ShellRulesSetting {
+  rule: PermissionRule,
+): PermissionRulesSetting {
   return withRules(value, layer, [...rulesOf(value, layer), rule]);
 }
 
 export function withRemoved(
-  value: ShellRulesSetting,
+  value: PermissionRulesSetting,
   layer: ShellRuleLayer,
   index: number,
-): ShellRulesSetting {
+): PermissionRulesSetting {
   return withRules(
     value,
     layer,
@@ -57,11 +87,11 @@ export function withRemoved(
 }
 
 export function withAction(
-  value: ShellRulesSetting,
+  value: PermissionRulesSetting,
   layer: ShellRuleLayer,
   index: number,
-  action: ShellRuleAction,
-): ShellRulesSetting {
+  action: PermissionRuleAction,
+): PermissionRulesSetting {
   return withRules(
     value,
     layer,

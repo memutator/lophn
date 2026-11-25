@@ -57,8 +57,8 @@ export interface AgentViewSlice {
   avatarOf(agent: string): AvatarLook | undefined;
   /** 탭 줄의 상태 점. session이 없거나 쉬는 중이면 null이다. */
   dotOf(session: string | null): SessionDot | null;
-  /** `/skills`·`/mcp`가 Settings › Agents로 간다. */
-  openSettings(target: "skills" | "mcp"): void;
+  /** `/skills`·`/mcp`·권한 규칙이 Settings의 해당 화면으로 간다. */
+  openSettings(target: "skills" | "mcp" | "rules"): void;
   /** provider 끊김 줄의 행동이 Settings › Providers로 간다. */
   openConnections(): void;
   /** 그 session의 agent 탭을 연다. 이 project의 agent가 아니면 열지 않는다. `open.options`는 탭을 놓을 자리다(`openTab`의 옵션). */

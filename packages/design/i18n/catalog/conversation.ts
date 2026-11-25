@@ -619,4 +619,72 @@ export const conversation = {
     "Conversations aren't ready yet. Try again in a moment.",
   "conversation.title.status": "Status",
   "conversation.title.sender-details": "Sender details",
+  "conversation.label.approval-key-session": "Shift+Enter",
+  "conversation.label.approval-reason-why": "Why",
+  "conversation.label.approval-outside-rewind": "Outside rewind",
+  "conversation.label.approval-outside-rewind-note":
+    "Changes here can't be undone with Rewind.",
+  "conversation.label.approval-path": "Path",
+  "conversation.label.approval-folder": "Folder",
+  "conversation.label.approval-script": "Script",
+  "conversation.label.approval-sha256": "SHA-256",
+  "conversation.title.approval-file-read": "{agent} wants to read a file",
+  "conversation.title.approval-file-read-outside":
+    "{agent} wants to read a file outside the workspace",
+  "conversation.title.approval-file-read-sensitive":
+    "{agent} wants to read a sensitive file",
+  "conversation.title.approval-file-write":
+    "{agent} wants to {action, select, delete {delete} edit {edit} other {write}} a file",
+  "conversation.title.approval-file-write-outside":
+    "{agent} wants to {action, select, delete {delete} edit {edit} other {write}} a file outside the workspace",
+  "conversation.title.approval-file-write-sensitive":
+    "{agent} wants to {action, select, delete {delete} edit {edit} other {write}} a sensitive file",
+  "conversation.title.approval-local-tool":
+    "{agent} wants to run local tool {name}",
+  "conversation.title.approval-local-tool-changed":
+    "{agent} wants to run changed local tool {name}",
+  "conversation.label.mode-read_only": "Read only",
+  "conversation.label.mode-ask": "Ask everything",
+  "conversation.label.mode-workspace": "Auto-edit workspace",
+  "conversation.label.mode-full": "Full auto",
+  "conversation.label.blocked": "Blocked",
+  "conversation.label.blocked-rule": "Rule: {pattern}",
+  "conversation.button.recover-edit-rule": "Edit rule",
+  "conversation.button.recover-assign-app": "Assign app",
+  "conversation.button.recover-change-mode": "Switch to {mode}",
+  "conversation.button.recover-change-mode-generic": "Change mode",
+  "conversation.button.recover-trust-local-tool": "Trust",
+  "conversation.button.recover-trust-mcp": "Trust",
+  "conversation.button.recover-add-allow-rule": "Add allow rule",
+  "conversation.button.recover-sign-in-mcp": "Sign in again",
+  "conversation.notice.recover-done": "Updated. Send a message to continue.",
+  "conversation.notice.recover-failed":
+    "Couldn't apply that change. Try again.",
+  "conversation.heading.permissions-mode": "Permission mode",
+  "conversation.heading.permissions-folders": "Read/write folders",
+  "conversation.heading.permissions-rules": "Rules",
+  "conversation.heading.permissions-tools": "Assigned apps, MCP & local tools",
+  "conversation.heading.permissions-denials": "Recent blocks",
+  "conversation.label.permissions-folders-workspace": "Workspace",
+  "conversation.label.permissions-folders-opened": "Opened for this session",
+  "conversation.empty.permissions-folders": "No folders registered.",
+  "conversation.label.permissions-floor-count":
+    "{count, plural, one {# built-in floor rule} other {# built-in floor rules}}",
+  "conversation.label.permissions-global-rules":
+    "Global rules ({count, number})",
+  "conversation.label.permissions-project-rules":
+    "Project rules ({count, number})",
+  "conversation.label.permissions-session-grants":
+    "Allowed for this session ({count, number})",
+  "conversation.empty.permissions-session-grants": "No session-only grants.",
+  "conversation.button.permissions-revoke": "Revoke",
+  "conversation.label.permissions-ask-tools": "Ask on: {tools}",
+  "conversation.label.permissions-mcp-trusted": "Trusted",
+  "conversation.label.permissions-mcp-untrusted": "Untrusted",
+  "conversation.label.permissions-local-trusted": "Trusted",
+  "conversation.label.permissions-local-untrusted": "Not trusted",
+  "conversation.button.permissions-untrust": "Untrust",
+  "conversation.button.permissions-trust": "Trust",
+  "conversation.empty.permissions-denials": "Nothing blocked in this session.",
+  "conversation.button.permissions-open-rules": "Edit rules",
 } as const;

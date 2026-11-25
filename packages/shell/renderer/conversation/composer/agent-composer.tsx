@@ -17,19 +17,20 @@ import {
   useRef,
   useState,
 } from "react";
-
-import {
-  commonIcons,
-  conversationIcons,
-  workspaceIcons,
-} from "../../icons/mod.ts";
-import { PATH_DRAG_TYPE } from "../../path-drag.ts";
 import type {
   AcpCapabilities,
   AcpChoice,
   AcpSessionMeta,
   AcpToggle,
 } from "../../../../protocol/acp/mod.ts";
+import type { RecoveryAction } from "../../../../protocol/approvals/denial.ts";
+import type { PermissionMode } from "../../../../protocol/lophn-agent/turn-values.ts";
+import {
+  commonIcons,
+  conversationIcons,
+  workspaceIcons,
+} from "../../icons/mod.ts";
+import { PATH_DRAG_TYPE } from "../../path-drag.ts";
 import type {
   AgentTabSource,
   Delivery,
@@ -48,13 +49,13 @@ import { useModelPicker } from "../use-model-picker.ts";
 import { useSlashMenu } from "../use-slash-menu.tsx";
 import styles from "./agent-composer.module.css";
 import { AttachmentChips } from "./attachment-chips.tsx";
-import { HistorySearch } from "./history-search.tsx";
 import {
   type HistoryBrowse,
   type HistoryStep,
   nextEntry,
   previousEntry,
 } from "./history.ts";
+import { HistorySearch } from "./history-search.tsx";
 import { ModeMenu, ToggleChips } from "./session-controls.tsx";
 import { runComposerCommand } from "./slash-actions.ts";
 
@@ -137,6 +138,7 @@ interface AgentComposerProps {
   mode?: {
     readonly current: string | null;
     readonly choices: readonly AcpChoice[];
+    readonly downgradeOnly?: boolean;
     readonly onChange: (mode: string) => void;
   };
   /** 켜고 끄는 session 설정(Plan mode, Fast). 주면 입력칸 아래 줄에 chip으로 그린다. */
@@ -153,6 +155,14 @@ interface AgentComposerProps {
   onLoadPermissions: () => Promise<boolean>;
   /** 권한 보기의 [Edit in Agents]. 없으면 단추가 없다. */
   onEditPermissions?: () => void;
+  /** 권한 보기의 [Edit rules]. Settings › Permission rules로 간다. */
+  onOpenRules?: () => void;
+  /** 권한 보기 안 동작들. */
+  onChangePermissionMode?: (mode: PermissionMode) => Promise<boolean>;
+  onRevokeSessionGrant?: (grantId: string) => Promise<boolean>;
+  onTrustLocalTool?: (path: string, sha256: string) => Promise<boolean>;
+  onUntrustLocalTool?: (path: string) => Promise<boolean>;
+  onRecoverDenial?: (action: RecoveryAction) => Promise<boolean>;
   /** 글이나 chip을 보낸다. 일하는 중이면 다음 turn을 기다리는 줄이 된다(`next_turn`). `steer`는 도는 turn에 든다. */
   onSend: (delivery: Delivery) => void;
   /** shell mode(`!`)에서 보냈다. 앞 `!`와 앞뒤 빈칸을 뗀 명령이다. */
@@ -624,6 +634,7 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
                 <ModeMenu
                   current={props.mode.current}
                   choices={props.mode.choices}
+                  downgradeOnly={props.mode.downgradeOnly}
                   onChange={props.mode.onChange}
                   open={modeOpen}
                   onOpenChange={setModeOpen}
@@ -690,6 +701,13 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
                 permissions={props.permissions}
                 popover
                 onEdit={props.onEditPermissions}
+                onOpenRules={props.onOpenRules}
+                onChangeMode={props.onChangePermissionMode}
+                downgradeOnlyMode={props.mode?.downgradeOnly}
+                onRevokeGrant={props.onRevokeSessionGrant}
+                onTrustLocalTool={props.onTrustLocalTool}
+                onUntrustLocalTool={props.onUntrustLocalTool}
+                onRecoverDenial={props.onRecoverDenial}
               />
             )}
           </Popover>

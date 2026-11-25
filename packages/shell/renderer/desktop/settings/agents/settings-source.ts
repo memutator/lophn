@@ -1,7 +1,10 @@
 // Settings › Agents와 Tools and skills가 쓰는 통로. 전역 기본 model 하나, 전역 지침, 전역 skill과
 // MCP server를 한 곳에서 보고 바꾼다. model 이름·option 이름과 값은 화면 코드에 없고 모두 catalog가 준다.
 // lophn은 workspace마다 있어 여기서 고치지 않는다. model picker가 쓰는 통로(`editor`)만 싣는다.
-import type { McpServer } from "../../../../../protocol/lophn-agent/mcp-settings.ts";
+import type {
+  McpServer,
+  McpTrust,
+} from "../../../../../protocol/lophn-agent/mcp-settings.ts";
 import type { ModelChoice } from "../../../../../protocol/lophn-agent/models.ts";
 import type { AgentEditorSource } from "../../../workspace/agents/editor/agent-editor.tsx";
 import type {
@@ -96,6 +99,7 @@ export interface AgentsSettingsSource {
   /** 전역 MCP server를 더한다. 값(key·token)은 이 모양에 없고 필요하면 보호 입력이 받는다. */
   createServer(server: McpServer): Promise<SourceResult<null>>;
   setServerEnabled(name: string, enabled: boolean): Promise<SourceResult<null>>;
+  setServerTrust(name: string, trust: McpTrust): Promise<SourceResult<null>>;
   /** OAuth MCP server 로그인을 시작하고 사람이 browser에서 돌아올 때까지 기다린다. */
   signInServer(row: McpRow): Promise<SourceResult<null>>;
   /** 기다리는 로그인을 그만둔다. */

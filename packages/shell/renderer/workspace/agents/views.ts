@@ -6,6 +6,7 @@ import type {
   McpAuthFailure,
   McpAuthStateName,
   McpOwnerWorkspace,
+  McpTrust,
 } from "../../../../protocol/lophn-agent/mcp-settings.ts";
 import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
 
@@ -102,6 +103,7 @@ export interface McpRow {
   readonly detail: string;
   readonly layer: McpLayer;
   readonly on: boolean;
+  readonly trust?: McpTrust;
   readonly status: McpStatus;
   /** OAuth server이고 화면이 로그인을 시작할 수 있으면 있다. agent 정의 층은 저장된 정의의 서버에만 있다. */
   readonly login?: McpLogin;

@@ -1,39 +1,76 @@
 // composer 입력칸 안 줄의 mode 하나와 켜고 끄는 chip들. source가 내는 mode 중 하나를 고른다. model option 축(effort·speed)은 model 메뉴 안에서 고른다.
 
-import { t } from "@lophn/i18n";
+import { type MessageKey, t } from "@lophn/i18n";
 import { Popover, PopoverRow, Tooltip } from "@lophn/ui/overlay";
 import { Button, Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
 import type { AcpChoice, AcpToggle } from "../../../../protocol/acp/mod.ts";
+import {
+  isModeDowngrade,
+  PERMISSION_MODES,
+  type PermissionMode,
+} from "../../../../protocol/lophn-agent/turn-values.ts";
 import { conversationIcons } from "../../icons/mod.ts";
 import styles from "./session-controls.module.css";
+
+const MODE_LABEL: Record<PermissionMode, MessageKey> = {
+  read_only: "conversation.label.mode-read_only",
+  ask: "conversation.label.mode-ask",
+  workspace: "conversation.label.mode-workspace",
+  full: "conversation.label.mode-full",
+};
+
+function isPermissionMode(
+  value: string | null | undefined,
+): value is PermissionMode {
+  return (
+    value !== null &&
+    value !== undefined &&
+    (PERMISSION_MODES as readonly string[]).includes(value)
+  );
+}
+
+function choiceLabel(choice: AcpChoice): string {
+  return isPermissionMode(choice.id) ? t(MODE_LABEL[choice.id]) : choice.label;
+}
 
 interface ModeMenuProps {
   current: string | null;
   choices: readonly AcpChoice[];
   onChange: (mode: string) => void;
+  /** 다른 기기에서는 현재 단계보다 낮은 단계로만 바꿀 수 있다(full로 올리지 못한다). */
+  downgradeOnly?: boolean;
   /** `/` 명령이 menu를 열 수 있게 부모가 쥔다. */
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-// 첫 mode가 기본(묻기)이다. 다른 mode는 묻지 않고 실행하는 등 값이 달라서 켜져 있으면 경고색으로 알린다.
+// 4단계 권한 모드. `full`(다 맡기기)일 때만 경고색(`data-on`)을 켠다.
 export function ModeMenu({
   current,
   choices,
   onChange,
+  downgradeOnly = false,
   open,
   onOpenChange,
 }: ModeMenuProps) {
   const shown = choices.find((choice) => choice.id === current) ?? choices[0];
+  const canPick = (id: string): boolean => {
+    if (!downgradeOnly) return true;
+    if (id === current) return true;
+    return isPermissionMode(current) && isPermissionMode(id)
+      ? isModeDowngrade(current, id)
+      : false;
+  };
   const choose = (id: string) => {
     onOpenChange(false);
-    if (id !== current) onChange(id);
+    if (id !== current && canPick(id)) onChange(id);
   };
   return (
     <span
       className={styles.permission}
-      data-on={shown !== choices[0] || undefined}
+      data-on={shown?.id === "full" || undefined}
+      data-mode={shown?.id}
     >
       <Popover
         open={open}
@@ -45,7 +82,7 @@ export function ModeMenu({
             trailingIcon={conversationIcons.expand}
             data-composer-skip=""
           >
-            {shown?.label}
+            {shown === undefined ? null : choiceLabel(shown)}
           </Button>
         }
       >
@@ -54,19 +91,26 @@ export function ModeMenu({
           role="group"
           aria-label={t("conversation.label.permission-mode")}
         >
-          {choices.map((choice) => (
-            <PopoverRow key={choice.id} onSelect={() => choose(choice.id)}>
-              <span className={styles.check}>
-                {choice.id === shown?.id ? (
-                  <Icon
-                    icon={conversationIcons.current}
-                    pixels={iconPixels("base")}
-                  />
-                ) : null}
-              </span>
-              {choice.label}
-            </PopoverRow>
-          ))}
+          {choices.map((choice) => {
+            const disabled = !canPick(choice.id);
+            return (
+              <PopoverRow
+                key={choice.id}
+                disabled={disabled}
+                onSelect={() => choose(choice.id)}
+              >
+                <span className={styles.check}>
+                  {choice.id === shown?.id ? (
+                    <Icon
+                      icon={conversationIcons.current}
+                      pixels={iconPixels("base")}
+                    />
+                  ) : null}
+                </span>
+                {choiceLabel(choice)}
+              </PopoverRow>
+            );
+          })}
         </div>
       </Popover>
     </span>

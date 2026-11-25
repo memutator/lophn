@@ -2,6 +2,12 @@
 // 정한 message key에서 읽는다. 모르는 type은 바꿀 수 없는 값으로만 보인다.
 import { en, type MessageKey, t } from "@lophn/i18n";
 
+import {
+  DEFAULT_MODE_SETTING_KEY,
+  LOCAL_TOOL_TRUST_SETTING_KEY,
+  PERMISSION_RULES_SETTING_KEY,
+  WORKFLOW_MODES_SETTING_KEY,
+} from "../../../../../protocol/approvals/permission-rules.ts";
 import { slugText, valueText } from "../model.ts";
 import type { SettingEntry, SettingRejectReason } from "../source.ts";
 
@@ -66,7 +72,9 @@ const SHOWN_ELSEWHERE = [
   "shell.",
   // Diagnostics 항목이 trace를 켜고 끈다.
   "diagnostics.",
-  "approvals.shell_rules",
+  PERMISSION_RULES_SETTING_KEY,
+  WORKFLOW_MODES_SETTING_KEY,
+  LOCAL_TOOL_TRUST_SETTING_KEY,
   // Coding agents 항목이 공유 앱 목록을 보이고 뺀다.
   "coding-agent.shared_apps",
   "lophn-agent.extensions.",
@@ -133,14 +141,30 @@ export function currentValue(entry: SettingEntry): unknown {
   return entry.hasChosen ? entry.chosen : entry.defaultValue;
 }
 
+const MODE_LABELS: Readonly<Record<string, MessageKey>> = {
+  read_only: "settings.label.mode-read_only",
+  ask: "settings.label.mode-ask",
+  workspace: "settings.label.mode-workspace",
+  full: "settings.label.mode-full",
+};
+
 /** 기본값 글. 기본값이 없으면 없다고 말한다. */
 export function defaultText(entry: SettingEntry): string {
-  return entry.hasDefault
-    ? valueText(entry.defaultValue, true)
-    : t("settings.label.value-no-default");
+  if (!entry.hasDefault) return t("settings.label.value-no-default");
+  if (
+    entry.key === DEFAULT_MODE_SETTING_KEY &&
+    typeof entry.defaultValue === "string"
+  ) {
+    return choiceLabel(entry.defaultValue, entry.key);
+  }
+  return valueText(entry.defaultValue, true);
 }
 
-export function choiceLabel(option: string): string {
+export function choiceLabel(option: string, key?: string): string {
+  if (key === DEFAULT_MODE_SETTING_KEY) {
+    const labelKey = MODE_LABELS[option];
+    if (labelKey !== undefined) return t(labelKey);
+  }
   return slugText(option);
 }
 

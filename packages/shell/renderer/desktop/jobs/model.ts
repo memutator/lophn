@@ -151,6 +151,9 @@ export function nextText(
   machineName: string | null = null,
 ): string {
   if (!job.runs_here) return belongsText(machineName);
+  if (job.approval_paused_reason === "mode_escalated") {
+    return t("jobs.label.paused-mode-escalated");
+  }
   if (job.approved_at === null) return t("jobs.label.waiting-approval");
   if (!job.enabled) return t("jobs.label.turned-off");
   if (job.target_unavailable === true) {

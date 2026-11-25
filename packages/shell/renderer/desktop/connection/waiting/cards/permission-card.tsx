@@ -1,4 +1,7 @@
 // turn 안 권한 요청. tool 물음의 세부(대상, 효과)는 접혀 있고, shell 물음의 명령은 늘 보인다.
+
+import { t } from "@lophn/i18n";
+import { StatusMark } from "@lophn/ui/feedback";
 import { useState } from "react";
 import type { WaitingEntry } from "../../events/waiting-store.ts";
 import type { CardView } from "../model.ts";
@@ -64,6 +67,14 @@ export function PermissionCard({
             : { open, onToggle: () => setOpen(!open) }
         }
       />
+      {view.outsideRewind === true ? (
+        <div className={styles.reason} data-outside-rewind="">
+          <StatusMark
+            tone="warning"
+            label={t("waiting.label.outside-rewind")}
+          />
+        </div>
+      ) : null}
       {open || view.factsPinned ? <Facts view={view} /> : null}
       <Decision
         choices={view.choices}

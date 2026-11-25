@@ -316,7 +316,7 @@ export const workspaceSettings = {
   "settings.intro.remote":
     "Use lophn from your phone or from lophn on your other computers. Your devices form one list: a device you invite here joins every computer in it, and they connect over your local network or the relay.",
   "settings.intro.shell-rules":
-    "Before lophn runs a command for an agent, it checks these rules. Deny blocks the command, Ask waits for your answer, and Allow lets it run. The last matching rule wins, and project rules come after global rules. A command that matches no rule runs. In a pattern, * matches any text.",
+    "Permission rules apply across shell commands, file paths, app tools, MCP tools, and local tools. Built-in floor rules always block; within your rules, Deny beats Ask and Ask beats Allow. In a pattern, * matches any text.",
   "settings.label.machine-picker": "Settings of",
   "settings.notice.this-computer-only":
     "The other settings belong to this computer.",
@@ -640,10 +640,10 @@ export const workspaceSettings = {
   "settings.label.shell-action-ask": "Ask",
   "settings.label.shell-action-deny": "Deny",
   "settings.label.shell-rule-action": "Action",
-  "settings.label.shell-rule-pattern": "Command pattern",
+  "settings.label.shell-rule-pattern": "Pattern",
   "settings.label.shell-rules-ask-first": "Ask first ({count, number})",
   "settings.label.shell-rules-blocked": "Always blocked ({count, number})",
-  "settings.label.shell-rules-target": "your shell rules",
+  "settings.label.shell-rules-target": "your permission rules",
   "settings.label.reading-font": "Reading font",
   "settings.label.reading-font-serif": "Serif",
   "settings.label.reading-font-ui": "Same as interface",
@@ -663,7 +663,7 @@ export const workspaceSettings = {
   "settings.label.tab-keyboard": "Keyboard",
   "settings.label.tab-providers": "Providers",
   "settings.label.tab-quick-launch": "Quick launch",
-  "settings.label.tab-shell-rules": "Shell rules",
+  "settings.label.tab-shell-rules": "Permission rules",
   "settings.label.taskbar": "Taskbar",
   "settings.label.text-size": "Text size",
   "settings.label.value-custom": "Custom",
@@ -880,4 +880,43 @@ export const workspaceSettings = {
   "settings.title.not-set": "{name} is not set",
   "settings.title.remote-remove": "Remove {name}?",
   "settings.title.screen": "Settings",
+  "settings.approvals-default_mode.name": "Default permission mode",
+  "settings.approvals-default_mode.help":
+    "Permission mode for new conversations when an agent doesn't set its own.",
+  "settings.label.mode-read_only": "Read only",
+  "settings.label.mode-ask": "Ask everything",
+  "settings.label.mode-workspace": "Auto-edit workspace",
+  "settings.label.mode-full": "Full auto",
+  "settings.label.rule-category": "Category",
+  "settings.label.rule-category-shell": "Shell",
+  "settings.label.rule-category-file": "File",
+  "settings.label.rule-category-app_tool": "App tool",
+  "settings.label.rule-category-mcp_tool": "MCP tool",
+  "settings.label.rule-category-local_tool": "Local tool",
+  "settings.label.rule-broad-warning": "Broad pattern",
+  "settings.note.rule-broad-warning":
+    "Matches a wide or risky prefix. Kept as saved; review or narrow it.",
+  "waiting.button.allow-session": "Allow for this session",
+  "waiting.title.file-read": "Read a file",
+  "waiting.notice.file-read":
+    "This file is outside the workspace or marked sensitive.",
+  "waiting.title.file-write": "Change a file",
+  "waiting.notice.file-write":
+    "This file is outside the workspace or marked sensitive.",
+  "waiting.title.local-tool": "Run local tool {name}",
+  "waiting.notice.local-tool":
+    "Local scripts run only after you trust their exact contents.",
+  "waiting.notice.local-tool-changed":
+    "This local script changed since you last trusted it.",
+  "waiting.label.fact-path": "Path",
+  "waiting.label.fact-folder": "Folder",
+  "waiting.label.fact-sha256": "SHA-256",
+  "waiting.label.fact-reason": "Why",
+  "waiting.label.outside-rewind": "Outside rewind",
+  "waiting.label.job-modes": "Permission modes",
+  "waiting.notice.job-mode-escalated":
+    "Paused: a remembered workflow mode was raised to Full auto. Re-approve to resume this job.",
+  "jobs.label.paused-mode-escalated":
+    "Paused · needs re-approval (mode raised to Full auto)",
+  "jobs.label.paused-mode-escalated-badge": "Re-approval needed",
 } as const;

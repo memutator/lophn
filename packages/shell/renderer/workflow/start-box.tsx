@@ -4,11 +4,21 @@
 // 선언적 `inputs`는 제출 직전에 core와 같은 규칙으로 검증한다. 시작이 실패하면 적은 것을 지키고(알림은 탭 위쪽 toast), 성공하면 비운다.
 
 import { t } from "@lophn/i18n";
-import { Field, Input, SegmentedControl, Textarea } from "@lophn/ui/input";
+import {
+  Field,
+  Input,
+  SegmentedControl,
+  Select,
+  Textarea,
+} from "@lophn/ui/input";
 import { Tooltip } from "@lophn/ui/overlay";
 import { Button } from "@lophn/ui/primitives";
 import { type MouseEvent, type ReactNode, useState } from "react";
 
+import {
+  PERMISSION_MODES,
+  type PermissionMode,
+} from "../../../protocol/lophn-agent/turn-values.ts";
 import {
   resolveInputDefaults,
   validateWorkflowInputs,
@@ -31,6 +41,7 @@ import {
 } from "./model.ts";
 import { Rail, RailStage } from "./rail.tsx";
 import styles from "./start-box.module.css";
+import type { ParticipantModeSpec } from "./use-workflow.ts";
 import { WhoMark } from "./who.tsx";
 
 type SessionOpenMode = "tab" | "background";
@@ -154,12 +165,15 @@ function defaultPayloadFor(
 export function StartBox({
   entry,
   callableAgents = [],
+  participantModes = [],
   faceOf,
   onStart,
   onSaveDefault,
+  onRememberModes,
 }: {
   entry: WorkflowEntryView;
   callableAgents?: readonly CallableAgentOptionView[];
+  participantModes?: readonly ParticipantModeSpec[];
   faceOf?: FaceOf;
   /** 성공하면 true. */
   onStart: (
@@ -170,6 +184,7 @@ export function StartBox({
       readonly title?: string;
       readonly open?: SessionOpenMode;
       readonly stepOpen?: Record<string, SessionOpenMode>;
+      readonly participantModes?: Record<string, PermissionMode>;
     },
   ) => Promise<boolean>;
   /** 바뀐 항목 하나를 workflow.yaml 기본값으로 저장한다. */
@@ -179,6 +194,10 @@ export function StartBox({
     readonly step_open?: Readonly<Record<string, SessionOpenMode | null>>;
     readonly inputs?: Readonly<Record<string, unknown>>;
   }) => Promise<boolean>;
+  /** 참가자별 권한 단계를 `approvals.workflow_modes` 설정에 기억한다. */
+  onRememberModes?: (
+    modes: Readonly<Record<string, PermissionMode>>,
+  ) => Promise<boolean>;
 }) {
   const isFlow = entry.kind === "flow";
   const steps = entry.steps ?? [];
@@ -214,6 +233,11 @@ export function StartBox({
   const [stepOpenOverrides, setStepOpenOverrides] = useState<
     Record<string, SessionOpenMode>
   >({});
+  const [modeOverrides, setModeOverrides] = useState<
+    Record<string, PermissionMode>
+  >({});
+  const [rememberingModes, setRememberingModes] = useState(false);
+  const [modesRemembered, setModesRemembered] = useState(false);
   const [values, setValues] = useState<Record<string, unknown>>(() =>
     resolveInputDefaults(declarations),
   );
@@ -400,16 +424,29 @@ export function StartBox({
       !isFlow && Object.keys(stepOpenOverrides).length > 0
         ? stepOpenOverrides
         : undefined;
+    const participantModesOption =
+      participantModes.length > 0
+        ? Object.fromEntries(
+            participantModes.map((item) => [
+              item.key,
+              modeOverrides[item.key] ?? item.mode,
+            ]),
+          )
+        : undefined;
     const options =
       titleOption !== undefined ||
       openOption !== undefined ||
-      stepOpenOption !== undefined
+      stepOpenOption !== undefined ||
+      participantModesOption !== undefined
         ? {
             ...(titleOption === undefined ? {} : { title: titleOption }),
             ...(openOption === undefined ? {} : { open: openOption }),
             ...(stepOpenOption === undefined
               ? {}
               : { stepOpen: stepOpenOption }),
+            ...(participantModesOption === undefined
+              ? {}
+              : { participantModes: participantModesOption }),
           }
         : undefined;
     setStarting(true);
@@ -765,6 +802,91 @@ export function StartBox({
               ) : null}
             </div>
           ) : null}
+        </div>
+      ) : null}
+      {participantModes.length > 0 ? (
+        <div className={styles.runSettings} data-participant-modes="">
+          <div className={styles.stageHead}>
+            <span className={styles.runSettingsTitle}>
+              {t("workflow.heading.participant-modes")}
+            </span>
+            {onRememberModes === undefined ? null : (
+              <span className={styles.stageSide}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={locked || rememberingModes}
+                  data-remember-modes=""
+                  onClick={() => {
+                    const current = Object.fromEntries(
+                      participantModes.map((item) => [
+                        item.key,
+                        modeOverrides[item.key] ?? item.mode,
+                      ]),
+                    );
+                    setRememberingModes(true);
+                    setModesRemembered(false);
+                    void onRememberModes(current)
+                      .then((ok) => {
+                        if (ok) {
+                          setModeOverrides({});
+                          setModesRemembered(true);
+                        }
+                      })
+                      .finally(() => setRememberingModes(false));
+                  }}
+                >
+                  {rememberingModes
+                    ? t("workflow.button.remembering-modes")
+                    : t("workflow.button.remember-modes")}
+                </Button>
+              </span>
+            )}
+          </div>
+          <div className={styles.panel}>
+            <p className={styles.panelNote}>
+              {t("workflow.note.participant-modes")}
+            </p>
+            <div className={styles.modeList}>
+              {participantModes.map((item) => {
+                const value = modeOverrides[item.key] ?? item.mode;
+                const label =
+                  item.label !== item.key
+                    ? `${item.key} (${item.label})`
+                    : item.key;
+                return (
+                  <div
+                    key={item.key}
+                    className={styles.modeRow}
+                    data-participant-mode={item.key}
+                  >
+                    <Field label={label}>
+                      <Select
+                        disabled={locked}
+                        value={value}
+                        options={PERMISSION_MODES.map((mode) => ({
+                          value: mode,
+                          label: t(`settings.label.mode-${mode}`),
+                        }))}
+                        onValueChange={(next) => {
+                          setModesRemembered(false);
+                          setModeOverrides((prev) => ({
+                            ...prev,
+                            [item.key]: next as PermissionMode,
+                          }));
+                        }}
+                      />
+                    </Field>
+                  </div>
+                );
+              })}
+            </div>
+            {modesRemembered ? (
+              <p className={styles.panelNote} data-modes-remembered="">
+                {t("workflow.notice.modes-remembered")}
+              </p>
+            ) : null}
+          </div>
         </div>
       ) : null}
       <div className={styles.row}>

@@ -1,5 +1,9 @@
 // WorkspaceSource의 메모리 구현. dev seed와 화면 시험이 쓴다. 연결 폴더 둘(하위 폴더 하나 포함)과 폴더별
 // 파일 tree를 갖고, `list(path)`가 폴더 한 단계씩 돌려준다. 문서 목록은 비어 있고 layout은 저장만 받는다.
+import {
+  DEFAULT_PERMISSION_MODE,
+  type PermissionMode,
+} from "../../../protocol/lophn-agent/turn-values.ts";
 import { validateWorkflowInputs } from "../../../protocol/workflows/inputs.ts";
 import {
   createLayoutSource,
@@ -1528,6 +1532,7 @@ export function fakeWorkspaceSource(
   let instances: WorkflowInstanceDetailView[] = [
     ...(options.workflowInstances ?? FAKE_WORKFLOW_INSTANCES),
   ];
+  const rememberedModes = new Map<string, Record<string, PermissionMode>>();
   const changeInstance = (
     id: string,
     change: (detail: WorkflowInstanceDetailView) => WorkflowInstanceDetailView,
@@ -1788,6 +1793,18 @@ export function fakeWorkspaceSource(
         value: { instance: id, title: resolvedTitle },
       });
     },
+    readWorkflowModes(projectId, workflowName) {
+      return Promise.resolve({
+        ok: true,
+        value: rememberedModes.get(`${projectId}/${workflowName}`) ?? {},
+      });
+    },
+    saveWorkflowModes(projectId, workflowName, modes) {
+      rememberedModes.set(`${projectId}/${workflowName}`, { ...modes });
+      return Promise.resolve({ ok: true, value: null });
+    },
+    readDefaultMode: () =>
+      Promise.resolve({ ok: true, value: DEFAULT_PERMISSION_MODE }),
     renameWorkflowInstance(id, title) {
       const detail = instances.find((item) => item.instance.id === id);
       if (detail === undefined) {

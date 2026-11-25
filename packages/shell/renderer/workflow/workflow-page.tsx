@@ -264,9 +264,11 @@ export function WorkflowPage(props: WorkflowPageProps): ReactElement {
               key={entry.key}
               entry={entry}
               callableAgents={definitions.callableAgents}
+              participantModes={state.participantModes}
               faceOf={faceOf}
               onStart={state.start}
               onSaveDefault={state.saveDefaults}
+              onRememberModes={state.rememberParticipantModes}
             />
             <section className={styles.section}>
               {instances === null && showRunsLoading ? (

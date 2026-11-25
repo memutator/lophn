@@ -1,5 +1,5 @@
 id: permission-architecture
-version: 0.23.175
+version: 0.23.176
 platform_note: none
 title: "4단계 권한 체계, 통합 결정적 판정 엔진, 상태 기계 shell 스캐너, 거부 언마스킹, workflow·job 권한 관리를 도입한다"
 modules:

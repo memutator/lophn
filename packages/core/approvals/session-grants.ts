@@ -49,6 +49,7 @@ export function sessionGrantInputForRequest(
   request: TurnRequest,
   layers: PermissionRuleLayers,
   homeDir?: string,
+  dataRoot?: string,
 ): SessionGrantInput | null {
   const { subject } = request;
   switch (subject.kind) {
@@ -69,7 +70,7 @@ export function sessionGrantInputForRequest(
     case "shell": {
       const scan = scanShellCommand(subject.command, homeDir);
       if (scan.opaque || scan.elevated) return null;
-      const safe = alwaysPatterns(layers, subject.command, homeDir);
+      const safe = alwaysPatterns(layers, subject.command, homeDir, dataRoot);
       const pattern = safe.length === 1 ? safe[0] : scan.normalized;
       if (pattern === "") return null;
       return {

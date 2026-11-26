@@ -148,7 +148,8 @@ export const terminalsWiring: WiringFactory = () => {
         clock: ctx.clock,
         isDevice: (principal) => ctx.peek.deviceKind?.(principal) != null,
         granted: (principal) =>
-          ctx.peek.terminalInputGrant?.(principal) ?? false,
+          ctx.peek.deviceKind?.(principal) === "phone" ||
+          (ctx.peek.terminalInputGrant?.(principal) ?? false),
         capability: (value) => ctx.peek.shellCapabilities?.has(value) ?? false,
         openTab(project, terminal, relation) {
           ctx.hostQueue.openTab({

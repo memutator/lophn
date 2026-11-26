@@ -68,7 +68,7 @@ import { ago, Face, type Look, VendorIcon } from "../../parts/mod.ts";
 import { AttachPicks } from "./attach.tsx";
 import { toolIcon } from "./parts.tsx";
 import {
-  canDowngradeMode,
+  canSelectMode,
   PERMISSION_MODE_DESCRIPTIONS,
   PERMISSION_MODE_LABELS,
   permissionDenialDisplay,
@@ -627,7 +627,7 @@ export function DenySheet({
 }
 
 /**
- * Session permissions overview: 4-stage mode (downgrade-only on phone), workspace + opened outside folders,
+ * Session permissions overview: 4-stage mode selector, workspace + opened outside folders,
  * rules summary + active session grants (each revocable), assigned apps / MCP server trust / local tools,
  * and recent blocked calls.
  */
@@ -636,8 +636,8 @@ export function PermissionsSheet({
   agent,
   mode,
   currentMode,
-  canDowngrade,
-  onDowngradeMode,
+  canChangeMode,
+  onChangeMode,
   view,
   sessionPermissions,
   onClose,
@@ -646,8 +646,8 @@ export function PermissionsSheet({
   agent: string;
   mode: string | null;
   currentMode: PermissionMode | null;
-  canDowngrade: boolean;
-  onDowngradeMode?: (next: PermissionMode) => Promise<boolean>;
+  canChangeMode: boolean;
+  onChangeMode?: (next: PermissionMode) => Promise<boolean>;
   view: PermissionsView | null;
   sessionPermissions: SessionPermissionsState;
   onClose: () => void;
@@ -666,49 +666,46 @@ export function PermissionsSheet({
 
   const chooseMode = async (candidate: PermissionMode) => {
     if (
-      !canDowngrade ||
-      onDowngradeMode === undefined ||
+      !canChangeMode ||
+      onChangeMode === undefined ||
       changingMode !== null ||
-      !canDowngradeMode(activeMode, candidate)
+      !canSelectMode(activeMode, candidate)
     ) {
       return;
     }
     setChangingMode(candidate);
     setModeError(null);
-    const ok = await onDowngradeMode(candidate);
+    const ok = await onChangeMode(candidate);
     setChangingMode(null);
-    if (!ok) setModeError("Couldn't lower the permission mode. Try again.");
+    if (!ok) setModeError("Couldn't change the permission mode. Try again.");
   };
 
   return (
     <Sheet open={open} onClose={onClose} title={t("conversation.label.permissions-of", { agent })}>
-      {/* 1. 4-stage permission mode (downgrade-only on phone) */}
+      {/* 1. 4-stage permission mode */}
       <Label>{t("conversation.label.permission-mode")}</Label>
       {activeMode !== null ? (
         <>
           {PERMISSION_MODES.map((stage) => {
             const isCurrent = stage === activeMode;
-            const lower = canDowngrade && onDowngradeMode !== undefined && canDowngradeMode(activeMode, stage);
-            const higher = !isCurrent && !canDowngradeMode(activeMode, stage);
+            const selectable =
+              canChangeMode && onChangeMode !== undefined && canSelectMode(activeMode, stage);
             return (
-              <View key={stage} style={{ opacity: higher ? 0.45 : 1 }}>
-                <Row
-                  lead={<Icon icon={ShieldCheck} />}
-                  title={PERMISSION_MODE_LABELS[stage]}
-                  sub={PERMISSION_MODE_DESCRIPTIONS[stage]}
-                  wrap
-                  end={
-                    isCurrent ? (
-                      <Icon icon={Check} />
-                    ) : lower ? (
-                      <Tag>{changingMode === stage ? "Lowering…" : "Lower"}</Tag>
-                    ) : higher ? (
-                      <Tag>On computer</Tag>
-                    ) : undefined
-                  }
-                  onPress={lower && changingMode === null ? () => void chooseMode(stage) : undefined}
-                />
-              </View>
+              <Row
+                key={stage}
+                lead={<Icon icon={ShieldCheck} />}
+                title={PERMISSION_MODE_LABELS[stage]}
+                sub={PERMISSION_MODE_DESCRIPTIONS[stage]}
+                wrap
+                end={
+                  isCurrent ? (
+                    <Icon icon={Check} />
+                  ) : changingMode === stage ? (
+                    <Tag>Switching…</Tag>
+                  ) : undefined
+                }
+                onPress={selectable && changingMode === null ? () => void chooseMode(stage) : undefined}
+              />
             );
           })}
           {modeError !== null && (
@@ -716,9 +713,6 @@ export function PermissionsSheet({
               {modeError}
             </Text>
           )}
-          <Text variant="caption" tone="muted" style={{ ...pad, paddingTop: 4 }}>
-            You can lower this session's mode on your phone. Raising it must be done on the computer.
-          </Text>
         </>
       ) : (
         mode !== null && (

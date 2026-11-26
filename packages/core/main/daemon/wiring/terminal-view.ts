@@ -38,7 +38,8 @@ export const terminalViewWiring: WiringFactory = () => {
             return () => clearTimeout(once);
           },
           mayType: (principal) =>
-            ctx.peek.terminalInputGrant?.(principal) ?? false,
+            ctx.peek.deviceKind?.(principal) === "phone" ||
+            (ctx.peek.terminalInputGrant?.(principal) ?? false),
         }),
       );
     },

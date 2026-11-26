@@ -10,7 +10,6 @@ import { Button, IconButton } from "@lophn/ui/primitives";
 import { type ReactElement, useState } from "react";
 import type { RecoveryAction } from "../../../../protocol/approvals/denial.ts";
 import {
-  isModeDowngrade,
   PERMISSION_MODES,
   type PermissionMode,
 } from "../../../../protocol/lophn-agent/turn-values.ts";
@@ -30,8 +29,6 @@ interface PermissionsViewProps {
   onOpenRules?: () => void;
   /** 단계 빠른 고르기. */
   onChangeMode?: (mode: PermissionMode) => Promise<boolean>;
-  /** 다른 기기에서는 현재 단계보다 낮은 단계로만 바꿀 수 있다. */
-  downgradeOnlyMode?: boolean;
   /** 이번 대화 허락 개별 해제. */
   onRevokeGrant?: (grantId: string) => Promise<boolean>;
   /** 로컬 tool 신뢰/신뢰 해제. */
@@ -50,7 +47,6 @@ export function PermissionsView({
   onEdit,
   onOpenRules,
   onChangeMode,
-  downgradeOnlyMode = false,
   onRevokeGrant,
   onTrustLocalTool,
   onUntrustLocalTool,
@@ -73,12 +69,10 @@ export function PermissionsView({
   const modeOptions =
     session === undefined
       ? []
-      : PERMISSION_MODES.filter(
-          (candidate) =>
-            !downgradeOnlyMode ||
-            candidate === session.mode ||
-            isModeDowngrade(session.mode, candidate),
-        ).map((mode) => ({ value: mode, label: modeLabelText(mode) }));
+      : PERMISSION_MODES.map((mode) => ({
+          value: mode,
+          label: modeLabelText(mode),
+        }));
 
   return (
     <section

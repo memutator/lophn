@@ -72,6 +72,7 @@ export const workflowStart = defineMemory({
     inputs: workflowInputValuesSchema.optional(),
     open: sessionOpenModeSchema.optional(),
     step_open: z.record(stepNameSchema, sessionOpenModeSchema).optional(),
+    step_modes: z.record(stepNameSchema, permissionModeSchema).optional(),
     participant_modes: z
       .record(participantKeySchema, permissionModeSchema)
       .optional(),

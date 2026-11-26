@@ -73,6 +73,7 @@ export const instanceStepSchema = z.strictObject({
   out: z.string(),
   next: z.array(stepNextSchema),
   open: sessionOpenModeSchema.optional(),
+  permission_mode: permissionModeSchema.optional(),
 });
 export type InstanceStep = z.infer<typeof instanceStepSchema>;
 

@@ -271,13 +271,15 @@ const device = (id: string): AuthenticatedContext => ({
   credential_ref: `device:${id}`,
 });
 
-// coding session은 ledger route를 타지 않는다. 기기 자격이면 권한 mode 바꾸기는 늘 막고, shell 실행은 터미널 허락을 본다.
-test("coding session input blocks set_mode for devices and gates shell execution on terminalInputGrant", async () => {
+// coding session은 ledger route를 타지 않는다. 원격 기기도 권한 mode 바꾸기는 허용하고, shell 실행은 터미널 허락(폰은 항상 허용)을 본다.
+test("coding session input allows set_mode for devices, allows phone shell, and gates computer shell execution on terminalInputGrant", async () => {
   const MSG2 = "msg_01h455vb4pex5v6nkc6gd5f002";
   const local = person([]);
-  const phone = device("phone");
-  const grantedPhone = device("granted");
-  const granted = (principal: string) => principal === grantedPhone.principal;
+  const ungrantedComputer = device("computer_ungranted");
+  const grantedComputer = device("computer_granted");
+  const mobilePhone = device("phone_mobile");
+  const granted = (principal: string) =>
+    principal === grantedComputer.principal;
 
   const setMode: AcpInput = {
     type: "set_mode",
@@ -335,34 +337,48 @@ test("coding session input blocks set_mode for devices and gates shell execution
   assert.equal(checkCodingInputScope(local, runShell, granted).ok, true);
   assert.equal(checkCodingInputScope(local, bangSend, granted).ok, true);
 
-  // 터미널 입력 허락이 없는 기기: set_mode, run_shell, ! 글 모두 forbidden. 일반 메시지는 허용.
+  // 터미널 입력 허락이 없는 컴퓨터: set_mode와 일반 메시지는 허용, run_shell과 ! 글은 forbidden.
+  assert.equal(
+    checkCodingInputScope(ungrantedComputer, setMode, granted).ok,
+    true,
+  );
   for (const blocked of [
-    setMode,
     runShell,
     bangSend,
     bangAfterAttachment,
     bangEditQueued,
   ]) {
-    const res = checkCodingInputScope(phone, blocked, granted);
+    const res = checkCodingInputScope(ungrantedComputer, blocked, granted);
     assert.equal(!res.ok && res.error.code, "forbidden", blocked.type);
   }
-  assert.equal(checkCodingInputScope(phone, normalSend, granted).ok, true);
-
-  // 터미널 입력 허락이 있는 기기: shell은 허용하지만 set_mode는 여전히 forbidden.
-  const grantedMode = checkCodingInputScope(grantedPhone, setMode, granted);
-  assert.equal(!grantedMode.ok && grantedMode.error.code, "forbidden");
-  assert.equal(checkCodingInputScope(grantedPhone, runShell, granted).ok, true);
-  assert.equal(checkCodingInputScope(grantedPhone, bangSend, granted).ok, true);
   assert.equal(
-    checkCodingInputScope(grantedPhone, bangAfterAttachment, granted).ok,
-    true,
-  );
-  assert.equal(
-    checkCodingInputScope(grantedPhone, bangEditQueued, granted).ok,
+    checkCodingInputScope(ungrantedComputer, normalSend, granted).ok,
     true,
   );
 
-  // acpWiring의 acp/send handler도 coding.send에 닿기 전에 같은 규칙으로 거른다.
+  // 터미널 입력 허락이 있는 기기: set_mode와 shell 모두 허용.
+  assert.equal(
+    checkCodingInputScope(grantedComputer, setMode, granted).ok,
+    true,
+  );
+  assert.equal(
+    checkCodingInputScope(grantedComputer, runShell, granted).ok,
+    true,
+  );
+  assert.equal(
+    checkCodingInputScope(grantedComputer, bangSend, granted).ok,
+    true,
+  );
+  assert.equal(
+    checkCodingInputScope(grantedComputer, bangAfterAttachment, granted).ok,
+    true,
+  );
+  assert.equal(
+    checkCodingInputScope(grantedComputer, bangEditQueued, granted).ok,
+    true,
+  );
+
+  // acpWiring의 acp/send handler도 coding.send에 닿기 전에 같은 규칙으로 거르며, 모바일 폰은 터미널 입력이 항상 허용된다.
   const dir = mkdtempSync(join(tmpdir(), "lophn-acp-coding-scope-"));
   const ledgerPath = join(dir, "ledger.sqlite");
   const init = openConnection(ledgerPath);
@@ -378,6 +394,8 @@ test("coding session input blocks set_mode for devices and gates shell execution
       root: { path: dir },
       peek: {
         knownSecrets: { ready: true, match: () => undefined },
+        deviceKind: (principal: string) =>
+          principal === mobilePhone.principal ? "phone" : "computer",
         terminalInputGrant: granted,
       },
       bus: {
@@ -408,17 +426,19 @@ test("coding session input blocks set_mode for devices and gates shell execution
     } as unknown as WiringContext);
     assert.ok(built.ok);
     const handler = new Map(built.value.memory).get(key(acpSend))!;
-    const blockedMode = await handler(grantedPhone, setMode);
-    assert.equal(!blockedMode.ok && blockedMode.error.code, "forbidden");
-    const blockedShell = await handler(phone, runShell);
+    const allowedMode = await handler(ungrantedComputer, setMode);
+    assert.equal(allowedMode.ok, true);
+    const blockedShell = await handler(ungrantedComputer, runShell);
     assert.equal(!blockedShell.ok && blockedShell.error.code, "forbidden");
-    const allowedShell = await handler(grantedPhone, runShell);
+    const allowedPhoneShell = await handler(mobilePhone, runShell);
+    assert.equal(allowedPhoneShell.ok, true);
+    const allowedShell = await handler(grantedComputer, runShell);
     assert.equal(allowedShell.ok, true);
-    const allowedChat = await handler(phone, normalSend);
+    const allowedChat = await handler(ungrantedComputer, normalSend);
     assert.equal(allowedChat.ok, true);
     assert.deepEqual(
       forwarded.map((item) => item.type),
-      ["run_shell", "send"],
+      ["set_mode", "run_shell", "run_shell", "send"],
     );
   } finally {
     wiring.closeIntake?.();
@@ -675,5 +695,25 @@ test("acpWiring relays queued edit and move as remove+queued AcpUpdated events",
     wiring.closeIntake?.();
     wiring.closeWork?.();
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("acpSend.input parses decide choices for once, session, always, reject, and mode", () => {
+  const req = "apr_01h455vb4pex5v6nkc6gd5f001";
+  for (const choice of [
+    { kind: "once" },
+    { kind: "session" },
+    { kind: "always" },
+    { kind: "reject" },
+    { kind: "reject", reason: "not now" },
+    { kind: "mode", mode: "workspace" },
+  ] as const) {
+    const parsed = acpSend.input.safeParse({
+      type: "decide",
+      session: SES,
+      request: req,
+      choice,
+    });
+    assert.equal(parsed.success, true, `expected ${choice.kind} to parse`);
   }
 });

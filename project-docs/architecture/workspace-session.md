@@ -87,7 +87,7 @@ session의 경계가 흐리면 사람이 대화에서 잃는 것이 생긴다. �
 ## 경계와 계약
 
 - boundary ID는 `agent-sessions`(열기·제목·archive·지움·fork·model·권한 단계), `run-loop`(turn), `agents`(정의), `storage`(지움)이다.
-- route(사람만 부른다. 아니면 `forbidden`): `sessions/open`, `sessions/rename`, `sessions/archive`, `sessions/delete`, `sessions/fork`, `sessions/change-model`, `sessions/change-mode`(원격 기기 `device:`는 단계 하향만 허용, 상향·`full` 시도는 `forbidden`), `rewind/preview`와 rewind 시작, `message-images/upload`·`path`·`read`. 같은 id를 같은 내용으로 다시 부르면 처음 결과를 돌려주고(replay), 다른 내용이면 `conflict`다. 낡은 `state_seq`도 `conflict`다.
+- route(사람만 부른다. 아니면 `forbidden`): `sessions/open`, `sessions/rename`, `sessions/archive`, `sessions/delete`, `sessions/fork`, `sessions/change-model`, `sessions/change-mode`(로컬·원격 기기 모두 4단계 선택 허용), `rewind/preview`와 rewind 시작, `message-images/upload`·`path`·`read`. 같은 id를 같은 내용으로 다시 부르면 처음 결과를 돌려주고(replay), 다른 내용이면 `conflict`다. 낡은 `state_seq`도 `conflict`다.
 - 열 때의 오류: agent 정의 없음 또는 그 agent의 범위 밖 workspace는 `not_found`, workspace 없음·보관은 `conflict`, harness agent인데 harness 설정이 꺼져 있으면 `unavailable`이다.
 - archive·지움은 receiver_ended 알림 글을 blob으로 미리 준비해야 한다(못 하면 `unavailable`). `sessions/archive`는 지금 도는 turn이 있으면 `stop_turn: true` 없이 `conflict`(`turn_running`)로 거절해 다른 기기에서 방금 시작한 turn이 확인 없이 끊기지 않게 한다. 받은 열린 call을 닫을 때 보낸 쪽이 살아 있는 agent session이면 그 queue에 그 call을 가리키는 program 알림 하나를 같은 tx로 넣는다(ask call이면 알림 대신 main thread에 알린다). 기다리던 request와 질문은 `SessionEnded`를 듣는 approvals 쪽이 cancelled(`session_closed`)로 푼다. 지움은 메시지 본문의 blob 영구 참조, rewind 기록과 checkpoint, 메시지와 turn·model call 기록, session 행을 지우고 되돌릴 수 없다. 응답에는 지운 내용을 싣지 않고 지운 시각만 돌려준다. archive한 session은 기록을 그대로 두고 읽기는 된다.
 - fork 입력은 `through_seq`(고른 메시지의 `created_seq`까지 복사. agent 답에서 갈라도 그 답까지 들어간다)다. 출처의 확정 메시지가 아니면 `invalid_input`이다.

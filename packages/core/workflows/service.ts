@@ -677,11 +677,22 @@ export function createWorkflowService(
     project: Id<"prj">;
     workflow: string;
     participants: ReturnType<typeof participantsOf>;
+    steps?: readonly {
+      readonly name: string;
+      readonly by: string;
+      readonly with: string | null;
+    }[];
     explicit: Record<string, PermissionMode> | undefined;
+    explicitSteps: Record<string, PermissionMode> | undefined;
     by: StartedBy;
     maxMode: PermissionMode | undefined;
     callableRuntimeByName: Map<string, string | undefined> | undefined;
-  }): Promise<Result<Record<string, PermissionMode> | undefined>> {
+  }): Promise<
+    Result<{
+      participantModes: Record<string, PermissionMode> | undefined;
+      stepModes: Record<string, PermissionMode> | undefined;
+    }>
+  > {
     if (input.explicit !== undefined) {
       for (const [key, value] of Object.entries(input.explicit)) {
         if (!permissionModeSchema.safeParse(value).success) {
@@ -692,8 +703,20 @@ export function createWorkflowService(
         }
       }
     }
+    if (input.explicitSteps !== undefined) {
+      for (const [stepName, value] of Object.entries(input.explicitSteps)) {
+        if (!permissionModeSchema.safeParse(value).success) {
+          return fail(
+            "invalid_input",
+            `invalid permission mode for step '${stepName}'`,
+          );
+        }
+      }
+    }
     const entries = Object.entries(input.participants);
-    if (entries.length === 0) return ok(undefined);
+    if (entries.length === 0) {
+      return ok({ participantModes: undefined, stepModes: undefined });
+    }
 
     let runtimeByName = input.callableRuntimeByName;
     if (
@@ -727,6 +750,8 @@ export function createWorkflowService(
         : undefined) ?? DEFAULT_PERMISSION_MODE;
 
     const resolved: Record<string, PermissionMode> = {};
+    const agentDefaults = new Map<string, PermissionMode | undefined>();
+    const lophnParticipants = new Set<string>();
     for (const [key, participant] of entries) {
       if ("kind" in participant) continue;
       if (isBuiltinHarnessAgent(participant.agent)) continue;
@@ -737,15 +762,15 @@ export function createWorkflowService(
         if (isHarnessRuntime(kind as AgentRuntime | undefined)) continue;
       }
 
+      lophnParticipants.add(key);
       const explicitMode =
         input.by.kind === "user" ? input.explicit?.[key] : undefined;
       const rememberedMode = remembered?.[key];
       const agentDefault =
-        explicitMode === undefined &&
-        rememberedMode === undefined &&
         agentDefaultModeOf !== undefined
           ? await agentDefaultModeOf(participant.agent, input.project)
           : undefined;
+      agentDefaults.set(key, agentDefault);
       let mode: PermissionMode =
         explicitMode ?? rememberedMode ?? agentDefault ?? globalDefault;
       if (maxMode !== undefined) {
@@ -754,7 +779,46 @@ export function createWorkflowService(
       resolved[key] = mode;
     }
 
-    return ok(Object.keys(resolved).length > 0 ? resolved : undefined);
+    const resolvedSteps: Record<string, PermissionMode> = {};
+    if (input.steps !== undefined) {
+      for (const step of input.steps) {
+        const byParticipant = input.participants[step.by];
+        const effectiveKey =
+          byParticipant !== undefined &&
+          "kind" in byParticipant &&
+          byParticipant.kind === "human"
+            ? step.with
+            : step.by;
+        if (effectiveKey === null || !lophnParticipants.has(effectiveKey)) {
+          continue;
+        }
+        const explicitStep =
+          input.by.kind === "user"
+            ? input.explicitSteps?.[step.name]
+            : undefined;
+        const explicitParticipant =
+          input.by.kind === "user" ? input.explicit?.[effectiveKey] : undefined;
+        const rememberedStep = remembered?.[`step:${step.name}`];
+        const rememberedParticipant = remembered?.[effectiveKey];
+        let mode: PermissionMode =
+          explicitStep ??
+          explicitParticipant ??
+          rememberedStep ??
+          rememberedParticipant ??
+          agentDefaults.get(effectiveKey) ??
+          globalDefault;
+        if (maxMode !== undefined) {
+          mode = minPermissionMode(maxMode, mode);
+        }
+        resolvedSteps[step.name] = mode;
+      }
+    }
+
+    return ok({
+      participantModes: Object.keys(resolved).length > 0 ? resolved : undefined,
+      stepModes:
+        Object.keys(resolvedSteps).length > 0 ? resolvedSteps : undefined,
+    });
   }
 
   async function start(
@@ -824,17 +888,20 @@ export function createWorkflowService(
     }
 
     const participants = participantsOf(parsed.declaration);
+    const declaredSteps = file.flow ? undefined : stepsOf(parsed.declaration);
     const modesResolved = await resolveParticipantModes({
       project: project.value.id,
       workflow: name,
       participants,
+      steps: declaredSteps,
       explicit: input.participant_modes,
+      explicitSteps: input.step_modes,
       by,
       maxMode: options?.maxMode,
       callableRuntimeByName,
     });
     if (!modesResolved.ok) return modesResolved;
-    const participantModes = modesResolved.value;
+    const { participantModes, stepModes } = modesResolved.value;
 
     // 실행 모드는 오직 flow.ts 파일 유무로 결정한다.
     if (file.flow) {
@@ -913,9 +980,14 @@ export function createWorkflowService(
       });
     }
 
-    const steps = stepsOf(parsed.declaration).map((s) => {
+    const steps = (declaredSteps ?? stepsOf(parsed.declaration)).map((s) => {
       const override = input.step_open?.[s.name] ?? input.open;
-      return override !== undefined ? { ...s, open: override } : s;
+      const stepMode = stepModes?.[s.name];
+      return {
+        ...s,
+        ...(override !== undefined ? { open: override } : {}),
+        ...(stepMode !== undefined ? { permission_mode: stepMode } : {}),
+      };
     });
     const defaultStep =
       parsed.declaration.default_step !== undefined &&

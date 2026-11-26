@@ -254,9 +254,7 @@ export function decideChoiceOf(
   reason?: string,
 ): AcpDecideChoice {
   if (typeof choice === "object") return { kind: "mode", mode: choice.mode };
-  return choice === "session"
-    ? { kind: "session" }
-    : turnChoiceOf(choice, reason);
+  return turnChoiceOf(choice, reason);
 }
 
 // session이 있어야 하는 화면 동작. session을 만들기 전 화면은 이 명령을 목록에서 뺀다.

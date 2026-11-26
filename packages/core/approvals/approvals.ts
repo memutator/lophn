@@ -119,6 +119,7 @@ export function createApprovals(deps: ApprovalsDeps): ApprovalsService {
   const turns = createTurnRequests({
     permissionRules: deps.permissionRules,
     homeDir: deps.homeDir,
+    dataRoot: deps.dataRoot,
     bus: deps.bus,
     clock: deps.clock,
     ids: deps.ids,
@@ -131,6 +132,7 @@ export function createApprovals(deps: ApprovalsDeps): ApprovalsService {
       request,
       deps.permissionRules(workspace),
       deps.homeDir,
+      deps.dataRoot,
     );
     if (grantInput !== null) {
       sessionGrants.grant(request.session, grantInput);

@@ -5,28 +5,23 @@ import { PERMISSION_MODES } from "../../../../protocol/lophn-agent/turn-values.t
 import {
   approvalFactsOf,
   approvalTitleOf,
-  canDowngradeMode,
-  downgradeModesOf,
+  canSelectMode,
   inboxPermissionDetails,
   jobApprovalModeInfo,
   permissionDenialDisplay,
   permissionModeLabel,
 } from "./permissions-model.ts";
 
-test("phone mode picker strictly allows downgrades and never allows raising or setting full", () => {
-  assert.deepEqual(downgradeModesOf("full"), ["read_only", "ask", "workspace"]);
-  assert.deepEqual(downgradeModesOf("workspace"), ["read_only", "ask"]);
-  assert.deepEqual(downgradeModesOf("ask"), ["read_only"]);
-  assert.deepEqual(downgradeModesOf("read_only"), []);
-
+test("phone mode picker allows selecting any different 4-stage permission mode", () => {
   for (const from of PERMISSION_MODES) {
-    assert.equal(canDowngradeMode(from, "full"), false);
-    assert.equal(canDowngradeMode(from, from), false);
+    assert.equal(canSelectMode(from, from), false);
+    for (const to of PERMISSION_MODES) {
+      assert.equal(canSelectMode(from, to), from !== to);
+    }
   }
-  assert.equal(canDowngradeMode("read_only", "ask"), false);
-  assert.equal(canDowngradeMode("ask", "workspace"), false);
-  assert.equal(canDowngradeMode("workspace", "read_only"), true);
-  assert.equal(canDowngradeMode(null, "read_only"), false);
+  assert.equal(canSelectMode(null, "read_only"), false);
+  assert.equal(canSelectMode("read_only", "full"), true);
+  assert.equal(canSelectMode("workspace", "read_only"), true);
 
   assert.equal(permissionModeLabel("read_only"), "Read only");
   assert.equal(permissionModeLabel("ask"), "Ask every time");

@@ -66,7 +66,7 @@ import { ContinueAsChat, harnessAvatar, TerminalSession } from "../coding/index.
 import { Pending } from "./ask.tsx";
 import { attachedAbove, useAttachments } from "./attach.tsx";
 import {
-  canDowngradeMode,
+  canSelectMode,
   isPermissionMode,
   permissionModeLabel,
 } from "./permissions-model.ts";
@@ -559,8 +559,8 @@ function ChatScreen({
     : (sessionPermissions.data?.mode ?? null);
   const modeLabel = permissionModeLabel(currentMode ?? meta?.mode, meta?.modes);
 
-  const downgradeMode = async (next: PermissionMode): Promise<boolean> => {
-    if (relayed !== null || readOnly || !canDowngradeMode(currentMode, next)) {
+  const changeMode = async (next: PermissionMode): Promise<boolean> => {
+    if (relayed !== null || readOnly || !canSelectMode(currentMode, next)) {
       return false;
     }
     const result = await source.act(session, {
@@ -655,8 +655,17 @@ function ChatScreen({
         onAttach={pictures || project !== null || canCommand ? () => setSheet({ kind: "attach" }) : undefined}
         disabled={unreachable !== null || conversation.connection === "reconnecting" || outgoing?.phase === "sending" || attachments.uploading}
         chips={
-          caps.model && meta !== null && unreachable === null ? (
-            <Chip onPress={() => setSheet({ kind: "model" })}>{picker.currentLabel}</Chip>
+          unreachable === null &&
+          ((caps.model && meta !== null) ||
+            (relayed === null && modeLabel !== null)) ? (
+            <>
+              {caps.model && meta !== null && (
+                <Chip onPress={() => setSheet({ kind: "model" })}>{picker.currentLabel}</Chip>
+              )}
+              {relayed === null && modeLabel !== null && (
+                <Chip onPress={() => void openPermissions()}>{modeLabel}</Chip>
+              )}
+            </>
           ) : undefined
         }
       />
@@ -802,8 +811,8 @@ function ChatScreen({
         agent={who.name}
         mode={modeLabel}
         currentMode={currentMode}
-        canDowngrade={!readOnly && relayed === null && currentMode !== null && unreachable === null}
-        onDowngradeMode={downgradeMode}
+        canChangeMode={!readOnly && relayed === null && currentMode !== null && unreachable === null}
+        onChangeMode={changeMode}
         view={sheet?.kind === "permissions" ? sheet.view : null}
         sessionPermissions={sessionPermissions}
         onClose={close}

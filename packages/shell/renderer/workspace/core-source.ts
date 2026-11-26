@@ -530,6 +530,7 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
       inputs,
       open,
       step_open,
+      step_modes,
       participant_modes,
     }) {
       const reply = await core.call({
@@ -544,6 +545,7 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
           ...(inputs === undefined ? {} : { inputs }),
           ...(open === undefined ? {} : { open }),
           ...(step_open === undefined ? {} : { step_open }),
+          ...(step_modes === undefined ? {} : { step_modes }),
           ...(participant_modes === undefined ? {} : { participant_modes }),
         },
       });
@@ -581,9 +583,10 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
         read.value.get(WORKFLOW_MODES_SETTING_KEY),
       );
       const current = parsed.success ? parsed.data : {};
+      const key = `${projectId}/${workflowName}`;
       const next = {
         ...current,
-        [`${projectId}/${workflowName}`]: { ...modes },
+        [key]: { ...(current[key] ?? {}), ...modes },
       };
       const saved = await chooseSetting(core, WORKFLOW_MODES_SETTING_KEY, next);
       return saved.ok

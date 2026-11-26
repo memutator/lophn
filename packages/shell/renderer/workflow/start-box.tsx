@@ -165,14 +165,19 @@ function defaultPayloadFor(
 export function StartBox({
   entry,
   callableAgents = [],
+  stepModes = {},
   participantModes = [],
   faceOf,
   onStart,
   onSaveDefault,
-  onRememberModes,
+  onSaveStepModeDefault,
+  onSaveParticipantModeDefault,
 }: {
   entry: WorkflowEntryView;
   callableAgents?: readonly CallableAgentOptionView[];
+  /** YAML workflow의 lophn agent 단계별 기본 권한 단계. */
+  stepModes?: Readonly<Record<string, PermissionMode>>;
+  /** flow workflow의 lophn agent 참가자별 기본 권한 단계. */
   participantModes?: readonly ParticipantModeSpec[];
   faceOf?: FaceOf;
   /** 성공하면 true. */
@@ -184,6 +189,7 @@ export function StartBox({
       readonly title?: string;
       readonly open?: SessionOpenMode;
       readonly stepOpen?: Record<string, SessionOpenMode>;
+      readonly stepModes?: Record<string, PermissionMode>;
       readonly participantModes?: Record<string, PermissionMode>;
     },
   ) => Promise<boolean>;
@@ -194,9 +200,15 @@ export function StartBox({
     readonly step_open?: Readonly<Record<string, SessionOpenMode | null>>;
     readonly inputs?: Readonly<Record<string, unknown>>;
   }) => Promise<boolean>;
-  /** 참가자별 권한 단계를 `approvals.workflow_modes` 설정에 기억한다. */
-  onRememberModes?: (
-    modes: Readonly<Record<string, PermissionMode>>,
+  /** 단계 하나의 권한 단계를 `approvals.workflow_modes` 설정에 기본값으로 저장한다. */
+  onSaveStepModeDefault?: (
+    step: string,
+    mode: PermissionMode,
+  ) => Promise<boolean>;
+  /** flow 참가자 하나의 권한 단계를 `approvals.workflow_modes` 설정에 기본값으로 저장한다. */
+  onSaveParticipantModeDefault?: (
+    key: string,
+    mode: PermissionMode,
   ) => Promise<boolean>;
 }) {
   const isFlow = entry.kind === "flow";
@@ -233,11 +245,12 @@ export function StartBox({
   const [stepOpenOverrides, setStepOpenOverrides] = useState<
     Record<string, SessionOpenMode>
   >({});
-  const [modeOverrides, setModeOverrides] = useState<
+  const [stepModeOverrides, setStepModeOverrides] = useState<
     Record<string, PermissionMode>
   >({});
-  const [rememberingModes, setRememberingModes] = useState(false);
-  const [modesRemembered, setModesRemembered] = useState(false);
+  const [participantModeOverrides, setParticipantModeOverrides] = useState<
+    Record<string, PermissionMode>
+  >({});
   const [values, setValues] = useState<Record<string, unknown>>(() =>
     resolveInputDefaults(declarations),
   );
@@ -272,18 +285,27 @@ export function StartBox({
     ),
   );
 
+  const saveDefaultAction = (
+    key: string,
+    action: () => Promise<boolean>,
+    onSaved?: () => void,
+  ) => {
+    if (savingDefaultKey !== null) return;
+    setSavingDefaultKey(key);
+    void action()
+      .then((ok) => {
+        if (ok) onSaved?.();
+      })
+      .finally(() => setSavingDefaultKey(null));
+  };
+
   const saveDefault = (
     key: string,
     patch: Parameters<NonNullable<typeof onSaveDefault>>[0],
     onSaved?: () => void,
   ) => {
-    if (onSaveDefault === undefined || savingDefaultKey !== null) return;
-    setSavingDefaultKey(key);
-    void onSaveDefault(patch)
-      .then((ok) => {
-        if (ok) onSaved?.();
-      })
-      .finally(() => setSavingDefaultKey(null));
+    if (onSaveDefault === undefined) return;
+    saveDefaultAction(key, () => onSaveDefault(patch), onSaved);
   };
 
   const defaultButton = (
@@ -340,6 +362,36 @@ export function StartBox({
         ? "workflow.label.session-open-tab"
         : "workflow.label.session-open-background",
     );
+
+  const permissionModeLabel = (mode: PermissionMode) =>
+    t(`settings.label.mode-${mode}`);
+
+  const permissionModeOptions = PERMISSION_MODES.map((mode) => ({
+    value: mode,
+    label: permissionModeLabel(mode),
+  }));
+
+  const stepModeOf = (stepName: string): PermissionMode | undefined =>
+    stepModeOverrides[stepName] ?? stepModes[stepName];
+
+  const setStepMode = (stepName: string, mode: PermissionMode) =>
+    setStepModeOverrides((prev) => {
+      const updated = { ...prev };
+      if (mode === stepModes[stepName]) delete updated[stepName];
+      else updated[stepName] = mode;
+      return updated;
+    });
+
+  const setParticipantMode = (
+    item: ParticipantModeSpec,
+    mode: PermissionMode,
+  ) =>
+    setParticipantModeOverrides((prev) => {
+      const updated = { ...prev };
+      if (mode === item.mode) delete updated[item.key];
+      else updated[item.key] = mode;
+      return updated;
+    });
 
   const inputsSummary = (keys: readonly string[]): string[] =>
     keys
@@ -424,19 +476,19 @@ export function StartBox({
       !isFlow && Object.keys(stepOpenOverrides).length > 0
         ? stepOpenOverrides
         : undefined;
+    const stepModesOption =
+      !isFlow && Object.keys(stepModeOverrides).length > 0
+        ? stepModeOverrides
+        : undefined;
     const participantModesOption =
-      participantModes.length > 0
-        ? Object.fromEntries(
-            participantModes.map((item) => [
-              item.key,
-              modeOverrides[item.key] ?? item.mode,
-            ]),
-          )
+      isFlow && Object.keys(participantModeOverrides).length > 0
+        ? participantModeOverrides
         : undefined;
     const options =
       titleOption !== undefined ||
       openOption !== undefined ||
       stepOpenOption !== undefined ||
+      stepModesOption !== undefined ||
       participantModesOption !== undefined
         ? {
             ...(titleOption === undefined ? {} : { title: titleOption }),
@@ -444,6 +496,9 @@ export function StartBox({
             ...(stepOpenOption === undefined
               ? {}
               : { stepOpen: stepOpenOption }),
+            ...(stepModesOption === undefined
+              ? {}
+              : { stepModes: stepModesOption }),
             ...(participantModesOption === undefined
               ? {}
               : { participantModes: participantModesOption }),
@@ -463,6 +518,8 @@ export function StartBox({
           setStartStep(savedStartStep);
           setFlowOpen(savedFlowOpen);
           setStepOpenOverrides({});
+          setStepModeOverrides({});
+          setParticipantModeOverrides({});
           setValues(resolveInputDefaults(declarations));
           setErrors({});
           setOpenPanels(new Set());
@@ -474,10 +531,21 @@ export function StartBox({
 
   const runKeys = keysOfPanel(RUN_PANEL);
   const runPanelOpen = openPanels.has(RUN_PANEL);
-  const hasRunSettings = isFlow || runKeys.some((key) => visible.has(key));
+  const hasRunSettings =
+    isFlow ||
+    runKeys.some((key) => visible.has(key)) ||
+    participantModes.length > 0;
   const runSummary = [
     ...inputsSummary(runKeys),
     ...(isFlow && flowOpen !== "default" ? [openLabel(flowOpen)] : []),
+    ...(isFlow && participantModes.length === 1
+      ? [
+          permissionModeLabel(
+            participantModeOverrides[participantModes[0].key] ??
+              participantModes[0].mode,
+          ),
+        ]
+      : []),
   ].join(" · ");
 
   const button = (
@@ -554,7 +622,16 @@ export function StartBox({
               const summary = [
                 ...inputsSummary(keys),
                 ...(withSession.length === 1
-                  ? [openLabel(stepOpenOf(steps[withSession[0]]))]
+                  ? [
+                      openLabel(stepOpenOf(steps[withSession[0]])),
+                      ...(stepModeOf(steps[withSession[0]].name) !== undefined
+                        ? [
+                            permissionModeLabel(
+                              stepModeOf(steps[withSession[0]].name)!,
+                            ),
+                          ]
+                        : []),
+                    ]
                   : []),
               ].join(" · ");
               return (
@@ -658,66 +735,130 @@ export function StartBox({
                   {open && hasPanel ? (
                     <div className={styles.panel} data-settings-panel={panel}>
                       {inputsForm(keys)}
-                      {withSession.map((index) => (
-                        <div key={steps[index].name} data-step-open-of="">
-                          <Field
-                            label={
-                              withSession.length === 1
-                                ? t("workflow.label.step-session")
-                                : t("workflow.label.step-session-of", {
-                                    step: steps[index].name,
-                                  })
-                            }
-                            help={t("workflow.note.step-session")}
+                      {withSession.map((index) => {
+                        const stepItem = steps[index];
+                        const stepName = stepItem.name;
+                        const currentStepMode = stepModeOf(stepName);
+                        return (
+                          <div
+                            key={stepName}
+                            className={styles.stepSettings}
+                            data-step-open-of=""
                           >
-                            <div className={styles.controlRow}>
-                              <SegmentedControl
-                                size="sm"
-                                label={t("workflow.label.step-session")}
-                                value={stepOpenOf(steps[index])}
-                                options={[
-                                  { value: "tab", label: openLabel("tab") },
-                                  {
-                                    value: "background",
-                                    label: openLabel("background"),
-                                  },
-                                ].map((option) => ({
-                                  ...option,
-                                  disabled: locked,
-                                }))}
-                                onValueChange={(value) =>
-                                  setStepOpen(
-                                    steps[index],
-                                    value as SessionOpenMode,
-                                  )
-                                }
-                              />
-                              {onSaveDefault !== undefined &&
-                              stepOpenOverrides[steps[index].name] !== undefined
-                                ? defaultButton(
-                                    `step_open:${steps[index].name}`,
-                                    () => {
-                                      const stepName = steps[index].name;
-                                      const mode = stepOpenOverrides[stepName];
-                                      if (mode === undefined) return;
-                                      saveDefault(
-                                        `step_open:${stepName}`,
-                                        { step_open: { [stepName]: mode } },
-                                        () => {
-                                          setStepOpenOverrides((prev) => {
-                                            const next = { ...prev };
-                                            delete next[stepName];
-                                            return next;
-                                          });
-                                        },
-                                      );
+                            <Field
+                              label={
+                                withSession.length === 1
+                                  ? t("workflow.label.step-session")
+                                  : t("workflow.label.step-session-of", {
+                                      step: stepName,
+                                    })
+                              }
+                              help={t("workflow.note.step-session")}
+                            >
+                              <div className={styles.controlRow}>
+                                <SegmentedControl
+                                  size="sm"
+                                  label={t("workflow.label.step-session")}
+                                  value={stepOpenOf(stepItem)}
+                                  options={[
+                                    { value: "tab", label: openLabel("tab") },
+                                    {
+                                      value: "background",
+                                      label: openLabel("background"),
                                     },
-                                  )
-                                : null}
-                            </div>
-                          </Field>
-                        </div>
-                      ))}
+                                  ].map((option) => ({
+                                    ...option,
+                                    disabled: locked,
+                                  }))}
+                                  onValueChange={(value) =>
+                                    setStepOpen(
+                                      stepItem,
+                                      value as SessionOpenMode,
+                                    )
+                                  }
+                                />
+                                {onSaveDefault !== undefined &&
+                                stepOpenOverrides[stepName] !== undefined
+                                  ? defaultButton(
+                                      `step_open:${stepName}`,
+                                      () => {
+                                        const mode =
+                                          stepOpenOverrides[stepName];
+                                        if (mode === undefined) return;
+                                        saveDefault(
+                                          `step_open:${stepName}`,
+                                          { step_open: { [stepName]: mode } },
+                                          () => {
+                                            setStepOpenOverrides((prev) => {
+                                              const next = { ...prev };
+                                              delete next[stepName];
+                                              return next;
+                                            });
+                                          },
+                                        );
+                                      },
+                                    )
+                                  : null}
+                              </div>
+                            </Field>
+                            {currentStepMode === undefined ? null : (
+                              <div data-step-permission-mode={stepName}>
+                                <Field
+                                  label={
+                                    withSession.length === 1
+                                      ? t("workflow.label.step-permission-mode")
+                                      : t(
+                                          "workflow.label.step-permission-mode-of",
+                                          { step: stepName },
+                                        )
+                                  }
+                                  help={t("workflow.note.step-permission-mode")}
+                                >
+                                  <div className={styles.controlRow}>
+                                    <Select
+                                      disabled={locked}
+                                      value={currentStepMode}
+                                      options={permissionModeOptions}
+                                      onValueChange={(next) =>
+                                        setStepMode(
+                                          stepName,
+                                          next as PermissionMode,
+                                        )
+                                      }
+                                    />
+                                    {onSaveStepModeDefault !== undefined &&
+                                    stepModeOverrides[stepName] !== undefined
+                                      ? defaultButton(
+                                          `step_mode:${stepName}`,
+                                          () => {
+                                            const mode =
+                                              stepModeOverrides[stepName];
+                                            if (mode === undefined) return;
+                                            saveDefaultAction(
+                                              `step_mode:${stepName}`,
+                                              () =>
+                                                onSaveStepModeDefault(
+                                                  stepName,
+                                                  mode,
+                                                ),
+                                              () => {
+                                                setStepModeOverrides((prev) => {
+                                                  const next = { ...prev };
+                                                  delete next[stepName];
+                                                  return next;
+                                                });
+                                              },
+                                            );
+                                          },
+                                        )
+                                      : null}
+                                  </div>
+                                </Field>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                       {canStartHere ? (
                         <div className={styles.panelRow}>
                           <span className={styles.panelNote}>
@@ -800,93 +941,68 @@ export function StartBox({
                   </Field>
                 </div>
               ) : null}
+              {isFlow && participantModes.length > 0
+                ? participantModes.map((item) => {
+                    const value =
+                      participantModeOverrides[item.key] ?? item.mode;
+                    const label =
+                      participantModes.length === 1
+                        ? t("workflow.label.step-permission-mode")
+                        : t("workflow.label.step-permission-mode-of", {
+                            step:
+                              item.label !== item.key
+                                ? `${item.key} (${item.label})`
+                                : item.key,
+                          });
+                    return (
+                      <div key={item.key} data-participant-mode={item.key}>
+                        <Field
+                          label={label}
+                          help={t("workflow.note.flow-permission-mode")}
+                        >
+                          <div className={styles.controlRow}>
+                            <Select
+                              disabled={locked}
+                              value={value}
+                              options={permissionModeOptions}
+                              onValueChange={(next) =>
+                                setParticipantMode(item, next as PermissionMode)
+                              }
+                            />
+                            {onSaveParticipantModeDefault !== undefined &&
+                            participantModeOverrides[item.key] !== undefined
+                              ? defaultButton(
+                                  `participant_mode:${item.key}`,
+                                  () => {
+                                    const mode =
+                                      participantModeOverrides[item.key];
+                                    if (mode === undefined) return;
+                                    saveDefaultAction(
+                                      `participant_mode:${item.key}`,
+                                      () =>
+                                        onSaveParticipantModeDefault(
+                                          item.key,
+                                          mode,
+                                        ),
+                                      () => {
+                                        setParticipantModeOverrides((prev) => {
+                                          const next = { ...prev };
+                                          delete next[item.key];
+                                          return next;
+                                        });
+                                      },
+                                    );
+                                  },
+                                )
+                              : null}
+                          </div>
+                        </Field>
+                      </div>
+                    );
+                  })
+                : null}
             </div>
           ) : null}
-        </div>
-      ) : null}
-      {participantModes.length > 0 ? (
-        <div className={styles.runSettings} data-participant-modes="">
-          <div className={styles.stageHead}>
-            <span className={styles.runSettingsTitle}>
-              {t("workflow.heading.participant-modes")}
-            </span>
-            {onRememberModes === undefined ? null : (
-              <span className={styles.stageSide}>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={locked || rememberingModes}
-                  data-remember-modes=""
-                  onClick={() => {
-                    const current = Object.fromEntries(
-                      participantModes.map((item) => [
-                        item.key,
-                        modeOverrides[item.key] ?? item.mode,
-                      ]),
-                    );
-                    setRememberingModes(true);
-                    setModesRemembered(false);
-                    void onRememberModes(current)
-                      .then((ok) => {
-                        if (ok) {
-                          setModeOverrides({});
-                          setModesRemembered(true);
-                        }
-                      })
-                      .finally(() => setRememberingModes(false));
-                  }}
-                >
-                  {rememberingModes
-                    ? t("workflow.button.remembering-modes")
-                    : t("workflow.button.remember-modes")}
-                </Button>
-              </span>
-            )}
-          </div>
-          <div className={styles.panel}>
-            <p className={styles.panelNote}>
-              {t("workflow.note.participant-modes")}
-            </p>
-            <div className={styles.modeList}>
-              {participantModes.map((item) => {
-                const value = modeOverrides[item.key] ?? item.mode;
-                const label =
-                  item.label !== item.key
-                    ? `${item.key} (${item.label})`
-                    : item.key;
-                return (
-                  <div
-                    key={item.key}
-                    className={styles.modeRow}
-                    data-participant-mode={item.key}
-                  >
-                    <Field label={label}>
-                      <Select
-                        disabled={locked}
-                        value={value}
-                        options={PERMISSION_MODES.map((mode) => ({
-                          value: mode,
-                          label: t(`settings.label.mode-${mode}`),
-                        }))}
-                        onValueChange={(next) => {
-                          setModesRemembered(false);
-                          setModeOverrides((prev) => ({
-                            ...prev,
-                            [item.key]: next as PermissionMode,
-                          }));
-                        }}
-                      />
-                    </Field>
-                  </div>
-                );
-              })}
-            </div>
-            {modesRemembered ? (
-              <p className={styles.panelNote} data-modes-remembered="">
-                {t("workflow.notice.modes-remembered")}
-              </p>
-            ) : null}
-          </div>
         </div>
       ) : null}
       <div className={styles.row}>

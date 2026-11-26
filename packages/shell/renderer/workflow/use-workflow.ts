@@ -4,11 +4,16 @@
 import { t } from "@lophn/i18n";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { isHarnessRuntime } from "../../../protocol/lophn-agent/agent-values.ts";
+import {
+  agentHandleKey,
+  HARNESS_RUNTIMES,
+  isHarnessRuntime,
+} from "../../../protocol/lophn-agent/agent-values.ts";
 import {
   DEFAULT_PERMISSION_MODE,
   type PermissionMode,
 } from "../../../protocol/lophn-agent/turn-values.ts";
+import { CODING_BUILTINS } from "../../../protocol/lophn-agent/workspaces.ts";
 import { useFollowedRead } from "../desktop/connection/core-read.ts";
 import type {
   CallableAgentOptionView,
@@ -17,6 +22,14 @@ import type {
   WorkflowInstanceSummaryView,
   WorkspaceSource,
 } from "../workspace/source.ts";
+
+function isBuiltinHarnessAgent(agent: string): boolean {
+  const key = agentHandleKey(agent);
+  if ((HARNESS_RUNTIMES as readonly string[]).includes(key)) return true;
+  return CODING_BUILTINS.some(
+    (b) => agentHandleKey(b.harness) === key || agentHandleKey(b.id) === key,
+  );
+}
 
 export interface ParticipantModeSpec {
   readonly key: string;
@@ -44,7 +57,9 @@ export interface UseWorkflow {
   readonly instances: readonly WorkflowInstanceSummaryView[] | null;
   readonly detail: WorkflowInstanceDetailView | null;
   readonly notice: WorkflowNotice | null;
-  /** lophn·custom 참가자의 초기 권한 단계(기억된 workflow 설정 → agent 기본 → 전역 기본). harness·사람은 제외한다. */
+  /** YAML workflow의 단계별 lophn agent 기본 권한 단계(step 이름 → 단계). harness·사람·program 단계는 제외한다. */
+  readonly stepModes: Readonly<Record<string, PermissionMode>>;
+  /** flow workflow의 lophn agent 참가자별 기본 권한 단계. harness·사람은 제외한다. */
   readonly participantModes: readonly ParticipantModeSpec[];
   closeNotice(): void;
   refresh(): void;
@@ -57,6 +72,7 @@ export interface UseWorkflow {
       readonly title?: string;
       readonly open?: "tab" | "background";
       readonly stepOpen?: Record<string, "tab" | "background">;
+      readonly stepModes?: Record<string, PermissionMode>;
       readonly participantModes?: Record<string, PermissionMode>;
     },
   ): Promise<boolean>;
@@ -64,9 +80,15 @@ export interface UseWorkflow {
   retry(step?: string): void;
   resume(useLatestCode?: boolean): void;
   rename(title: string): void;
-  /** 참가자별 권한 단계를 `approvals.workflow_modes`에 기억한다(`workflow.yaml`은 건드리지 않는다). */
-  rememberParticipantModes?: (
-    modes: Readonly<Record<string, PermissionMode>>,
+  /** 단계 하나의 기본 권한 단계를 `approvals.workflow_modes`에 저장한다(`workflow.yaml`은 건드리지 않는다). */
+  saveStepModeDefault?: (
+    step: string,
+    mode: PermissionMode,
+  ) => Promise<boolean>;
+  /** flow 참가자 하나의 기본 권한 단계를 `approvals.workflow_modes`에 저장한다(`workflow.yaml`은 건드리지 않는다). */
+  saveParticipantModeDefault?: (
+    key: string,
+    mode: PermissionMode,
   ) => Promise<boolean>;
   saveDefaults?: (patch: {
     readonly default_step?: string | null;
@@ -101,6 +123,9 @@ export function useWorkflow({
   });
   const [notice, setNotice] = useState<WorkflowNotice | null>(null);
   const [definitionReads, setDefinitionReads] = useState(0);
+  const [stepModes, setStepModes] = useState<
+    Readonly<Record<string, PermissionMode>>
+  >({});
   const [participantModes, setParticipantModes] = useState<
     readonly ParticipantModeSpec[]
   >([]);
@@ -170,9 +195,11 @@ export function useWorkflow({
   const callableAgents =
     definitions.state === "ready" ? definitions.callableAgents : [];
 
-  // lophn·custom 참가자만 뽑아 기억된 workflow 설정 → agent 기본 → 전역 기본 순으로 초기 권한 단계를 채운다.
+  // lophn agent 참가자만 뽑아 기억된 workflow 설정 → agent 기본 → 전역 기본 순으로 권한 단계를 채운다.
+  // YAML workflow는 단계별(`stepModes`), flow workflow는 참가자별(`participantModes`)로 제공한다.
   useEffect(() => {
     if (entry === null || entry.participants === null) {
+      setStepModes({});
       setParticipantModes([]);
       return;
     }
@@ -198,9 +225,10 @@ export function useWorkflow({
         : DEFAULT_PERMISSION_MODE;
       const agentRows = agentsRead.ok ? agentsRead.value : [];
       const agentModeById = new Map<string, PermissionMode>();
-      const nonHarnessEntries = Object.entries(participants).filter(
+      const lophnEntries = Object.entries(participants).filter(
         ([, participant]) => {
           if ("kind" in participant) return false;
+          if (isBuiltinHarnessAgent(participant.agent)) return false;
           const row = agentRows.find(
             (item) =>
               item.handle === participant.agent ||
@@ -215,10 +243,7 @@ export function useWorkflow({
               item.name === participant.agent ||
               item.label === participant.agent,
           );
-          if (
-            callable?.kind === "coding" ||
-            participant.agent.startsWith("coding_")
-          ) {
+          if (callable?.kind === "coding") {
             return false;
           }
           return true;
@@ -226,7 +251,7 @@ export function useWorkflow({
       );
       if (source.agentsSource !== undefined) {
         await Promise.all(
-          nonHarnessEntries.map(async ([, participant]) => {
+          lophnEntries.map(async ([, participant]) => {
             if ("kind" in participant) return;
             const row = agentRows.find(
               (item) =>
@@ -257,7 +282,8 @@ export function useWorkflow({
         );
       }
       if (!live) return;
-      const resolved: ParticipantModeSpec[] = nonHarnessEntries.map(
+      const baseModeByParticipant = new Map<string, PermissionMode>();
+      const resolvedParticipants: ParticipantModeSpec[] = lophnEntries.map(
         ([key, participant]) => {
           const agentRef = "agent" in participant ? participant.agent : key;
           const row = agentRows.find(
@@ -268,14 +294,34 @@ export function useWorkflow({
           );
           const agentMode =
             row === undefined ? undefined : agentModeById.get(row.assignment);
+          const mode = remembered[key] ?? agentMode ?? globalDefault;
+          baseModeByParticipant.set(key, mode);
           return {
             key,
             label: row?.name ?? agentRef,
-            mode: remembered[key] ?? agentMode ?? globalDefault,
+            mode,
           };
         },
       );
-      setParticipantModes(resolved);
+      if (entry.kind === "flow") {
+        setStepModes({});
+        setParticipantModes(resolvedParticipants);
+        return;
+      }
+      const nextStepModes: Record<string, PermissionMode> = {};
+      for (const step of entry.steps ?? []) {
+        const by = participants[step.by];
+        const effectiveKey =
+          by !== undefined && "kind" in by && by.kind === "human"
+            ? step.with
+            : step.by;
+        if (effectiveKey === null) continue;
+        const base = baseModeByParticipant.get(effectiveKey);
+        if (base === undefined) continue;
+        nextStepModes[step.name] = remembered[`step:${step.name}`] ?? base;
+      }
+      setStepModes(nextStepModes);
+      setParticipantModes([]);
     })();
     return () => {
       live = false;
@@ -289,6 +335,7 @@ export function useWorkflow({
     detail:
       instance !== null && detail?.instance.id === instance ? detail : null,
     notice,
+    stepModes,
     participantModes,
     closeNotice: () => setNotice(null),
     refresh() {
@@ -307,6 +354,9 @@ export function useWorkflow({
         ...(options?.stepOpen === undefined
           ? {}
           : { step_open: options.stepOpen }),
+        ...(options?.stepModes === undefined
+          ? {}
+          : { step_modes: options.stepModes }),
         ...(options?.participantModes === undefined
           ? {}
           : { participant_modes: options.participantModes }),
@@ -382,14 +432,34 @@ export function useWorkflow({
     ...(source.saveWorkflowModes === undefined
       ? {}
       : {
-          async rememberParticipantModes(modes) {
+          async saveStepModeDefault(step, mode) {
             if (entry === null || source.saveWorkflowModes === undefined) {
               return false;
             }
             const saved = await source.saveWorkflowModes(
               entry.project,
               entry.name,
-              modes,
+              { [`step:${step}`]: mode },
+            );
+            if (!saved.ok) {
+              setNotice({
+                title: t("workflow.title.save-default-failed", { workflow }),
+                body: t("workflow.error.remember-modes-failed"),
+              });
+              return false;
+            }
+            setNotice(null);
+            setStepModes((prev) => ({ ...prev, [step]: mode }));
+            return true;
+          },
+          async saveParticipantModeDefault(key, mode) {
+            if (entry === null || source.saveWorkflowModes === undefined) {
+              return false;
+            }
+            const saved = await source.saveWorkflowModes(
+              entry.project,
+              entry.name,
+              { [key]: mode },
             );
             if (!saved.ok) {
               setNotice({
@@ -400,10 +470,7 @@ export function useWorkflow({
             }
             setNotice(null);
             setParticipantModes((prev) =>
-              prev.map((item) => ({
-                ...item,
-                mode: modes[item.key] ?? item.mode,
-              })),
+              prev.map((item) => (item.key === key ? { ...item, mode } : item)),
             );
             return true;
           },

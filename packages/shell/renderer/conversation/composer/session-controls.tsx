@@ -6,7 +6,6 @@ import { Button, Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
 import type { AcpChoice, AcpToggle } from "../../../../protocol/acp/mod.ts";
 import {
-  isModeDowngrade,
   PERMISSION_MODES,
   type PermissionMode,
 } from "../../../../protocol/lophn-agent/turn-values.ts";
@@ -38,8 +37,6 @@ interface ModeMenuProps {
   current: string | null;
   choices: readonly AcpChoice[];
   onChange: (mode: string) => void;
-  /** 다른 기기에서는 현재 단계보다 낮은 단계로만 바꿀 수 있다(full로 올리지 못한다). */
-  downgradeOnly?: boolean;
   /** `/` 명령이 menu를 열 수 있게 부모가 쥔다. */
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -50,21 +47,13 @@ export function ModeMenu({
   current,
   choices,
   onChange,
-  downgradeOnly = false,
   open,
   onOpenChange,
 }: ModeMenuProps) {
   const shown = choices.find((choice) => choice.id === current) ?? choices[0];
-  const canPick = (id: string): boolean => {
-    if (!downgradeOnly) return true;
-    if (id === current) return true;
-    return isPermissionMode(current) && isPermissionMode(id)
-      ? isModeDowngrade(current, id)
-      : false;
-  };
   const choose = (id: string) => {
     onOpenChange(false);
-    if (id !== current && canPick(id)) onChange(id);
+    if (id !== current) onChange(id);
   };
   return (
     <span
@@ -91,26 +80,19 @@ export function ModeMenu({
           role="group"
           aria-label={t("conversation.label.permission-mode")}
         >
-          {choices.map((choice) => {
-            const disabled = !canPick(choice.id);
-            return (
-              <PopoverRow
-                key={choice.id}
-                disabled={disabled}
-                onSelect={() => choose(choice.id)}
-              >
-                <span className={styles.check}>
-                  {choice.id === shown?.id ? (
-                    <Icon
-                      icon={conversationIcons.current}
-                      pixels={iconPixels("base")}
-                    />
-                  ) : null}
-                </span>
-                {choiceLabel(choice)}
-              </PopoverRow>
-            );
-          })}
+          {choices.map((choice) => (
+            <PopoverRow key={choice.id} onSelect={() => choose(choice.id)}>
+              <span className={styles.check}>
+                {choice.id === shown?.id ? (
+                  <Icon
+                    icon={conversationIcons.current}
+                    pixels={iconPixels("base")}
+                  />
+                ) : null}
+              </span>
+              {choiceLabel(choice)}
+            </PopoverRow>
+          ))}
         </div>
       </Popover>
     </span>

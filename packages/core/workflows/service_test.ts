@@ -2210,26 +2210,41 @@ test("workflow participant_modes precedence, harness exclusion, and sub-workflow
       logger,
     });
 
-    // 1) precedence: explicit user input ("ask" for planner) > remembered ("read_only" for reviewer)
+    // 1) precedence: explicit step_modes > explicit participant_modes > remembered ("step:<name>" > participant)
     //    > agent default ("ask" for custom-helper) > global default; harness/human excluded.
     const parentStarted = await svc.start(
       {
         workflow: "demo/parent-wf",
         text: "run parent",
         participant_modes: {
-          planner: "ask",
+          planner: "workspace",
           coder: "full",
           custom_harness: "full",
+        },
+        step_modes: {
+          plan: "ask",
+          code: "full",
         },
       },
       { kind: "user" },
     );
     assert.ok(parentStarted.ok);
     assert.deepStrictEqual(parentStarted.value.instance.participant_modes, {
-      planner: "ask",
+      planner: "workspace",
       reviewer: "read_only",
       helper: "ask",
     });
+    // Per-step mode overrides participant mode for lophn-agent steps; harness steps stay undefined.
+    assert.equal(
+      parentStarted.value.instance.steps.find((s) => s.name === "plan")
+        ?.permission_mode,
+      "ask",
+    );
+    assert.equal(
+      parentStarted.value.instance.steps.find((s) => s.name === "code")
+        ?.permission_mode,
+      undefined,
+    );
     assert.deepStrictEqual(routedModes[0], { step: "plan", mode: "ask" });
 
     // 2) job start ignores explicit participant_modes and uses remembered -> agent default -> global default.

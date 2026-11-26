@@ -784,8 +784,6 @@ export interface AgentTabSource {
   deleteSession?(session: string): Promise<SourceResult<void>>;
   /** 권한 mode를 바꾸지 못한다. 입력칸의 mode 메뉴가 없다. */
   readonly fixedMode?: true;
-  /** 다른 기기에서는 현재 권한 단계보다 낮은 단계로만 바꿀 수 있다(full로 올리지 못한다). */
-  readonly downgradeOnlyMode?: true;
   // rewind. 확인은 대화 화면 안의 panel이고 확인 창은 없다.
   /** 시점으로 고를 수 있는 사람 메시지(steer는 아니다), 오래된 순. 숨긴 구간 밖이다. */
   rewindPoints(session: string): Promise<SourceResult<readonly string[]>>;

@@ -1,0 +1,31 @@
+id: workflow-oneoff-override
+version: 0.23.179
+platform_note: none
+title: Add agent-driven one-off workflows, per-instance overrides, and save promotion
+modules:
+  - packages/protocol
+  - packages/core/workflows
+  - packages/core/approvals
+  - packages/core/agent-workspaces
+  - packages/core/main
+  - packages/core/storage
+  - packages/core/terminal-agents
+  - packages/cli
+  - packages/design
+  - packages/sdk
+  - packages/shell/renderer
+  - packages/mobile
+change: |
+  Added `workflows/run` (`RunWorkflow`), `workflows/override-code` (`OverrideWorkflowCode`), and `workflows/save` (`SaveWorkflow`) routes along with `lophn workflow run`, `lophn workflow override-code`, and `lophn workflow save` CLI/agent commands, plus `set_participant`/`remove_participant` ops in `EditWorkflow`.
+  Added ledger migration `workflows.instances-oneoff-override` (`one_off`, `overridden`, `flow_agent` columns on `workflow_instances`), `{ kind: "agent", session }` in `started_by`, and `workflow_run` person-only approval gate (`tool_gate/check`, `@lophn/agent` `1.20.0`).
+  Inline flow files and per-instance flow overlays are type-checked before person approval and never mutate base workflow folders.
+  Updated desktop/mobile approval cards, Run view (one-off/overridden badges, folderless instance rendering, hiding Resume with updated code for one-off runs), desk persistence (`mergeVanished` skips instance desks), and Workflows sidebar (`One-off runs` section).
+why: |
+  Users needed to ask lophn agent to spin up a one-off YAML or programmatic flow workflow without cluttering permanent project workflows, override an existing workflow for a single instance at start or mid-run without mutating the base definition, and promote a proven one-off or overridden instance into a permanent workflow via lophn agent.
+decisions:
+  - text: |
+      Gate agent-initiated one-off/override workflow runs and per-instance flow code patches with a person-only `workflow_run` approval card (`once | reject`, blocked in `read_only`, `unattended`, and `team_child`) after deterministic type-checking, rather than requiring a separate draft/StartBox step or allowing unapproved agent starts.
+    by: person
+  - text: |
+      Support both start-time overrides and live/blocked instance overrides for both YAML (`edit` with participant ops) and `flow.ts` (`override-code` patching only the instance `code_snapshot`), and promote instances to permanent workflows via agent command `lophn workflow save`.
+    by: person

@@ -31,6 +31,8 @@ export interface RemoteDevice {
    * 판단이 되어 다른 쪽이 돌아온다.
    */
   readonly disputed: boolean;
+  /** 이 컴퓨터가 hub 역할을 맡고 있는지(embedded relay + offline custody). */
+  readonly hub?: boolean;
 }
 
 /** 명단과, 다른 컴퓨터가 이 컴퓨터를 빼 명단을 버린 때(ISO. core가 다시 뜨거나 다시 들면 null). */
@@ -107,6 +109,15 @@ export type JoinOutcome =
 export interface RemoteRelayStatus {
   readonly url: string | null;
   readonly state: "off" | "connecting" | "connected";
+  readonly hubListening?: boolean;
+}
+
+/** 이 컴퓨터의 연결·Hub·OSC 52 clipboard 설정 묶음. */
+export interface RemoteConnectionSettings {
+  readonly hub: boolean;
+  readonly port: number;
+  readonly relay: string;
+  readonly osc52Clipboard: boolean;
 }
 
 export interface RemoteSettingsSource {
@@ -128,6 +139,12 @@ export interface RemoteSettingsSource {
   /** 설정 `remote.enabled`. */
   enabled(): Promise<SourceResult<boolean>>;
   setEnabled(on: boolean): Promise<SourceResult<null>>;
+  /** `remote.hub`, `remote.port`, `remote.relay`, `shell.terminal.osc52_clipboard`. */
+  connectionSettings(): Promise<SourceResult<RemoteConnectionSettings>>;
+  setHub(on: boolean): Promise<SourceResult<null>>;
+  setPort(port: number): Promise<SourceResult<null>>;
+  setRelay(url: string): Promise<SourceResult<null>>;
+  setOsc52Clipboard(on: boolean): Promise<SourceResult<null>>;
   /** 초대장을 낸다. long은 새 기기가 이 컴퓨터와 같은 때 켜질 수 없을 때다(7일, 기본 30분). remote가 꺼져 있으면 unavailable이다. */
   invite(input: {
     kind: "phone" | "computer";

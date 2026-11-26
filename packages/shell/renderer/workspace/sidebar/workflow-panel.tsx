@@ -125,7 +125,7 @@ export function WorkflowPanel({
   const canRename = !remote && source.renameWorkflow !== undefined;
   const canDelete = !remote && source.deleteWorkflow !== undefined;
   const canExport =
-    source.exportWorkflow !== undefined &&
+    source.sendSettingsExport !== undefined &&
     hub !== null &&
     exportTargets.length > 0;
 

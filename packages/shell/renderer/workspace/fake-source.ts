@@ -1919,21 +1919,16 @@ export function fakeWorkspaceSource(
       Promise.resolve({ ok: true, value: { from, to } }),
     deleteWorkflow: () =>
       Promise.resolve({ ok: true, value: { handoff_session: null } }),
-    exportWorkflow: ({ name }) =>
+    sendSettingsExport: ({ to, items }) =>
       Promise.resolve({
         ok: true,
         value: {
-          name,
-          files: [
-            {
-              path: "workflow.yaml",
-              content_base64: btoa("participants:\n  a: { agent: lophn }\n"),
-            },
-          ],
+          batch: "stg_01jd0000000000000000000001",
+          to_machine: to,
+          delivery_state: "held_at_hub",
+          item_count: items.length,
         },
       }),
-    importWorkflow: ({ files }) =>
-      Promise.resolve({ ok: true, value: { files_written: files.length } }),
     setWorkflowDefaults({ workflow, default_step, open, step_open, inputs }) {
       const found = workflowEntries.find((item) => item.name === workflow);
       if (found === undefined) {

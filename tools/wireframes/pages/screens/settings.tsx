@@ -353,9 +353,9 @@ export const settingsArea: Area = {
     },
     {
       id: "settings-remote",
-      title: "Settings · Remote",
+      title: "Settings · My computers",
       description:
-        '연결을 켜는 Switch와 My devices, Add a device 구역이다. 명단의 기기마다 종류와 OS, 이 컴퓨터 표시, 컴퓨터의 연결 상태나 폰의 마지막 연결, "이 컴퓨터의 터미널에 칠 수 있게" 허락하는 스위치(이 컴퓨터 줄에는 없다. 허락은 컴퓨터마다 따로다)와 [Rename]·[Make primary](폰)·[Remove]가 있다. 아래에 Open at start, [Invite a phone]·[Invite a computer]·[Join with an invite]가 있다. 위에 This computer와 Keep running 구역이 있다.',
+        '통합된 My computers 화면이다. This computer·Keep running, 연결·Hub·port·fallback relay·OSC 52 clipboard 스위치, My devices(Two Promises 배지, Hub 배지, "Allow controlling this computer" 스위치), Addresses, Add a device, App data sync, Received & sent files, Staged settings, Sync folders가 한 화면에 선다.',
       render: () => <SettingsRemote />,
     },
     {
@@ -458,28 +458,28 @@ export const settingsArea: Area = {
     },
     {
       id: "settings-sync",
-      title: "Settings · Sync",
+      title: "Settings · My computers · hub, sync & staged settings",
       description:
-        'Remote 다음 항목이다. 폴더 구역은 맨 위에 "Folder all my computers see"(path)가 따로 서고 그 아래 이름 붙인 폴더가 있다. 컴퓨터 구역은 이 컴퓨터와 다른 컴퓨터의 연결(직접, relay, 꺼짐과 마지막으로 본 때)과 그 컴퓨터의 file을 마지막으로 받은 길과 때(연결, 폰, 폴더)를 보인다. 앱 구역은 앱마다 어느 폴더로 맞추는지와 마지막으로 맞춘 때다. 길을 고르는 설정은 없다.',
+        "Hub가 켜진 My computers 화면이다. 앱별 sync policy·held 변경 해결, 송수신 파일(transfers), 대기 중인 설정/workflow(permission_rules 사람 확인), 공유 폴더를 한 화면에서 보인다.",
       render: () => <SettingsSync />,
     },
     {
       id: "settings-sync-empty",
-      title: "Settings · Sync · nothing set",
+      title: "Settings · My computers · empty",
       description:
-        "같이 보는 폴더도 이름 붙인 폴더도 없다. Google Drive, Syncthing, 두 OS가 같이 보는 디스크의 폴더를 고르거나 lophn에게 붙여 달라고 하라는 한 줄이 있다. Remote가 꺼져 있어 컴퓨터 구역은 Remote를 켜라는 한 줄과 [Open Remote]뿐이다.",
+        "연결이 꺼져 있고 폴더·앱·전송·대기 설정이 비어 있는 상태다.",
       render: () => <SettingsSyncEmpty />,
     },
     {
       id: "settings-sync-edit",
-      title: "Settings · Sync · edit a folder",
+      title: "Settings · My computers · edit a folder",
       description:
-        "이름 붙인 폴더 하나를 고치는 form이다. 이름 칸, path 칸과 [Choose…], 저장 전에 보이는 평문 경고 한 줄(Google Drive 같은 도구가 올리면 암호화되지 않는다), 오른쪽 끝의 [Cancel]·[Save]다. 같이 보는 폴더는 이름 칸 없이 path만 있다.",
+        "이름 붙인 폴더 하나를 고치는 form이다. 이름 칸, path 칸과 [Choose…], 저장 전에 보이는 평문 경고 한 줄, 오른쪽 끝의 [Cancel]·[Save]다.",
       render: () => <SettingsSyncEdit />,
     },
     {
       id: "settings-sync-refused",
-      title: "Settings · Sync · folder refused",
+      title: "Settings · My computers · folder refused",
       description:
         "core가 폴더를 거절했다(data root 안, 겹침, 예약된 이름). 거절한 이유가 form 안에 그대로 보이고 아무것도 저장되지 않았다.",
       render: () => <SettingsSyncRefused />,

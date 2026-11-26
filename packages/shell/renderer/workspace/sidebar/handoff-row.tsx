@@ -13,6 +13,12 @@ import styles from "../../shell/left-sidebar.module.css";
 // 32 KiB까지 올 수 있는 글을 tooltip에 다 그리지 않는다.
 const TIP_CHARS = 1200;
 
+function formatAttachmentBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export function HandoffRow({
   note,
   tag,
@@ -34,6 +40,7 @@ export function HandoffRow({
       .split("\n")
       .map((line) => line.trim())
       .find((line) => line !== "") ?? "";
+  const attachments = note.attachments ?? [];
   const tip = (
     <div className={styles.handoffTip}>
       <strong>
@@ -43,6 +50,25 @@ export function HandoffRow({
       {note.text.length > TIP_CHARS
         ? `${note.text.slice(0, TIP_CHARS)}…`
         : note.text}
+      {attachments.length === 0 ? null : (
+        <>
+          {"\n\n"}
+          {t("settings-sync.label.attachments-count", {
+            count: attachments.length,
+          })}
+          {attachments.map((att) => (
+            <div key={`${att.transfer}:${att.rel_path ?? att.name}`}>
+              {`• ${att.name} (${formatAttachmentBytes(att.size)}) · ${t(
+                "settings-sync.label.attachment-inbox",
+                {
+                  transfer: att.transfer,
+                  path: att.rel_path ?? att.name,
+                },
+              )}`}
+            </div>
+          ))}
+        </>
+      )}
       {note.branch === null ? null : (
         <>
           {"\n\n"}
@@ -77,6 +103,16 @@ export function HandoffRow({
           <span className={`${styles.rowLabel} ${styles.handoffLabel}`}>
             {first}
           </span>
+          {attachments.length === 0 ? null : (
+            <span
+              className={styles.handoffTag}
+              data-handoff-attachments={attachments.length}
+            >
+              {t("settings-sync.label.attachments-count", {
+                count: attachments.length,
+              })}
+            </span>
+          )}
           <span className={styles.handoffTag}>{tag}</span>
           <span className={styles.handoffAge}>{age}</span>
         </button>

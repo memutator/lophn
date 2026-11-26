@@ -141,13 +141,25 @@ export function useHandoffNotes(events: EventClient): {
 }
 
 // 첫 말은 model이 읽는 글이라 catalog에 두지 않는다.
-function firstMessage(note: HandoffNote): string {
+export function firstMessage(note: HandoffNote): string {
   const where = [
     ...(note.branch === null ? [] : [`branch ${note.branch}`]),
     ...(note.commit === null ? [] : [`commit ${note.commit}`]),
     `written ${note.written_at}`,
   ].join(", ");
-  return `Continue the work handed off from ${note.computer} (${where}). The note below was written by an agent there; bring the code over with git first if this computer does not have that commit.\n\n${note.text}`;
+  const attachments = note.attachments ?? [];
+  const attachedBlock =
+    attachments.length === 0
+      ? ""
+      : `\n\nAttached files:\n${attachments
+          .map((att) => {
+            const rel = (att.rel_path ?? att.name)
+              .replace(/\\/g, "/")
+              .replace(/^\/+/, "");
+            return `- ${att.name} (${att.size} bytes, transfer:${att.transfer}): inbox/${att.transfer}/${rel}`;
+          })
+          .join("\n")}`;
+  return `Continue the work handed off from ${note.computer} (${where}). The note below was written by an agent there; bring the code over with git first if this computer does not have that commit.\n\n${note.text}${attachedBlock}`;
 }
 
 /**

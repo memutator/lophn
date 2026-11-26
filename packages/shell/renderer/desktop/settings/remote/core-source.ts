@@ -2,7 +2,9 @@
 import type { z } from "zod";
 import {
   devicesSetPrimary,
+  type machinesList,
   type RemoteDevice as ListedDevice,
+  type remoteRelayStatus,
   type rosterInvite,
   type rosterList,
 } from "../../../../../protocol/remote/routes.ts";
@@ -14,6 +16,7 @@ import { chooseSetting, readEffective } from "../declared.ts";
 import type {
   AlwaysOnView,
   JoinOutcome,
+  RemoteConnectionSettings,
   RemoteMachine,
   RemoteRelayStatus,
   RemoteSettingsSource,
@@ -22,6 +25,12 @@ import type {
 
 const ENABLED_KEY = "remote.enabled";
 const ADDRESSES_KEY = "remote.addresses";
+const HUB_KEY = "remote.hub";
+const PORT_KEY = "remote.port";
+const RELAY_KEY = "remote.relay";
+const OSC52_KEY = "shell.terminal.osc52_clipboard";
+const DEFAULT_PORT = 7432;
+const DEFAULT_RELAY = "wss://lophn-relay.fly.dev";
 
 // `roster/join`의 거절 이유(`details.reason`). 화면이 이유마다 다른 글을 보인다.
 const JOIN_REFUSED = {
@@ -126,6 +135,35 @@ export function coreRemoteSource(
 
     setEnabled: (on) => chooseSetting(core, ENABLED_KEY, on),
 
+    async connectionSettings(): Promise<
+      SourceResult<RemoteConnectionSettings>
+    > {
+      const read = await readEffective(core, [
+        HUB_KEY,
+        PORT_KEY,
+        RELAY_KEY,
+        OSC52_KEY,
+      ]);
+      if (!read.ok) return read;
+      const port = read.value.get(PORT_KEY);
+      const relay = read.value.get(RELAY_KEY);
+      const osc52 = read.value.get(OSC52_KEY);
+      return {
+        ok: true,
+        value: {
+          hub: read.value.get(HUB_KEY) === true,
+          port: typeof port === "number" ? port : DEFAULT_PORT,
+          relay: typeof relay === "string" ? relay : DEFAULT_RELAY,
+          osc52Clipboard: osc52 !== false,
+        },
+      };
+    },
+
+    setHub: (on) => chooseSetting(core, HUB_KEY, on),
+    setPort: (port) => chooseSetting(core, PORT_KEY, port),
+    setRelay: (url) => chooseSetting(core, RELAY_KEY, url),
+    setOsc52Clipboard: (on) => chooseSetting(core, OSC52_KEY, on),
+
     async invite({ kind, terminalInput, lifetime }) {
       const made = await call<z.infer<typeof rosterInvite.output>>(
         core,
@@ -176,11 +214,29 @@ export function coreRemoteSource(
       return { ok: false, reason: "failed" };
     },
 
-    relayStatus: () =>
-      call<RemoteRelayStatus>(core, "memory", "remote_relay", "status", {}),
+    async relayStatus(): Promise<SourceResult<RemoteRelayStatus>> {
+      const read = await call<z.infer<typeof remoteRelayStatus.output>>(
+        core,
+        "memory",
+        "remote_relay",
+        "status",
+        {},
+      );
+      if (!read.ok) return read;
+      return {
+        ok: true,
+        value: {
+          url: read.value.url,
+          state: read.value.state,
+          ...(read.value.hub_listening === undefined
+            ? {}
+            : { hubListening: read.value.hub_listening }),
+        },
+      };
+    },
 
     async devices() {
-      const [roster, rows] = await Promise.all([
+      const [roster, rows, listedMachines, settings] = await Promise.all([
         call<z.infer<typeof rosterList.output>>(
           core,
           "memory",
@@ -189,12 +245,29 @@ export function coreRemoteSource(
           {},
         ),
         call<{ devices: ListedDevice[] }>(core, "read", "devices", "list", {}),
+        call<z.infer<typeof machinesList.output>>(
+          core,
+          "memory",
+          "machines",
+          "list",
+          {},
+        ),
+        readEffective(core, [HUB_KEY]),
       ]);
       if (!roster.ok) return roster;
       // 기준 폰은 이 컴퓨터의 기기 행에만 있다.
       const primary = rows.ok
         ? rows.value.devices.find((row) => row.primary)?.id
         : undefined;
+      const hubByMachine = new Map<string, boolean>(
+        listedMachines.ok
+          ? listedMachines.value.machines.map((one) => [
+              one.machine,
+              one.hub === true,
+            ])
+          : [],
+      );
+      const thisHub = settings.ok && settings.value.get(HUB_KEY) === true;
       return {
         ok: true,
         value: {
@@ -212,6 +285,10 @@ export function coreRemoteSource(
             terminalInput: device.terminal_input,
             pending: device.pending,
             disputed: device.disputed,
+            hub: device.this
+              ? thisHub
+              : device.machine !== null &&
+                hubByMachine.get(device.machine) === true,
           })),
         },
       };

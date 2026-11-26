@@ -314,7 +314,7 @@ export const workspaceSettings = {
   "settings.intro.quick-launch":
     "The buttons at the bottom of the left sidebar. Hover Terminal, Browser or App to open a favorite coding agent, a bookmark or an app panel directly. A project can keep its own buttons in Project settings.",
   "settings.intro.remote":
-    "Use lophn from your phone or from lophn on your other computers. Your devices form one list: a device you invite here joins every computer in it, and they connect over your local network or the relay.",
+    "Connect your phones and computers, run a hub for offline delivery, manage app sync policies, and review incoming files and staged settings. Actions either run right now when a computer is online or are delivered when it wakes up.",
   "settings.intro.shell-rules":
     "Permission rules apply across shell commands, file paths, app tools, MCP tools, and local tools. Built-in floor rules always block; within your rules, Deny beats Ask and Ask beats Allow. In a pattern, * matches any text.",
   "settings.label.machine-picker": "Settings of",
@@ -347,18 +347,28 @@ export const workspaceSettings = {
   "settings.label.mode-system": "System",
   "settings.label.open-themes-folder": "Open folder",
   "settings.label.remote-computer-terminal-input":
-    "Allow terminals and public app commands",
+    "Allow controlling this computer",
   "settings.label.remote-device-name": "Name",
   "settings.label.remote-disputed": "Disputed",
   "settings.label.remote-enabled": "Allow phone and computer connections",
+  "settings.label.remote-hub": "Act as hub",
+  "settings.label.remote-hub-badge": "Hub",
+  "settings.label.remote-port": "Port",
+  "settings.label.remote-relay": "Fallback relay URL",
+  "settings.label.terminal-osc52":
+    "Allow terminal programs to copy to clipboard (OSC 52)",
+  "settings.label.promise-now": "Right now",
+  "settings.label.promise-awake": "Delivered when awake",
+  "settings.label.promise-held-at": "Delivered when awake · Held at @{hub}",
+  "settings.label.promise-via-hub": "Delivered when awake · Via hub",
   "settings.label.remote-expires": "Expires in {time}",
   "settings.label.remote-expires-later": "Expires {time}",
   "settings.label.remote-invite-long":
     "The new device can't be on at the same time as this computer",
   "settings.label.remote-invite-terminal-input":
-    "Let the new device type in this computer's terminals",
+    "Allow controlling this computer",
   "settings.label.remote-invite-terminal-input-computer":
-    "Let the new computer use terminals and public app commands",
+    "Allow controlling this computer",
   "settings.label.remote-invite-text": "Invite",
   "settings.label.remote-last-connected": "Last connected {time}",
   "settings.label.remote-never-connected": "Never connected",
@@ -369,12 +379,15 @@ export const workspaceSettings = {
     "Reachable from anywhere through the relay",
   "settings.label.remote-relay-unreachable": "Can't reach the relay",
   "settings.label.remote-join-terminal-input":
-    "Let the inviting computer use terminals and public app commands",
-  "settings.label.remote-terminal-input":
-    "Allow typing in this computer's terminals",
+    "Allow controlling this computer",
+  "settings.label.remote-terminal-input": "Allow controlling this computer",
   "settings.label.remote-this-computer": "This computer",
   "settings.label.remote-view-only": "View only",
-  "settings.label.tab-remote": "Remote",
+  "settings.label.tab-remote": "My computers",
+  "settings.status.remote-hub-listening":
+    "Hub relay listening on /v1/* (port {port})",
+  "settings.status.remote-hub-enabled": "Hub mode enabled (port {port})",
+  "settings.placeholder.remote-relay": "wss://lophn-relay.fly.dev",
   "settings.label.theme-file": "{name} (file)",
   "settings.label.theme-not-found": "{name} (not found)",
   "settings.label.themes-folder": "Themes folder",
@@ -391,7 +404,7 @@ export const workspaceSettings = {
   "settings.note.login-off-systemd": "Change it with systemctl --user.",
   "settings.note.login-off-windows": "Change it in Settings › Apps › Startup.",
   "settings.notice.keep-running-moved":
-    "lophn now keeps running on this computer after you close its window, and starts when you log in. You can turn this off in Settings › Remote.",
+    "lophn now keeps running on this computer after you close its window, and starts when you log in. You can turn this off in Settings › My computers.",
   "settings.reason.development-build": "Not available in a development build",
   "settings.reason.no-inhibitor":
     "This system has no way for lophn to keep it awake.",
@@ -409,10 +422,18 @@ export const workspaceSettings = {
     "lophn is still set to start at login.",
   "settings.note.remote-enabled":
     "While on, lophn listens for your phones and computers on every network interface, connects to your other computers, and keeps running when idle.",
+  "settings.note.remote-hub":
+    "Embed a /v1/* relay on this computer's remote port and hold files, mail, phone changes, and staged settings for offline computers.",
+  "settings.note.remote-port":
+    "Port for direct connections and the embedded hub relay (1024–65535).",
+  "settings.note.remote-relay":
+    "Fallback relay used when direct or hub relay connections aren't available. Leave blank to disable.",
+  "settings.note.terminal-osc52":
+    "Lets programs running inside terminals write to this computer's clipboard. Reading the clipboard stays blocked.",
   "settings.note.remote-add":
     "Invite a phone or another computer. It joins every computer in your devices. To bring this computer into another computer's devices, join with an invite made there.",
   "settings.note.remote-invite-computer":
-    "On the other computer, open Settings › Remote, press “Join with an invite” and paste the text. Or run lophn remote join there. The invite works once, until it expires.",
+    "On the other computer, open Settings › My computers, press “Join with an invite” and paste the text. Or run lophn remote join there. The invite works once, until it expires.",
   "settings.note.remote-invite-long":
     "The invite lasts 7 days instead of 30 minutes. Use it for the other system of a dual-boot computer, or for a home and a work computer.",
   "settings.note.remote-disputed":
@@ -420,25 +441,25 @@ export const workspaceSettings = {
   "settings.note.remote-invite-phone":
     "Scan this code with the lophn phone app, or enter it there with “Show as text”. The invite works once, until it expires.",
   "settings.note.remote-invite-terminal-input":
-    "On by default: the new device can type into terminals on this computer and run commands as you. Other computers in your devices decide for themselves. Changing this makes a new invite. You can change it later for each device.",
+    "On by default: the new device can control this computer (terminals, settings, files, and browser pages). Other computers in your devices decide for themselves. Changing this makes a new invite. You can change it later for each device.",
   "settings.note.remote-invite-terminal-input-computer":
-    "On by default: the new computer can type into terminals on this computer, run commands as you, and let its agents and apps call public app commands on this computer. Other computers in your devices decide for themselves. Changing this makes a new invite. You can change it later for each device.",
+    "On by default: the new computer can control this computer (terminals, settings, files, browser pages, and public app commands). Other computers in your devices decide for themselves. Changing this makes a new invite. You can change it later for each device.",
   "settings.note.remote-join-terminal-input":
-    "On by default: the inviting computer can type into terminals on this computer, run commands as you, and let its agents and apps call public app commands on this computer. The inviting computer decides separately whether this computer gets the same access there.",
+    "On by default: the inviting computer can control this computer (terminals, settings, files, browser pages, and public app commands). The inviting computer decides separately whether this computer gets the same access there.",
   "settings.note.remote-join":
-    "On the other computer, open Settings › Remote, press “Invite a computer”, then “Show as text”. Copy the text and paste it here.",
+    "On the other computer, open Settings › My computers, press “Invite a computer”, then “Show as text”. Copy the text and paste it here.",
   "settings.note.remote-join-start":
     "Bring this computer into the devices of another computer with an invite made there.",
   "settings.note.remote-pending":
     "The computer that invited it was off. It finishes when a device that knows that computer, such as your phone, connects.",
   "settings.note.remote-no-grant":
-    "This computer has not granted access to that computer yet, so it sees this computer as view-only. Turn on the switch to allow terminals and public app commands.",
+    "This computer has not granted control to that computer yet, so it sees this computer as view-only. Turn on “Allow controlling this computer” to grant full access.",
   "settings.note.remote-remove":
     "{name} is cut off on every computer in your devices and cannot join again with its current key. To add it back, invite it again: it joins as a new device.",
   "settings.note.remote-remove-logins":
     "Saved logins already on {name} stay there. If you no longer trust it, change those passwords on their sites.",
   "settings.note.remote-device-terminal-input":
-    "When this switch is on for a device, anyone holding that device can type into terminals on this computer and run commands as you. For a computer, it also lets its agents and apps call public app commands on this computer, and installs new versions of your apps made there without asking. Each computer keeps its own choice: turn it on in Settings › Remote on every computer the device should reach.",
+    "When “Allow controlling this computer” is on for a device, anyone holding that device can control this computer (terminals, settings, files, and browser pages). For a computer, it also lets its agents and apps call public app commands and install new app versions without asking. Each computer keeps its own choice in Settings › My computers.",
   "settings.notice.computer-cloned":
     "This lophn was copied from another computer, so it is now a new computer. Invite it again from a computer in your devices.",
   "settings.notice.remote-devices-empty": "No devices yet. Invite one below.",

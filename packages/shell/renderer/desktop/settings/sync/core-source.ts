@@ -2,24 +2,41 @@
 // 폴더 설정은 값 전체를 새 값으로 쓴다(CLI와 같다). 쓰기 직전에 지금 값을 다시 읽어 그 사이 바뀐 것을 잃지 않는다.
 import type { z } from "zod";
 import type { settingsUpdate } from "../../../../../protocol/config/file.ts";
-import type { MachineEnvironment } from "../../../../../protocol/folder/mod.ts";
+import type {
+  appSyncHeld,
+  MachineEnvironment,
+} from "../../../../../protocol/folder/mod.ts";
+import type {
+  settingsExportApply,
+  settingsExportStaged,
+} from "../../../../../protocol/folder/settings-export.ts";
+import type { transfersList } from "../../../../../protocol/folder/transfers.ts";
 import type { carryStatus } from "../../../../../protocol/remote/carry.ts";
 import type { rosterList } from "../../../../../protocol/remote/routes.ts";
+import type { FilesApi } from "../../../../ipc/files.ts";
 import type { FolderPickerApi } from "../../../../ipc/folder-picker.ts";
 import type { CoreSource } from "../../connection/connection.ts";
 import { readAvailable, takeInApp } from "../../../apps/take-in.ts";
 import { windowFolderPicker } from "../../workspaces/projects/core-source.ts";
 import { call } from "../core-call.ts";
 import { readEffective } from "../declared.ts";
-import type { SaveOutcome, SyncFolder, SyncSettingsSource } from "./source.ts";
+import type {
+  AppSyncOverride,
+  SaveOutcome,
+  SyncAppRow,
+  SyncFolder,
+  SyncSettingsSource,
+} from "./source.ts";
 
 const DESTINATIONS_KEY = "folder.destinations";
 const SHARED_KEY = "folder.shared";
 const REMOTE_KEY = "remote.enabled";
+const APP_POLICIES_KEY = "sync.app_policies";
 // 사람이 쓰지 못하는 이름. 앱 선언의 `sync`가 고르는 `"computers"` 폴더라 목록에서 뺀다.
 const COMPUTERS = "computers";
 
 type Named = Record<string, { path: string }>;
+type AppPolicies = Record<string, AppSyncOverride>;
 
 /** 명단에 같은 machine id를 단 믿는(disputed 아닌) 컴퓨터 항목이 둘 이상인 machine id 목록. `machineSigningKey`와 같은 기준이다. */
 export function duplicateRosterMachines(
@@ -112,7 +129,7 @@ export function coreSyncSource(
     },
 
     async status() {
-      const [read, roster, available] = await Promise.all([
+      const [read, roster, available, environment] = await Promise.all([
         call<z.output<typeof carryStatus.output>>(
           core,
           "read",
@@ -128,8 +145,55 @@ export function coreSyncSource(
           {},
         ),
         readAvailable(core),
+        call<MachineEnvironment>(core, "read", "machine", "environment", {}),
       ]);
       if (!read.ok) return read;
+      const readAtByApp = new Map(
+        read.value.apps.map((row) => [row.app, row] as const),
+      );
+      const apps: SyncAppRow[] = [];
+      const seenApps = new Set<string>();
+      if (environment.ok) {
+        for (const envApp of environment.value.apps) {
+          seenApps.add(envApp.app);
+          const carryRow = readAtByApp.get(envApp.app);
+          const importHeld = envApp.destinations.reduce(
+            (sum, d) => sum + d.imports.reduce((sub, imp) => sub + imp.held, 0),
+            0,
+          );
+          const heldCount = Math.max(
+            envApp.away?.held ?? 0,
+            importHeld,
+            envApp.held.length,
+          );
+          apps.push({
+            app: envApp.app,
+            name: envApp.name,
+            destinations:
+              carryRow?.destinations ?? envApp.destinations.map((d) => d.name),
+            readAt: carryRow?.read_at ?? null,
+            ...(envApp.sync_policy === undefined
+              ? {}
+              : { syncPolicy: envApp.sync_policy }),
+            ...(envApp.sync_override === undefined
+              ? {}
+              : { syncOverride: envApp.sync_override }),
+            ...(heldCount > 0 ? { heldCount } : {}),
+            ...(envApp.away?.since !== undefined
+              ? { awaySince: envApp.away.since }
+              : {}),
+          });
+        }
+      }
+      for (const row of read.value.apps) {
+        if (seenApps.has(row.app)) continue;
+        apps.push({
+          app: row.app,
+          name: row.name,
+          destinations: row.destinations,
+          readAt: row.read_at,
+        });
+      }
       return {
         ok: true,
         value: {
@@ -139,16 +203,16 @@ export function coreSyncSource(
             receivedAt: row.received_at,
             via: row.via,
           })),
-          apps: read.value.apps.map((row) => ({
-            app: row.app,
-            name: row.name,
-            destinations: row.destinations,
-            readAt: row.read_at,
-          })),
+          apps,
           duplicateMachines: roster.ok
             ? duplicateRosterMachines(roster.value.devices)
             : [],
           available: available.ok ? available.value : [],
+          hubMachines: environment.ok
+            ? environment.value.machines
+                .filter((m) => m.hub === true)
+                .map((m) => m.id)
+            : [],
         },
       };
     },
@@ -176,12 +240,125 @@ export function coreSyncSource(
 
     setShared: (path) => write(SHARED_KEY, path === null ? null : { path }),
 
+    async setAppSyncPolicy(app, policy) {
+      const read = await readEffective(core, [APP_POLICIES_KEY]);
+      if (!read.ok) return { ok: false, reason: "failed", message: null };
+      const current = (read.value.get(APP_POLICIES_KEY) as AppPolicies) ?? {};
+      const next: AppPolicies = { ...current };
+      if (policy === "default") delete next[app];
+      else next[app] = policy;
+      return write(APP_POLICIES_KEY, next);
+    },
+
+    async resolveAppHeld(app, action) {
+      const listed = await call<z.output<typeof appSyncHeld.output>>(
+        core,
+        "memory",
+        "apps",
+        "sync_held",
+        { app, action: "list" },
+      );
+      if (!listed.ok) return { ok: false, reason: "failed", message: null };
+      for (const item of listed.value.held ?? []) {
+        const res = await call<z.output<typeof appSyncHeld.output>>(
+          core,
+          "memory",
+          "apps",
+          "sync_held",
+          { app, action, seq: item.seq },
+        );
+        if (!res.ok) return { ok: false, reason: "failed", message: null };
+      }
+      return { ok: true };
+    },
+
     async pickFolder() {
       if (picker === undefined) return { ok: false, code: "unavailable" };
       const picked = await picker.pick();
       return picked.ok
         ? { ok: true, value: picked.path }
         : { ok: false, code: picked.code };
+    },
+
+    async transfers() {
+      const read = await call<z.output<typeof transfersList.output>>(
+        core,
+        "memory",
+        "transfers",
+        "list",
+        { direction: "all", limit: 50 },
+      );
+      return read.ok ? { ok: true, value: read.value.transfers } : read;
+    },
+
+    async clearTransfer(id, deleteInboxFiles) {
+      const done = await call(core, "memory", "transfers", "clear", {
+        transfer: id,
+        ...(deleteInboxFiles === undefined
+          ? {}
+          : { delete_inbox_files: deleteInboxFiles }),
+      });
+      return done.ok ? { ok: true, value: null } : done;
+    },
+
+    async openInbox(path) {
+      const bridge = (globalThis as { lophnFiles?: FilesApi }).lophnFiles;
+      if (!bridge) return { ok: false, code: "unavailable" };
+      try {
+        const reply = await bridge.reveal({ path });
+        return reply.ok
+          ? { ok: true, value: null }
+          : { ok: false, code: reply.code };
+      } catch {
+        return { ok: false, code: "unavailable" };
+      }
+    },
+
+    async stagedSettings() {
+      const read = await call<z.output<typeof settingsExportStaged.output>>(
+        core,
+        "memory",
+        "settings_export",
+        "staged",
+        { state: "pending" },
+      );
+      return read.ok ? { ok: true, value: read.value.batches } : read;
+    },
+
+    async applyStagedSettings({
+      batch,
+      itemIds,
+      overwrite,
+      confirmPermissions,
+    }) {
+      const res = await call<z.output<typeof settingsExportApply.output>>(
+        core,
+        "memory",
+        "settings_export",
+        "apply",
+        {
+          batch,
+          ...(itemIds === undefined ? {} : { item_ids: [...itemIds] }),
+          ...(overwrite === undefined ? {} : { overwrite }),
+          ...(confirmPermissions === true ? { confirm_permissions: true } : {}),
+        },
+      );
+      if (!res.ok) return res;
+      return {
+        ok: true,
+        value: {
+          applied: res.value.applied,
+          requiresPermissionConfirmation:
+            res.value.requires_permission_confirmation,
+        },
+      };
+    },
+
+    async dismissStagedSettings(batch) {
+      const res = await call(core, "memory", "settings_export", "dismiss", {
+        batch,
+      });
+      return res.ok ? { ok: true, value: null } : res;
     },
   };
 }

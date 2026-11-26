@@ -499,34 +499,38 @@ export const SettingsRemoteRemove = () => (
   />
 );
 
-/** Settings › Sync: 같이 보는 폴더(Google Drive 안) 줄이 맨 위에 서고 이름 붙인 폴더 둘이 있다(같이 보는 폴더는 쓸 수 없고 photos는 폴더가 없다). 컴퓨터는 이 컴퓨터, 직접 붙은 Home server, relay로 붙은 Office desktop, 꺼졌지만 폰이 file을 나른 Work laptop("via your phone"), 꺼진 Old netbook이다. 앱은 몇 분 전, 몇 시간 전, 맞춘 적 없음이다. */
+/** Settings › My computers (Sync & data): 앱별 sync policy·held, 받은 파일, 대기 중인 설정, 같이 보는 폴더와 이름 붙인 폴더. */
 export const SettingsSync = () => (
   <SettingsFrame
-    pane="sync"
+    pane="remote"
     machines={{ machines: sampleSyncMachines() }}
+    remote={{ hub: true }}
     sync={{ sharedState: "not_writable" }}
   />
 );
 
-/** Settings › Sync: 같이 보는 폴더도 이름 붙인 폴더도 없고 Remote가 꺼져 있다. 폴더를 고르거나 lophn에게 붙여 달라고 하라는 설명과, Remote를 켜라는 한 줄이 선다. */
+/** Settings › My computers (empty): 같이 보는 폴더도 이름 붙인 폴더도 없고 연결이 꺼져 있다. */
 export const SettingsSyncEmpty = () => (
   <SettingsFrame
-    pane="sync"
+    pane="remote"
     machines={{ machines: [] }}
+    remote={{ enabled: false }}
     sync={{
       shared: null,
       named: [],
       remoteEnabled: false,
       received: [],
       apps: [],
+      transfers: [],
+      staged: [],
     }}
   />
 );
 
-/** Settings › Sync: 이름 붙인 폴더 photos의 [Edit]를 눌러 path를 바꾸는 form. 이름 칸, path 칸과 [Choose…], 저장 전 평문 경고 한 줄이 있다. */
+/** Settings › My computers (edit folder): 이름 붙인 폴더 photos의 [Edit]를 눌러 path를 바꾸는 form. */
 export const SettingsSyncEdit = () => (
   <SettingsFrame
-    pane="sync"
+    pane="remote"
     machines={{ machines: sampleSyncMachines() }}
     steps={[
       () => click('[data-sync-row="photos"] [data-sync-edit]'),
@@ -535,10 +539,10 @@ export const SettingsSyncEdit = () => (
   />
 );
 
-/** Settings › Sync: 같이 보는 폴더에 data root 안의 path를 저장하려 했더니 core가 거절했다. 거절한 이유가 form 안 [Save] 위에 선다. */
+/** Settings › My computers (refused folder): 같이 보는 폴더에 data root 안의 path를 저장하려 했더니 core가 거절했다. */
 export const SettingsSyncRefused = () => (
   <SettingsFrame
-    pane="sync"
+    pane="remote"
     machines={{ machines: sampleSyncMachines() }}
     sync={{
       refuse:

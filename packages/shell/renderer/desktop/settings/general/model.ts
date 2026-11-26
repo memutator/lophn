@@ -70,6 +70,10 @@ export function controlOf(type: Schema): Control {
 /** 다른 자리가 보이는 설정은 General에 오지 않는다. 지침·skill·MCP 같은 내용물과 상태도 오지 않는다. */
 const SHOWN_ELSEWHERE = [
   "shell.",
+  // My computers 항목이 연결·hub·동기화·폴더 설정을 직접 다룬다.
+  "remote.",
+  "sync.",
+  "folder.",
   // Diagnostics 항목이 trace를 켜고 끈다.
   "diagnostics.",
   PERMISSION_RULES_SETTING_KEY,

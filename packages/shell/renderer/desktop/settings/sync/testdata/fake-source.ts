@@ -3,15 +3,21 @@ import type { MachineItem } from "../../../machines/source.ts";
 import type {
   AvailableApp,
   SaveOutcome,
+  StagedSettingsApplyOutcome,
+  StagedSettingsBatch,
   SyncAppRow,
   SyncFolder,
   SyncReceived,
   SyncSettingsSource,
   TakeInOutcome,
+  TransferRecord,
 } from "../source.ts";
 
 const HOUR = 60 * 60 * 1000;
 const MINUTE = 60 * 1000;
+const DAY = 24 * HOUR;
+const HASH_A = "a".repeat(64);
+const HASH_B = "b".repeat(64);
 
 export interface FakeSyncOptions {
   /** 처음 같이 보는 폴더. 없으면 Google Drive 폴더다. null이면 정하지 않았다. */
@@ -34,20 +40,25 @@ export interface FakeSyncOptions {
   refuse?: string;
   /** [Choose…]가 돌려주는 path. */
   picked?: string;
+  /** 송수신 파일 transfer 목록. */
+  transfers?: TransferRecord[];
+  /** 대기 중인 staged 설정 목록. */
+  staged?: StagedSettingsBatch[];
 }
 
-/** 대표 컴퓨터 넷: 직접 붙음, relay로 붙음, 꺼졌지만 폰이 file을 나름, 꺼짐. */
+/** 대표 컴퓨터 넷: 직접 붙음(Hub), relay로 붙음, 꺼졌지만 폰이 file을 나름, 꺼짐. */
 export function sampleSyncMachines(now = Date.now()): MachineItem[] {
   const machine = (
     id: string,
     name: string,
-    fields: Pick<MachineItem, "status" | "path" | "lastSeenAt">,
+    fields: Pick<MachineItem, "status" | "path" | "lastSeenAt" | "hub">,
   ): MachineItem => ({ id, name, update: null, ...fields });
   return [
     machine("mch_homeserver", "Home server", {
       status: "connected",
       path: "direct",
       lastSeenAt: new Date(now).toISOString(),
+      hub: true,
     }),
     machine("mch_office", "Office desktop", {
       status: "connected",
@@ -94,18 +105,119 @@ export function sampleApps(now = Date.now()): SyncAppRow[] {
       name: "Orders",
       destinations: ["computers", "notes-backup"],
       readAt: new Date(now - 4 * MINUTE).toISOString(),
+      syncPolicy: "computers",
+      syncOverride: "default",
     },
     {
       app: "app_notes",
       name: "Notes",
       destinations: ["notes-backup"],
       readAt: new Date(now - 5 * HOUR).toISOString(),
+      syncPolicy: "mixed",
+      syncOverride: "default",
+      heldCount: 2,
     },
     {
       app: "app_budget",
       name: "Budget",
-      destinations: ["computers"],
+      destinations: [],
       readAt: null,
+      syncPolicy: "local",
+      syncOverride: "local",
+    },
+  ];
+}
+
+export function sampleTransfers(now = Date.now()): TransferRecord[] {
+  return [
+    {
+      id: "trf_01jd0000000000000000000001",
+      from_machine: "mch_01jd0000000000000000000002",
+      from_name: "Home server",
+      to_machine: "mch_01jd0000000000000000000001",
+      to_name: "Studio",
+      direction: "incoming",
+      note: "Benchmark archive from nightly run",
+      files: [
+        {
+          name: "report.tar.gz",
+          rel_path: "report.tar.gz",
+          size: 2_450_000,
+          sha256: HASH_A,
+        },
+      ],
+      state: "delivered",
+      inbox_dir: "/home/me/.lophn/inbox/trf_01jd0000000000000000000001",
+      created_at: new Date(now - 15 * MINUTE).toISOString(),
+      updated_at: new Date(now - 14 * MINUTE).toISOString(),
+      expires_at: new Date(now + 7 * DAY).toISOString(),
+    },
+    {
+      id: "trf_01jd0000000000000000000002",
+      from_machine: "mch_01jd0000000000000000000001",
+      from_name: "Studio",
+      to_machine: "mch_01jd0000000000000000000003",
+      to_name: "Work laptop",
+      direction: "outgoing",
+      note: "Release draft assets",
+      files: [
+        {
+          name: "slides.pdf",
+          rel_path: "slides.pdf",
+          size: 842_120,
+          sha256: HASH_B,
+        },
+      ],
+      state: "held_at_hub",
+      held_by: ["mch_01jd0000000000000000000002"],
+      inbox_dir: null,
+      created_at: new Date(now - 2 * HOUR).toISOString(),
+      updated_at: new Date(now - 2 * HOUR).toISOString(),
+      expires_at: new Date(now + 7 * DAY).toISOString(),
+    },
+  ];
+}
+
+export function sampleStagedSettings(now = Date.now()): StagedSettingsBatch[] {
+  return [
+    {
+      id: "stg_01jd0000000000000000000001",
+      from_machine: "mch_01jd0000000000000000000002",
+      from_name: "Home server",
+      to_machine: "mch_01jd0000000000000000000001",
+      project_identity: null,
+      items: [
+        {
+          kind: "workflow",
+          id: "release-check",
+          title: "release-check",
+          files: [
+            {
+              rel_path: "workflow.yaml",
+              content: "participants:\n  a: { agent: lophn }\n",
+              sha256: HASH_A,
+            },
+          ],
+        },
+        {
+          kind: "permission_rules",
+          id: "permission_rules",
+          title: "Permission rules",
+          files: [
+            {
+              rel_path: "permission-rules.json",
+              content: '{"global":[]}\n',
+              sha256: HASH_B,
+            },
+          ],
+          locked_fields: ["permission_rules"],
+        },
+      ],
+      state: "pending",
+      delivery_state: "delivered",
+      note: "Updated release workflow and rules from Home server",
+      created_at: new Date(now - 35 * MINUTE).toISOString(),
+      updated_at: new Date(now - 35 * MINUTE).toISOString(),
     },
   ];
 }
@@ -119,6 +231,11 @@ export function fakeSync(options: FakeSyncOptions = {}) {
     { name: "notes-backup", path: "/home/me/Sync/notes", state: "ok" },
     { name: "photos", path: "/mnt/photos/lophn", state: "missing" },
   ];
+  let apps: readonly SyncAppRow[] = options.apps ?? sampleApps();
+  let transfers: readonly TransferRecord[] =
+    options.transfers ?? sampleTransfers();
+  let staged: readonly StagedSettingsBatch[] =
+    options.staged ?? sampleStagedSettings();
   const ok = <T>(value: T) => Promise.resolve({ ok: true as const, value });
   const saved = (): Promise<SaveOutcome> =>
     Promise.resolve(
@@ -136,7 +253,7 @@ export function fakeSync(options: FakeSyncOptions = {}) {
             ? null
             : { path: shared, state: options.sharedState ?? "ok" },
         received: options.received ?? sampleReceived(),
-        apps: options.apps ?? sampleApps(),
+        apps,
         duplicateMachines: options.duplicateMachines ?? [],
         available: options.available ?? [
           {
@@ -145,6 +262,7 @@ export function fakeSync(options: FakeSyncOptions = {}) {
             machine: "mch_homeserver",
           },
         ],
+        hubMachines: ["mch_homeserver"],
       }),
     takeIn: (app) =>
       Promise.resolve(
@@ -174,7 +292,83 @@ export function fakeSync(options: FakeSyncOptions = {}) {
       if (done.ok) shared = path;
       return done;
     },
+    async setAppSyncPolicy(app, policy) {
+      const done = await saved();
+      if (!done.ok) return done;
+      apps = apps.map((row) =>
+        row.app === app
+          ? {
+              ...row,
+              syncOverride: policy,
+              syncPolicy:
+                policy === "default"
+                  ? "computers"
+                  : policy === "local"
+                    ? "local"
+                    : "computers",
+            }
+          : row,
+      );
+      return done;
+    },
+    async resolveAppHeld(app) {
+      const done = await saved();
+      if (!done.ok) return done;
+      apps = apps.map((row) =>
+        row.app === app ? { ...row, heldCount: 0, awaySince: null } : row,
+      );
+      return done;
+    },
     pickFolder: () => ok(options.picked ?? "/home/me/Dropbox/lophn"),
+    transfers: () => ok(transfers),
+    clearTransfer(id) {
+      transfers = transfers.filter((item) => item.id !== id);
+      return ok(null);
+    },
+    openInbox: () => ok(null),
+    stagedSettings: () => ok(staged.filter((b) => b.state === "pending")),
+    applyStagedSettings({ batch: batchId, itemIds, confirmPermissions }) {
+      const found = staged.find((b) => b.id === batchId);
+      if (found === undefined) {
+        return Promise.resolve({ ok: false, code: "not_found" });
+      }
+      const selected =
+        itemIds === undefined
+          ? found.items
+          : found.items.filter((i) => itemIds.includes(i.id));
+      let requiresPermissionConfirmation = false;
+      const applied: StagedSettingsApplyOutcome["applied"][number][] = [];
+      for (const item of selected) {
+        const sensitive =
+          item.kind === "permission_rules" ||
+          (item.locked_fields !== undefined && item.locked_fields.length > 0);
+        if (sensitive && confirmPermissions !== true) {
+          requiresPermissionConfirmation = true;
+          applied.push({
+            kind: item.kind,
+            id: item.id,
+            status: "requires_person_confirmation",
+          });
+        } else {
+          applied.push({ kind: item.kind, id: item.id, status: "applied" });
+        }
+      }
+      if (!requiresPermissionConfirmation) {
+        staged = staged.map((b) =>
+          b.id === batchId ? { ...b, state: "applied" } : b,
+        );
+      }
+      return ok<StagedSettingsApplyOutcome>({
+        applied,
+        requiresPermissionConfirmation,
+      });
+    },
+    dismissStagedSettings(batchId) {
+      staged = staged.map((b) =>
+        b.id === batchId ? { ...b, state: "dismissed" } : b,
+      );
+      return ok(null);
+    },
   };
   return { source };
 }

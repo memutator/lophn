@@ -34,16 +34,34 @@ export const workflow = {
     "This deletes the workflow folder, stops any running runs, and removes jobs that start it.",
   "workflow.dialog.delete-title": "Delete {name}?",
   "workflow.dialog.export-denied":
-    "Allow terminal input for this computer on {machine} (Settings › Remote › My devices) to export workflows there.",
+    "Allow controlling {machine} for this computer (Settings › My computers) to export there.",
   "workflow.dialog.export-done":
     "Exported {name} to {machine} ({count, plural, one {# file} other {# files}}).",
+  "workflow.dialog.export-done-staged":
+    "Sent {count, plural, one {# item} other {# items}} to {machine}. Review and apply in Settings › My computers there.",
+  "workflow.dialog.export-done-held":
+    "Sent {count, plural, one {# item} other {# items}} to {machine}. Held at your hub and will arrive when {machine} wakes up.",
   "workflow.dialog.export-empty-machines":
-    "No other connected computers are available.",
+    "No other paired computers are available.",
   "workflow.dialog.export-empty-projects":
     "No active projects on this computer.",
   "workflow.dialog.export-loading-projects": "Loading projects…",
-  "workflow.dialog.export-machine-label": "Machine",
+  "workflow.dialog.export-machine-label": "Computer",
+  "workflow.dialog.export-machine-online": "{name} · Online (right now)",
+  "workflow.dialog.export-machine-offline":
+    "{name} · Offline (delivered when awake)",
   "workflow.dialog.export-name-label": "Workflow name",
+  "workflow.dialog.export-note-label": "Note (optional)",
+  "workflow.dialog.export-note-placeholder":
+    "Context for reviewing on the other computer",
+  "workflow.dialog.export-staged-note":
+    "Sent as staged settings. Review and apply in Settings › My computers on the other computer. Offline computers receive it via your hub when they wake up.",
+  "workflow.dialog.export-include-permissions":
+    "Also include this computer's permission rules",
+  "workflow.dialog.export-extra-label": "Additional items (optional)",
+  "workflow.dialog.export-extra-id-placeholder":
+    "Item ID (e.g. reviewer, deploy)",
+  "workflow.dialog.export-extra-add": "Add",
   "workflow.dialog.export-overwrite-label":
     "Overwrite if a workflow with this name already exists",
   "workflow.dialog.export-project-label": "Project",

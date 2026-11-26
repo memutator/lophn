@@ -9,6 +9,7 @@ import { Button } from "@lophn/ui/primitives";
 import { StatusMark } from "@lophn/ui/feedback";
 import { type MessageKey, t } from "@lophn/i18n";
 
+import type { TransferAttachment } from "../../../../protocol/lophn-agent/calls.ts";
 import { actionIcons, conversationIcons } from "../../icons/mod.ts";
 import { useStateChanged } from "../../desktop/connection/core-read.ts";
 import type {
@@ -21,6 +22,12 @@ import type {
 } from "../agent-tab-source.ts";
 import { ToolStateMark } from "../activity/tool-state-mark.tsx";
 import styles from "./thread.module.css";
+
+function formatAttachmentBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 const TITLE = {
   none: "conversation.title.call-handoff",
@@ -46,7 +53,8 @@ const DELIVERY: Record<MailDelivery, MessageKey> = {
 };
 
 interface CallBlockProps {
-  call: CallView;
+  call: CallView & { readonly attachments?: readonly TransferAttachment[] };
+  attachments?: readonly TransferAttachment[];
   source: Pick<AgentTabSource, "callState" | "cancelCall">;
   /** 받은 session을 연다. machine은 다른 컴퓨터로 보낸 call의 그 컴퓨터다. 없는 창은 단추를 두지 않는다. */
   onOpenSession?:
@@ -56,6 +64,7 @@ interface CallBlockProps {
 
 export function CallBlock({
   call,
+  attachments: propAttachments,
   source,
   onOpenSession,
 }: CallBlockProps): ReactElement {
@@ -94,6 +103,16 @@ export function CallBlock({
   // call이 생기기 전에 tool call이 실패했거나 거절·취소됐으면 그 표시를 붙인다.
   const unsent = status === null && call.toolState !== "running";
   const sessionToOpen = remote === null ? call.session : remote.session;
+  const attachments = propAttachments ?? call.attachments ?? [];
+  const attachmentState = failed
+    ? t("settings-sync.state.transfer-failed")
+    : remote?.delivery === "pending"
+      ? t("settings-sync.state.transfer-queued")
+      : remote?.delivery === "held"
+        ? t("settings-sync.state.transfer-held-generic")
+        : status?.state === "done" || remote?.delivery === "running"
+          ? t("settings-sync.state.transfer-delivered")
+          : null;
   return (
     <div
       className={styles.call}
@@ -149,6 +168,28 @@ export function CallBlock({
         </span>
       </div>
       <p className={styles.callTask}>{call.task}</p>
+      {attachments.length === 0 ? null : (
+        <ul className={styles.refList} data-call-attachments="">
+          {attachments.map((att) => (
+            <li
+              key={`${att.transfer}:${att.rel_path ?? att.name}`}
+              className={styles.refRow}
+              data-call-attachment={att.transfer}
+            >
+              <span className={styles.callComputer}>
+                {`${att.name} (${formatAttachmentBytes(att.size)})`}
+              </span>
+              <span className={styles.callNote}>
+                {t("settings-sync.label.attachment-inbox", {
+                  transfer: att.transfer,
+                  path: att.rel_path ?? att.name,
+                })}
+                {attachmentState === null ? "" : ` · ${attachmentState}`}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
       {remote?.delivery != null && status?.state === "accepted" ? (
         <p className={styles.callNote} data-call-delivery={remote.delivery}>
           {t(DELIVERY[remote.delivery], { computer: remote.computer })}

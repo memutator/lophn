@@ -2,6 +2,7 @@
 import type {
   AlwaysOnView,
   JoinOutcome,
+  RemoteConnectionSettings,
   RemoteDevice,
   RemoteMachine,
   RemoteSettingsSource,
@@ -11,6 +12,14 @@ import type {
 interface FakeRemoteOptions {
   /** 처음 `remote.enabled`. 없으면 켜져 있다. */
   enabled?: boolean;
+  /** 처음 `remote.hub`. 없으면 꺼져 있다. */
+  hub?: boolean;
+  /** 처음 `remote.port`. 없으면 7432. */
+  port?: number;
+  /** 처음 `remote.relay`. 없으면 기본값. */
+  relay?: string;
+  /** 처음 `shell.terminal.osc52_clipboard`. 없으면 켜져 있다. */
+  osc52Clipboard?: boolean;
   /** 처음 `remote.addresses`. 없으면 비어 있다. */
   addresses?: string[];
   /** 처음 명단. 없으면 화면 확인용 대표 다섯(이 컴퓨터, 컴퓨터 둘, 폰 둘)이다. */
@@ -66,6 +75,7 @@ export function sampleDevices(now = Date.now()): RemoteDevice[] {
       lastConnectedAt: new Date(now).toISOString(),
       primary: false,
       terminalInput: true,
+      hub: true,
     }),
     device("03", {
       kind: "computer",
@@ -142,6 +152,12 @@ export function fakeRemote(options: FakeRemoteOptions = {}) {
   let alwaysOn: AlwaysOnView = { ...SAMPLE_ALWAYS_ON, ...options.alwaysOn };
   let machine = options.machine ?? SAMPLE_MACHINE;
   let enabled = options.enabled ?? true;
+  let connection: RemoteConnectionSettings = {
+    hub: options.hub ?? false,
+    port: options.port ?? 7432,
+    relay: options.relay ?? "wss://lophn-relay.fly.dev",
+    osc52Clipboard: options.osc52Clipboard ?? true,
+  };
   let addresses: readonly string[] = options.addresses ?? [];
   let devices: readonly RemoteDevice[] =
     options.devices ?? sampleDevices(Date.now());
@@ -203,6 +219,27 @@ export function fakeRemote(options: FakeRemoteOptions = {}) {
       enabled = on;
       return ok(null);
     },
+    connectionSettings: () => ok(connection),
+    setHub(on) {
+      connection = { ...connection, hub: on };
+      devices = devices.map((d) => (d.thisComputer ? { ...d, hub: on } : d));
+      return ok(null);
+    },
+    setPort(port) {
+      if (!Number.isInteger(port) || port < 1024 || port > 65535) {
+        return Promise.resolve({ ok: false, code: "invalid_input" });
+      }
+      connection = { ...connection, port };
+      return ok(null);
+    },
+    setRelay(url) {
+      connection = { ...connection, relay: url };
+      return ok(null);
+    },
+    setOsc52Clipboard(on) {
+      connection = { ...connection, osc52Clipboard: on };
+      return ok(null);
+    },
     invite({ kind, lifetime }) {
       if (!enabled) return Promise.resolve({ ok: false, code: "unavailable" });
       const expiresAt = new Date(
@@ -213,8 +250,12 @@ export function fakeRemote(options: FakeRemoteOptions = {}) {
     join: () => Promise.resolve(options.join ?? { ok: true, pending: false }),
     relayStatus: () =>
       ok({
-        url: "wss://relay.example",
-        state: enabled ? ("connected" as const) : ("off" as const),
+        url: connection.relay === "" ? null : connection.relay,
+        state:
+          enabled && connection.relay !== ""
+            ? ("connected" as const)
+            : ("off" as const),
+        hubListening: enabled && connection.hub,
       }),
     devices: () => ok({ devices, removedAt: options.removedAt ?? null }),
     rename(id, name) {

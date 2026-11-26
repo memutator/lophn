@@ -25,7 +25,6 @@ import type { ProviderSettingsSource } from "./providers/settings-source.ts";
 import { RemotePanel } from "./remote/remote-panel.tsx";
 import type { RemoteSettingsSource } from "./remote/source.ts";
 import type { SyncSettingsSource } from "./sync/source.ts";
-import { SyncPanel } from "./sync/sync-panel.tsx";
 import { ShellRulesPanel } from "./shell-rules/shell-rules-panel.tsx";
 import type { ShellRulesSource } from "./shell-rules/source.ts";
 import type { SettingsSource } from "./source.ts";
@@ -141,9 +140,7 @@ export function SettingsScreen({
           )
         );
       case "remote":
-        return remote && <RemotePanel source={remote} />;
-      case "sync":
-        return sync && <SyncPanel source={sync} onPane={onPane} />;
+        return remote && <RemotePanel source={remote} sync={sync} />;
       case "keyboard":
         return keyboard && <KeyboardPanel source={keyboard} />;
       case "quick-launch":

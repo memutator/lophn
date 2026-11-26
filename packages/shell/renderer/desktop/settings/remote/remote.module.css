@@ -59,7 +59,25 @@
   gap: var(--space-2);
 }
 
-/* 엇갈린 줄과 이 컴퓨터 줄의 짧은 key. 같은 이름의 엇갈린 줄을 다른 컴퓨터의 Settings › Remote·CLI와 대조해 가른다. */
+/* 엇갈린 줄과 이 컴퓨터 줄의 짧은 key. 같은 이름의 엇갈린 줄을 다른 컴퓨터의 Settings › My computers·CLI와 대조해 가른다. */
 .deviceKey {
   user-select: text;
+}
+
+.badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.hubBadge {
+  padding: var(--space-0) var(--space-2);
+  border: var(--border-width) solid var(--color-border-base);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-subtle);
+  color: var(--color-text-primary);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  font-weight: var(--font-weight-medium);
 }

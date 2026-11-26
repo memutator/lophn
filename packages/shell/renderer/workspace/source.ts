@@ -2,6 +2,7 @@
 // layout 저장·복원만 담는다.
 // core를 직접 부르지 않고 화면이 주입한 통로만 쓴다.
 import type { CleanUpMode } from "../../../protocol/base/follow-ups.ts";
+import type { SettingsExportKind } from "../../../protocol/folder/settings-export.ts";
 import type { PermissionMode } from "../../../protocol/lophn-agent/turn-values.ts";
 import type {
   WorkflowInputsDeclaration,
@@ -524,29 +525,23 @@ export interface WorkspaceSource {
     readonly name: string;
     readonly cleanUp?: CleanUpMode;
   }): Promise<ReadResult<{ readonly handoff_session: string | null }>>;
-  /** workflow 폴더의 file 묶음을 다른 기계로 옮기기 위해 읽는다. */
-  exportWorkflow?(input: {
-    readonly project: string;
-    readonly name: string;
+  /** workflow·agent·skill·project_command·permission_rules를 대상 컴퓨터(온라인·오프라인 모두)로 보낸다(`settings_export/send`). */
+  sendSettingsExport?(input: {
+    readonly to: string;
+    readonly items: readonly {
+      readonly kind: SettingsExportKind;
+      readonly id: string;
+    }[];
+    readonly project?: string;
+    readonly note?: string;
   }): Promise<
     ReadResult<{
-      readonly name: string;
-      readonly files: readonly {
-        readonly path: string;
-        readonly content_base64: string;
-      }[];
+      readonly batch: string;
+      readonly to_machine: string;
+      readonly delivery_state: "queued" | "held_at_hub" | "delivered";
+      readonly item_count: number;
     }>
   >;
-  /** 내보낸 workflow file 묶음을 대상 project에 쓴다. */
-  importWorkflow?(input: {
-    readonly project: string;
-    readonly name: string;
-    readonly files: readonly {
-      readonly path: string;
-      readonly content_base64: string;
-    }[];
-    readonly overwrite?: boolean;
-  }): Promise<ReadResult<{ readonly files_written: number }>>;
   /** workflow.yaml의 기본값(default_step, open, steps.*.open, inputs.*.default)을 갱신한다. */
   setWorkflowDefaults?(input: {
     readonly project: string;

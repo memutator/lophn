@@ -22,6 +22,8 @@ export interface MachineItem {
   readonly path: "direct" | "relay" | null;
   /** 마지막으로 본 때(ISO). 한 번도 못 봤으면 null이다. */
   readonly lastSeenAt: string | null;
+  /** 이 기계가 hub(embedded relay + offline custody) 역할을 맡고 있는지. */
+  readonly hub?: boolean;
 }
 
 export interface MachinesView {

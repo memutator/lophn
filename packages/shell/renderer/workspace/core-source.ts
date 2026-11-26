@@ -9,6 +9,7 @@ import {
   WORKFLOW_MODES_SETTING_KEY,
   workflowModesSettingSchema,
 } from "../../../protocol/approvals/permission-rules.ts";
+import { settingsExportSend } from "../../../protocol/folder/settings-export.ts";
 import { jobList } from "../../../protocol/jobs/jobs.ts";
 import {
   DEFAULT_PERMISSION_MODE,
@@ -19,8 +20,6 @@ import { projectApi } from "../../../protocol/projects/project-api.ts";
 import { workflowInstanceRename } from "../../../protocol/workflows/commands.ts";
 import {
   workflowDelete,
-  workflowExport,
-  workflowImport,
   workflowList,
   workflowRename,
   workflowResume,
@@ -717,39 +716,18 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
       };
     },
 
-    async exportWorkflow({ project: projectId, name }) {
+    async sendSettingsExport({ to, items, project: projectId, note }) {
       const reply = await core.call({
-        kind: workflowExport.kind,
-        resource: workflowExport.resource,
-        method: workflowExport.method,
-        body: { project: projectId, name },
-      });
-      if (!reply.ok) {
-        return {
-          ok: false,
-          message: reply.error?.code ?? "internal",
-          ...(reply.error?.details === undefined
-            ? {}
-            : { details: reply.error.details }),
-        };
-      }
-      const value = reply.value as {
-        name: string;
-        files: { path: string; content_base64: string }[];
-      };
-      return { ok: true, value: { name: value.name, files: value.files } };
-    },
-
-    async importWorkflow({ project: projectId, name, files, overwrite }) {
-      const reply = await core.call({
-        kind: workflowImport.kind,
-        resource: workflowImport.resource,
-        method: workflowImport.method,
+        kind: settingsExportSend.kind,
+        resource: settingsExportSend.resource,
+        method: settingsExportSend.method,
         body: {
-          project: projectId,
-          name,
-          files,
-          ...(overwrite === undefined ? {} : { overwrite }),
+          to,
+          items: items.map((item) => ({ kind: item.kind, id: item.id })),
+          ...(projectId === undefined ? {} : { project: projectId }),
+          ...(note === undefined || note.trim() === ""
+            ? {}
+            : { note: note.trim() }),
         },
       });
       if (!reply.ok) {
@@ -761,8 +739,13 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
             : { details: reply.error.details }),
         };
       }
-      const value = reply.value as { files_written: number };
-      return { ok: true, value: { files_written: value.files_written } };
+      const value = reply.value as {
+        batch: string;
+        to_machine: string;
+        delivery_state: "queued" | "held_at_hub" | "delivered";
+        item_count: number;
+      };
+      return { ok: true, value };
     },
 
     async setWorkflowDefaults({

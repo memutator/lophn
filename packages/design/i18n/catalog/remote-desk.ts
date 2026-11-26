@@ -6,7 +6,7 @@ export const remoteDesk = {
   "machines.gate.connecting": "Connecting to {name}…",
   "machines.gate.offline": "{name} is offline",
   "machines.gate.removed":
-    "{name} is not in your devices. To view it again, invite it from Settings › Remote on this computer.",
+    "{name} is not in your devices. To view it again, invite it from Settings › My computers on this computer.",
   "machines.empty.no-folders": "No folders here",
   "machines.error.custom-url": "Use https, or http only for {name} itself.",
   "machines.label.all": "All machines",
@@ -19,7 +19,7 @@ export const remoteDesk = {
   "machines.notice.folders-truncated": "Showing the first 500 folders.",
   "machines.notice.only-here": "This opens only on {name}.",
   "machines.notice.settings-no-grant":
-    "This computer can't change {name}'s settings. On {name}, open Settings › Remote › My devices and turn on “Allow typing in terminals” for this computer.",
+    "This computer can't change {name}'s settings. On {name}, open Settings › My computers and turn on “Allow controlling this computer” for this computer.",
   "machines.notice.sign-in-there":
     "Signing in to {product} needs a browser on {name}. Sign in on {name}.",
   "machines.status.connected": "Connected",
@@ -70,7 +70,7 @@ export const remoteDesk = {
   "machines.page.keys": "Type into the page",
   "machines.page.waiting": "Waiting for the page…",
   "machines.page.view-only":
-    "You can only watch pages on {name}. To use them, open Settings › Remote › My devices on {name} and turn on “Allow typing in terminals” for this computer.",
+    "You can only watch pages on {name}. To use them, open Settings › My computers on {name} and turn on “Allow controlling this computer” for this computer.",
   "machines.page.error.action": "{name} did not do that. Try again.",
   "machines.page.error.open": "Could not open the page on {name}.",
 } as const;

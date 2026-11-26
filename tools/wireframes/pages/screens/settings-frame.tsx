@@ -62,9 +62,10 @@ interface SettingsFrameProps {
     /** profile을 쓰는 agent. 있으면 `agents/list`가 이 목록으로 답한다. */
     readonly agents?: { id: string; name: string; profile: string | null }[];
   };
-  /** Remote 항목. 안 쓰면 켜져 있고 명단에 이 컴퓨터, 컴퓨터 둘, 폰 둘이 있다. */
+  /** My computers 항목. 안 쓰면 켜져 있고 명단에 이 컴퓨터, 컴퓨터 둘, 폰 둘이 있다. */
   readonly remote?: {
     readonly enabled?: boolean;
+    readonly hub?: boolean;
     readonly devices?: RemoteDevice[];
     /** [Join with an invite]의 결과. 안 쓰면 초대한 컴퓨터에 닿아 끝난다. */
     readonly join?: JoinOutcome;

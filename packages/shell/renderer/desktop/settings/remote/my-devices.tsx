@@ -6,6 +6,7 @@
 // 다른 쪽이 돌아온다.
 import { useState } from "react";
 import { formatRelativeTime, t } from "@lophn/i18n";
+import { StatusMark } from "@lophn/ui/feedback";
 import { Field, Input, Switch } from "@lophn/ui/input";
 import { Dialog, Tooltip } from "@lophn/ui/overlay";
 import { Button } from "@lophn/ui/primitives";
@@ -14,6 +15,8 @@ import { actionIcons } from "../../../icons/mod.ts";
 import { useMachinesView } from "../../machines/context.tsx";
 import { MachineStatus } from "../../machines/status.tsx";
 import styles from "../settings.module.css";
+import type { SyncReceived } from "../sync/source.ts";
+import syncStyles from "../sync/sync.module.css";
 import remoteStyles from "./remote.module.css";
 import type {
   RemoteDevice,
@@ -60,6 +63,9 @@ export function MyDevices({
   devices,
   removedAt,
   reload,
+  receivedByMachine,
+  hubMachines,
+  duplicateMachines,
 }: {
   source: RemoteSettingsSource;
   devices: readonly RemoteDevice[] | "failed" | null;
@@ -67,6 +73,12 @@ export function MyDevices({
   removedAt: string | null;
   /** 바꾼 뒤 목록을 다시 읽는다. */
   reload: () => void;
+  /** 컴퓨터 id → 마지막으로 받은 file의 길과 시각. */
+  receivedByMachine?: ReadonlyMap<string, SyncReceived>;
+  /** hub 역할을 맡은 machine id 집합. */
+  hubMachines?: ReadonlySet<string>;
+  /** 명단에 중복 machine id가 있는 기계 집합. */
+  duplicateMachines?: ReadonlySet<string>;
 }) {
   const view = useMachinesView();
   const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(
@@ -117,6 +129,23 @@ export function MyDevices({
   // gallery가 기계 목록 없이 그리면 상태 줄이 없다.
   const machineOf = (device: RemoteDevice) =>
     view?.machines.find((one) => one.id === device.machine);
+  const isDeviceHub = (device: RemoteDevice): boolean =>
+    device.hub === true ||
+    (device.machine !== null && hubMachines?.has(device.machine) === true) ||
+    machineOf(device)?.hub === true;
+  // offline 컴퓨터의 Two Promises 문구에 붙일 대표 hub 이름.
+  const activeHubName =
+    devices.find(
+      (one) =>
+        one.kind === "computer" &&
+        !one.disputed &&
+        isDeviceHub(one) &&
+        (one.thisComputer || machineOf(one)?.status === "connected"),
+    )?.name ??
+    devices.find(
+      (one) => one.kind === "computer" && !one.disputed && isDeviceHub(one),
+    )?.name ??
+    null;
   const removeName =
     removing === null
       ? ""
@@ -171,11 +200,20 @@ export function MyDevices({
           }
           // 엇갈림으로 빠진 컴퓨터는 link가 없다.
           const machine = device.disputed ? undefined : machineOf(device);
+          const deviceHub = isDeviceHub(device);
+          const got =
+            device.machine === null
+              ? undefined
+              : receivedByMachine?.get(device.machine);
+          const duplicate =
+            device.machine !== null &&
+            duplicateMachines?.has(device.machine) === true;
           const viewOnly =
             device.kind === "computer" &&
             !device.thisComputer &&
             !device.disputed &&
             !device.terminalInput;
+          const online = machine?.status === "connected";
           return (
             <li
               key={device.key}
@@ -188,6 +226,11 @@ export function MyDevices({
                   {device.thisComputer ? (
                     <span className={styles.caption}>
                       {t("settings.label.remote-this-computer")}
+                    </span>
+                  ) : null}
+                  {deviceHub ? (
+                    <span className={remoteStyles.hubBadge} data-remote-hub="">
+                      {t("settings.label.remote-hub-badge")}
                     </span>
                   ) : null}
                   {device.primary ? (
@@ -237,9 +280,43 @@ export function MyDevices({
                     {t("settings.note.remote-disputed")}
                   </span>
                 ) : null}
+                {duplicate ? (
+                  <span
+                    className={syncStyles.warning}
+                    role="alert"
+                    data-sync-duplicate=""
+                  >
+                    {t("settings-sync.warning.duplicate-machine")}
+                  </span>
+                ) : null}
                 {machine === undefined ? null : (
-                  <span>
+                  <span className={remoteStyles.badges}>
                     <MachineStatus machine={machine} full />
+                    <span data-remote-promise={online ? "now" : "awake"}>
+                      <StatusMark
+                        tone={online ? "good" : "neutral"}
+                        label={
+                          online
+                            ? t("settings.label.promise-now")
+                            : activeHubName !== null
+                              ? t("settings.label.promise-held-at", {
+                                  hub: activeHubName,
+                                })
+                              : t("settings.label.promise-awake")
+                        }
+                      />
+                    </span>
+                  </span>
+                )}
+                {got?.receivedAt == null || got.via === null ? null : (
+                  <span className={styles.lineHelp} data-sync-received="">
+                    {t("settings-sync.note.received", {
+                      via: got.via,
+                      time: formatRelativeTime(
+                        new Date(got.receivedAt),
+                        new Date(),
+                      ),
+                    })}
                   </span>
                 )}
               </div>

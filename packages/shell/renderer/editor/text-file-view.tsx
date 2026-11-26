@@ -1,6 +1,10 @@
 // 글 파일 탭(md와 그 밖의 text). md는 live preview 편집기이고, 그 밖의 text는
 // CodeMirror 편집기다. 글은 창의 편집 session이 들고, 고침은 저장 버튼 없이 저장 흐름으로 간다.
 // 밖에서 바뀐 파일과 충돌은 탭 위쪽 toast로 알린다.
+
+import { t } from "@lophn/i18n";
+import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
+import { useReadingWidth } from "@lophn/ui/layout";
 import {
   type KeyboardEvent,
   type ReactNode,
@@ -11,20 +15,23 @@ import {
   useRef,
   useState,
 } from "react";
-import { useReadingWidth } from "@lophn/ui/layout";
-import { ErrorState, Loading, Skeleton } from "@lophn/ui/feedback";
-import { t } from "@lophn/i18n";
 
 import type { FileFailure } from "../../ipc/files.ts";
 import { useStateChanged } from "../desktop/connection/core-read.ts";
+import { useMachineEventClient } from "../desktop/machines/scope.tsx";
 import { ConflictCompare } from "./conflict/conflict-compare.tsx";
 import type { DocumentViewProps } from "./document-view.tsx";
 import { FileFrame, FileStatus } from "./file-frame.tsx";
 import { folderOf, pastedImageName } from "./image-paste.ts";
 import type { MarkdownEditorHandle } from "./markdown-editor.tsx";
 import { MarkdownPane } from "./markdown-pane.tsx";
-import { fileKindOf, languageOf, outlineOf, sectionKeyOf } from "./model.ts";
-import { fileNameOf } from "./model.ts";
+import {
+  fileKindOf,
+  fileNameOf,
+  languageOf,
+  outlineOf,
+  sectionKeyOf,
+} from "./model.ts";
 import { ConflictToast, NoticeToast, ReloadedToast } from "./notices.tsx";
 import type { ReplaceCause, SaveSession, SaveState } from "./save-state.ts";
 import { useTextFile } from "./use-file.ts";
@@ -138,11 +145,12 @@ function ReadyTextFile({
   const onPosition = useRef(onReadPosition);
   onPosition.current = onReadPosition;
 
+  const localEvents = useMachineEventClient(null);
   useEffect(() => {
     void readingWidth.load();
   }, [readingWidth]);
-  // 읽기 폭은 이 문서 밖(Settings 화면, `lophn settings set`)에서도 바뀐다.
-  useStateChanged(["settings"], () => void readingWidth.load());
+  // 읽기 폭(`shell.reading_width`)은 이 컴퓨터의 Appearance 설정이라 원격 workspace에서도 이 컴퓨터의 settings 변경을 듣는다.
+  useStateChanged(["settings"], () => void readingWidth.load(), localEvents);
 
   useEffect(() => {
     setState(session.facts.state);

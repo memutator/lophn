@@ -27,10 +27,8 @@ import type { AgentTabSourceFactory } from "../../conversation/agent-tab-source.
 import { useFollowedRead } from "../../desktop/connection/core-read.ts";
 import { runToastAction } from "../../desktop/connection/toasts/toast-actions.ts";
 import type { JobsSource } from "../../desktop/jobs/source.ts";
-import {
-  useMachines,
-  useScopeMachineItem,
-} from "../../desktop/machines/context.tsx";
+import { useMachines } from "../../desktop/machines/context.tsx";
+import { LocalMachineScope } from "../../desktop/machines/scope.tsx";
 import type { NewSessionStart } from "../../desktop/router.ts";
 import { useQuickPrefs } from "../../desktop/settings/quick-launch/store.tsx";
 import { CreateAppDialog } from "../../desktop/workspaces/create-app-dialog.tsx";
@@ -265,16 +263,14 @@ export interface SidebarRowDrops {
 
 export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
   const { workspace: current } = props;
-  // 다른 기계의 범위은 앱 만들기가 없고(project 등록은 그 기계의 폴더 목록으로 한다), coding agent는 그 기계의 터미널에 있어 고를 수 없다.
-  const machine = useScopeMachineItem();
   const machines = useMachines();
-  const { projects } = props;
-  const apps = machine === null ? props.apps : undefined;
   const projectId = current.kind === "project" ? current.id : null;
   const lists = useMachineLists();
   const { entries, dataOf } = lists;
-  // 다른 컴퓨터가 남긴 handoff note는 이 컴퓨터의 core가 낸다(창이 다른 기계를 보고 있어도).
+  // 왼쪽 sidebar는 창 전체(이 컴퓨터 + 연결된 기계) 목록이라 project 등록·앱 만들기·handoff note는 열린 workspace 기계와 무관하게 이 컴퓨터 묶음을 기준으로 둔다.
   const here = dataOf(null);
+  const projects = props.projects === undefined ? undefined : here.projects;
+  const apps = props.apps === undefined ? undefined : here.apps;
   const sidebarCommands = useSidebarCommandsIndex(lists);
   const commandsActionsFor = (ref: WorkspaceRef): ProjectCommandActions => {
     if (
@@ -590,9 +586,7 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
                     : undefined) ?? LOPHN_AGENT_NAME,
               };
             }),
-          ref.kind === "project" &&
-            machine === null &&
-            ref.machine === undefined
+          ref.kind === "project" && ref.machine === undefined
             ? coding.favorites
             : [],
         );
@@ -1296,20 +1290,22 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
           : { onSettings: props.onSettings })}
       />
       {projects === undefined ? null : (
-        <RegisterDialog
-          open={registering}
-          source={machine === null ? dataOf(null).projects : projects}
-          {...(machine === null ? { targets } : {})}
-          onClose={() => setRegistering(false)}
-          onRegistered={(created, on) => {
-            setRegistering(false);
-            props.onWorkspace({
-              kind: "project",
-              id: created.id,
-              ...(on === undefined ? {} : { machine: on }),
-            });
-          }}
-        />
+        <LocalMachineScope>
+          <RegisterDialog
+            open={registering}
+            source={projects}
+            targets={targets}
+            onClose={() => setRegistering(false)}
+            onRegistered={(created, on) => {
+              setRegistering(false);
+              props.onWorkspace({
+                kind: "project",
+                id: created.id,
+                ...(on === undefined ? {} : { machine: on }),
+              });
+            }}
+          />
+        </LocalMachineScope>
       )}
       {linking === null ? null : (
         <LinkProjectDialog
@@ -1334,15 +1330,17 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
         />
       )}
       {apps === undefined ? null : (
-        <CreateAppDialog
-          open={creating}
-          source={apps}
-          onClose={() => setCreating(false)}
-          onCreated={(created) => {
-            setCreating(false);
-            props.onNewApp(created.id);
-          }}
-        />
+        <LocalMachineScope>
+          <CreateAppDialog
+            open={creating}
+            source={apps}
+            onClose={() => setCreating(false)}
+            onCreated={(created) => {
+              setCreating(false);
+              props.onNewApp(created.id);
+            }}
+          />
+        </LocalMachineScope>
       )}
       {failToast.dom === null ? null : (
         <div className={leftStyles.handoffToast}>

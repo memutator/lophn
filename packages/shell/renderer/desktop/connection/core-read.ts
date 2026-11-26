@@ -248,10 +248,16 @@ export function useCoreRead<R extends CoreReadRoute>(
 
 /**
  * 값을 store에 두는 쪽(설정을 적용하는 자리)이 쓴다. ready와 watched에 맞는 변경에 listener를 부른다.
+ * `clientOverride`를 주면 현재 범위 대신 그 event client를 구독한다(다른 기계 범위에서 이 컴퓨터의 `settings` 변경을 들을 때).
  * EventsProvider 밖(event가 없는 화면)에서는 아무것도 하지 않는다.
  */
-export function useStateChanged(watched: Watched, listener: () => void): void {
-  const client = useOptionalEventClient();
+export function useStateChanged(
+  watched: Watched,
+  listener: () => void,
+  clientOverride?: EventClient | null,
+): void {
+  const scopeClient = useOptionalEventClient();
+  const client = clientOverride !== undefined ? clientOverride : scopeClient;
   const latest = useRef(listener);
   latest.current = listener;
   const watchKey = JSON.stringify(watched);

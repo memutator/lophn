@@ -21,36 +21,36 @@ import {
   WebviewLayer,
 } from "../../app-frame/webview-host.tsx";
 import type { AppsSource } from "../../apps/source.ts";
-import type { EditorDeps } from "../../editor/document-view.tsx";
 import type { AgentTabSourceFactory } from "../../conversation/agent-tab-source.ts";
-import type { TerminalDeps } from "../../terminal/deps.ts";
+import { useSessions } from "../../desktop/connection/events/hooks.tsx";
+import {
+  useMachinesView,
+  useScopeMachineItem,
+} from "../../desktop/machines/context.tsx";
+import { OnlyHere } from "../../desktop/machines/only-here.tsx";
+import {
+  type MachineRef,
+  useMachineHub,
+  useScopeMachine,
+} from "../../desktop/machines/scope.tsx";
+import { TabScope } from "../../desktop/machines/tab-scope.tsx";
 import type { SettingsPane } from "../../desktop/settings/model.ts";
+import type { EditorDeps } from "../../editor/document-view.tsx";
 import type { SessionDot } from "../../parts/agent-session/activity.ts";
 import {
   OwnerProvider,
   ownerLookup,
 } from "../../parts/agent-session/owner.tsx";
-import { useSessions } from "../../desktop/connection/events/hooks.tsx";
+import type { TerminalDeps } from "../../terminal/deps.ts";
 import { useSidebarAgents } from "../../workspace/agents/sidebar-agents.ts";
 import type { TabHost } from "../../workspace/kinds/host.ts";
 import { isThisComputerOnly } from "../../workspace/kinds/kind.ts";
 import { tabKindOf } from "../../workspace/kinds/registry.ts";
+import { clampFloatRect } from "../../workspace/model.ts";
 import type { ProjectView, WorkspaceSource } from "../../workspace/source.ts";
 import { TabBoundary } from "../../workspace/tab-boundary.tsx";
-import {
-  useMachinesView,
-  useScopeMachineItem,
-} from "../../desktop/machines/context.tsx";
-import { useMachineHub } from "../../desktop/machines/scope.tsx";
-import { OnlyHere } from "../../desktop/machines/only-here.tsx";
-import {
-  type MachineRef,
-  useScopeMachine,
-} from "../../desktop/machines/scope.tsx";
-import { TabScope } from "../../desktop/machines/tab-scope.tsx";
 import { useTabHostSlices } from "../../workspace/use-tab-host-slices.ts";
 import type { WorkspaceWindowProps } from "../../workspace/workspace-window.tsx";
-import { clampFloatRect } from "../../workspace/model.ts";
 import {
   deskTabs,
   type FloatRect,
@@ -117,6 +117,7 @@ function hostOf(
     | "patchTab"
     | "removeTab"
     | "document"
+    | "thisComputer"
   >,
 ): TabHost {
   const { workspace } = float;
@@ -224,7 +225,9 @@ function GlobalFloatContent({
     });
   };
 
+  const thisComputer = useMachinesView()?.thisComputer?.id ?? null;
   const host: TabHost = hostOf(env, float, {
+    thisComputer,
     desk: globalFloats.desk,
     viewKeeps: keeps,
     agents,
@@ -310,6 +313,7 @@ export function GlobalFloatLayer({ env }: { env: GlobalFloatEnv }) {
   // 0이면 못 잰 것과 같다(0x0으로 가둔 rect는 저장이 거절된다).
   const area =
     size !== undefined && size.width > 0 && size.height > 0 ? size : undefined;
+  const thisComputer = useMachinesView()?.thisComputer?.id ?? null;
   // 제목 줄의 아이콘과 상태 점은 본문의 slice 없이 읽는다. agent의 profile 아이콘과 상태 점은 본문 안에서만 알 수 있어 종류 아이콘이다.
   const chrome = (
     item: GlobalFloatView,
@@ -317,6 +321,7 @@ export function GlobalFloatLayer({ env }: { env: GlobalFloatEnv }) {
     const def = tabKindOf(item.tab.kind);
     if (def === undefined) return { icon: null, dot: null };
     const light = hostOf(envOf(env, item), item, {
+      thisComputer,
       desk: floats.desk,
       viewKeeps: host.keeps,
       agents: null,

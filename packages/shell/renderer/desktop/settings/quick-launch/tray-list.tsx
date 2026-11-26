@@ -71,7 +71,7 @@ export function TrayList({
             data-tray-row={choice.app}
           >
             <span className={styles.rowName}>
-              <AppTabIcon app={choice.app} />
+              <AppTabIcon app={choice.app} machine={null} />
               <span className={styles.rowLabel}>{choice.label}</span>
             </span>
             <IconButton

@@ -48,13 +48,13 @@ const BUILTIN_ICON = {
   search: shellIcons.search,
 } as const;
 
-/** 설치된 앱의 panel 화면 목록. 다시 읽는 동안에도 목록이 비지 않게 마지막으로 읽은 값을 쓴다. */
+/** 이 컴퓨터에 설치된 앱의 panel 화면 목록. 다시 읽는 동안에도 목록이 비지 않게 마지막으로 읽은 값을 쓴다. */
 export function useAppPanelApps(): {
   apps: readonly AppScreens[];
   loading: boolean;
   failed: boolean;
 } {
-  const { read } = useScreensRead();
+  const { read } = useScreensRead(true, null);
   const known = useRef<readonly AppScreens[]>([]);
   if (read?.ok) known.current = read.value;
   const apps = known.current;
@@ -99,7 +99,7 @@ export function QuickOrderList({
           >
             <span className={styles.rowName}>
               {builtin === null ? (
-                <AppTabIcon app={pin?.app} />
+                <AppTabIcon app={pin?.app} machine={null} />
               ) : (
                 <Icon icon={BUILTIN_ICON[builtin]} pixels={16} />
               )}
@@ -191,7 +191,7 @@ export function AppPanelList({
         return (
           <li key={key} className={styles.row} data-app-panel-row={choice.app}>
             <span className={styles.rowName}>
-              <AppTabIcon app={choice.app} />
+              <AppTabIcon app={choice.app} machine={null} />
               <span className={styles.rowLabel}>{choice.label}</span>
             </span>
             {launch === undefined || onLaunch === undefined ? null : (
@@ -279,7 +279,7 @@ export function SidebarPanelList({
             data-sidebar-panel-row={choice.app}
           >
             <span className={styles.rowName}>
-              <AppTabIcon app={choice.app} />
+              <AppTabIcon app={choice.app} machine={null} />
               <span className={styles.rowLabel}>{choice.label}</span>
             </span>
             <span className={styles.toggle}>

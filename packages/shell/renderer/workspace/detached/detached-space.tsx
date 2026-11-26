@@ -1,9 +1,9 @@
-import { type ReactElement, useEffect, useMemo, useRef, useState } from "react";
-import { Button, Icon, IconButton } from "@lophn/ui/primitives";
+import { t } from "@lophn/i18n";
 import { Loading, Skeleton } from "@lophn/ui/feedback";
 import { Tooltip } from "@lophn/ui/overlay";
+import { Button, Icon, IconButton } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
-import { t } from "@lophn/i18n";
+import { type ReactElement, useEffect, useMemo, useRef, useState } from "react";
 
 import type {
   DetachedBounds,
@@ -12,41 +12,41 @@ import type {
   TabTransfer,
 } from "../../../ipc/detached.ts";
 import { slimDetachedTab } from "../../../ipc/detached.ts";
-import { TabStateDot } from "../../parts/tab-state-dot/tab-state-dot.tsx";
-import {
-  OwnerMark,
-  OwnerProvider,
-  ownerLookup,
-} from "../../parts/agent-session/owner.tsx";
-import { TopBar } from "../../desktop/top-bar/top-bar.tsx";
-import { actionIcons, workspaceIcons } from "../../icons/mod.ts";
 import { ViewKeepsProvider } from "../../app-frame/embedded-view.tsx";
-import { DetachedWindowProvider } from "../../browser/detached-window.ts";
 import {
   WebviewHostProvider,
   WebviewLayer,
 } from "../../app-frame/webview-host.tsx";
-import type { ProjectView } from "../source.ts";
-import { useTabHostSlices } from "../use-tab-host-slices.ts";
-import { isThisComputerOnly } from "../kinds/kind.ts";
-import { tabKindOf } from "../kinds/registry.ts";
-import { TabBoundary } from "../tab-boundary.tsx";
-import type { TabHost } from "../kinds/host.ts";
-import type { TabItem } from "../model.ts";
-import type { WorkspaceRef } from "../../shell/desk-model.ts";
-import { deskTabs, emptyDesk, type Desk } from "../../shell/desk-model.ts";
-import type { WorkspaceWindowProps } from "../workspace-window.tsx";
-import {
-  useHostMachine,
-  useMachineData,
-  useScopeMachine,
-} from "../../desktop/machines/scope.tsx";
+import { DetachedWindowProvider } from "../../browser/detached-window.ts";
 import {
   machineItemOf,
   useMachinesView,
 } from "../../desktop/machines/context.tsx";
 import { OnlyHere } from "../../desktop/machines/only-here.tsx";
+import {
+  useHostMachine,
+  useMachineData,
+  useScopeMachine,
+} from "../../desktop/machines/scope.tsx";
 import { TabScope } from "../../desktop/machines/tab-scope.tsx";
+import { TopBar } from "../../desktop/top-bar/top-bar.tsx";
+import { actionIcons, workspaceIcons } from "../../icons/mod.ts";
+import {
+  OwnerMark,
+  OwnerProvider,
+  ownerLookup,
+} from "../../parts/agent-session/owner.tsx";
+import { TabStateDot } from "../../parts/tab-state-dot/tab-state-dot.tsx";
+import type { WorkspaceRef } from "../../shell/desk-model.ts";
+import { type Desk, deskTabs, emptyDesk } from "../../shell/desk-model.ts";
+import type { TabHost } from "../kinds/host.ts";
+import { isThisComputerOnly } from "../kinds/kind.ts";
+import { tabKindOf } from "../kinds/registry.ts";
+import type { TabItem } from "../model.ts";
+import type { ProjectView } from "../source.ts";
+import { TabBoundary } from "../tab-boundary.tsx";
+import { useTabHostSlices } from "../use-tab-host-slices.ts";
+import type { WorkspaceWindowProps } from "../workspace-window.tsx";
 import styles from "./detached-space.module.css";
 
 interface DetachedSpaceProps {
@@ -194,9 +194,11 @@ function DetachedTab({
   };
 
   const { machineData } = useHostMachine();
+  const thisComputer = useMachinesView()?.thisComputer?.id ?? null;
   const host: TabHost = {
     workspace: workspaceRef,
     machine: tabMachine,
+    thisComputer,
     machineData,
     projectId: project,
     projectTitle: projectView?.title,

@@ -21,6 +21,10 @@ import { coreAgentTabSourceFactory } from "../../conversation/agent-tab-core-sou
 import { signInInputRequest } from "../../conversation/agent-tab-core-source-sign-in.ts";
 import type { AgentTabSourceFactory } from "../../conversation/agent-tab-source.ts";
 import type { EditorDeps } from "../../editor/document-view.tsx";
+import {
+  coreSettingsPort,
+  readingWidthStore,
+} from "../../editor/reading-width.ts";
 import { remoteEditorDeps } from "../../editor/window-deps.ts";
 import {
   coreProjectIcons,
@@ -48,13 +52,13 @@ import type { JobsSource } from "../jobs/source.ts";
 import type { CatalogSource } from "../palette/catalog.ts";
 import { catalogSource } from "../palette/core-catalog.ts";
 import { coreAgentsSettingsSource } from "../settings/agents/core-source.ts";
+import { coreCodingConnectionsSource } from "../settings/connections/core-source.ts";
 import { windowSecretInputOpener } from "../settings/core-call.ts";
 import { coreSettingsSource } from "../settings/core-source.ts";
-import { coreCodingConnectionsSource } from "../settings/connections/core-source.ts";
 import { coreDiagnosticsSource } from "../settings/diagnostics/core-source.ts";
 import { coreProviderSettingsSource } from "../settings/providers/core-source.ts";
-import { coreRemoteSource } from "../settings/remote/core-source.ts";
 import type { QuickPrefsSource } from "../settings/quick-launch/source.ts";
+import { coreRemoteSource } from "../settings/remote/core-source.ts";
 import type { SettingsPanels } from "../settings/settings-screen.tsx";
 import { coreShellRulesSource } from "../settings/shell-rules/core-source.ts";
 import type { SettingsSource } from "../settings/source.ts";
@@ -160,11 +164,12 @@ export function createMachineHub(deps: MachineHubDeps): MachineHub {
       }
       stopList ??= deps.machines.subscribe(prune);
       local ??= thisComputerCoreSource();
+      const localData = (here ??= deps.here());
       const data = otherMachineData(
         machine,
         machineCoreSource(machine, deps.bridge, deps.machines, local),
         deps.views,
-        (here ??= deps.here()).quickPrefs,
+        localData,
       );
       others.set(machine, data);
       return data;
@@ -181,7 +186,7 @@ function otherMachineData(
   machine: string,
   core: CoreSource,
   views: LophnShellViewsApi | undefined,
-  quickPrefs: QuickPrefsSource | undefined,
+  localData: MachineData,
 ): MachineData {
   const events = createEventClient(core);
   const folders = oneHost(createFolderBrowser(coreBrowseFolders(core)));
@@ -238,9 +243,14 @@ function otherMachineData(
       // 다른 기계의 Remote 항목은 그 기계의 Keep running만 그린다(RemotePanel).
       remote: coreRemoteSource(core),
     },
-    quickPrefs,
+    quickPrefs: localData.quickPrefs,
     appDetail: readOnlyAppDetailSource,
-    editor: remoteEditorDeps(core, remoteFiles.editorFiles),
+    // `shell.reading_width`는 이 컴퓨터의 Appearance 설정이라 원격 문서 편집기도 이 컴퓨터의 store를 공유한다.
+    editor: remoteEditorDeps(
+      localData.editor?.readingWidth ??
+        readingWidthStore(coreSettingsPort(localData.core)),
+      remoteFiles.editorFiles,
+    ),
     // sign_in card의 로그인도 돌린다(provider 로그인은 그 기계의 core가 기다린다). card가 device code만 단추로 둔다.
     agentViewSource: coreAgentTabSourceFactory(core, {
       device: true,

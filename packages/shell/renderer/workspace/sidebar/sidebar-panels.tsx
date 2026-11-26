@@ -15,10 +15,8 @@ import { useAppViews, useAppWorkspace } from "../../app-frame/app-views.tsx";
 import { EmbeddedView } from "../../app-frame/embedded-view.tsx";
 import type { JobsSource } from "../../desktop/jobs/source.ts";
 import {
+  LocalMachineScope,
   type MachineRef,
-  MachineScope,
-  useMachineHub,
-  useScopeMachine,
 } from "../../desktop/machines/scope.tsx";
 import type { SidebarPanelPick } from "../../desktop/settings/quick-launch/source.ts";
 import { shellIcons } from "../../icons/mod.ts";
@@ -257,17 +255,6 @@ function AppSidebarBody(props: {
         />
       </HeadSlotScope>
     </RightSidebar>
-  );
-}
-
-// 다른 기계의 workspace에서도 이 컴퓨터의 앱 sidebar panel은 이 컴퓨터 범위로 연다.
-function LocalMachineScope({ children }: { children: ReactNode }) {
-  const hub = useMachineHub();
-  const scope = useScopeMachine();
-  return hub === null || scope === null ? (
-    <>{children}</>
-  ) : (
-    <MachineScope machine={null}>{children}</MachineScope>
   );
 }
 

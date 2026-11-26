@@ -97,6 +97,8 @@ export interface TabHost {
   readonly workspace: WorkspaceRef;
   /** workspace의 기계. 탭의 기계는 `tab.machine ?? machine`이다. */
   readonly machine: MachineRef;
+  /** 이 컴퓨터의 기계 id. 아직 모르면 null이다. 다른 기계 workspace에서 이 컴퓨터 탭을 열 때 찍는다. */
+  readonly thisComputer?: string | null;
   /** 그 기계의 묶음. kind의 hook 아닌 자리(`iconOf`, `dotOf`, `transfer`)가 탭의 기계 묶음을 이것으로 찾는다. */
   machineData(machine: MachineRef): MachineData;
   /** workspace가 project일 때 그 id. Home이면 null이다. */

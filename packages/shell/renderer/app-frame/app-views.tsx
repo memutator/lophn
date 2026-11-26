@@ -1,17 +1,20 @@
 // 프로젝트 앱 패널 탭과 세션 앱 카드가 같이 쓰는 창 통로. view는 shell
 // preload의 view 통로로 main이 열고, 이름·판은 core의 app read로 읽는다. 앱 UI 코드와 앱 scheme
 // 자원은 여기 오지 않는다. 창마다 하나를 provider로 둔다.
-import { createContext, type ReactNode, useContext, useMemo } from "react";
-import { t } from "@lophn/i18n";
 
-import type { IconReader } from "../parts/icon-upload/icon-reader.ts";
-import type { CoreSource } from "../desktop/connection/connection.ts";
-import type { AppViewOpen, LophnShellViewsApi } from "../../ipc/app-frame.ts";
-import type { WorkspaceRef } from "../shell/desk-model.ts";
+import { t } from "@lophn/i18n";
+import { createContext, type ReactNode, useContext, useMemo } from "react";
 import type {
   AppKeyDeclaration,
   TraySize,
 } from "../../../protocol/apps/declaration/mod.ts";
+import type { AppViewOpen, LophnShellViewsApi } from "../../ipc/app-frame.ts";
+import type { CoreSource } from "../desktop/connection/connection.ts";
+import { useScopeMachine } from "../desktop/machines/context.tsx";
+import type { MachineRef } from "../desktop/machines/scope.tsx";
+import type { IconReader } from "../parts/icon-upload/icon-reader.ts";
+import type { WorkspaceRef } from "../shell/desk-model.ts";
+import { appWorkspaceForScope } from "./machine-app-source.ts";
 
 /** 앱 등록에서 view 크롬과 판 고정이 쓰는 것만. */
 interface AppFacts {
@@ -88,12 +91,18 @@ export function useAppViews(): AppViewsDeps | null {
   return useContext(AppViewsContext);
 }
 
-const AppWorkspaceContext = createContext<AppViewOpen["workspace"]>(undefined);
+interface ScopedAppWorkspace {
+  readonly machine: MachineRef;
+  readonly value: AppViewOpen["workspace"];
+}
+
+const AppWorkspaceContext = createContext<ScopedAppWorkspace | null>(null);
 
 /**
  * 창이 보이는 workspace. 앱 화면이 열릴 때 `usePlace().workspace`로 받는다. 창 밖(전역 float)은
  * provider가 없어 workspace 없이 연다. folders는 project의 등록 폴더 path 목록이고, identity는 project의
  * 기계를 넘는 id, formerIdentities는 그 project가 전에 가졌던 id다(둘은 project에만 싣는다).
+ * 다른 기계의 workspace를 보는 동안 이 컴퓨터의 앱(tray·오른쪽 sidebar·로컬 app panel)은 기계가 달라 workspace 없이 연다.
  */
 export function AppWorkspaceProvider(props: {
   workspace: WorkspaceRef;
@@ -103,38 +112,45 @@ export function AppWorkspaceProvider(props: {
   children: ReactNode;
 }) {
   const { workspace, identity } = props;
+  const machine: MachineRef = workspace.machine ?? null;
   const id = workspace.kind === "home" ? "home" : workspace.id;
   const folders = JSON.stringify(props.folders);
   const former = JSON.stringify(props.formerIdentities);
   // project를 아직 읽지 못한 창은 그 project의 id를 모른다. 틀린 key로 쓰지 않게 workspace 없이 연다.
-  const value = useMemo<AppViewOpen["workspace"]>(
-    () =>
-      workspace.kind === "project" && identity === null
-        ? undefined
-        : workspace.kind === "project"
-          ? {
-              kind: "project",
-              id,
-              identity,
-              formerIdentities: JSON.parse(former) as string[],
-              folders: JSON.parse(folders) as string[],
-            }
-          : {
-              kind: workspace.kind,
-              id,
-              folders: JSON.parse(folders) as string[],
-            },
-    [workspace.kind, id, identity, former, folders],
+  const entry = useMemo<ScopedAppWorkspace>(
+    () => ({
+      machine,
+      value:
+        workspace.kind === "project" && identity === null
+          ? undefined
+          : workspace.kind === "project"
+            ? {
+                kind: "project",
+                id,
+                identity,
+                formerIdentities: JSON.parse(former) as string[],
+                folders: JSON.parse(folders) as string[],
+              }
+            : {
+                kind: workspace.kind,
+                id,
+                folders: JSON.parse(folders) as string[],
+              },
+    }),
+    [machine, workspace.kind, id, identity, former, folders],
   );
   return (
-    <AppWorkspaceContext.Provider value={value}>
+    <AppWorkspaceContext.Provider value={entry}>
       {props.children}
     </AppWorkspaceContext.Provider>
   );
 }
 
 export function useAppWorkspace(): AppViewOpen["workspace"] {
-  return useContext(AppWorkspaceContext);
+  return appWorkspaceForScope(
+    useContext(AppWorkspaceContext),
+    useScopeMachine(),
+  );
 }
 
 interface AppGetValue {

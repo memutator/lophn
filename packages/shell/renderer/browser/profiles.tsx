@@ -9,13 +9,13 @@ import {
 } from "react";
 
 import {
-  browserProfilesList,
   type BrowserProfile,
+  browserProfilesList,
 } from "../../../protocol/secrets/browser-vault.ts";
 import { browserPartition } from "../../../protocol/shell/browser-profiles.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
 import { followRead, type Read } from "../desktop/connection/core-read.ts";
-import { useOptionalEventClient } from "../desktop/connection/events/hooks.tsx";
+import { useMachineEventClient } from "../desktop/machines/scope.tsx";
 
 // provider가 준 고정 목록. 없으면(undefined) core에서 읽는다.
 const FixedProfiles = createContext<readonly BrowserProfile[] | undefined>(
@@ -54,9 +54,10 @@ async function readProfiles(core: CoreSource): Read<readonly BrowserProfile[]> {
 
 // null은 아직 읽지 못했다. 읽기가 실패해도 null로 둔다: 빈 목록으로 두면 profile 탭이 기본 partition(기본 profile의 cookie)으로
 // 열린다. 읽을 길(event client)이 없으면(gallery) 빈 목록이다.
+// browser profile은 이 컴퓨터의 Electron shell 설정이라 다른 기계 workspace에서도 항상 이 컴퓨터 core에서 읽는다.
 function useProfilesState(): readonly BrowserProfile[] | null {
   const fixed = useContext(FixedProfiles);
-  const client = useOptionalEventClient();
+  const client = useMachineEventClient(null);
   const [live, setLive] = useState<readonly BrowserProfile[] | null>(null);
   useEffect(() => {
     if (fixed !== undefined || client === null) return;

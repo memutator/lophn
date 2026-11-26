@@ -49,6 +49,7 @@ import {
   appScreenLabel,
 } from "../app-frame/app-views.tsx";
 import { ViewKeepsProvider } from "../app-frame/embedded-view.tsx";
+import { localTabMachine } from "../app-frame/machine-app-source.ts";
 import {
   WebviewHostProvider,
   WebviewLayer,
@@ -71,6 +72,7 @@ import {
 } from "../desktop/machines/context.tsx";
 import { OnlyHere } from "../desktop/machines/only-here.tsx";
 import {
+  LocalMachineScope,
   MachineScope,
   useHostMachine,
   useMachineData,
@@ -1698,6 +1700,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     appScreens:
       hereAppViews?.screens !== undefined || appViews?.screens !== undefined,
     machine,
+    thisComputer,
     machineData,
     desk,
     windowTabs: () => allTabs(latestLayout.current),
@@ -3078,7 +3081,6 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
       ? (["search.open"] as const)
       : []),
     ...(props.jobs === undefined ? (["jobs.open"] as const) : []),
-    ...(!data.here ? (["explorer.focus"] as const) : []),
     ...(projectId === null
       ? ([
           "explorer.focus",
@@ -3918,7 +3920,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
       pin,
       title,
       quickPrefs.launch[launchKey(pin.app, pin.surface)],
-      machine !== null && thisComputer !== null ? thisComputer : undefined,
+      localTabMachine(host),
     );
   };
 
@@ -4079,21 +4081,16 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     );
 
   // tray는 이 컴퓨터에 설치된 앱의 항목과 값이라 다른 기계 workspace에서도 이 컴퓨터 범위에서 그린다.
-  const renderTray = (side: "above" | "below") => {
-    const tray = (
+  const renderTray = (side: "above" | "below") => (
+    <LocalMachineScope>
       <TrayHost
         off={quickPrefs.trayOff}
         order={quickPrefs.trayOrder}
         screens={panelApps}
         side={side}
       />
-    );
-    return data.here ? (
-      tray
-    ) : (
-      <MachineScope machine={null}>{tray}</MachineScope>
-    );
-  };
+    </LocalMachineScope>
+  );
 
   const content = (
     <ViewKeepsProvider value={keeps}>

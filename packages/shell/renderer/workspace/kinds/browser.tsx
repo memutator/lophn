@@ -7,12 +7,13 @@ import {
   browserProfileIdSchema,
 } from "../../../../protocol/secrets/browser-vault.ts";
 import type { BrowserViewState } from "../../../ipc/browser.ts";
+import { localTabMachine } from "../../app-frame/machine-app-source.ts";
 import { BrowserTab, KEEP_SIGNATURE } from "../../browser/browser-tab.tsx";
 import { Favicon } from "../../browser/favicon.tsx";
 import { browserIcons } from "../../icons/mod.ts";
-import { readDevtools, setDevtools } from "./browser-devtools.tsx";
 import { takeBack } from "../hand.ts";
 import { hostTabOf, type TabItem } from "../model.ts";
+import { readDevtools, setDevtools } from "./browser-devtools.tsx";
 import type { TabHost } from "./host.ts";
 import type { TabKindDef } from "./kind.ts";
 
@@ -74,10 +75,12 @@ export function openBrowserTab(
     readonly owner?: string;
   },
 ): void {
+  const localMachine = localTabMachine(host);
   const tab = {
     key: open?.key ?? newKey(),
     kind: "browser",
     title: nameOf("", url ?? ""),
+    ...(localMachine === undefined ? {} : { machine: localMachine }),
     ...(open?.owner === undefined ? {} : { owner: open.owner }),
     fields: { url: url ?? "", ...profileField(open?.profile) },
   };

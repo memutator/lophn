@@ -29,9 +29,9 @@ export function windowEditorDeps(core: CoreSource): EditorDeps {
   };
 }
 
-/** 다른 기계의 파일 탭 편집 session 묶음. */
+/** 다른 기계의 파일 탭 편집 session 묶음. 읽기 폭(`shell.reading_width`)은 이 컴퓨터 설정 store를 쓴다. */
 export function remoteEditorDeps(
-  core: CoreSource,
+  readingWidth: EditorDeps["readingWidth"],
   files: EditorFiles,
 ): EditorDeps {
   const overlay = readOverlay();
@@ -41,6 +41,6 @@ export function remoteEditorDeps(
   );
   return {
     sessions,
-    readingWidth: readingWidthStore(coreSettingsPort(core)),
+    readingWidth,
   };
 }

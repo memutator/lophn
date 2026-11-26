@@ -3,8 +3,13 @@
 import { createContext, type ReactNode, useContext } from "react";
 
 import { AppViewsProvider } from "../../app-frame/app-views.tsx";
+import { eventClientOf } from "../../app-frame/machine-app-source.ts";
 import { ProjectIconsProvider } from "../../parts/project-icon/project-icon.tsx";
-import { EventsProvider } from "../connection/events/hooks.tsx";
+import type { EventClient } from "../connection/events/client.ts";
+import {
+  EventsProvider,
+  useOptionalEventClient,
+} from "../connection/events/hooks.tsx";
 import { ConnectProviderHost } from "../settings/providers/connect-host.tsx";
 import {
   MachineGrantProvider,
@@ -86,6 +91,27 @@ export function MachineScope({
       </EventsProvider>
     </ScopeMachineProvider>
   );
+}
+
+/**
+ * 다른 기계의 범위 안에서도 이 컴퓨터의 shell chrome(tray, 오른쪽 sidebar 앱 panel, 왼쪽 sidebar 등록/앱 만들기 dialog)을
+ * 이 컴퓨터 범위(`machine = null`)로 고정한다. 이미 이 컴퓨터 범위이거나 hub가 없으면 그대로 그린다.
+ */
+export function LocalMachineScope({ children }: { children: ReactNode }) {
+  const hub = useMachineHub();
+  const scope = useScopeMachine();
+  return hub === null || scope === null ? (
+    <>{children}</>
+  ) : (
+    <MachineScope machine={null}>{children}</MachineScope>
+  );
+}
+
+/** 지정한 기계(null은 이 컴퓨터)의 event client. 지정하지 않거나 hub가 없으면 지금 범위의 client다. */
+export function useMachineEventClient(
+  machine?: MachineRef,
+): EventClient | null {
+  return eventClientOf(useMachineHub(), useOptionalEventClient(), machine);
 }
 
 /**

@@ -455,10 +455,26 @@ async function command(
   };
   const result = await (deps.admitCommand
     ? deps.admitCommand(ctx, route.name, () =>
-        sendCommand(deps.writer!, ctx, envelope, route),
+        sendCommand(deps.writer!, ctx, envelope, route, deps.onThrown),
       )
-    : sendCommand(deps.writer, ctx, envelope, route));
+    : sendCommand(deps.writer, ctx, envelope, route, deps.onThrown));
   return result;
+}
+
+function outputMismatchError(
+  kind: "command" | "read",
+  route: Route,
+  issues: readonly { path: readonly PropertyKey[]; code: string }[],
+): Error {
+  // 값은 싣지 않고 route와 경로·코드만 남겨 secret 유출 없이 schema 불일치 원인을 찾는다.
+  const summary = issues
+    .slice(0, 5)
+    .map(
+      (issue) =>
+        `${issue.path.map(String).join(".") || "<root>"}:${issue.code}`,
+    )
+    .join(", ");
+  return new Error(`${kind} output ${routeKey(route)}: ${summary}`);
 }
 
 async function sendCommand(
@@ -466,13 +482,16 @@ async function sendCommand(
   ctx: AuthenticatedContext,
   envelope: CommandEnvelope,
   route: CommandRoute,
+  onThrown?: (thrown: unknown) => void,
 ): Promise<HttpResult> {
   const result = await writer.command(ctx, envelope);
   if (!result.ok) return rejected(result.error);
   // 성공은 등록된 결과 객체를 그대로 200으로 낸다. 추가 포장은 없다.
   const output = route.output.safeParse(result.value.result);
   if (!output.success) {
-    return rejected(asInternalError(new Error("command output")));
+    const mismatch = outputMismatchError("command", route, output.error.issues);
+    onThrown?.(mismatch);
+    return rejected(asInternalError(mismatch));
   }
   return { status: 200, json: output.data };
 }
@@ -496,7 +515,9 @@ async function read(
   if (!result.ok) return rejected(result.error);
   const output = route.output.safeParse(result.value);
   if (!output.success) {
-    return rejected(asInternalError(new Error("read output")));
+    const mismatch = outputMismatchError("read", route, output.error.issues);
+    deps.onThrown?.(mismatch);
+    return rejected(asInternalError(mismatch));
   }
   return { status: 200, json: output.data };
 }

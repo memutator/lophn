@@ -261,7 +261,7 @@ function computer(plan: SyncPlan = PHONE_APP) {
       find: () => ok({ release: REL, effect: "write", public: true }),
       findPreview: () => Promise.resolve(ok(null)),
     },
-    apps: { activeRelease, archived: () => ok(false) },
+    apps: { activeRelease, archived: () => ok(false), bySlug: () => ok(null) },
     ledger,
     link,
     assignmentOf: () => err({ code: "internal", message: "unused" }),

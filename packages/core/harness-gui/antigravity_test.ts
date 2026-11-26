@@ -16,9 +16,17 @@ import { manualClock } from "../../base/clock.ts";
 import { createIdSource } from "../../base/id.ts";
 import { seededRandom } from "../../base/random.ts";
 import type { AcpInput } from "../../protocol/acp/input.ts";
-import type { AcpSessionHandle, CliProcess } from "../../protocol/acp/mod.ts";
+import {
+  type AcpSessionHandle,
+  type CliProcess,
+  withoutToolBodies,
+} from "../../protocol/acp/mod.ts";
 import { EMPTY_ACP_STATE, reduceAcp } from "../../protocol/acp/reduce.ts";
-import type { AcpState, AcpUpdate } from "../../protocol/acp/state.ts";
+import {
+  type AcpState,
+  acpStateSchema,
+  type AcpUpdate,
+} from "../../protocol/acp/state.ts";
 import { type AntigravityIo, createAntigravityAdapter } from "./antigravity.ts";
 
 // 녹화(fixtures/antigravity, agy 1.5.9)로 adapter를 돌린다. 진짜 agy는 띄우지 않고, spawn이 주는 process를 녹화한 줄을 내는
@@ -1071,6 +1079,14 @@ test("read-only brain child inspector populates state.children and degrades grac
     }
     const childState = agy.state.children[childId];
     assert.ok(childState !== undefined);
+    // 밀리초 없는 transcript created_at도 acpStateSchema(atSchema)를 통과해야 acp/snapshot이 500으로 깨지지 않는다.
+    assert.equal(childState.turn?.started_at, "2026-11-25T04:00:00.000Z");
+    const parsedState = acpStateSchema.safeParse(withoutToolBodies(agy.state));
+    assert.equal(
+      parsedState.success,
+      true,
+      parsedState.success ? "" : JSON.stringify(parsedState.error.issues),
+    );
     assert.equal(
       childState.items.some(
         (i) =>
@@ -1316,4 +1332,146 @@ test("fetchCatalog does not spawn agy when already aborted", async () => {
   }).fetchCatalog({ spawn: fake.spawn, signal: controller.signal });
   assert.equal(result.ok, false);
   assert.equal(fake.spawned.length, 0);
+});
+
+test("acpStateSchema accepts child transcripts with second-precision timestamps, empty model/diff fields, and float usage", async () => {
+  const fakeHome = mkdtempSync(join(tmpdir(), "lophn-agy-schema-"));
+  const parentId = "d1fb45c2-7787-48fa-8857-7b99e57222f7";
+  const childId = "child-schema-001";
+  const subagentsDir = join(
+    fakeHome,
+    ".gemini",
+    "antigravity-cli",
+    "brain",
+    parentId,
+    ".system_generated",
+    "subagents",
+  );
+  const childLogsDir = join(
+    fakeHome,
+    ".gemini",
+    "antigravity-cli",
+    "brain",
+    childId,
+    ".system_generated",
+    "logs",
+  );
+  try {
+    mkdirSync(subagentsDir, { recursive: true });
+    mkdirSync(childLogsDir, { recursive: true });
+    writeFileSync(
+      join(subagentsDir, `${childId}.json`),
+      JSON.stringify({
+        conversationId: childId,
+        subagentDescriptor: { typeName: "research", role: "Codebase Reader" },
+        state: "SUBAGENT_STATE_ALIVE",
+        spawnStepIndex: 1,
+      }),
+    );
+    writeFileSync(
+      join(childLogsDir, "transcript.jsonl"),
+      [
+        JSON.stringify({
+          step_index: 0,
+          source: "USER_EXPLICIT",
+          type: "USER_INPUT",
+          status: "DONE",
+          created_at: "2026-11-25T15:57:30Z",
+          content: "<USER_REQUEST>\nInspect snapshot\n</USER_REQUEST>",
+        }),
+        JSON.stringify({
+          step_index: 1,
+          source: "MODEL",
+          type: "PLANNER_RESPONSE",
+          status: "DONE",
+          created_at: "not-a-timestamp",
+          content: "Done.",
+        }),
+      ].join("\n"),
+    );
+
+    const agy = await setup("text", {
+      home: fakeHome,
+      io: { childPollIntervalMs: 50 },
+    });
+    await agy.input(send("msg_1", "check"));
+    agy.emit({
+      method: "session/update",
+      params: {
+        sessionId: parentId,
+        update: {
+          sessionUpdate: "config_option_update",
+          configOptions: [
+            {
+              id: "model",
+              currentValue: "",
+              options: [{ value: "", name: "Empty" }],
+            },
+            {
+              id: "mode",
+              currentValue: "default",
+              options: [{ value: "", name: "Blank" }],
+            },
+          ],
+        },
+      },
+    });
+    agy.emit({
+      method: "session/update",
+      params: {
+        sessionId: parentId,
+        update: {
+          sessionUpdate: "usage_update",
+          used: 123.7,
+          size: -5,
+        },
+      },
+    });
+    agy.emit({
+      method: "session/update",
+      params: {
+        sessionId: parentId,
+        update: {
+          sessionUpdate: "tool_call",
+          toolCallId: "call_edit_empty",
+          name: "edit_file",
+          kind: "edit",
+          status: "completed",
+          content: [{ type: "diff", path: "", newText: "a", oldText: "b" }],
+        },
+      },
+    });
+    agy.emit({
+      method: "session/update",
+      params: {
+        sessionId: parentId,
+        update: {
+          sessionUpdate: "tool_call",
+          toolCallId: "call_sub_1",
+          name: "invoke_subagent",
+          kind: "other",
+          status: "in_progress",
+          rawInput: { Role: "Codebase Reader", Prompt: "Inspect snapshot" },
+        },
+      },
+    });
+    await wait(90);
+
+    const childState = agy.state.children[childId];
+    assert.ok(childState !== undefined);
+    assert.equal(childState.turn?.started_at, "2026-11-25T15:57:30.000Z");
+    assert.equal(agy.state.session?.model, null);
+    assert.equal(agy.state.session?.usage?.context?.tokens, 123);
+    assert.equal(agy.state.session?.usage?.context?.limit, 0);
+
+    const parsed = acpStateSchema.safeParse(withoutToolBodies(agy.state));
+    assert.equal(
+      parsed.success,
+      true,
+      parsed.success ? "" : JSON.stringify(parsed.error.issues),
+    );
+    await agy.run.stop();
+  } finally {
+    rmSync(fakeHome, { recursive: true, force: true });
+  }
 });

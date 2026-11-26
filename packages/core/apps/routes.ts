@@ -258,7 +258,7 @@ export function iconPathOf(
   };
 }
 
-// 호출 경로가 읽는 앱의 활성 release·보관 여부.
+// 호출 경로가 읽는 앱의 활성 release·보관 여부·slug 풀이.
 export function appStatesOf(sql: Pick<Sql, "get" | "all">): AppStates {
   return {
     activeRelease(app) {
@@ -270,6 +270,10 @@ export function appStatesOf(sql: Pick<Sql, "get" | "all">): AppStates {
       const found = loadApp(sql, app);
       if (!found.ok) return found;
       return ok(found.value?.status === "archived");
+    },
+    bySlug(slug) {
+      const row = sql.get("SELECT id FROM apps WHERE slug = ?", [slug]);
+      return ok(row === undefined ? null : (String(row.id) as Id<"app">));
     },
   };
 }

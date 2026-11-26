@@ -32,11 +32,17 @@ test("machine을 준 앱 호출은 이 컴퓨터의 앱으로 가지 않고 remo
   };
   await service.call(CHILD, { ...body, machine: "work" });
   await service.call(CHILD, body);
+  await service.call(CHILD, {
+    ...body,
+    target_app: "agent-monitor",
+    machine: "work",
+  });
   assert.deepEqual(
     seen.map((input) => input.target),
     [
       { mode: "remote", machine: "work", app: body.target_app },
       { mode: "live", app: body.target_app, release: null },
+      { mode: "remote", machine: "work", app: "agent-monitor" },
     ],
   );
 });

@@ -133,6 +133,23 @@ type StreamBuffer = {
 const SLASH = /^\/(\S+)(?:\s+([\s\S]*))?$/;
 // biome-ignore lint/suspicious/noControlCharactersInRegex: strip ANSI escapes from notice messages.
 const ANSI = /\u001b\[[0-9;]*m/g;
+// acpStateSchema의 atSchema는 밀리초 3자리 UTC ISO 형식만 받는다. 외부 transcript의 created_at을 정규화한다.
+const AT_FORMAT =
+  /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$/;
+
+function normalizeAt(value: string, fallback: string): string {
+  if (AT_FORMAT.test(value)) return value;
+  if (value !== "") {
+    const parsed = Date.parse(value);
+    if (Number.isFinite(parsed)) return new Date(parsed).toISOString();
+  }
+  return fallback;
+}
+
+const nonNegInt = (value: number | undefined): number | null =>
+  typeof value === "number" && Number.isFinite(value)
+    ? Math.max(0, Math.trunc(value))
+    : null;
 
 const isRec = (value: unknown): value is Json =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -424,13 +441,17 @@ export function createAcpSessionProjector(
       context:
         context === null
           ? null
-          : { tokens: context.used, limit: context.size, parts: [] },
+          : {
+              tokens: nonNegInt(context.used) ?? 0,
+              limit: nonNegInt(context.size) ?? 0,
+              parts: [],
+            },
       limits: [],
-      input_tokens: totals?.input ?? null,
-      output_tokens: totals?.output ?? null,
-      cache_read_tokens: totals?.cacheRead ?? null,
-      cache_write_tokens: totals?.cacheWrite ?? null,
-      turns: totals?.turns ?? null,
+      input_tokens: nonNegInt(totals?.input),
+      output_tokens: nonNegInt(totals?.output),
+      cache_read_tokens: nonNegInt(totals?.cacheRead),
+      cache_write_tokens: nonNegInt(totals?.cacheWrite),
+      turns: nonNegInt(totals?.turns),
       costs: [],
       provider: null,
     };
@@ -495,7 +516,7 @@ export function createAcpSessionProjector(
       },
       models: dialect.buildModelGroups(configs, legacyModels),
       model:
-        model === undefined
+        model === undefined || model.current === ""
           ? null
           : {
               model: model.current,
@@ -503,11 +524,13 @@ export function createAcpSessionProjector(
               options: thought === undefined ? {} : { effort: thought.current },
               layer: null,
             },
-      modes: (mode?.options ?? []).map((one) => ({
-        id: one.value,
-        label: one.name,
-        description: one.description,
-      })),
+      modes: (mode?.options ?? [])
+        .filter((one) => one.value !== "")
+        .map((one) => ({
+          id: one.value,
+          label: one.name,
+          description: one.description,
+        })),
       mode: mode?.current ?? null,
       commands: commandList(),
       usage: usageOf(),
@@ -751,14 +774,15 @@ export function createAcpSessionProjector(
     output: string | null,
   ): void {
     const isSubagent = call.detail.kind === "subagent";
-    const isTrackedBg = isSubagent || tasks.has(call.remoteId);
+    const taskKey = call.remoteId || call.id;
+    const isTrackedBg = isSubagent || tasks.has(taskKey);
     if (!isTrackedBg) return;
     const description =
       call.detail.kind === "subagent"
         ? call.detail.description || call.detail.agent
         : call.title;
-    tasks.set(call.remoteId, {
-      id: call.remoteId,
+    tasks.set(taskKey, {
+      id: taskKey,
       kind: isSubagent ? "agent" : call.kind === "execute" ? "shell" : "other",
       description,
       state: taskState,
@@ -843,7 +867,7 @@ export function createAcpSessionProjector(
         turn: ensureTurn(),
         tool: name,
         category: classified.category,
-        title: classified.title,
+        title: classified.title.trim() || name,
         state:
           terminalInReplay === undefined ? "running" : terminalInReplay.state,
         duration_ms: terminalInReplay === undefined ? null : 0,
@@ -1328,13 +1352,13 @@ export function createAcpSessionProjector(
       emitChild(lane.childId, {
         type: "turn_started",
         turn: tid,
-        at: fresh[0]?.createdAt || now(),
+        at: normalizeAt(fresh[0]?.createdAt ?? "", now()),
       });
     }
 
     for (const step of fresh) {
       lane.lastStepIndex = step.stepIndex;
-      const at = step.createdAt || now();
+      const at = normalizeAt(step.createdAt, now());
 
       if (step.type === "USER_INPUT" || step.source === "USER_EXPLICIT") {
         const text = redactCredentials(stripWrapperTags(step.content ?? ""));

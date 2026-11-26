@@ -18,6 +18,7 @@ import {
   chmod,
   copyFile,
   cp,
+  lstat,
   mkdir,
   readdir,
   readFile,
@@ -26,7 +27,7 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises";
-import { join, relative, sep } from "node:path";
+import { dirname, join, relative, sep } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
@@ -129,15 +130,64 @@ async function platformMembers(): Promise<string[]> {
   return [...members].sort();
 }
 
-// Windows에서 npm은 workspace member를 절대 경로 junction으로 잇는다(`--install-links`는 workspace에 듣지 않는다).
-// 설치본을 build 폴더 밖으로 옮기면 끊기므로 복사본으로 바꾼다.
+// Windows에서 npm은 workspace member와 file: override를 절대 경로 junction으로 잇는다(`--install-links`는 workspace에 듣지 않는다).
+// 설치본을 build 폴더 밖으로 옮기면 끊기므로:
+// - `@lophn/*`는 `.ts`를 node_modules 안에 복사하면 Node 24가 type stripping을 거부하므로(`ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING`),
+//   node_modules 바깥의 `platform/packages/*`를 상대 경로로 re-export하는 `.mjs` stub 패키지로 바꾼다.
+// - `@anthropic-ai/*` 등은 그대로 복사본으로 바꾼다.
+async function stubPackageExports(
+  value: unknown,
+  linkDir: string,
+  targetDir: string,
+): Promise<unknown> {
+  if (typeof value === "string") {
+    if (!value.endsWith(".ts")) return value;
+    const stubRel = value.replace(/\.ts$/, ".mjs");
+    const stubAbs = join(linkDir, stubRel);
+    const targetAbs = join(targetDir, value);
+    const relImport = relative(dirname(stubAbs), targetAbs).replaceAll(
+      "\\",
+      "/",
+    );
+    await mkdir(dirname(stubAbs), { recursive: true });
+    await writeFile(stubAbs, `export * from "${relImport}";\n`);
+    return stubRel;
+  }
+  if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) {
+      out[k] = await stubPackageExports(v, linkDir, targetDir);
+    }
+    return out;
+  }
+  return value;
+}
+
 async function copyLinkedMembers(modules: string) {
-  const scope = join(modules, "@lophn");
-  for (const name of await readdir(scope)) {
-    const link = join(scope, name);
-    const target = await realpath(link);
-    await rm(link, { recursive: true });
-    await cp(target, link, { recursive: true });
+  for (const scopeName of ["@lophn", "@anthropic-ai"]) {
+    const scope = join(modules, scopeName);
+    if (!(await exists(scope))) continue;
+    for (const name of await readdir(scope)) {
+      const link = join(scope, name);
+      if (!(await lstat(link)).isSymbolicLink()) continue;
+      const target = await realpath(link);
+      await rm(link, { recursive: true });
+      if (scopeName === "@lophn") {
+        const pkg = JSON.parse(
+          await readFile(join(target, "package.json"), "utf8"),
+        );
+        await mkdir(link, { recursive: true });
+        if (pkg.exports !== undefined) {
+          pkg.exports = await stubPackageExports(pkg.exports, link, target);
+        }
+        await writeFile(
+          join(link, "package.json"),
+          JSON.stringify(pkg, null, 2) + "\n",
+        );
+      } else {
+        await cp(target, link, { recursive: true });
+      }
+    }
   }
 }
 
@@ -169,13 +219,21 @@ async function stagePlatform(bundle: string, copyMembers: boolean) {
     join(repo, "package-lock.json"),
     join(platform, "package-lock.json"),
   );
+  await cp(
+    join(repo, "tools", "empty-package"),
+    join(platform, "tools", "empty-package"),
+    { recursive: true },
+  );
   // 의존 install script는 설치본에 필요 없고 build 기계에서 돌릴 이유도 없다.
   await run(
     "npm",
     ["ci", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund"],
     { cwd: platform },
   );
-  if (copyMembers) await copyLinkedMembers(join(platform, "node_modules"));
+  if (copyMembers) {
+    await copyLinkedMembers(join(platform, "node_modules"));
+    await rm(join(platform, "tools"), { recursive: true, force: true });
+  }
   await markSpawnHelpers(join(platform, "node_modules"));
   // core가 띄우는 PTY host가 node-pty를 load한다. node-pty 1.1.0은 macOS·Windows의 N-API prebuild를 싣고 Linux만 없어(위
   // `--ignore-scripts`라 build도 없다) Linux에서만 core가 도는 Electron에 맞춰 source로 compile한다.

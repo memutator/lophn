@@ -162,3 +162,39 @@ test("MCP 401/missing secret guidance(details.missing)는 결과 문장에 유�
     outcome.result.summary,
   );
 });
+
+test("app.take_in은 conflict·not_found·unavailable 이유 문장을 싣고 forbidden은 원문과 우회 금지 지침을 싣는다", async () => {
+  const failing = (code: ErrorCode, message: string) =>
+    defineTool({
+      name: "app.take_in",
+      description: "fail",
+      effect: "write",
+      input: z.strictObject({}),
+      routes: [],
+      handler: () => Promise.resolve(err({ code, message })),
+    });
+  const summaryOf = async (code: ErrorCode, message: string) =>
+    (
+      await executeToolCall(
+        { listed: [failing(code, message)] } as unknown as ToolContext,
+        "app_take_in",
+        {},
+      )
+    ).result.summary;
+
+  assert.equal(
+    await summaryOf("conflict", "the app was built with @lophn/app-ui@2.13.0"),
+    "tool call conflicted: the app was built with @lophn/app-ui@2.13.0",
+  );
+  assert.equal(
+    await summaryOf("not_found", "the app is not in a sync folder"),
+    "tool target is not available: the app is not in a sync folder",
+  );
+  assert.equal(
+    await summaryOf("unavailable", "dependencies: dependency_install_failed"),
+    "tool is unavailable: dependencies: dependency_install_failed",
+  );
+  const forbidden = await summaryOf("forbidden", "secret scope");
+  assert.ok(forbidden.includes("secret scope"), forbidden);
+  assert.ok(forbidden.includes(ANTI_BYPASS_DIRECTIVE), forbidden);
+});

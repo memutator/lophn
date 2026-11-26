@@ -180,7 +180,11 @@ function setup() {
         }),
       findPreview: () => Promise.resolve(ok(null)),
     },
-    apps: { activeRelease: () => ok(REL), archived: () => ok(false) },
+    apps: {
+      activeRelease: () => ok(REL),
+      archived: () => ok(false),
+      bySlug: () => ok(null),
+    },
     ledger: ledger as InvocationLedger,
     link: {
       call: async (_target: unknown, request: ProcessCallRequest) => {

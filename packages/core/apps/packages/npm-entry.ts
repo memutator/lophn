@@ -3,6 +3,7 @@
 // 바로 `npm install`이 그 사본을 찾게 한다. 사용: npm-entry.ts <data root> <npm 인자...>
 import { stat } from "node:fs/promises";
 import process from "node:process";
+import { pathToFileURL } from "node:url";
 import { platformNpmCliPath } from "../../supervision/security/node-shims.ts";
 import { syncAppSdk } from "./sdk-sync.ts";
 
@@ -22,4 +23,4 @@ if (dataRoot !== undefined && INSTALLS.has(args[0] ?? "")) {
 }
 const cli = platformNpmCliPath();
 process.argv = [process.argv[0], cli, ...args];
-await import(cli);
+await import(pathToFileURL(cli).href);

@@ -6,9 +6,8 @@ import {
   runtimeModeSchema,
   toolKeySchema,
 } from "../channel-values.ts";
-import { appIdSchema } from "../../projects/values.ts";
 import { machineRefSchema } from "../../machine/requester.ts";
-import { toolCallOutputSchema } from "./call.ts";
+import { appRefSchema, toolCallOutputSchema } from "./call.ts";
 
 // 앱 process가 broker socket으로 부르는 경로.
 export const APP_BROKER_PATHS = {
@@ -23,7 +22,7 @@ const childFields = {
 
 export const brokerAppCallInputSchema = z.strictObject({
   ...childFields,
-  target_app: appIdSchema,
+  target_app: appRefSchema,
   // 다른 컴퓨터의 앱이면 그 컴퓨터(이름, `mch_`, `dev_`). 없으면 이 컴퓨터다.
   machine: machineRefSchema.optional(),
   // 다른 앱은 command만 부른다.

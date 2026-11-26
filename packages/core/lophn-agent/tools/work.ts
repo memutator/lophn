@@ -52,15 +52,19 @@ const FAILURE_SUMMARIES: Readonly<Record<string, string>> = {
   internal: "tool call failed",
 };
 
-// browser·tab 호출의 unavailable·conflict·not_found와 team.spawn의 conflict, tab.give의 not_found·invalid_input은
-// lophn이 쓴 고정 문장(원인과 다음 할 일)이라 그대로 싣는다. forbidden은 모든 tool에서 그대로 싣는다.
+// browser·tab 호출의 unavailable·conflict·not_found와 team.spawn의 conflict, tab.give의 not_found·invalid_input,
+// app.take_in의 conflict·not_found·unavailable은 lophn이 쓴 고정 문장(원인과 다음 할 일)이라 그대로 싣는다.
+// forbidden은 모든 tool에서 그대로 싣는다.
 function carriesReason(name: string, code: string): boolean {
   return (
     ((name.startsWith("browser.") || name.startsWith("tab.")) &&
       (code === "unavailable" || code === "conflict")) ||
     (name.startsWith("browser.") && code === "not_found") ||
     (name === "team.spawn" && code === "conflict") ||
-    (name === "tab.give" && (code === "not_found" || code === "invalid_input"))
+    (name === "tab.give" &&
+      (code === "not_found" || code === "invalid_input")) ||
+    (name === "app.take_in" &&
+      (code === "conflict" || code === "not_found" || code === "unavailable"))
   );
 }
 

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { defineMemory } from "../../base/route.ts";
-import { appIdSchema } from "../../projects/values.ts";
+import { appIdSchema, slugSchema } from "../../projects/values.ts";
 import { machineRefSchema } from "../../machine/requester.ts";
 import { secretNameSchema } from "../../secrets/secrets.ts";
 import {
@@ -11,6 +11,9 @@ import {
   toolNameSchema,
 } from "../channel-values.ts";
 import { appToolCallerSchema } from "./caller.ts";
+
+// 앱을 가리키는 값: 불변 `app_` id이거나 이 기계에 등록된 앱 slug.
+export const appRefSchema = z.union([appIdSchema, slugSchema]);
 
 // live의 release가 null이면 지금 활성 release다. remote는 다른 컴퓨터의 앱이다(`machine`은 이름, `mch_`, `dev_`이고 그 기계에서는 앱 id가 같다).
 export const appToolTargetSchema = z.discriminatedUnion("mode", [
@@ -32,6 +35,25 @@ export const appToolTargetSchema = z.discriminatedUnion("mode", [
 ]);
 export type AppToolTarget = z.infer<typeof appToolTargetSchema>;
 
+// `app.call_tool` 입력의 target. live·remote는 slug도 받아 core가 이 기계의 `app_` id로 푼다.
+const toolCallTargetSchema = z.discriminatedUnion("mode", [
+  z.strictObject({
+    mode: z.literal("live"),
+    app: appRefSchema,
+    release: releaseIdSchema.nullable(),
+  }),
+  z.strictObject({
+    mode: z.literal("preview"),
+    app: appIdSchema,
+    process_nonce: processNonceSchema,
+  }),
+  z.strictObject({
+    mode: z.literal("remote"),
+    machine: machineRefSchema,
+    app: appRefSchema,
+  }),
+]);
+
 // 호출 대상은 operation이거나 command이다. 이름은 둘을 합쳐 하나라 `kind`는 어느 쪽 선언을 볼지 정한다.
 // operation은 사람(화면)과 그 앱 workspace의 session(preview)만 부른다. agent(live)·다른 앱·job·flow가 부르면
 // core가 handler에 보내기 전에 denied로 막는다.
@@ -45,7 +67,7 @@ export const callKindSchema = z.enum(["operation", "command"]);
 export type CallKind = z.infer<typeof callKindSchema>;
 
 const toolCallInputSchema = z.strictObject({
-  target: appToolTargetSchema,
+  target: toolCallTargetSchema,
   kind: callKindSchema,
   name: toolNameSchema,
   input: jsonValueSchema.optional(),

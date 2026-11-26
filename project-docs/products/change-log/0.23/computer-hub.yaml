@@ -1,5 +1,5 @@
 id: computer-hub
-version: 0.23.180
+version: 0.23.181
 platform_note: none
 title: Add embedded Hub relay, file transfers, phone custody, default computer app sync, keep_both conflict preservation, remote clipboard, and unified My computers settings
 modules:

@@ -13,6 +13,7 @@ interface DiffLine {
 const CELL_LIMIT = 4_000_000;
 
 function linesOf(text: string): string[] {
+  if (text === "") return [];
   const lines = text.split("\n");
   if (lines.length > 1 && lines[lines.length - 1] === "") lines.pop();
   return lines;

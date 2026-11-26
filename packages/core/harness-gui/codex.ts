@@ -228,6 +228,20 @@ function changeCounts(change: NonNullable<Item["changes"]>[number]) {
   return { added, removed };
 }
 
+function formatChangeDiff(
+  change: NonNullable<Item["changes"]>[number],
+): string {
+  if (change.kind.type === "update" || /^@@ /m.test(change.diff)) {
+    return change.diff;
+  }
+  if (change.diff === "") return "";
+  const lines = change.diff.replace(/\n$/, "").split("\n");
+  if (change.kind.type === "delete") {
+    return `@@ -1,${lines.length} +0,0 @@\n${lines.map((line) => `-${line}`).join("\n")}`;
+  }
+  return `@@ -0,0 +1,${lines.length} @@\n${lines.map((line) => `+${line}`).join("\n")}`;
+}
+
 // 사람 메시지 → UserInput. file chip(`file://` resource_link)은 mention이고 앱 context(`resource`)는 글이다.
 // 이미지는 blob hash뿐이라 넘기지 못한다.
 function inputOf(content: ContentBlock[]): J[] {
@@ -1486,7 +1500,9 @@ export function createCodexAdapter(io: CodexIo): CodexAdapter {
             };
             body = bodyOf(
               paths.join("\n"),
-              changes.map((one) => `${one.path}\n${one.diff}`).join("\n\n"),
+              changes
+                .map((one) => `${one.path}\n${formatChangeDiff(one)}`)
+                .join("\n\n"),
             );
             break;
           }

@@ -30,6 +30,7 @@ import type {
   ReactiveWakeupTimers,
   SlashCommandClass,
 } from "./dialect.ts";
+import { computeTextDiff } from "./text-diff.ts";
 import type { Json } from "./transport.ts";
 
 export const AGY_RECORDED_VERSION = "1.5.9";
@@ -128,6 +129,41 @@ const oneLine = (text: string, max: number): string =>
     .slice(0, max);
 const countLines = (text: string): number =>
   text === "" ? 0 : text.replace(/\n$/, "").split("\n").length;
+
+function initialEditCounts(args: Json): { added: number; removed: number } {
+  const chunks =
+    arr(args.ReplacementChunks).length > 0
+      ? arr(args.ReplacementChunks)
+      : arr(args.replacement_chunks);
+  if (chunks.length > 0) {
+    let added = 0;
+    let removed = 0;
+    for (const chunk of chunks) {
+      const c = rec(chunk);
+      const diff = computeTextDiff(
+        pick(c, ["TargetContent", "target_content", "Target"]),
+        pick(c, ["ReplacementContent", "replacement_content", "Replacement"]),
+      );
+      added += diff.added;
+      removed += diff.removed;
+    }
+    return { added, removed };
+  }
+  const before = pick(args, ["Target", "TargetContent", "target_content"]);
+  const after = pick(args, [
+    "Replacement",
+    "ReplacementContent",
+    "replacement_content",
+  ]);
+  if (before !== "" || after !== "") {
+    const diff = computeTextDiff(before, after);
+    return { added: diff.added, removed: diff.removed };
+  }
+  return {
+    added: countLines(pick(args, ["Content", "content", "CodeContent"])),
+    removed: 0,
+  };
+}
 const relativePath = (cwd: string, path: string): string =>
   path.startsWith(`${cwd}/`) ? path.slice(cwd.length + 1) : path;
 const pick = (args: Json, keys: readonly string[]): string => {
@@ -470,14 +506,13 @@ export function createAntigravityDialect(
       if (tool.name === "ask_question") {
         detail = { kind: "question", group: null, outcome: null, lines: [] };
       } else if (tool.kind === "edit" && absPath !== "") {
+        const counts = initialEditCounts(tool.args);
         detail = {
           kind: "edit",
           document: absPath,
           path: relativePath(cwd, absPath),
-          added: countLines(
-            pick(tool.args, ["Content", "content", "Replacement"]),
-          ),
-          removed: countLines(pick(tool.args, ["Target"])),
+          added: counts.added,
+          removed: counts.removed,
         };
       }
 
@@ -536,13 +571,22 @@ export function createAntigravityDialect(
         const path = str(diff.path).trim();
         if (path !== "") {
           const document = isAbsolute(path) ? path : join(cwd, path);
+          const computed = computeTextDiff(
+            typeof diff.oldText === "string" ? diff.oldText : undefined,
+            str(diff.newText),
+          );
           diffDetail = {
             kind: "edit",
             document,
             path: relativePath(cwd, document),
-            added: countLines(str(diff.newText)),
-            removed: countLines(str(diff.oldText)),
+            added: computed.added,
+            removed: computed.removed,
           };
+          // Store minimal hunks in output when the tool produced no text output,
+          // so large/path-only edits still render a compact diff with real line numbers.
+          if (output === null && computed.patch !== null) {
+            output = computed.patch;
+          }
         }
       }
       return { output, diffDetail };

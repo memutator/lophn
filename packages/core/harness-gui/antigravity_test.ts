@@ -1475,3 +1475,72 @@ test("acpStateSchema accepts child transcripts with second-precision timestamps,
     rmSync(fakeHome, { recursive: true, force: true });
   }
 });
+
+test("whole-file ACP diff computes minimal added/removed counts and a compact unified patch", async () => {
+  const agy = await setup("text");
+  await agy.input(send("msg_1", "edit service.ts"));
+  const sessionId = agy.state.session?.cli_session ?? "ses-whole-file-diff";
+  const filePath = "/work/text/service.ts";
+  const baseLines = Array.from({ length: 500 }, (_, i) => `line ${i + 1}`);
+  const oldText = `${baseLines.join("\n")}\n`;
+  const nextLines = [...baseLines];
+  nextLines.splice(249, 1, "changed 250a", "changed 250b");
+  const newText = `${nextLines.join("\n")}\n`;
+
+  agy.emit({
+    method: "session/update",
+    params: {
+      sessionId,
+      update: {
+        sessionUpdate: "tool_call",
+        toolCallId: "call_edit_large",
+        name: "edit_file",
+        kind: "edit",
+        status: "in_progress",
+        rawInput: {
+          Path: filePath,
+          Target: "line 250",
+          Replacement: "changed 250a\nchanged 250b",
+        },
+        locations: [{ path: filePath }],
+      },
+    },
+  });
+  agy.emit({
+    method: "session/update",
+    params: {
+      sessionId,
+      update: {
+        sessionUpdate: "tool_call_update",
+        toolCallId: "call_edit_large",
+        name: "edit_file",
+        kind: "edit",
+        status: "completed",
+        rawInput: {
+          Path: filePath,
+          Target: "line 250",
+          Replacement: "changed 250a\nchanged 250b",
+        },
+        rawOutput: {},
+        content: [{ type: "diff", path: filePath, oldText, newText }],
+      },
+    },
+  });
+
+  const item = tools(agy.state).at(-1);
+  assert.ok(item !== undefined);
+  assert.deepEqual(
+    item.detail.kind === "edit"
+      ? [item.detail.path, item.detail.added, item.detail.removed]
+      : null,
+    ["service.ts", 2, 1],
+  );
+  assert.ok(item.body?.output !== null && item.body?.output !== undefined);
+  assert.ok(item.body.output.includes("@@ -247,7 +247,8 @@"));
+  assert.ok(item.body.output.includes("-line 250"));
+  assert.ok(item.body.output.includes("+changed 250a"));
+  assert.ok(item.body.output.includes("+changed 250b"));
+  // Must stay compact (only the changed hunk + context), never the full 500-line file.
+  assert.ok(item.body.output.split("\n").length < 20);
+  await agy.run.stop();
+});

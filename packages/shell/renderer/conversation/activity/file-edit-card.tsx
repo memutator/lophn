@@ -8,7 +8,7 @@ import { t } from "@lophn/i18n";
 import { actionIcons, conversationIcons } from "../../icons/mod.ts";
 import type { AgentTabSource } from "../agent-tab-source.ts";
 import type { ToolCallState } from "./model.ts";
-import { editDiffOf } from "./edit-diff.ts";
+import { loadEditDiff } from "./edit-diff.ts";
 import { ToolStateMark } from "./tool-state-mark.tsx";
 import styles from "./activity.module.css";
 
@@ -47,10 +47,9 @@ export function EditCard({
     if (!open || readInput === undefined) return;
     let alive = true;
     setMissing(false);
-    readInput(call, "input").then(
-      (result) => {
+    loadEditDiff(readInput, call).then(
+      (found) => {
         if (!alive) return;
-        const found = result.ok ? editDiffOf(result.value.value) : null;
         // 파일 어디쯤인지 모르므로 줄 번호는 붙이지 않는다.
         if (found === null) setMissing(true);
         else setLines(found.map(({ kind, text }) => ({ kind, text })));

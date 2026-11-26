@@ -108,6 +108,8 @@ export type AgentTrackerDeps = {
     /** 외부 메타(예: agy summary DB)에서 새로 읽은 이름이라 session store에도 저장해야 한다. */
     persist?: boolean;
   } | null>;
+  /** Antigravity conversation summary DB 기준 subagent 여부. 알 수 없으면 false다. */
+  isAntigravitySubagent?(conversationId: string): boolean;
 };
 
 type Entry = {
@@ -154,6 +156,8 @@ type Entry = {
   titleTimer: (() => void) | null;
   /** agy에서 subagent/swarm 도구를 호출한 부모 conversationId. 이 터미널의 subagent hook을 걸러낸다. */
   subagentParent: string | null;
+  /** 이 터미널에서 이미 subagent로 판별된 agy conversationId 집합(중복 DB 조회 방지). */
+  subagents: Set<string>;
   /** agy idle Stop 뒤 부기용 PostToolUse를 다음 PreInvocation까지 무시한다. */
   ignorePostToolUntilTurn: boolean;
   /** 사람이 친 끊기 key로 내렸다. 끝 신호가 아니라 짐작이라, 뒤에 tool이 끝났다는 hook이 오면 되돌린다. */
@@ -273,8 +277,10 @@ const FINISH_DELAY_MS = 1500;
 const ANTIGRAVITY_TITLE_RECHECK_MS = 2000;
 const ANTIGRAVITY_SUBAGENT_TOOLS: ReadonlySet<string> = new Set([
   "invoke_subagent",
+  "start_subagent",
   "send_message",
   "swarm",
+  "run_workflow",
 ]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -289,6 +295,23 @@ function trimmedNonEmptyString(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+// agy PreToolUse·PostToolUse protojson은 도구 호출을 `toolCall: { id, name, args }`로 싣는다.
+function antigravityToolName(
+  record: Record<string, unknown> | null,
+): string | null {
+  if (record === null) return null;
+  const nested = isRecord(record.toolCall)
+    ? record.toolCall
+    : isRecord(record.tool_call)
+      ? record.tool_call
+      : null;
+  return (
+    nonEmptyString(nested?.name) ??
+    nonEmptyString(record.tool_name) ??
+    nonEmptyString(record.toolName)
+  );
 }
 
 // Claude Code처럼 끊어도 Stop hook을 안 보내는 harness가 있어 사람이 친 key로 끊김을 본다.
@@ -376,6 +399,7 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
         foreground: null,
         ...fresh(null, false),
         children: new Map(),
+        subagents: new Set(),
         pending: null,
         sweepTimer: null,
         finishTimer: null,
@@ -442,6 +466,7 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
   // child 집합, 기다리는 알림과 그 timer를 모두 비운다.
   function drop(entry: Entry): void {
     entry.children.clear();
+    entry.subagents.clear();
     entry.pending = null;
     entry.sweepTimer?.();
     entry.sweepTimer = null;
@@ -571,8 +596,13 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
           nonEmptyString(record?.conversationId) ??
           nonEmptyString(record?.conversation_id) ??
           nonEmptyString(record?.session_id);
-        const toolName =
-          nonEmptyString(record?.tool_name) ?? nonEmptyString(record?.toolName);
+        const parentConversationId =
+          trimmedNonEmptyString(record?.parentConversationId) ??
+          trimmedNonEmptyString(record?.parent_conversation_id);
+        const rootConversationId =
+          trimmedNonEmptyString(record?.rootConversationId) ??
+          trimmedNonEmptyString(record?.root_conversation_id);
+        const toolName = antigravityToolName(record);
         const lastUserInput =
           trimmedNonEmptyString(record?.lastUserInput) ??
           trimmedNonEmptyString(record?.last_user_input);
@@ -583,6 +613,61 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
           existing.harness !== harness
         ) {
           return;
+        }
+        const recordChild = (target: Entry, childId: string): void => {
+          target.subagents.add(childId);
+          if (
+            event === "SessionStart" ||
+            event === "PreInvocation" ||
+            event === "PreToolUse" ||
+            event === "PostToolUse"
+          ) {
+            target.children.set(childId, deps.now());
+            target.heard = true;
+            target.hooked = true;
+          } else if (event === "Stop" && record?.fullyIdle === true) {
+            target.children.delete(childId);
+          }
+          reconcile(ref, target);
+          push(ref, target);
+        };
+        // 직접 표지: agy HookArgsCommon이 싣는 parentConversationId·rootConversationId로 subagent를 즉시 가른다.
+        const hasParentMeta =
+          parentConversationId !== null ||
+          (rootConversationId !== null &&
+            conversationId !== null &&
+            rootConversationId !== conversationId);
+        if (hasParentMeta) {
+          if (
+            conversationId !== null &&
+            existing !== undefined &&
+            existing.harness === harness
+          ) {
+            if (existing.subagentParent === null) {
+              existing.subagentParent =
+                rootConversationId ?? parentConversationId;
+            }
+            recordChild(existing, conversationId);
+          }
+          return;
+        }
+        // DB·캐시 표지: parentConversationId가 빠졌거나 core 재시작 뒤 이미 도는 subagent hook이 와도 summary DB로 걸러낸다.
+        if (conversationId !== null && lastUserInput === null) {
+          const knownSubagent =
+            existing?.harness === harness &&
+            existing.subagents.has(conversationId);
+          const dbSubagent =
+            !knownSubagent &&
+            (existing === undefined ||
+              existing.harness !== harness ||
+              conversationId !== existing.session) &&
+            deps.isAntigravitySubagent?.(conversationId) === true;
+          if (knownSubagent || dbSubagent) {
+            if (existing !== undefined && existing.harness === harness) {
+              recordChild(existing, conversationId);
+            }
+            return;
+          }
         }
         // 규칙 ③: lastUserInput이 있는 새 conversationId는 사람이 새 대화를 연 것이므로 subagent 추적을 초기화한다.
         if (
@@ -595,6 +680,7 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
         ) {
           existing.subagentParent = null;
           existing.children.clear();
+          existing.subagents.clear();
         }
         // 규칙 ②: 같은 터미널에서 부모와 다른 conversationId이고 lastUserInput이 비어 있으면 subagent/swarm 워커 hook이다.
         // 부모의 자식 활동으로만 집계하고 메인 session·title·name·Recent(sessionSeen)는 절대 건드리지 않는다.
@@ -606,20 +692,7 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
           conversationId !== existing.subagentParent &&
           lastUserInput === null
         ) {
-          if (
-            event === "SessionStart" ||
-            event === "PreInvocation" ||
-            event === "PreToolUse" ||
-            event === "PostToolUse"
-          ) {
-            existing.children.set(conversationId, deps.now());
-            existing.heard = true;
-            existing.hooked = true;
-          } else if (event === "Stop" && record?.fullyIdle === true) {
-            existing.children.delete(conversationId);
-          }
-          reconcile(ref, existing);
-          push(ref, existing);
+          recordChild(existing, conversationId);
           return;
         }
         // idle Stop 확정 뒤 부기용 PostToolUse가 상태를 되살리거나 sessionSeen을 다시 부르지 못하게 다음 PreInvocation까지 무시한다.
@@ -679,7 +752,11 @@ export function createAgentTracker(deps: AgentTrackerDeps): AgentTracker {
         entry.title = null;
         entry.name = null;
         entry.pinned = false;
-        entry.subagentParent = null;
+        // PreToolUse에서 먼저 잡은 같은 부모의 subagentParent를 session 최초 획득이 지우지 않게 둔다.
+        if (entry.subagentParent !== signal.external_session) {
+          entry.subagentParent = null;
+          entry.subagents.clear();
+        }
         acquiredSession = signal.external_session;
       }
       if (signal.name !== undefined && !entry.pinned) {

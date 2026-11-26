@@ -1160,3 +1160,153 @@ test("unified terminal-agent state: agy --gui registers with source: gui without
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("savedSessions filters historical antigravity subagents and live agy GUI hooks do not record spawned subagents", async () => {
+  const root = await mkdtemp(join(tmpdir(), "lophn-agy-recent-subagent-"));
+  try {
+    const prj = "prj_00000000000000000000000099";
+    const terminalRef = "trm_00000000000000000000000099";
+    let rt: TerminalRuntime = {
+      terminal_ref: terminalRef,
+      project: prj,
+      folder_ref: `${prj}_0`,
+      cwd_at_start: "/work",
+      generation: 1,
+      state: "running",
+    } as TerminalRuntime;
+    const store = createAgentSessionStore({
+      dataRoot: root,
+      now: () => 1000,
+      resumable: () => true,
+    });
+    // 기존에 오염돼 저장된 agy subagent와 정상 main·claude 세션이 섞여 있는 상태를 만든다.
+    await store.note({
+      project: prj,
+      folder_ref: `${prj}_0`,
+      cwd: "/work",
+      harness: "antigravity",
+      external_session: "parent-main",
+      title: "Fix bugs",
+      name: "UI/UX and Bug Fixes",
+    });
+    await store.note({
+      project: prj,
+      folder_ref: `${prj}_0`,
+      cwd: "/work",
+      harness: "antigravity",
+      external_session: "old-subagent-1",
+      title: null,
+      name: null,
+    });
+    await store.note({
+      project: prj,
+      folder_ref: `${prj}_0`,
+      cwd: "/work",
+      harness: "claude",
+      external_session: "claude-main",
+      title: "Claude prompt",
+      name: "Claude prompt",
+    });
+
+    const knownSubagents = new Set(["old-subagent-1", "live-subagent-db"]);
+    const terminals: Terminals = {
+      open: async () => ({ ok: true, value: rt }),
+      close: async () => ({ ok: true, value: rt }),
+      restart: async () => ({ ok: true, value: rt }),
+      write: async () => ({ ok: true, value: undefined }),
+      signal: async () => ({ ok: true, value: undefined }),
+      resize: async () => ({ ok: true, value: rt }),
+      snapshot: async () => ({ ok: true, value: { runtime: rt, output: [] } }),
+      screen: async () => ({ ok: true, value: {} as never }),
+      list: () => [rt],
+      runtime: (ref) => (ref === terminalRef ? rt : null),
+      patch: (ref, patch) => {
+        if (ref !== terminalRef) return;
+        if (patch.agent === null) {
+          const { agent: _removed, ...rest } = rt;
+          rt = rest as TerminalRuntime;
+        } else if (patch.agent !== undefined) {
+          rt = { ...rt, agent: patch.agent };
+        }
+      },
+      onRuntime: () => () => {},
+      onOutput: () => () => {},
+      onForeground: () => () => {},
+      onHumanInput: () => () => {},
+      useEnv: () => () => {},
+      anyOpen: () => true,
+      stop: async () => {},
+    };
+    const agents = createTerminalAgents({
+      terminals,
+      clock: {
+        now: () => "2026-11-26T00:00:00.000Z",
+        nowMs: () => 2000,
+      },
+      after: () => () => {},
+      publish: () => {},
+      attention: () => ({ signal: () => {}, dismiss: () => {} }),
+      handlers: () => null,
+      redact: <T>(value: T) => value,
+      platform: "linux",
+      store,
+      images: {
+        root: join(root, "images"),
+        write: async () => {},
+        read: async () => null,
+      },
+      ids: { request: () => "req" },
+      hookEnv: () => ({}),
+      identified: () => {},
+      beat: () => {},
+      isAntigravitySubagent: (id) => knownSubagents.has(id),
+      readAntigravitySubagentIds: (ids) =>
+        new Set(ids.filter((id) => knownSubagents.has(id))),
+      log: () => {},
+    });
+
+    // 1) savedSessions는 기존에 저장된 agy subagent만 걸러 내고 main·claude 세션은 유지한다.
+    const initial = await agents.savedSessions(prj);
+    assert.deepEqual(
+      initial.sessions.map((s) => `${s.harness}:${s.external_session}`).sort(),
+      ["antigravity:parent-main", "claude:claude-main"],
+    );
+
+    // 2) live agy hook이 toolCall.name="invoke_subagent" 뒤 subagent hook을 보내도 store에 새로 쌓이지 않는다.
+    agents.hook({
+      terminal_ref: terminalRef,
+      harness: "antigravity",
+      event: "PreToolUse",
+      payload: {
+        conversationId: "parent-main",
+        toolCall: { id: "tc_1", name: "invoke_subagent", args: {} },
+      },
+    });
+    agents.hook({
+      terminal_ref: terminalRef,
+      harness: "antigravity",
+      event: "SessionStart",
+      payload: {
+        conversationId: "live-subagent-toolcall",
+        lastUserInput: "",
+      },
+    });
+    agents.hook({
+      terminal_ref: terminalRef,
+      harness: "antigravity",
+      event: "PostToolUse",
+      payload: {
+        conversationId: "live-subagent-db",
+        toolCall: { id: "tc_2", name: "run_command", args: {} },
+      },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    const storedIds = (await store.list(prj)).map((s) => s.external_session);
+    assert.equal(storedIds.includes("live-subagent-toolcall"), false);
+    assert.equal(storedIds.includes("live-subagent-db"), false);
+
+    agents.stop();
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

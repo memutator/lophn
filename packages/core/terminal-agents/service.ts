@@ -101,6 +101,12 @@ export type TerminalAgentsDeps = {
   beat(sessions: readonly string[]): void;
   /** Antigravity conversation summary DB에서 AI 제목을 읽는다. 없거나 비어 있으면 null. */
   readAntigravityTitle?(conversationId: string): string | null;
+  /** Antigravity conversation summary DB에서 해당 conversation이 subagent인지 확인한다. */
+  isAntigravitySubagent?(conversationId: string): boolean;
+  /** Antigravity conversation summary DB에서 주어진 id 중 subagent인 id 집합을 읽는다. */
+  readAntigravitySubagentIds?(
+    conversationIds: readonly string[],
+  ): ReadonlySet<string>;
   log(message: string): void;
 };
 
@@ -188,7 +194,16 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
     },
     dismiss: (ref) => void deps.attention().dismiss(terminalSessionId(ref)),
     identified: deps.identified,
+    ...(deps.isAntigravitySubagent === undefined
+      ? {}
+      : { isAntigravitySubagent: deps.isAntigravitySubagent }),
     sessionSeen(info) {
+      if (
+        info.harness === "antigravity" &&
+        deps.isAntigravitySubagent?.(info.session) === true
+      ) {
+        return;
+      }
       const runtime = terminals.runtime(info.terminal_ref);
       if (runtime === null) return;
       void deps.store
@@ -457,6 +472,12 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
         const session = handle.state().session;
         const cliSession = session?.cli_session ?? null;
         if (cliSession === null) return;
+        if (
+          handle.harness === "antigravity" &&
+          deps.isAntigravitySubagent?.(cliSession) === true
+        ) {
+          return;
+        }
         if (cliSession !== hydratedSession) {
           cancelTitleTimer();
           hydratedSession = cliSession;
@@ -582,7 +603,23 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
     async savedSessions(
       projectRef: string,
     ): Promise<{ sessions: TerminalAgentSession[] }> {
-      return { sessions: await deps.store.list(projectRef) };
+      const sessions = await deps.store.list(projectRef);
+      if (deps.readAntigravitySubagentIds === undefined) {
+        return { sessions };
+      }
+      const agyIds = sessions
+        .filter((item) => item.harness === "antigravity")
+        .map((item) => item.external_session);
+      if (agyIds.length === 0) return { sessions };
+      const subagents = deps.readAntigravitySubagentIds(agyIds);
+      if (subagents.size === 0) return { sessions };
+      return {
+        sessions: sessions.filter(
+          (item) =>
+            item.harness !== "antigravity" ||
+            !subagents.has(item.external_session),
+        ),
+      };
     },
     async renameSaved(input: {
       project: string;

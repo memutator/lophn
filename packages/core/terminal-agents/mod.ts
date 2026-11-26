@@ -1,4 +1,8 @@
-export { readAntigravityTitle } from "./antigravity-title.ts";
+export {
+  isAntigravitySubagent,
+  readAntigravitySubagentIds,
+  readAntigravityTitle,
+} from "./antigravity-title.ts";
 export {
   type BackgroundMembers,
   createBackgroundMembers,

@@ -149,6 +149,78 @@ const CASES: [string, HarnessId, string, unknown, HookSignal | null][] = [
     },
   ],
   [
+    "antigravity: PreToolUse 실제 protojson toolCall 질문 도구는 PermissionRequested다",
+    "antigravity",
+    "PreToolUse",
+    {
+      conversationId: "conv-1",
+      toolCall: {
+        id: "toolu_01",
+        name: "ask_question",
+        args: { questions: [{ question: "Ship now?" }] },
+      },
+      stepIdx: 12,
+    },
+    {
+      type: "PermissionRequested",
+      request: { tool: "ask_question", summary: "Ship now?" },
+      external_session: "conv-1",
+    },
+  ],
+  [
+    "antigravity: PreToolUse 실제 protojson toolCall invoke_subagent는 null이다",
+    "antigravity",
+    "PreToolUse",
+    {
+      conversationId: "conv-1",
+      toolCall: {
+        id: "toolu_02",
+        name: "invoke_subagent",
+        args: { TypeName: "self", Role: "Fixer" },
+      },
+    },
+    null,
+  ],
+  [
+    "antigravity: parentConversationId가 있는 subagent hook은 null이다",
+    "antigravity",
+    "SessionStart",
+    {
+      conversationId: "child-1",
+      parentConversationId: "parent-1",
+      rootConversationId: "parent-1",
+      agentName: "self",
+    },
+    null,
+  ],
+  [
+    "antigravity: rootConversationId가 conversationId와 다르면 subagent hook으로 null이다",
+    "antigravity",
+    "PostToolUse",
+    {
+      conversationId: "grandchild-1",
+      rootConversationId: "parent-1",
+      toolCall: { id: "toolu_03", name: "run_command", args: {} },
+    },
+    null,
+  ],
+  [
+    "antigravity: parentConversationId가 비고 rootConversationId가 같으면 main 세션이다",
+    "antigravity",
+    "PreInvocation",
+    {
+      conversationId: "parent-1",
+      parentConversationId: "",
+      rootConversationId: "parent-1",
+      lastUserInput: "Main prompt",
+    },
+    {
+      type: "TurnStarted",
+      prompt: "Main prompt",
+      external_session: "parent-1",
+    },
+  ],
+  [
     "antigravity: PreToolUse 일반 도구는 waiting을 만들지 않는다",
     "antigravity",
     "PreToolUse",

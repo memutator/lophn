@@ -5,8 +5,13 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 
+import { hookSignalOf } from "../../protocol/coding-agent/hook-signal.ts";
 import type { TerminalRuntime } from "../../protocol/coding-agent/terminals.ts";
-import { readAntigravityTitle } from "./antigravity-title.ts";
+import {
+  isAntigravitySubagent,
+  readAntigravitySubagentIds,
+  readAntigravityTitle,
+} from "./antigravity-title.ts";
 import { createHookIngress } from "./ingress.ts";
 import { createTitleScanner } from "./osc-title.ts";
 import { type AgentSignal, createAgentTracker } from "./tracker.ts";
@@ -718,4 +723,164 @@ test("antigravity TurnEnded schedules a delayed summary DB re-read (~2000ms) and
   clock.advance(5000);
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(lookups, lookupsBeforeGone);
+});
+
+test("isAntigravitySubagent and readAntigravitySubagentIds detect parent_conversation_id / nesting_depth and fail open on old schemas", () => {
+  const dir = mkdtempSync(join(tmpdir(), "lophn-agy-subagent-db-"));
+  const dbPath = join(dir, "conversation_summaries.db");
+  const legacyPath = join(dir, "legacy.db");
+  try {
+    assert.equal(isAntigravitySubagent(dbPath, "missing"), false);
+    assert.deepEqual([...readAntigravitySubagentIds(dbPath, ["missing"])], []);
+
+    const db = new DatabaseSync(dbPath);
+    db.exec(
+      "CREATE TABLE conversation_summaries (conversation_id TEXT PRIMARY KEY, title TEXT NOT NULL DEFAULT '', parent_conversation_id TEXT NOT NULL DEFAULT '', nesting_depth INTEGER NOT NULL DEFAULT 0)",
+    );
+    const insert = db.prepare(
+      "INSERT INTO conversation_summaries (conversation_id, title, parent_conversation_id, nesting_depth) VALUES (?, ?, ?, ?)",
+    );
+    insert.run("parent-main", "UI/UX and Bug Fixes", "", 0);
+    insert.run("child-by-parent", "", "parent-main", 1);
+    insert.run("child-by-depth", "", "", 2);
+    db.close();
+
+    assert.equal(isAntigravitySubagent(dbPath, "parent-main"), false);
+    assert.equal(isAntigravitySubagent(dbPath, "child-by-parent"), true);
+    assert.equal(isAntigravitySubagent(dbPath, "child-by-depth"), true);
+    assert.equal(isAntigravitySubagent(dbPath, "unknown-id"), false);
+    assert.deepEqual(
+      [
+        ...readAntigravitySubagentIds(dbPath, [
+          "parent-main",
+          "child-by-parent",
+          "child-by-depth",
+          "unknown-id",
+        ]),
+      ].sort(),
+      ["child-by-depth", "child-by-parent"],
+    );
+
+    // 컬럼이 없는 옛 스키마에서는 예외 없이 false / 빈 집합을 돌려준다.
+    const legacy = new DatabaseSync(legacyPath);
+    legacy.exec(
+      "CREATE TABLE conversation_summaries (conversation_id TEXT PRIMARY KEY, title TEXT)",
+    );
+    legacy
+      .prepare(
+        "INSERT INTO conversation_summaries (conversation_id, title) VALUES (?, ?)",
+      )
+      .run("parent-main", "Legacy");
+    legacy.close();
+    assert.equal(isAntigravitySubagent(legacyPath, "parent-main"), false);
+    assert.deepEqual(
+      [...readAntigravitySubagentIds(legacyPath, ["parent-main"])],
+      [],
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("antigravity real protojson toolCall.name, parentConversationId, and DB fallback block subagents from Recent and main session", () => {
+  const clock = fakeClock();
+  const runtime = { terminal_ref: "t", state: "running" } as TerminalRuntime;
+  let latest: TerminalRuntime = runtime;
+  const seenSessions: string[] = [];
+  const dbSubagents = new Set(["child-after-restart"]);
+  const tracker = createAgentTracker({
+    harnessOfProcess: (argv) => (argv[0] === "agy" ? "antigravity" : null),
+    interruptKeys: () => ["escape", "ctrl-c"],
+    signalOf: (harness, event, payload) =>
+      hookSignalOf(harness as "antigravity", event, payload),
+    runtimeOf: () => runtime,
+    publish: (rt) => {
+      latest = rt;
+    },
+    notify: () => {},
+    signal: () => {},
+    dismiss: () => {},
+    isAntigravitySubagent: (id) => dbSubagents.has(id),
+    sessionSeen: (info) => seenSessions.push(info.session),
+    ...clock,
+  });
+
+  // 1) 재현: GUI/resume 등으로 entry.session이 아직 null인 상태에서 agy 실제 protojson(toolCall.name)으로 invoke_subagent가 먼저 온다.
+  tracker.hook("t", "antigravity", "PreToolUse", {
+    conversationId: "parent-1",
+    toolCall: {
+      id: "call_1",
+      name: "invoke_subagent",
+      args: { TypeName: "self", Role: "Fixer" },
+    },
+    stepIdx: 26,
+    hookEventName: "PreToolUse",
+  });
+  // 부모 PostToolUse가 entry.session을 최초 획득해도 방금 기록한 subagentParent를 지우지 않는다.
+  tracker.hook("t", "antigravity", "PostToolUse", {
+    conversationId: "parent-1",
+    toolCall: {
+      id: "call_1",
+      name: "invoke_subagent",
+      args: { TypeName: "self", Role: "Fixer" },
+    },
+    stepIdx: 26,
+    hookEventName: "PostToolUse",
+  });
+  assert.equal(latest.agent?.session, "parent-1");
+
+  // parentConversationId가 없더라도 규칙 ①②(toolCall.name)가 child hook을 잡아 Recent(sessionSeen)로 흘리지 않는다.
+  tracker.hook("t", "antigravity", "SessionStart", {
+    conversationId: "child-via-toolcall",
+    lastUserInput: "",
+  });
+  tracker.hook("t", "antigravity", "PostToolUse", {
+    conversationId: "child-via-toolcall",
+    toolCall: { id: "call_2", name: "run_command", args: {} },
+  });
+  assert.equal(latest.agent?.session, "parent-1");
+  assert.equal(latest.agent?.state, "running");
+  assert.equal(seenSessions.includes("child-via-toolcall"), false);
+
+  tracker.hook("t", "antigravity", "Stop", {
+    conversationId: "child-via-toolcall",
+    fullyIdle: true,
+  });
+
+  // 2) 새 터미널(subagentParent === null, core 재시작 직후 상황): parentConversationId 직접 표지로 즉시 차단한다.
+  const runtime2 = { terminal_ref: "t2", state: "running" } as TerminalRuntime;
+  const tracker2 = createAgentTracker({
+    harnessOfProcess: () => null,
+    interruptKeys: () => ["escape", "ctrl-c"],
+    signalOf: (harness, event, payload) =>
+      hookSignalOf(harness as "antigravity", event, payload),
+    runtimeOf: () => runtime2,
+    publish: () => {},
+    notify: () => {},
+    signal: () => {},
+    dismiss: () => {},
+    isAntigravitySubagent: (id) => dbSubagents.has(id),
+    sessionSeen: (info) => seenSessions.push(info.session),
+    ...clock,
+  });
+  tracker2.hook("t2", "antigravity", "SessionStart", {
+    conversationId: "child-direct-meta",
+    parentConversationId: "parent-2",
+    rootConversationId: "parent-2",
+    lastUserInput: "",
+  });
+  tracker2.hook("t2", "antigravity", "PreInvocation", {
+    conversationId: "child-direct-meta",
+    parentConversationId: "parent-2",
+    lastUserInput: "even if non-empty",
+  });
+  // 3) parentConversationId가 빠져도 summary DB 표지(isAntigravitySubagent)가 차단한다.
+  tracker2.hook("t2", "antigravity", "PostToolUse", {
+    conversationId: "child-after-restart",
+    toolCall: { id: "call_3", name: "read_file", args: {} },
+  });
+
+  assert.equal(seenSessions.includes("child-direct-meta"), false);
+  assert.equal(seenSessions.includes("child-after-restart"), false);
+  assert.equal(tracker2.agentOf("t2"), undefined);
 });

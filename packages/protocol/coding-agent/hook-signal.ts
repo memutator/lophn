@@ -202,6 +202,26 @@ const SUBAGENT_PERMISSION_PASSES: readonly HarnessId[] = [
 ];
 
 // subagent의 event는 main session의 신호가 아니다. 표지는 harness마다 다르다.
+function isAntigravitySubagentPayload(
+  payload: Record<string, unknown>,
+): boolean {
+  const parent = payload.parentConversationId ?? payload.parent_conversation_id;
+  if (typeof parent === "string" && parent.trim() !== "") return true;
+  const root = payload.rootConversationId ?? payload.root_conversation_id;
+  const conv =
+    payload.conversationId ?? payload.conversation_id ?? payload.session_id;
+  if (
+    typeof root === "string" &&
+    root.trim() !== "" &&
+    typeof conv === "string" &&
+    conv.trim() !== "" &&
+    root.trim() !== conv.trim()
+  ) {
+    return true;
+  }
+  return false;
+}
+
 function isSubagent(
   harness: HarnessId,
   type: SignalType,
@@ -211,6 +231,8 @@ function isSubagent(
     // letta는 main agent도 agent_id를 싣는다.
     case "letta":
       return false;
+    case "antigravity":
+      return isAntigravitySubagentPayload(payload);
     case "grok":
       return payload.subagentType !== undefined;
     // Muse 1.3의 하위 session은 session_id를 turn_id로도 쓴다.
@@ -373,14 +395,33 @@ const ANTIGRAVITY_QUESTION_TOOLS = new Set([
   "AskUserQuestion",
 ]);
 
+// agy의 PreToolUse·PostToolUse protojson은 도구 호출을 `toolCall: { id, name, args }`로 싣는다.
+function antigravityToolCall(payload: Record<string, unknown>): {
+  name: string | null;
+  args: Record<string, unknown> | undefined;
+} {
+  const nested = isRecord(payload.toolCall)
+    ? payload.toolCall
+    : isRecord(payload.tool_call)
+      ? payload.tool_call
+      : undefined;
+  const rawName = nested?.name ?? payload.tool_name ?? payload.toolName;
+  const name =
+    typeof rawName === "string" && rawName.trim() !== "" ? rawName : null;
+  const args = isRecord(nested?.args)
+    ? nested.args
+    : isRecord(payload.tool_input)
+      ? payload.tool_input
+      : isRecord(payload.toolInput)
+        ? payload.toolInput
+        : undefined;
+  return { name, args };
+}
+
 function antigravityQuestionSummary(
   payload: Record<string, unknown>,
 ): string | null {
-  const input = isRecord(payload.tool_input)
-    ? payload.tool_input
-    : isRecord(payload.toolInput)
-      ? payload.toolInput
-      : undefined;
+  const { args: input } = antigravityToolCall(payload);
   const firstQuestion =
     input !== undefined && Array.isArray(input.questions)
       ? input.questions.find(isRecord)?.question
@@ -420,8 +461,8 @@ function permissionRequested(
     case "PreToolUse": {
       if (harness === "antigravity") {
         // 일반 tool 호출이 터미널을 waiting으로 바꾸지 않게 사람에게 묻는 tool만 통과시킨다.
-        const tool = payload.tool_name ?? payload.toolName;
-        if (typeof tool !== "string" || !ANTIGRAVITY_QUESTION_TOOLS.has(tool)) {
+        const { name: tool } = antigravityToolCall(payload);
+        if (tool === null || !ANTIGRAVITY_QUESTION_TOOLS.has(tool)) {
           return null;
         }
         return {

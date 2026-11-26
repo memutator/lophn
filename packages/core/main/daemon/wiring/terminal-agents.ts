@@ -93,6 +93,7 @@ import {
   createHookInstaller,
   createSkillSync,
   createTerminalAgents,
+  isAntigravitySubagent,
   LINK_SETTING_KEYS,
   type LinkPrefs,
   listenBridge,
@@ -100,6 +101,7 @@ import {
   moveSavedSessions,
   prepareRunDir,
   type RunDir,
+  readAntigravitySubagentIds,
   readAntigravityTitle,
   type TerminalAgents,
   type TerminalBridge,
@@ -296,6 +298,12 @@ export const terminalAgentsWiring: WiringFactory = () => {
               onGui: (hook) => ctx.terminalAgents.guiRequest(hook),
             });
       const redact = codingRedactor(() => ctx.peek.knownSecrets);
+      const antigravitySummaryDb = join(
+        homedir(),
+        ".gemini",
+        "antigravity-cli",
+        "conversation_summaries.db",
+      );
       service = createTerminalAgents({
         terminals: ctx.terminals,
         clock: ctx.clock,
@@ -391,15 +399,11 @@ export const terminalAgentsWiring: WiringFactory = () => {
         identified: (harness, ref) => installer.ensureOnce(harness, ref),
         beat: (sessions) => ctx.harnessHold.heartbeat(sessions as Id<"ses">[]),
         readAntigravityTitle: (conversationId) =>
-          readAntigravityTitle(
-            join(
-              homedir(),
-              ".gemini",
-              "antigravity-cli",
-              "conversation_summaries.db",
-            ),
-            conversationId,
-          ),
+          readAntigravityTitle(antigravitySummaryDb, conversationId),
+        isAntigravitySubagent: (conversationId) =>
+          isAntigravitySubagent(antigravitySummaryDb, conversationId),
+        readAntigravitySubagentIds: (conversationIds) =>
+          readAntigravitySubagentIds(antigravitySummaryDb, conversationIds),
         log,
       });
       ctx.provide("terminalAgents", service);

@@ -8,6 +8,7 @@
 // against a computer is push then pull (with that computer's own `cursor:<computer>`). Computers whose active release
 // lags behind the phone's installed release are skipped; any connected computer advertising a newer live release
 // upgrades the shared copy (waiting for the guest to unmount first).
+import type { KeyPair } from "../../../../protocol/remote/client.ts";
 import type { PhoneScreen } from "../../data/apps.ts";
 import type { CallOutcome } from "../guest/mod.ts";
 import { outboxCount, withDb } from "./db.ts";
@@ -33,7 +34,7 @@ import type { Link } from "../files/place.ts";
 import type { LocalDeps, Remote } from "./ports.ts";
 import { pruneApp } from "./prune.ts";
 import { switchRelease } from "./release.ts";
-import { pull, push } from "./sync.ts";
+import { custodyPush, pull, push } from "./sync.ts";
 
 export type LocalAppState = "ready" | "installing" | "syncing" | "failed";
 
@@ -53,8 +54,16 @@ export interface LocalApp {
   readonly last_synced_at: string | null;
   /** Local changes not yet acked by any connected computer. */
   readonly pending: number;
+  /** Name of the hub computer holding pending local changes while the target computer is offline. */
+  readonly held_via?: string;
   readonly state: LocalAppState;
   readonly failure?: LocalFailure;
+}
+
+export interface ComputerInfo {
+  readonly machine?: string | null;
+  readonly name?: string;
+  readonly hub?: boolean;
 }
 
 type Screens = readonly [PhoneScreen, ...PhoneScreen[]];
@@ -62,6 +71,10 @@ type Screens = readonly [PhoneScreen, ...PhoneScreen[]];
 export interface LocalAppsDeps extends LocalDeps {
   /** This phone's id in the roster (the sync node). */
   node(): Promise<string>;
+  /** This phone's Ed25519 custody signing key, when available. */
+  signingKey?(): Promise<KeyPair | null>;
+  /** Generates a custody envelope id (`pcs_...`). */
+  newCustodyId?(): string;
 }
 
 export interface LocalApps {
@@ -76,7 +89,7 @@ export interface LocalApps {
   /** The computers reachable now that know `app` (to take a file from; no order is promised). */
   links(app: string): readonly Link[];
   /** `computer` is reachable through `remote`, or not (null). */
-  connect(computer: string, remote: Remote | null): void;
+  connect(computer: string, remote: Remote | null, info?: ComputerInfo): void;
   /**
    * `computer`'s `apps/phone_screens` list, read while it is reachable. Installs missing phone apps, upgrades installed
    * ones when `computer` advertises a newer live release, skips lagging computers, and prunes sync apps dropped by all
@@ -117,6 +130,7 @@ const installedRelease = (one: Installed) => ({
 export function createLocalApps(deps: LocalAppsDeps): LocalApps {
   const { files } = deps;
   const remotes = new Map<string, Remote>();
+  const computerInfo = new Map<string, ComputerInfo>();
   const listed = new Map<string, Map<string, Screens>>();
   const reloads = new Map<string, () => void>();
   // Remembered when a computer's push conflict reports an older active_release before its list is read.
@@ -124,8 +138,13 @@ export function createLocalApps(deps: LocalAppsDeps): LocalApps {
   const busy = new Map<string, "installing" | "syncing">();
   const failures = new Map<string, LocalFailure>();
   const pending = new Map<string, number>();
+  const custodyHeld = new Map<
+    string,
+    { hubKey: string; hubName: string; target: string; ids: Set<string> }
+  >();
   const queues = new Map<string, Promise<unknown>>();
   const syncQueued = new Set<string>();
+  const custodyQueued = new Set<string>();
   const mounts = new Map<string, number>();
   const unmounted = new Map<string, (() => void)[]>();
   const listeners = new Set<() => void>();
@@ -140,6 +159,8 @@ export function createLocalApps(deps: LocalAppsDeps): LocalApps {
     const failure = (app: string) => (failures.has(app) ? { failure: failures.get(app)! } : {});
     const allById = new Map<string, LocalApp>();
     for (const one of installed.values()) {
+      const pendingCount = pending.get(one.app) ?? 0;
+      const held = pendingCount > 0 ? custodyHeld.get(one.app) : undefined;
       allById.set(one.app, {
         app: one.app,
         name: one.name,
@@ -147,7 +168,8 @@ export function createLocalApps(deps: LocalAppsDeps): LocalApps {
         kind: one.kind,
         release: one.release,
         last_synced_at: one.last_synced_at,
-        pending: pending.get(one.app) ?? 0,
+        pending: pendingCount,
+        ...(held === undefined || held.ids.size === 0 ? {} : { held_via: held.hubName }),
         state: stateOf(one.app),
         ...failure(one.app),
       });
@@ -412,6 +434,7 @@ export function createLocalApps(deps: LocalAppsDeps): LocalApps {
         }
         return;
       }
+      if (pushed.value.left === 0) custodyHeld.delete(app);
       one = readInstalled(files, app) ?? one;
       const pulled = await pull(ctx, one, releaseFor(computer, one));
       if (!pulled.ok) {
@@ -448,6 +471,107 @@ export function createLocalApps(deps: LocalAppsDeps): LocalApps {
     }
   }
 
+  function onlineHub(): { key: string; remote: Remote; name: string } | null {
+    for (const [key, remote] of remotes) {
+      const meta = computerInfo.get(key);
+      if (meta?.hub === true) {
+        return { key, remote, name: meta.name ?? key.slice(0, 8) };
+      }
+    }
+    return null;
+  }
+
+  function custodyTarget(one: Installed): { computer: string; machine: string } | null {
+    for (const computer of one.computers) {
+      const machine = computerInfo.get(computer)?.machine;
+      if (typeof machine === "string" && machine.length > 0) {
+        return { computer, machine };
+      }
+    }
+    return null;
+  }
+
+  async function custodyOne(app: string) {
+    const one = readInstalled(files, app);
+    if (one === null || one.kind !== "sync") return;
+    if (connectedFor(app, one).some((computer) => !isLagging(computer, one))) return;
+    const hub = onlineHub();
+    const target = custodyTarget(one);
+    if (hub === null || target === null || !deps.signingKey || !deps.newCustodyId) return;
+    const signingKey = await deps.signingKey();
+    if (signingKey === null) return;
+    let device: string;
+    try {
+      device = await deps.node();
+    } catch {
+      return;
+    }
+    const prev = custodyHeld.get(app);
+    const alreadyHeld =
+      prev !== undefined && prev.hubKey === hub.key && prev.target === target.computer
+        ? prev.ids
+        : undefined;
+    busy.set(app, "syncing");
+    publish();
+    try {
+      const pushed = await custodyPush(
+        {
+          deps,
+          hub: hub.remote,
+          targetComputer: target.computer,
+          targetMachine: target.machine,
+          device,
+          signingKey,
+          newCustodyId: deps.newCustodyId,
+          ...(alreadyHeld === undefined ? {} : { alreadyHeld }),
+        },
+        one,
+        releaseFor(target.computer, one),
+      );
+      if (!pushed.ok) {
+        if (pushed.error.code !== "unavailable" && pushed.error.code !== "not_found") {
+          console.warn(`custody ${app}: ${pushed.error.code}: ${pushed.error.message}`);
+        }
+        return;
+      }
+      if (pushed.value.left === 0) {
+        custodyHeld.delete(app);
+      } else if (pushed.value.held.length > 0) {
+        const ids = new Set(alreadyHeld ?? []);
+        for (const id of pushed.value.held) ids.add(id);
+        custodyHeld.set(app, {
+          hubKey: hub.key,
+          hubName: hub.name,
+          target: target.computer,
+          ids,
+        });
+        failures.delete(app);
+      }
+    } finally {
+      busy.delete(app);
+      await countPending(app);
+      publish();
+    }
+  }
+
+  function scheduleCustody(app: string) {
+    if (custodyQueued.has(app)) return;
+    custodyQueued.add(app);
+    void queued(app, () => {
+      custodyQueued.delete(app);
+      return custodyOne(app);
+    });
+  }
+
+  function syncCustodyForHub() {
+    if (onlineHub() === null) return;
+    for (const one of listInstalled(files)) {
+      if (one.kind !== "sync") continue;
+      if (connectedFor(one.app, one).some((computer) => !isLagging(computer, one))) continue;
+      if (custodyTarget(one) !== null) scheduleCustody(one.app);
+    }
+  }
+
   function scheduleSync(app: string, computer: string) {
     if (!remotes.has(computer)) return;
     const key = `${app}\0${computer}`;
@@ -462,8 +586,13 @@ export function createLocalApps(deps: LocalAppsDeps): LocalApps {
   function scheduleSyncAll(app: string) {
     const one = readInstalled(files, app);
     if (one === null || one.kind !== "sync") return;
-    for (const computer of connectedFor(app, one)) {
-      if (!isLagging(computer, one)) scheduleSync(app, computer);
+    const direct = connectedFor(app, one).filter((computer) => !isLagging(computer, one));
+    if (direct.length > 0) {
+      for (const computer of direct) scheduleSync(app, computer);
+      return;
+    }
+    if (onlineHub() !== null && custodyTarget(one) !== null) {
+      scheduleCustody(app);
     }
   }
 
@@ -533,16 +662,22 @@ export function createLocalApps(deps: LocalAppsDeps): LocalApps {
         ? []
         : connectedFor(app, one).map((computer) => ({ computer, remote: remotes.get(computer)! }));
     },
-    connect(computer, next) {
+    connect(computer, next, meta) {
+      const wasHub = computerInfo.get(computer)?.hub === true;
+      if (meta !== undefined) computerInfo.set(computer, meta);
       if (next === null) {
         if (!remotes.has(computer)) return;
         remotes.delete(computer);
         lagging.delete(computer);
         return;
       }
-      if (remotes.get(computer) === next) return;
+      if (remotes.get(computer) === next) {
+        if (!wasHub && meta?.hub === true) syncCustodyForHub();
+        return;
+      }
       remotes.set(computer, next);
       syncComputer(computer);
+      if (computerInfo.get(computer)?.hub === true) syncCustodyForHub();
       // The list can come before the connection is handed over (they come from different places), and then could not
       // install or upgrade.
       const computerListed = listed.get(computer);
@@ -614,6 +749,12 @@ export function createLocalApps(deps: LocalAppsDeps): LocalApps {
       const keep = new Set(paired);
       for (const computer of [...remotes.keys()]) {
         if (!keep.has(computer)) remotes.delete(computer);
+      }
+      for (const computer of [...computerInfo.keys()]) {
+        if (!keep.has(computer)) computerInfo.delete(computer);
+      }
+      for (const [app, held] of [...custodyHeld]) {
+        if (!keep.has(held.hubKey) || !keep.has(held.target)) custodyHeld.delete(app);
       }
       for (const computer of [...listed.keys()]) {
         if (!keep.has(computer)) listed.delete(computer);

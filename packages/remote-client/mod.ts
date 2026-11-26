@@ -31,6 +31,7 @@ export {
   type Joined,
   type Opened,
   openFirst,
+  orderedRelays,
   type Outdated,
   type Update,
   type WatchConditions,

@@ -102,25 +102,27 @@ export type Connection = CoreSource & {
 };
 
 // Where a computer listens and which one it is. `key` is the core's host key text (from the invite or the roster); `relay`
-// is its relay, if it has one. `machine` is the computer's id from its hello: once known, an answer from another machine
-// (the same key on a copied data root) is refused before anything is sent to it.
+// is its legacy single relay and `relays` is its ordered relay list (hub relays first, fallback relay last). `machine` is
+// the computer's id from its hello: once known, an answer from another machine (the same key on a copied data root) is
+// refused before anything is sent to it.
 export type Endpoint = {
   addresses: string[];
   port: number;
   key: string;
   relay?: string;
+  relays?: string[];
   machine?: Id<"mch">;
 };
 
 // What a computer said about itself in its hello: its id, the name it goes by and, only from a connection that checked the
-// saved id, the addresses to dial next time.
+// saved id, the addresses, hub role and relays to dial next time.
 export type Announced = RemotePeer["machine"];
 
 export type Dial = (url: string) => Promise<RemoteTransport>;
 
 // This device as it meets a computer. `key` is its key pair, which the computer knows it by; `name` is what it calls itself
 // in the hello, and the computer lists it by that name; `capabilities` are the `request` kinds it answers (none on a computer);
-// `phone` is a phone's screen, sent in every hello.
+// `phone` is a phone's screen, sent in every hello; `signing_key` is a phone's Ed25519 custody public key.
 export type Client = {
   key: KeyPair;
   dial: Dial;
@@ -128,6 +130,7 @@ export type Client = {
   name: string;
   capabilities: string[];
   phone?: RemotePhone;
+  signing_key?: string;
 };
 
 type RequestFrame = Extract<RemoteServerFrame, { type: "request" }>;
@@ -159,28 +162,40 @@ function outdatedOf(error: LophnError): Outdated | undefined {
     : undefined;
 }
 
-// Dials every address and the relay at once and keeps the first that finishes the handshake; the rest are closed.
-// The relay only passes bytes, so the Noise handshake is the same on every path. When none opens and one met the computer
-// but the protocol versions did not meet, says who must update instead.
-export function openFirst(
+/** Ordered relay URLs to try after direct addresses fail: hub relays first, fallback relay last. */
+export function orderedRelays(
+  endpoint: Pick<Endpoint, "relay" | "relays">,
+): string[] {
+  const out: string[] = [];
+  const add = (url: string | undefined) => {
+    if (url && !out.includes(url)) out.push(url);
+  };
+  if (endpoint.relays !== undefined) {
+    for (const url of endpoint.relays) add(url);
+  }
+  add(endpoint.relay);
+  return out;
+}
+
+// Tries every direct address in parallel first; if none opens, tries the ordered relays one by one (hub relay first,
+// fallback relay last). The relay only passes bytes, so the Noise handshake is the same on every path. When none opens
+// and one met the computer but the protocol versions did not meet, says who must update instead.
+export async function openFirst(
   endpoint: Endpoint,
   client: Client,
 ): Promise<Opened | Outdated | undefined> {
   const remoteStatic = remoteKeyBytes(endpoint.key);
-  const urls: { url: string; path: ConnectionPath; address?: string }[] = [
-    ...new Set(endpoint.addresses),
-  ].map((address) => ({
-    url: `ws://${address.includes(":") ? `[${address}]` : address}:${endpoint.port}${REMOTE_PATH}`,
-    path: "direct",
-    address,
-  }));
-  if (endpoint.relay) {
-    urls.push({
-      url: relayPhoneUrl(endpoint.relay, endpoint.key),
-      path: "relay",
-    });
-  }
-  if (!remoteStatic || urls.length === 0) return Promise.resolve(undefined);
+  if (!remoteStatic) return undefined;
+  const direct =
+    endpoint.port > 0
+      ? [...new Set(endpoint.addresses)].map((address) => ({
+          url: `ws://${address.includes(":") ? `[${address}]` : address}:${endpoint.port}${REMOTE_PATH}`,
+          address,
+        }))
+      : [];
+  const relays = orderedRelays(endpoint);
+  if (direct.length === 0 && relays.length === 0) return undefined;
+  let outdated: Outdated | undefined;
   const open = async (url: string) => {
     const transport = await client.dial(url).catch(() => undefined);
     if (!transport) return undefined;
@@ -191,6 +206,9 @@ export function openFirst(
       capabilities: client.capabilities,
       name: client.name,
       ...(client.phone === undefined ? {} : { phone: client.phone }),
+      ...(client.signing_key === undefined
+        ? {}
+        : { signing_key: client.signing_key }),
       machine: endpoint.machine,
       random: client.random,
     });
@@ -198,27 +216,30 @@ export function openFirst(
     outdated ??= outdatedOf(channel.error);
     return undefined;
   };
-  let outdated: Outdated | undefined;
-  return new Promise((resolve) => {
-    let left = urls.length;
-    let won = false;
-    for (const { url, path, address } of urls) {
-      void open(url).then((channel) => {
-        left -= 1;
-        if (channel && !won) {
-          won = true;
-          resolve({
-            channel,
-            path,
-            ...(address === undefined ? {} : { address }),
-          });
-        } else {
-          channel?.close();
-          if (left === 0 && !won) resolve(outdated);
-        }
-      });
-    }
-  });
+  if (direct.length > 0) {
+    const won = await new Promise<Opened | undefined>((resolve) => {
+      let left = direct.length;
+      let settled = false;
+      for (const { url, address } of direct) {
+        void open(url).then((channel) => {
+          left -= 1;
+          if (channel && !settled) {
+            settled = true;
+            resolve({ channel, path: "direct", address });
+          } else {
+            channel?.close();
+            if (left === 0 && !settled) resolve(undefined);
+          }
+        });
+      }
+    });
+    if (won) return won;
+  }
+  for (const relay of relays) {
+    const channel = await open(relayPhoneUrl(relay, endpoint.key));
+    if (channel) return { channel, path: "relay" };
+  }
+  return outdated;
 }
 
 // The computer's own list, with the address this channel opened on kept first: the computer does not know every address
@@ -281,9 +302,11 @@ export function createConnection(
   // The id this link talks to: the saved one, or the first one it meets. Held here so a computer that has no id saved yet
   // is also checked from its second connection on, without waiting for the store to write the entry.
   let machine = deps.endpoint.machine;
-  // The direct addresses the next attempt dials. Replaced by the computer's hello only on a channel that checked the id
-  // above, so another machine behind the same key cannot point this device elsewhere.
+  // The direct addresses and ordered relays the next attempt dials. Replaced by the computer's hello only on a channel
+  // that checked the id above, so another machine behind the same key cannot point this device elsewhere.
   let addresses = deps.endpoint.addresses;
+  let relays = deps.endpoint.relays;
+  let relay = deps.endpoint.relay;
   // Last conditions the screen asked for. Sent again on every new channel; `[]` still gets a `ready` back.
   let watching: WatchConditions = [];
   let nextId = 0;
@@ -338,7 +361,13 @@ export function createConnection(
     connecting = true;
     const checked = machine !== undefined;
     const opened = await openFirst(
-      { ...deps.endpoint, machine, addresses },
+      {
+        ...deps.endpoint,
+        machine,
+        addresses,
+        relay,
+        relays,
+      },
       deps,
     );
     connecting = false;
@@ -349,11 +378,27 @@ export function createConnection(
     }
     if (stopped) return opened.channel.close();
     update = null;
-    const { addresses: announced, ...peer } = opened.channel.peer.machine;
+    const {
+      addresses: announced,
+      relays: announcedRelays,
+      hub,
+      ...peer
+    } = opened.channel.peer.machine;
     machine = peer.id;
-    if (checked && announced !== undefined) {
-      addresses = reachable(announced, opened.address);
-      deps.onPeer?.({ ...peer, addresses });
+    if (checked) {
+      if (announced !== undefined) {
+        addresses = reachable(announced, opened.address);
+      }
+      if (announcedRelays !== undefined) {
+        relays = [...new Set(announcedRelays)];
+        relay = relays[0];
+      }
+      deps.onPeer?.({
+        ...peer,
+        ...(announced === undefined ? {} : { addresses }),
+        ...(hub === undefined ? {} : { hub }),
+        ...(announcedRelays === undefined ? {} : { relays }),
+      });
     } else {
       deps.onPeer?.(peer);
     }

@@ -20,6 +20,7 @@ import { join, phoneScreen } from "../pairing/pair.ts";
 import {
   deviceKey,
   forgetDeviceKey,
+  forgetSigningKey,
   loadComputers,
   loadPhoneName,
   loadRoster,
@@ -27,6 +28,7 @@ import {
   saveComputers,
   savePhoneName,
   saveRoster,
+  signingKey,
 } from "../pairing/store.ts";
 import { type KeyPair, remoteKeyText } from "../remote.ts";
 import { type ComputerData, linkOf } from "./link.ts";
@@ -43,6 +45,7 @@ export function createPhoneComputers(): Computers<ComputerData> {
   return createComputers<ComputerData>({
     load: async () => ({
       key: await deviceKey(),
+      signingKey: await signingKey(),
       computers: await loadComputers(),
       roster: loadRoster(),
       name: await loadPhoneName(),
@@ -56,8 +59,9 @@ export function createPhoneComputers(): Computers<ComputerData> {
       return loadPhoneName();
     },
     forgetKey: forgetDeviceKey,
+    forgetSigningKey,
     now: Date.now,
-    open: (computer, key, { name, join: statements, onRevoked, onPeer, onRoster }) => {
+    open: (computer, key, { name, signingKey: signing, join: statements, onRevoked, onPeer, onRoster }) => {
       const wait = (ms: number, fn: () => void) => {
         const timer = setTimeout(fn, ms);
         return () => clearTimeout(timer);
@@ -78,6 +82,7 @@ export function createPhoneComputers(): Computers<ComputerData> {
           name,
           capabilities: phoneCapabilities(),
           phone: phoneScreen(),
+          ...(signing === undefined ? {} : { signing_key: remoteKeyText(signing.publicKey) }),
           now: Date.now,
           wait,
           onRevoked,
@@ -89,10 +94,10 @@ export function createPhoneComputers(): Computers<ComputerData> {
       );
     },
     // The store saves the invite's own addresses; the dev address is added again at connect time.
-    join: (invite, key, name, self) =>
+    join: (invite, key, name, self, signing) =>
       join(
         { ...invite, reach: { ...invite.reach, addresses: withDev(invite.reach.addresses) } },
-        { key, dial: dialWebSocket, name, self },
+        { key, ...(signing === undefined ? {} : { signingKey: signing }), dial: dialWebSocket, name, self },
       ),
     sample: sampleFor(
       { dev: __DEV__, flag: process.env.EXPO_PUBLIC_LOPHN_SAMPLE },
@@ -131,8 +136,8 @@ export function callOnce(
       ...computer,
       addresses: [...new Set(withDev(computer.addresses))],
     };
-    void loadPhoneName()
-      .then((name) =>
+    void Promise.all([loadPhoneName(), signingKey()])
+      .then(([name, signing]) =>
         openFirst(endpoint, {
           key: phone,
           dial: dialWebSocket,
@@ -140,6 +145,7 @@ export function callOnce(
           name,
           capabilities: phoneCapabilities(),
           phone: phoneScreen(),
+          signing_key: remoteKeyText(signing.publicKey),
         }),
       )
       .then((opened) => {

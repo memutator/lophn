@@ -2,6 +2,7 @@ import { getRandomValues } from "expo-crypto";
 import { File, Paths } from "expo-file-system";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
+import { generateSigningKey } from "../../../protocol/remote/roster.ts";
 import type { Computer } from "../../../remote-client/mod.ts";
 import {
   generateKeyPair,
@@ -19,6 +20,7 @@ const options = {
   keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
 };
 const DEVICE_KEY = "device-key";
+const SIGNING_KEY = "signing-key";
 const COMPUTERS = "computers";
 const PHONE_NAME = "phone-name";
 export const PHONE_NAME_MAX = 40;
@@ -63,6 +65,25 @@ export async function deviceKey(): Promise<KeyPair> {
 export async function forgetDeviceKey(): Promise<KeyPair> {
   await SecureStore.deleteItemAsync(DEVICE_KEY, options);
   return deviceKey();
+}
+
+// One Ed25519 custody signing key pair for this phone, made on first use and dropped with the device key.
+export async function signingKey(): Promise<KeyPair> {
+  const saved = await SecureStore.getItemAsync(SIGNING_KEY, options);
+  const secret = saved ? remoteKeyBytes(saved) : undefined;
+  if (secret) return generateSigningKey({ fill: (out) => out.set(secret) });
+  const pair = generateSigningKey(random);
+  await SecureStore.setItemAsync(
+    SIGNING_KEY,
+    remoteKeyText(pair.secretKey),
+    options,
+  );
+  return pair;
+}
+
+export async function forgetSigningKey(): Promise<KeyPair> {
+  await SecureStore.deleteItemAsync(SIGNING_KEY, options);
+  return signingKey();
 }
 
 export async function loadComputers(): Promise<Computer[]> {

@@ -38,6 +38,7 @@ export type Computer = Endpoint & {
   signing_key?: string;
   name?: string;
   announced?: string;
+  hub?: boolean;
   disputed?: true;
 };
 
@@ -84,6 +85,7 @@ export interface ComputerItem {
   readonly announced: string | null;
   // Its machine id once a hello has told it; null before that and for the sample. Job and app text names a computer by it.
   readonly machine: string | null;
+  readonly hub: boolean;
   readonly status: ComputerStatus;
   readonly update: Update | null;
   readonly path: ComputerPath | null;
@@ -118,6 +120,7 @@ export type JoinSelf = {
 export interface ComputersDeps<D> {
   load(): Promise<{
     key: KeyPair;
+    signingKey?: KeyPair;
     computers: Computer[];
     roster: RosterSnapshot;
     name: string;
@@ -127,6 +130,8 @@ export interface ComputersDeps<D> {
   saveName(name: string): Promise<string>;
   // This device left the roster or was taken off it: drops its key for good and returns the new one the next join uses.
   forgetKey(): Promise<KeyPair>;
+  // Optional companion to `forgetKey` for a phone's Ed25519 custody signing key.
+  forgetSigningKey?(): Promise<KeyPair>;
   // Now in ms: invite statements past their lifetime are not kept.
   now(): number;
   // Opens the link; it connects on its own and keeps retrying until closed. `join` is what the link hands over first on
@@ -137,6 +142,7 @@ export interface ComputersDeps<D> {
     key: KeyPair,
     on: {
       name: string;
+      signingKey?: KeyPair;
       join: () => RosterStatement[];
       onRevoked: (removal?: RosterStatement) => void;
       onPeer: (machine: Announced) => void;
@@ -148,6 +154,7 @@ export interface ComputersDeps<D> {
     key: KeyPair,
     name: string,
     self: JoinSelf | undefined,
+    signingKey?: KeyPair,
   ): Promise<JoinResult>;
   sample?: SampleComputer<D>;
 }
@@ -206,7 +213,43 @@ export function sampleFor<D>(
 
 /** What a computer goes by when it has no alias and no name from the roster or its hello. */
 function defaultName(computer: Computer): string {
-  return computer.addresses[0] ?? computer.relay ?? computer.key.slice(0, 8);
+  return (
+    computer.addresses[0] ??
+    computer.relays?.[0] ??
+    computer.relay ??
+    computer.key.slice(0, 8)
+  );
+}
+
+function relaysKey(computer: Pick<Computer, "relay" | "relays">): string {
+  return [computer.relay ?? "", ...(computer.relays ?? [])].join("\n");
+}
+
+function withReachRouting(
+  computer: Computer,
+  next: {
+    relays?: readonly string[];
+    relay?: string | null;
+    hub?: boolean;
+  },
+): Computer {
+  let out: Computer = computer;
+  if (next.relays !== undefined) {
+    const relays = [...new Set(next.relays)];
+    const { relay: _oldRelay, relays: _oldRelays, ...rest } = out;
+    out = {
+      ...rest,
+      relays,
+      ...(relays[0] === undefined ? {} : { relay: relays[0] }),
+    };
+  } else if (next.relay !== undefined && out.relays === undefined) {
+    const { relay: _oldRelay, ...rest } = out;
+    out = next.relay === null ? rest : { ...rest, relay: next.relay };
+  }
+  if (next.hub !== undefined) {
+    out = { ...out, hub: next.hub };
+  }
+  return out;
 }
 
 const NO_ROSTER: RosterSnapshot = { statements: [], reach: [] };
@@ -230,6 +273,7 @@ export function ownStatements(
 export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
   const { sample } = deps;
   let deviceKey: KeyPair | undefined;
+  let deviceSigningKey: KeyPair | undefined;
   let saved: Computer[] = [];
   let held: RosterSnapshot = NO_ROSTER;
   let view: RosterView = rosterView([], [], null);
@@ -240,7 +284,10 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
   let chosen: string | null = null;
   let sampleName = sample?.name ?? "";
   let deviceName = "";
-  const links = new Map<string, { link: Link<D>; stop: () => void }>();
+  const links = new Map<
+    string,
+    { link: Link<D>; stop: () => void; relays: string }
+  >();
   const listeners = new Set<() => void>();
   let state: ComputersState = {
     ready: false,
@@ -278,6 +325,7 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
         alias: null,
         announced: null,
         machine: null,
+        hub: false,
         ...sample.link.state(),
         sample: true,
       });
@@ -291,6 +339,7 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
         alias: computer.name ?? null,
         announced: computer.announced ?? null,
         machine: computer.machine ?? null,
+        hub: computer.hub === true,
         status: cut ? "revoked" : (live?.status ?? "connecting"),
         update: cut ? null : (live?.update ?? null),
         path: cut ? null : (live?.path ?? null),
@@ -322,18 +371,30 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
       if (!wanted.has(key)) closeLink(key);
     }
     for (const computer of saved) {
-      if (!deviceKey || !wanted.has(computer.key) || links.has(computer.key)) {
-        continue;
+      if (!deviceKey || !wanted.has(computer.key)) continue;
+      const relays = relaysKey(computer);
+      const existing = links.get(computer.key);
+      if (existing !== undefined) {
+        if (
+          existing.relays === relays ||
+          existing.link.state().status === "connected"
+        ) {
+          continue;
+        }
+        closeLink(computer.key);
       }
       const { key } = computer;
       const link = deps.open(computer, deviceKey, {
         name: deviceName,
+        ...(deviceSigningKey === undefined
+          ? {}
+          : { signingKey: deviceSigningKey }),
         join: own,
         onRevoked: (removal) => refused(key, removal),
         onPeer: (machine) => learn(key, machine),
         onRoster: (roster, joined) => received(key, roster, joined),
       });
-      links.set(key, { link, stop: link.subscribe(publish) });
+      links.set(key, { link, stop: link.subscribe(publish), relays });
     }
     publish();
   }
@@ -356,6 +417,15 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
       forget();
       return false;
     }
+    const reach = new Map(held.reach.map((r) => [r.device, r]));
+    for (const r of roster.reach) reach.set(r.device, r);
+    const reachOf = (id: string) => {
+      const ids = [
+        id,
+        ...view.folded.filter((f) => f.to === id).map((f) => f.from),
+      ];
+      return ids.map((each) => reach.get(each)).find((r) => r !== undefined);
+    };
     let changed = false;
     const next: Computer[] = [];
     for (const computer of saved) {
@@ -371,12 +441,24 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
         continue;
       }
       const entry = listed(computer.key);
-      const learnt = entry && {
-        ...computer,
-        announced: entry.name,
-        machine: (entry.machine as Id<"mch"> | null) ?? computer.machine,
-        signing_key: computer.signing_key ?? entry.signing_key ?? undefined,
-      };
+      const at = entry === undefined ? undefined : reachOf(entry.id);
+      const learnt =
+        entry &&
+        withReachRouting(
+          {
+            ...computer,
+            announced: entry.name,
+            machine: (entry.machine as Id<"mch"> | null) ?? computer.machine,
+            signing_key: computer.signing_key ?? entry.signing_key ?? undefined,
+          },
+          at === undefined
+            ? {}
+            : {
+                ...(at.relays === undefined ? {} : { relays: at.relays }),
+                relay: at.relay,
+                ...(at.hub === undefined ? {} : { hub: at.hub }),
+              },
+        );
       if (learnt && JSON.stringify(learnt) !== JSON.stringify(computer)) {
         next.push(learnt);
         changed = true;
@@ -384,28 +466,29 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
         next.push(computer);
       }
     }
-    const reach = new Map(held.reach.map((r) => [r.device, r]));
-    for (const r of roster.reach) reach.set(r.device, r);
     for (const { body } of view.devices) {
       if (body.kind !== "computer" || body.signing_key === null) continue;
       if (next.some((c) => c.key === body.key)) continue;
-      // Reach is by device id; a folded id still finds it.
-      const ids = [
-        body.id,
-        ...view.folded.filter((f) => f.to === body.id).map((f) => f.from),
-      ];
-      const at = ids.map((id) => reach.get(id)).find((r) => r !== undefined);
+      const at = reachOf(body.id);
       // Not listed until the roster says where it is: nothing could dial it.
       if (at === undefined || body.machine === null) continue;
-      next.push({
-        addresses: at.addresses,
-        port: at.port,
-        key: body.key,
-        ...(at.relay === null ? {} : { relay: at.relay }),
-        machine: body.machine as Id<"mch">,
-        signing_key: body.signing_key,
-        announced: body.name,
-      });
+      next.push(
+        withReachRouting(
+          {
+            addresses: at.addresses,
+            port: at.port,
+            key: body.key,
+            machine: body.machine as Id<"mch">,
+            signing_key: body.signing_key,
+            announced: body.name,
+          },
+          {
+            ...(at.relays === undefined ? {} : { relays: at.relays }),
+            relay: at.relay,
+            ...(at.hub === undefined ? {} : { hub: at.hub }),
+          },
+        ),
+      );
       changed = true;
     }
     if (changed) {
@@ -483,29 +566,38 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
     revoked.clear();
     persist();
     deviceKey = undefined;
-    void deps.forgetKey().then((key) => {
+    deviceSigningKey = undefined;
+    const keys = Promise.all([
+      deps.forgetKey(),
+      deps.forgetSigningKey
+        ? deps.forgetSigningKey()
+        : Promise.resolve(undefined),
+    ]);
+    void keys.then(([key, signingKey]) => {
       deviceKey = key;
+      deviceSigningKey = signingKey;
       publish();
     });
     publish();
   }
 
-  // A connection met the computer: keep its id, the addresses it gave (which the connection passes on only after checking
-  // the id) and, while the roster does not list it, the name from its hello. The alias is the person's and stays.
+  // A connection met the computer: keep its id, the addresses, hub role and relays it gave (which the connection passes
+  // on only after checking the id) and, while the roster does not list it, the name from its hello. The alias is the
+  // person's and stays.
   function learn(key: string, machine: Announced) {
     const known = saved.find((c) => c.key === key);
     if (!known) return;
     const addresses = machine.addresses ?? known.addresses;
     const announced = listed(key)?.name ?? machine.name;
-    if (
-      known.machine === machine.id &&
-      known.announced === announced &&
-      addresses.join("\n") === known.addresses.join("\n")
-    )
-      return;
-    saved = saved.map((c) =>
-      c.key === key ? { ...c, machine: machine.id, announced, addresses } : c,
+    const next = withReachRouting(
+      { ...known, machine: machine.id, announced, addresses },
+      {
+        ...(machine.relays === undefined ? {} : { relays: machine.relays }),
+        ...(machine.hub === undefined ? {} : { hub: machine.hub }),
+      },
     );
+    if (JSON.stringify(next) === JSON.stringify(known)) return;
+    saved = saved.map((c) => (c.key === key ? next : c));
     persist();
     publish();
   }
@@ -526,6 +618,7 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
     start() {
       starting ??= deps.load().then((loaded) => {
         deviceKey = loaded.key;
+        deviceSigningKey = loaded.signingKey;
         deviceName = loaded.name;
         saved = loaded.computers;
         held = loaded.roster;
@@ -551,6 +644,7 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
         deviceKey,
         deviceName,
         self && { id: self.id, rev: self.rev + 1, statements: own() },
+        deviceSigningKey,
       );
       if (!result.ok) {
         const { failure } = result;
@@ -575,18 +669,24 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
       const issuer = result.issuer.body as RosterEntryBody;
       const old = saved.find((c) => c.key === issuer.key);
       const { reach } = invite;
-      const computer: Computer = {
-        addresses: reach.addresses,
-        port: reach.port,
-        key: issuer.key,
-        ...(reach.relay === null ? {} : { relay: reach.relay }),
-        ...(issuer.machine === null
-          ? {}
-          : { machine: issuer.machine as Id<"mch"> }),
-        signing_key: result.joined.computer.signing_key,
-        announced: issuer.name,
-        ...(old?.name === undefined ? {} : { name: old.name }),
-      };
+      const computer: Computer = withReachRouting(
+        {
+          addresses: reach.addresses,
+          port: reach.port,
+          key: issuer.key,
+          ...(issuer.machine === null
+            ? {}
+            : { machine: issuer.machine as Id<"mch"> }),
+          signing_key: result.joined.computer.signing_key,
+          announced: issuer.name,
+          ...(old?.name === undefined ? {} : { name: old.name }),
+        },
+        {
+          ...(reach.relays === undefined ? {} : { relays: reach.relays }),
+          relay: reach.relay,
+          ...(reach.hub === undefined ? {} : { hub: reach.hub }),
+        },
+      );
       // A computer joined again: its old link is cut off or holds what came before.
       closeLink(issuer.key);
       revoked.delete(issuer.key);

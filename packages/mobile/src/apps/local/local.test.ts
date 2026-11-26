@@ -15,6 +15,11 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { after, test } from "node:test";
+import { canonicalize, cryptoRandom } from "../../../../base/mod.ts";
+import {
+  CUSTODY_SIGN_CONTEXT,
+  custodyEnvelopeBodySchema,
+} from "../../../../protocol/apps/app-sync.ts";
 import {
   applyRemote,
   dumpData,
@@ -26,6 +31,8 @@ import {
   type SyncDb,
 } from "../../../../protocol/apps/sync/mod.ts";
 import { nodeSyncDb } from "../../../../protocol/apps/sync/node-db.ts";
+import { remoteKeyText, verifyDetached } from "../../../../protocol/remote/client.ts";
+import { generateSigningKey } from "../../../../protocol/remote/roster.ts";
 import type { PhoneScreen } from "../../data/apps.ts";
 import {
   migrateLegacyFolders,
@@ -814,3 +821,190 @@ async function pullOne(t: Awaited<ReturnType<typeof setup>>) {
   const change = (reply.value as { changes: { hlc: string; changeset: string }[] }).changes[0]!;
   return { hlc: BigInt(change.hlc), changeset: new Uint8Array(Buffer.from(change.changeset, "base64")) };
 }
+
+test("when the target computer is offline and a hub computer is online, local changes are signed and pushed via app_sync/custody_push", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "lophn-local-custody-"));
+  dirs.push(dir);
+  const files = nodeFiles(join(dir, "apps"));
+  const now = () => Date.parse("2026-11-26T12:00:00.000Z");
+  const deps: LocalDeps = { files, open: openDb, now };
+  const rel1: Release = {
+    id: "rel_01m7dp1jqw47d55vdyzxv5wd11",
+    data_schema: 1,
+    migrations: [{ from: 0, to: 1, sql: ITEM }],
+  };
+  const targetApp = "app_01m7dp1jqw47d55vdyzxv5wd0a";
+  const targetMachine = "mch_01m7dp1jqw47d55vdyzxv5wd10";
+  const hubMachine = "mch_01m7dp1jqw47d55vdyzxv5wd20";
+  const phoneDevice = "dev_01m7dp1jqw47d55vdyzxv5wd90";
+  const phoneSigning = generateSigningKey(cryptoRandom);
+
+  const mainHome = await fakeComputer(dir, rel1, ["computer", "phone"], "mainhome");
+  const targetEntry = { ...mainHome.entry(rel1), app: targetApp };
+  const targetRemote: Remote = {
+    call: (input) =>
+      mainHome.remote.call({
+        ...input,
+        body:
+          typeof input.body === "object" && input.body !== null && "app" in input.body
+            ? { ...(input.body as Record<string, unknown>), app: APP }
+            : input.body,
+      }),
+  };
+
+  const custodyCalls: { body: unknown; signature: string }[] = [];
+  const hubRemote: Remote = {
+    async call(input) {
+      if (input.resource === "app_sync" && input.method === "custody_push") {
+        const req = input.body as { body: unknown; signature: string };
+        custodyCalls.push(req);
+        return {
+          ok: true,
+          value: {
+            custody: (req.body as { custody: string }).custody,
+            hub: hubMachine,
+            state: "held",
+          },
+        };
+      }
+      return { ok: false, error: { code: "not_found", message: "no such route" } };
+    },
+  };
+
+  let custodySeq = 0;
+  const store = createLocalApps({
+    ...deps,
+    node: async () => phoneDevice,
+    signingKey: async () => phoneSigning,
+    newCustodyId: () => `pcs_01m7dp1jqw47d55vdyzxv5wd${String(++custodySeq).padStart(2, "0")}`,
+  });
+
+  // Install the app while MainHome is online.
+  store.connect("mainhome", targetRemote, {
+    machine: targetMachine,
+    name: "MainHome",
+    hub: false,
+  });
+  store.list("mainhome", [targetEntry], () => {});
+  await new Promise((r) => setTimeout(r, 30));
+  assert.ok(store.installed(targetApp));
+
+  // MainHome goes offline; Hub VM is online (without the app installed).
+  store.connect("mainhome", null, { machine: targetMachine, name: "MainHome", hub: false });
+  store.connect("hubvm", hubRemote, { machine: hubMachine, name: "VM", hub: true });
+
+  // Local change on the phone goes to the online Hub via signed app_sync/custody_push.
+  localWrite(files.absolute(paths(targetApp).db), "insert into item values ('k1', 'Calendar edit')");
+  store.localChange(targetApp);
+  await new Promise((r) => setTimeout(r, 40));
+
+  assert.equal(custodyCalls.length, 1);
+  const sent = custodyCalls[0]!;
+  const parsed = custodyEnvelopeBodySchema.safeParse(sent.body);
+  assert.ok(parsed.success, parsed.success ? "" : parsed.error.message);
+  assert.equal(parsed.data.app, targetApp);
+  assert.equal(parsed.data.target, targetMachine);
+  assert.equal(parsed.data.device, phoneDevice);
+  assert.equal(
+    verifyDetached(
+      CUSTODY_SIGN_CONTEXT,
+      canonicalize(parsed.data),
+      sent.signature,
+      remoteKeyText(phoneSigning.publicKey),
+    ),
+    true,
+  );
+  const decodedBytes = new Uint8Array(Buffer.from(parsed.data.payload, "base64"));
+  assert.equal(decodedBytes.byteLength, parsed.data.size);
+  assert.equal(sha(decodedBytes), parsed.data.sha256);
+  const decodedPush = JSON.parse(new TextDecoder().decode(decodedBytes)) as {
+    app: string;
+    release: string;
+    changes: { id: string }[];
+  };
+  assert.equal(decodedPush.app, targetApp);
+  assert.equal(decodedPush.release, rel1.id);
+  assert.equal(decodedPush.changes.length, 1);
+
+  const entry = store.get().find((one) => one.app === targetApp);
+  assert.equal(entry?.pending, 1);
+  assert.equal(entry?.held_via, "VM");
+
+  // Re-syncing while offline does not resend already-held outbox rows.
+  store.syncNow(targetApp);
+  await new Promise((r) => setTimeout(r, 30));
+  assert.equal(custodyCalls.length, 1);
+
+  // When MainHome comes back online, direct push sends the row and clears held_via.
+  store.connect("mainhome", targetRemote, {
+    machine: targetMachine,
+    name: "MainHome",
+    hub: false,
+  });
+  await new Promise((r) => setTimeout(r, 40));
+  const afterDirect = store.get().find((one) => one.app === targetApp);
+  assert.equal(afterDirect?.pending, 0);
+  assert.equal(afterDirect?.held_via, undefined);
+  assert.deepEqual(mainHome.items(), ["k1:Calendar edit"]);
+});
+
+test("applyBatch threads keep_both conflict policy into applyRemote", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "lophn-local-keep-both-"));
+  dirs.push(dir);
+  const files = nodeFiles(join(dir, "apps"));
+  const deps: LocalDeps = { files, open: openDb, now: () => 2000 };
+  const dbPath = files.absolute(paths(APP).db);
+  mkdirSync(dirname(dbPath), { recursive: true });
+  const db = openDb(dbPath);
+  try {
+    db.exec(ITEM);
+    ensureSyncTables(db, "phone");
+    db.exec("insert into item values ('n1', 'base')");
+    const clock = openClock(db);
+    const baseHlc = clock.next(1000);
+    // Record row clock for the base row.
+    const raw = new DatabaseSync(dbPath);
+    raw.exec("begin immediate");
+    const initSession = raw.createSession({ table: "item" });
+    raw.exec("update item set title = 'phone edit' where id = 'n1'");
+    const phoneEdit = initSession.changeset();
+    initSession.close();
+    raw.exec("commit");
+    raw.close();
+    const stamped = stampLocal(db, phoneEdit, baseHlc + 1n);
+    assert.ok(stamped.ok);
+
+    // Create a concurrent remote update from another node on the same row.
+    const remotePath = join(dir, "remote.sqlite");
+    const remoteRaw = new DatabaseSync(remotePath);
+    remoteRaw.exec(ITEM);
+    remoteRaw.exec("insert into item values ('n1', 'base')");
+    remoteRaw.exec("begin immediate");
+    const remoteSession = remoteRaw.createSession({ table: "item" });
+    remoteRaw.exec("update item set title = 'desktop edit' where id = 'n1'");
+    const remoteEdit = remoteSession.changeset();
+    remoteSession.close();
+    remoteRaw.exec("commit");
+    remoteRaw.close();
+
+    // Another node's clock (different lower 16 bits = different node id).
+    const remoteHlc = ((baseHlc >> 16n) + 1n) << 16n | 99n;
+    const res = applyBatch(
+      deps,
+      db,
+      [{ hlc: remoteHlc, changeset: remoteEdit }],
+      1,
+      "c1",
+      { conflict: (table) => (table === "item" ? "keep_both" : "lww") },
+    );
+    assert.ok(res.ok, res.ok ? "" : res.error.message);
+    const rows = db.all("select id, title from item order by id");
+    assert.equal(rows.length, 2);
+    assert.equal(rows[0]?.["id"], "n1");
+    assert.equal(rows[0]?.["title"], "desktop edit");
+    assert.ok(String(rows[1]?.["id"]).startsWith("n1~conflict-"));
+    assert.equal(rows[1]?.["title"], "phone edit");
+  } finally {
+    db.close();
+  }
+});

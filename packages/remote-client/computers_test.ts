@@ -293,3 +293,120 @@ test("the sample computer is listed first in a dev build with the flag, and nowh
   assert.deepEqual(await listed({ dev: false, flag: "1" }), [a.host]);
   assert.deepEqual(await listed({ dev: true, flag: undefined }), [a.host]);
 });
+
+test("already-paired computers learn hub and ordered relays from serverHello and roster reach without re-pairing", async () => {
+  const hub = machine(1, "vm-hub");
+  const desktop = machine(2, "mina-desktop");
+  const opened: {
+    computer: Computer;
+    status: "connected" | "offline";
+    closed: boolean;
+    on: On;
+  }[] = [];
+  const saves: { computers: Computer[]; roster: RosterSnapshot }[] = [];
+  const phone = generateKeyPair(cryptoRandom);
+  const phoneSigning = generateSigningKey(cryptoRandom);
+  const passedSigningKeys: (string | undefined)[] = [];
+
+  const deps: ComputersDeps<null> = {
+    load: async () => ({
+      key: phone,
+      signingKey: phoneSigning,
+      computers: [
+        { ...saved(hub), relay: "wss://fly.test" },
+        { ...saved(desktop), relay: "wss://fly.test" },
+      ],
+      roster: {
+        statements: [signed(entryOf(hub), hub), signed(entryOf(desktop), hub)],
+        reach: [],
+      },
+      name: "Mina's phone",
+    }),
+    saveName: async (name) => name,
+    save: async (next) => {
+      saves.push(next);
+    },
+    forgetKey: async () => generateKeyPair(cryptoRandom),
+    forgetSigningKey: async () => generateSigningKey(cryptoRandom),
+    now: () => Date.parse("2026-11-26T00:00:00.000Z"),
+    open(one, _key, on) {
+      passedSigningKeys.push(
+        on.signingKey ? remoteKeyText(on.signingKey.publicKey) : undefined,
+      );
+      const record = {
+        computer: one,
+        status: (one.key === hub.host ? "connected" : "offline") as
+          | "connected"
+          | "offline",
+        closed: false,
+        on,
+      };
+      opened.push(record);
+      return {
+        data: null,
+        state: () => ({
+          status: record.status,
+          update: null,
+          path: record.status === "connected" ? "direct" : null,
+          waiting: 0,
+        }),
+        subscribe: () => () => {},
+        pause() {},
+        resume() {},
+        close() {
+          record.closed = true;
+        },
+      };
+    },
+    join: async () => ({ ok: false, failure: { kind: "unreachable" } }),
+  };
+
+  const store = createComputers(deps);
+  await store.start();
+  assert.deepEqual(passedSigningKeys, [
+    remoteKeyText(phoneSigning.publicKey),
+    remoteKeyText(phoneSigning.publicKey),
+  ]);
+
+  // Hub announces itself via serverHello.
+  opened[0]?.on.onPeer({
+    id: hub.machine,
+    name: hub.name,
+    addresses: ["198.51.100.10"],
+    hub: true,
+    relays: ["ws://198.51.100.10:7432", "wss://fly.test"],
+  });
+  assert.equal(
+    store.get().computers.find((c) => c.key === hub.host)?.hub,
+    true,
+  );
+  assert.deepEqual(saves.at(-1)?.computers[0]?.relays, [
+    "ws://198.51.100.10:7432",
+    "wss://fly.test",
+  ]);
+
+  // Hub sends roster reach with the hub relay for the offline desktop; its offline link reopens with the new relays.
+  opened[0]?.on.onRoster({
+    statements: [],
+    reach: [
+      {
+        device: desktop.id,
+        addresses: ["10.0.0.2"],
+        port: 7432,
+        relay: "ws://198.51.100.10:7432",
+        hub: false,
+        relays: ["ws://198.51.100.10:7432", "wss://fly.test"],
+      },
+    ],
+  });
+  assert.equal(opened[1]?.closed, true);
+  assert.equal(opened.length, 3);
+  assert.deepEqual(opened[2]?.computer.relays, [
+    "ws://198.51.100.10:7432",
+    "wss://fly.test",
+  ]);
+  assert.deepEqual(saves.at(-1)?.computers[1]?.relays, [
+    "ws://198.51.100.10:7432",
+    "wss://fly.test",
+  ]);
+});

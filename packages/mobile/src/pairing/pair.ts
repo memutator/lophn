@@ -31,20 +31,29 @@ export function phoneScreen(): RemotePhone {
 // in); otherwise it joins as a new device with a new id.
 export function join(
   invite: RosterInviteText,
-  deps: { key: KeyPair; dial: Dial; name: string; self: JoinSelf | undefined },
+  deps: {
+    key: KeyPair;
+    signingKey?: KeyPair;
+    dial: Dial;
+    name: string;
+    self: JoinSelf | undefined;
+  },
 ) {
-  const { self, ...client } = deps;
+  const { self, signingKey, ...client } = deps;
   const phone = phoneScreen();
+  const signingPublic =
+    signingKey === undefined ? null : remoteKeyText(signingKey.publicKey);
   return joinClient(invite, {
     ...client,
     random,
     capabilities: phoneCapabilities(),
     phone,
+    ...(signingPublic === null ? {} : { signing_key: signingPublic }),
     entry: {
       id: self?.id ?? ids.newId("dev"),
       kind: "phone",
       key: remoteKeyText(deps.key.publicKey),
-      signing_key: null,
+      signing_key: signingPublic,
       machine: null,
       name: deps.name,
       os: phone.os,

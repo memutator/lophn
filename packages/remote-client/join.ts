@@ -115,6 +115,7 @@ export async function join(
       port: reach.port,
       key: signer.key,
       ...(reach.relay === null ? {} : { relay: reach.relay }),
+      ...(reach.relays === undefined ? {} : { relays: reach.relays }),
       machine: signer.machine as Id<"mch">,
     },
     client,

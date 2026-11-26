@@ -12,7 +12,8 @@ import {
   type RemoteTransport,
   remoteKeyText,
 } from "../protocol/remote/client.ts";
-import { createConnection } from "./connection.ts";
+import { generateSigningKey } from "../protocol/remote/roster.ts";
+import { createConnection, openFirst } from "./connection.ts";
 
 // Two in-memory transports wired to each other. Delivery is async like a socket.
 function pipe(): [RemoteTransport, RemoteTransport] {
@@ -771,5 +772,155 @@ test("app commands wait in their own lane, so a full command lane leaves the scr
   });
   await settle();
   assert.equal(sentCalls(), 13);
+  connection.close();
+});
+
+test("openFirst tries direct addresses first, then hub relay before Fly fallback, and advertises signing_key in clientHello", async () => {
+  const core = generateKeyPair(cryptoRandom);
+  const phone = generateKeyPair(cryptoRandom);
+  const phoneSigning = generateSigningKey(cryptoRandom);
+  const signingText = remoteKeyText(phoneSigning.publicKey);
+  const dialed: string[] = [];
+  const seenSigningKeys: (string | undefined)[] = [];
+  let hubUp = true;
+
+  const dial = async (url: string) => {
+    dialed.push(url);
+    if (url.startsWith("ws://10.0.0.1:")) throw new Error("lan unreachable");
+    if (url.includes("hub.test") && !hubUp) throw new Error("hub unreachable");
+    const [clientSide, coreSide] = pipe();
+    void acceptRemote({
+      transport: coreSide,
+      staticKey: core,
+      capabilities: [],
+      machine: MACHINE,
+      random: cryptoRandom,
+    }).then((opened) => {
+      assert.ok(opened.ok);
+      seenSigningKeys.push(opened.value.peer.signing_key);
+    });
+    return clientSide;
+  };
+
+  const endpoint = {
+    addresses: ["10.0.0.1"],
+    port: 7432,
+    key: remoteKeyText(core.publicKey),
+    relays: ["ws://hub.test:7432", "wss://fly.test"],
+    machine: MACHINE.id,
+  };
+  const first = await openFirst(endpoint, {
+    key: phone,
+    dial,
+    random: cryptoRandom,
+    name: "Mina's phone",
+    capabilities: [],
+    signing_key: signingText,
+  });
+  assert.ok(first && "channel" in first);
+  assert.equal(first.path, "relay");
+  // Hub succeeded, so Fly fallback was never dialed.
+  assert.deepEqual(
+    dialed.map((u) => new URL(u).host),
+    ["10.0.0.1:7432", "hub.test:7432"],
+  );
+  assert.deepEqual(seenSigningKeys, [signingText]);
+  first.channel.close();
+
+  // When hub is unreachable, openFirst falls back to Fly in order.
+  dialed.length = 0;
+  hubUp = false;
+  const fallback = await openFirst(endpoint, {
+    key: phone,
+    dial,
+    random: cryptoRandom,
+    name: "Mina's phone",
+    capabilities: [],
+    signing_key: signingText,
+  });
+  assert.ok(fallback && "channel" in fallback);
+  assert.equal(fallback.path, "relay");
+  assert.deepEqual(
+    dialed.map((u) => new URL(u).host),
+    ["10.0.0.1:7432", "hub.test:7432", "fly.test"],
+  );
+  fallback.channel.close();
+});
+
+test("serverHello.machine.relays and hub are learnt automatically without re-pairing and used hub-first on reconnect", async () => {
+  const core = generateKeyPair(cryptoRandom);
+  const channels: RemoteServerChannel[] = [];
+  const rounds: string[][] = [];
+  let lanUp = true;
+
+  const dial = async (url: string) => {
+    rounds.at(-1)?.push(new URL(url).host);
+    if (url.startsWith("ws://10.0.0.1:") && !lanUp) {
+      throw new Error("lan unreachable");
+    }
+    const [clientSide, coreSide] = pipe();
+    void acceptRemote({
+      transport: coreSide,
+      staticKey: core,
+      capabilities: [],
+      machine: {
+        ...MACHINE,
+        addresses: ["10.0.0.1"],
+        hub: true,
+        relays: ["ws://hub.test:7432", "wss://fly.test"],
+      },
+      random: cryptoRandom,
+    }).then((opened) => {
+      assert.ok(opened.ok);
+      channels.push(opened.value);
+      opened.value.onFrame((frame) => {
+        if (frame.type === "watch") opened.value.send({ type: "ready" });
+      });
+    });
+    return clientSide;
+  };
+
+  const retries: (() => void)[] = [];
+  const learnt: { hub?: boolean; relays?: string[] }[] = [];
+  rounds.push([]);
+  const connection = createConnection({
+    // Already paired with only Fly relay before hub was enabled.
+    endpoint: {
+      addresses: ["10.0.0.1"],
+      port: 7432,
+      key: remoteKeyText(core.publicKey),
+      relay: "wss://fly.test",
+      machine: MACHINE.id,
+    },
+    key: generateKeyPair(cryptoRandom),
+    capabilities: [],
+    dial,
+    random: cryptoRandom,
+    name: "Mina's phone",
+    now: () => 1,
+    wait: (_ms, fn) => {
+      retries.push(fn);
+      return () => {};
+    },
+    onRevoked: () => {},
+    onPeer: (peer) => learnt.push({ hub: peer.hub, relays: peer.relays }),
+  });
+
+  await settle();
+  assert.equal(connection.current().state, "ready");
+  assert.deepEqual(learnt, [
+    { hub: true, relays: ["ws://hub.test:7432", "wss://fly.test"] },
+  ]);
+
+  // Move off LAN: next reconnect automatically dials the learnt hub relay first without touching Fly.
+  lanUp = false;
+  channels[0]?.close();
+  await settle();
+  rounds.push([]);
+  retries.at(-1)?.();
+  await settle();
+  assert.equal(connection.current().state, "ready");
+  assert.equal(connection.path(), "relay");
+  assert.deepEqual(rounds.at(-1), ["10.0.0.1:7432", "hub.test:7432"]);
   connection.close();
 });

@@ -15,6 +15,8 @@ const computerSchema = z.object({
   port: z.number().int(),
   key: z.string().min(1),
   relay: z.string().optional(),
+  relays: z.array(z.string()).optional(),
+  hub: z.boolean().optional(),
   // A bad id costs the id alone; the next hello gives it back.
   machine: z
     .string()

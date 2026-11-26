@@ -1,15 +1,22 @@
 // One sync app's push and pull. Each runs in the host's own transactions on the app's file; a guest call waits for
 // them and they wait for a guest call (busy timeout), so incoming changes land only between guest calls.
+import { sha256 } from "@noble/hashes/sha2.js";
+import { bytesToHex } from "@noble/hashes/utils.js";
+import { canonicalize } from "../../../../base/mod.ts";
 import { err, ok, type Result } from "../../../../base/result.ts";
 import {
   APP_SYNC_CHANGE_MAX_BYTES,
   APP_SYNC_PUSH_MAX_BYTES,
   APP_SYNC_PUSH_MAX_CHANGES,
+  appSyncCustodyPush,
   appSyncPull,
   appSyncPush,
+  CUSTODY_SIGN_CONTEXT,
+  type CustodyEnvelopeBody,
 } from "../../../../protocol/apps/app-sync.ts";
 import type { SyncDb } from "../../../../protocol/apps/sync/db.ts";
 import {
+  type ApplyOptions,
   applyRemote,
   getState,
   type IncomingChange,
@@ -18,6 +25,7 @@ import {
   readOutbox,
   stampOutbox,
 } from "../../../../protocol/apps/sync/mod.ts";
+import { type KeyPair, signDetached } from "../../../../protocol/remote/client.ts";
 import { handleOf, uploadFile } from "../files/place.ts";
 import { outboxCount, transaction, withDb } from "./db.ts";
 import { type Installed, paths, removeDb, writeInstalled } from "./folder.ts";
@@ -28,6 +36,25 @@ import { ask, failed, fromBase64, toBase64 } from "./transfer.ts";
 type Ctx = { deps: LocalDeps; remote: Remote; computer: string };
 
 export type Pushed = { pushed: number; left: number };
+
+export type CustodyCtx = {
+  deps: LocalDeps;
+  hub: Remote;
+  targetComputer: string;
+  targetMachine: string;
+  device: string;
+  signingKey: KeyPair;
+  newCustodyId: () => string;
+  alreadyHeld?: ReadonlySet<string>;
+};
+
+export type CustodyPushed = {
+  held: string[];
+  left: number;
+  state: "held" | "duplicate" | "applied" | null;
+};
+
+const encoder = new TextEncoder();
 
 /** Per-computer pull cursor key in `lophn_sync_state`. */
 export const cursorKey = (computer: string) => `cursor:${computer}`;
@@ -203,6 +230,114 @@ export async function push(
   });
 }
 
+function encodePushPayload(
+  app: string,
+  release: string,
+  batch: readonly OutboxRow[],
+): Uint8Array {
+  return encoder.encode(
+    JSON.stringify({
+      app,
+      release,
+      changes: batch.map((row) => ({
+        id: row.id,
+        operation: row.operation,
+        started_at: row.started_at,
+        hlc: String(row.hlc),
+        changeset: toBase64(row.changeset),
+      })),
+    }),
+  );
+}
+
+function custodyBatches(
+  app: string,
+  release: string,
+  rows: readonly OutboxRow[],
+): Result<{ rows: OutboxRow[]; payload: Uint8Array }[]> {
+  const out: { rows: OutboxRow[]; payload: Uint8Array }[] = [];
+  let batch: OutboxRow[] = [];
+  let payload: Uint8Array | null = null;
+  for (const row of rows) {
+    const candidate = [...batch, row];
+    const encoded = encodePushPayload(app, release, candidate);
+    if (
+      batch.length > 0 &&
+      (candidate.length > APP_SYNC_PUSH_MAX_CHANGES ||
+        encoded.byteLength > APP_SYNC_PUSH_MAX_BYTES)
+    ) {
+      out.push({ rows: batch, payload: payload! });
+      batch = [row];
+      payload = encodePushPayload(app, release, batch);
+    } else {
+      batch = candidate;
+      payload = encoded;
+    }
+    if (payload.byteLength > APP_SYNC_PUSH_MAX_BYTES) {
+      return err({
+        code: "invalid_input",
+        message: `a change of ${row.operation} is too large to send via hub custody`,
+      });
+    }
+  }
+  if (batch.length > 0 && payload !== null) out.push({ rows: batch, payload });
+  return ok(out);
+}
+
+/**
+ * Signs pending outbox changes with the phone's Ed25519 custody key and hands them to an online hub computer when the
+ * target computer is offline. Rows stay in the local outbox so direct push still reconciles cleanly when the target
+ * returns; `alreadyHeld` avoids re-sending rows the hub already accepted.
+ */
+export async function custodyPush(
+  ctx: CustodyCtx,
+  installed: Installed,
+  release: string = installed.release,
+): Promise<Result<CustodyPushed>> {
+  const { deps } = ctx;
+  return withDb(deps, paths(installed.app).db, async (db) => {
+    const stamped = stamp(deps, db);
+    if (!stamped.ok) return stamped;
+    const all = readOutbox(db);
+    const unsent =
+      ctx.alreadyHeld === undefined || ctx.alreadyHeld.size === 0
+        ? all
+        : all.filter((row) => !ctx.alreadyHeld!.has(row.id));
+    if (unsent.length === 0) {
+      return ok({ held: [], left: all.length, state: null });
+    }
+    const planned = custodyBatches(installed.app, release, unsent);
+    if (!planned.ok) return planned;
+    const base_seq = readCursor(db, ctx.targetComputer, installed.migrated_from);
+    const held: string[] = [];
+    let state: CustodyPushed["state"] = null;
+    for (const batch of planned.value) {
+      const body: CustodyEnvelopeBody = {
+        format: 1,
+        custody: ctx.newCustodyId(),
+        app: installed.app,
+        target: ctx.targetMachine,
+        device: ctx.device,
+        base_seq,
+        written_at: new Date(deps.now()).toISOString(),
+        payload: toBase64(batch.payload),
+        sha256: bytesToHex(sha256(batch.payload)),
+        size: batch.payload.byteLength,
+      };
+      const signature = signDetached(
+        CUSTODY_SIGN_CONTEXT,
+        canonicalize(body),
+        ctx.signingKey.secretKey,
+      );
+      const reply = await ask(ctx.hub, appSyncCustodyPush, { body, signature });
+      if (!reply.ok) return failed(reply);
+      state = (reply.value as { state: "held" | "duplicate" | "applied" }).state;
+      for (const row of batch.rows) held.push(row.id);
+    }
+    return ok({ held, left: outboxCount(db), state });
+  });
+}
+
 type Pulled = {
   changes: { seq: number; hlc: string; changeset: string }[];
   next: number;
@@ -221,6 +356,7 @@ export function applyBatch(
   changes: readonly IncomingChange[],
   next: number,
   computer: string,
+  options?: ApplyOptions,
 ): Result<{ applied: number; refused: number }> {
   db.exec("pragma foreign_keys = off");
   try {
@@ -234,7 +370,7 @@ export function applyBatch(
         db.exec("savepoint lophn_change");
         let one: ReturnType<typeof applyRemote>;
         try {
-          one = applyRemote(db, [change], clock);
+          one = applyRemote(db, [change], clock, options);
         } catch (thrown) {
           db.exec("rollback to lophn_change");
           db.exec("release lophn_change");
@@ -259,6 +395,7 @@ export async function pull(
   ctx: Ctx,
   installed: Installed,
   release: string = installed.release,
+  options?: ApplyOptions,
 ): Promise<Result<{ applied: number; snapshot_needed: boolean }>> {
   const { deps } = ctx;
   return withDb(deps, paths(installed.app).db, async (db) => {
@@ -280,6 +417,7 @@ export async function pull(
           got.changes.map((one) => ({ hlc: BigInt(one.hlc), changeset: fromBase64(one.changeset) })),
           got.next,
           ctx.computer,
+          options,
         );
         if (!done.ok) return done;
         applied += done.value.applied;

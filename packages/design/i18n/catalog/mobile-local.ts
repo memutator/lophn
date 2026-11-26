@@ -15,6 +15,7 @@ export const mobileLocal = {
   "mobile.local.installing.title": "Putting {app} on this phone",
   "mobile.local.note.offline":
     "Sessions and apps that run on it are paused here. Apps that live on this phone keep working and sync when it is back.",
+  "mobile.local.under.held-via": "On this phone · held via @{hub}",
   "mobile.local.under.not-synced": "On this phone · not synced since {time}",
   "mobile.local.under.not-synced-now":
     "On this phone · not synced since just now",

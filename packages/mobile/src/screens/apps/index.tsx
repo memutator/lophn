@@ -251,6 +251,9 @@ function underOf(entry: LocalApp, online: boolean, now: number): string | undefi
   if (entry.state === "syncing" || entry.state === "installing") {
     return t("mobile.local.under.syncing");
   }
+  if (!online && entry.pending > 0 && entry.held_via !== undefined) {
+    return t("mobile.local.under.held-via", { hub: entry.held_via });
+  }
   if (entry.last_synced_at === null) return undefined;
   const at = new Date(entry.last_synced_at);
   const fresh = now - at.getTime() < 60_000;

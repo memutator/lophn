@@ -40,3 +40,18 @@ test("a computers save from before the roster still reads every computer that wa
   assert.deepEqual(readComputers(null), []);
   assert.deepEqual(readComputers("{"), []);
 });
+
+test("readComputers keeps hub role and ordered relays", () => {
+  const saved = [
+    {
+      addresses: ["198.51.100.10"],
+      port: 7432,
+      key: "h".repeat(43),
+      relay: "ws://198.51.100.10:7432",
+      relays: ["ws://198.51.100.10:7432", "wss://fly.test"],
+      hub: true,
+      machine: "mch_01m7dp1jqw47d55vdyzxv5wd0x",
+    },
+  ];
+  assert.deepEqual(readComputers(JSON.stringify(saved)), saved);
+});

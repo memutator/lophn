@@ -1,14 +1,17 @@
 // The phone's single shared local-app store across all paired computers: every paired computer's apps sync into the
 // phone's single copy while its link is up, not only the computer on screen, and computers that leave the roster drop
 // cleanly. Without React, so the data provider (which outlives every screen, also the last computer's removal) holds it.
+import { createIdSource, systemClock } from "../../../base/mod.ts";
 import type { Computers, Link } from "../../../remote-client/mod.ts";
 import { carryRosterMachines } from "../apps/carry/carry.ts";
 import { carrier } from "../apps/carry/native.ts";
 import { nativeDeps } from "../apps/local/native.ts";
 import { createLocalApps, type LocalApps } from "../apps/local/store.ts";
 import { readRoster } from "../pairing/saved.ts";
-import { loadComputers, loadRosterText } from "../pairing/store.ts";
+import { loadComputers, loadRosterText, random, signingKey } from "../pairing/store.ts";
 import type { ComputerData } from "./link.ts";
+
+const ids = createIdSource({ clock: systemClock, random });
 
 // One shared store for the app's life: serializes per-app SQLite work across all connected computers.
 let shared: LocalApps | null = null;
@@ -24,6 +27,8 @@ export function localStore(): LocalApps {
         if (id === null) throw new Error("no computer has let this phone in yet");
         return id;
       },
+      signingKey: () => signingKey(),
+      newCustodyId: () => ids.newId("pcs"),
     });
   }
   return shared;
@@ -63,7 +68,11 @@ export function followLocalComputers(computers: Computers<ComputerData>): () => 
         });
         followed.set(one.key, { link, off });
       }
-      store.connect(one.key, one.status === "connected" ? link.data.core : null);
+      store.connect(one.key, one.status === "connected" ? link.data.core : null, {
+        machine: one.machine,
+        name: one.name,
+        hub: one.hub,
+      });
     }
     for (const [key, one] of followed) {
       if (live.has(key)) continue;

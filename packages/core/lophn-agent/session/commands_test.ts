@@ -116,8 +116,8 @@ function makeOpenDeps(defaultMode: PermissionMode = "workspace"): OpenDeps {
   };
 }
 
-// 기기(device:*)는 session 권한 단계를 낮출 수만 있고 올리지 못한다. 로컬 user는 자유롭게 바꾼다.
-test("sessions/change-mode는 로컬 user에게 자유롭고 원격 device에게는 하향만 허용한다", () => {
+// 사람(로컬·원격 기기 모두)은 session 권한 단계를 자유롭게 바꾼다. agent는 forbidden이다.
+test("sessions/change-mode는 로컬 user와 원격 device 모두에게 모든 단계 선택을 허용한다", () => {
   const { sql, tx } = setupDb();
   const openDeps = makeOpenDeps("workspace");
   const started = startSession(tx, openDeps, {
@@ -137,10 +137,14 @@ test("sessions/change-mode는 로컬 user에게 자유롭고 원격 device에게
     actor: "user",
     principal: "device:dev_01hzzzzzzzzzzzzzzzzzzzzz01",
   } as RequestContext;
+  const agent = {
+    actor: `agent:${started.value.id}`,
+    principal: `agent:${started.value.id}`,
+  } as RequestContext;
 
   let stateSeq = started.value.state_seq;
 
-  // 원격 기기는 full -> workspace -> ask -> read_only로만 내릴 수 있다.
+  // 원격 기기가 full -> workspace -> ask -> read_only로 내릴 수 있다.
   for (const mode of ["workspace", "ask", "read_only"] as const) {
     const res = commands.changeMode.handle(
       tx,
@@ -153,39 +157,30 @@ test("sessions/change-mode는 로컬 user에게 자유롭고 원격 device에게
     stateSeq = res.value.state_seq;
   }
 
-  // 원격 기기는 단계를 올리지 못한다(forbidden).
-  for (const mode of ["ask", "workspace", "full"] as const) {
-    const refused = commands.changeMode.handle(
-      tx,
-      phone,
-      { session: started.value.id, mode },
-      { state_seq: stateSeq },
-    );
-    assert.ok(!refused.ok, `upgrade to ${mode} should fail`);
-    assert.equal(refused.error.code, "forbidden");
-  }
-
-  // 원격 기기는 같은 단계 요청도 하향이 아니므로 거절된다(forbidden).
+  // 원격 기기가 같은 단계를 요청하면 멱등 ok다.
   const sameReadOnly = commands.changeMode.handle(
     tx,
     phone,
     { session: started.value.id, mode: "read_only" },
     { state_seq: stateSeq },
   );
-  assert.ok(!sameReadOnly.ok);
-  assert.equal(sameReadOnly.error.code, "forbidden");
+  assert.ok(sameReadOnly.ok);
+  assert.equal(sameReadOnly.value.permission_mode, "read_only");
 
-  // 로컬 user는 read_only -> full로 다시 올릴 수 있고, 같은 단계 요청도 멱등 ok다.
-  const raised = commands.changeMode.handle(
-    tx,
-    localUser,
-    { session: started.value.id, mode: "full" },
-    { state_seq: stateSeq },
-  );
-  assert.ok(raised.ok);
-  assert.equal(raised.value.permission_mode, "full");
-  stateSeq = raised.value.state_seq;
+  // 원격 기기도 read_only -> ask -> workspace -> full로 단계를 올릴 수 있다.
+  for (const mode of ["ask", "workspace", "full"] as const) {
+    const raised = commands.changeMode.handle(
+      tx,
+      phone,
+      { session: started.value.id, mode },
+      { state_seq: stateSeq },
+    );
+    assert.ok(raised.ok, `upgrade to ${mode}`);
+    assert.equal(raised.value.permission_mode, mode);
+    stateSeq = raised.value.state_seq;
+  }
 
+  // 로컬 user도 자유롭게 바꾸고 같은 단계 요청은 멱등 ok다.
   const localSame = commands.changeMode.handle(
     tx,
     localUser,
@@ -195,15 +190,15 @@ test("sessions/change-mode는 로컬 user에게 자유롭고 원격 device에게
   assert.ok(localSame.ok);
   assert.equal(localSame.value.permission_mode, "full");
 
-  // 원격 기기는 full 세션에 같은 full 요청을 보내도 forbidden이다.
-  const remoteSameFull = commands.changeMode.handle(
+  // agent는 권한 단계를 바꾸지 못한다(forbidden).
+  const byAgent = commands.changeMode.handle(
     tx,
-    phone,
-    { session: started.value.id, mode: "full" },
+    agent,
+    { session: started.value.id, mode: "read_only" },
     { state_seq: stateSeq },
   );
-  assert.ok(!remoteSameFull.ok);
-  assert.equal(remoteSameFull.error.code, "forbidden");
+  assert.ok(!byAgent.ok);
+  assert.equal(byAgent.error.code, "forbidden");
 
   assert.equal(
     sql.get("select permission_mode from sessions where id = ?", [

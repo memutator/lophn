@@ -151,7 +151,7 @@ function createSource(
     archiveSession: (session, options) =>
       archiveSessionOf(env, session, options),
     ...(deps.device === true
-      ? { downgradeOnlyMode: true as const }
+      ? {}
       : { deleteSession: (session) => deleteSessionOf(env, session) }),
 
     rewindPoints: (session) => readRewindPoints(env, session),

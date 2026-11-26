@@ -34,6 +34,7 @@ type Entry = {
 type TurnRequestsDeps = {
   permissionRules(workspace: Workspace | null): PermissionRuleLayers;
   homeDir?: string;
+  dataRoot?: string;
   bus: Pick<Bus, "publish">;
   clock: Clock;
   ids: IdSource;
@@ -95,6 +96,7 @@ export function createTurnRequests(deps: TurnRequestsDeps) {
                 deps.permissionRules(origin.workspace),
                 subject.command,
                 deps.homeDir,
+                deps.dataRoot,
               )
             : [];
 

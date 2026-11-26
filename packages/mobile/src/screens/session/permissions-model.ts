@@ -1,4 +1,4 @@
-// Pure permission view-model helpers for mobile screens (approval cards, 4-stage downgrade-only mode picker,
+// Pure permission view-model helpers for mobile screens (approval cards, 4-stage mode picker,
 // PermissionDenied timeline cards, and job approval participant modes). Kept React-free so Node tests import it directly.
 import { t } from "@lophn/i18n";
 import type { PermissionDenial } from "../../../../protocol/approvals/denial.ts";
@@ -8,14 +8,13 @@ import type {
 } from "../../../../protocol/approvals/turn-request.ts";
 import type { JobRecord } from "../../../../protocol/jobs/jobs.ts";
 import {
-  isModeDowngrade,
   PERMISSION_MODES,
   type PermissionMode,
 } from "../../../../protocol/lophn-agent/turn-values.ts";
 import type { ApprovalSubject } from "../../../../shell/renderer/conversation/agent-tab-source.ts";
 import type { WaitingChoice } from "../../../../shell/renderer/desktop/connection/waiting/decide.ts";
 
-// ---- 4-stage permission modes (downgrade-only on phone)
+// ---- 4-stage permission modes
 
 export const PERMISSION_MODE_LABELS: Readonly<Record<PermissionMode, string>> =
   {
@@ -55,21 +54,12 @@ export function permissionModeLabel(
   return modes?.find((entry) => entry.id === mode)?.label ?? mode;
 }
 
-/** Modes strictly lower than `current`. Phones may only lower a session's permission mode, never raise it. */
-export function downgradeModesOf(
-  current: PermissionMode,
-): readonly PermissionMode[] {
-  return PERMISSION_MODES.filter((candidate) =>
-    isModeDowngrade(current, candidate),
-  );
-}
-
-/** True only when switching from `from` to `to` strictly lowers the session's permission mode. */
-export function canDowngradeMode(
+/** True when switching from `from` to `to` changes the session's permission mode. */
+export function canSelectMode(
   from: PermissionMode | null,
   to: PermissionMode,
 ): boolean {
-  return from !== null && isModeDowngrade(from, to);
+  return from !== null && from !== to;
 }
 
 // ---- approval cards (conversation + inbox + home)

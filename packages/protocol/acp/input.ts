@@ -11,11 +11,9 @@ import { idSchema } from "../base/ids.ts";
 const session = idSchema("ses");
 const message = idSchema("msg");
 
-// ACP 쪽 승인 결정. core는 `session`을 받지 않는다(`turnRequestChoiceSchema`가 그대로다).
-// 그 CLI session 안에서만 허락하는 범위가 `session`이다.
+// ACP 쪽 승인 결정. core 승인 선택지(`once`, `session`, `always`, `reject`)에 harness의 plan 승인(`mode`)을 더한다.
 export const acpDecideChoiceSchema = z.discriminatedUnion("kind", [
   ...turnRequestChoiceSchema.options,
-  z.strictObject({ kind: z.literal("session") }),
   // plan 승인. 그 subject의 `modes` id 하나. plan subject에만 쓰고 다른 subject면 받는 쪽이 `invalid_input`이다.
   z.strictObject({ kind: z.literal("mode"), mode: z.string().min(1) }),
 ]);

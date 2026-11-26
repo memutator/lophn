@@ -27,11 +27,7 @@ import {
   type ContentBlock,
   textBlocks,
 } from "../../../protocol/lophn-agent/content-block.ts";
-import {
-  isModeDowngrade,
-  PERMISSION_MODES,
-  type PermissionMode,
-} from "../../../protocol/lophn-agent/turn-values.ts";
+import type { PermissionMode } from "../../../protocol/lophn-agent/turn-values.ts";
 import { useStateChanged } from "../desktop/connection/core-read.ts";
 import { useSessions } from "../desktop/connection/events/hooks.tsx";
 import { useScopeMachine } from "../desktop/machines/scope.tsx";
@@ -632,15 +628,6 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
     mode: PermissionMode,
   ): Promise<boolean> => {
     if (session === null) return false;
-    if (
-      source.downgradeOnlyMode === true &&
-      meta?.mode !== null &&
-      meta?.mode !== undefined &&
-      (PERMISSION_MODES as readonly string[]).includes(meta.mode) &&
-      !isModeDowngrade(meta.mode as PermissionMode, mode)
-    ) {
-      return false;
-    }
     const result = await act(session, {
       type: "set_mode",
       session,
@@ -1100,24 +1087,6 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
   const queued = thread?.queued ?? [];
   const nextCycleMode = (): string | null => {
     if (meta === null || meta.modes.length < 2) return null;
-    if (source.downgradeOnlyMode === true) {
-      const current = meta.mode;
-      if (
-        current === null ||
-        !(PERMISSION_MODES as readonly string[]).includes(current)
-      ) {
-        return null;
-      }
-      const lower = meta.modes.filter(
-        (candidate) =>
-          (PERMISSION_MODES as readonly string[]).includes(candidate.id) &&
-          isModeDowngrade(
-            current as PermissionMode,
-            candidate.id as PermissionMode,
-          ),
-      );
-      return lower.at(-1)?.id ?? null;
-    }
     const at = meta.modes.findIndex((mode) => mode.id === meta.mode);
     return meta.modes[(at + 1) % meta.modes.length]?.id ?? null;
   };
@@ -1577,7 +1546,6 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
                     : () => host.openAgentSettings?.("rules")
                 }
                 onChangeMode={modeReady ? changePermissionMode : undefined}
-                downgradeOnlyMode={source.downgradeOnlyMode === true}
                 onRevokeGrant={
                   source.revokeSessionGrant === undefined
                     ? undefined
@@ -1817,7 +1785,6 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
                 : {
                     current: meta.mode,
                     choices: meta.modes,
-                    downgradeOnly: source.downgradeOnlyMode === true,
                     onChange: (mode) =>
                       void act(session, {
                         type: "set_mode",

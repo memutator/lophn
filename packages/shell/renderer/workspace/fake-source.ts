@@ -1800,7 +1800,11 @@ export function fakeWorkspaceSource(
       });
     },
     saveWorkflowModes(projectId, workflowName, modes) {
-      rememberedModes.set(`${projectId}/${workflowName}`, { ...modes });
+      const key = `${projectId}/${workflowName}`;
+      rememberedModes.set(key, {
+        ...(rememberedModes.get(key) ?? {}),
+        ...modes,
+      });
       return Promise.resolve({ ok: true, value: null });
     },
     readDefaultMode: () =>

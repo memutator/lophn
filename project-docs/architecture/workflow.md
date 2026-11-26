@@ -144,13 +144,13 @@ workflow는 사람, agent, 앱 tool, 앱 event를 비결정적 함수처럼 조�
 29. `workflow()` 호출은 **같은 project 안의 workflow만** 허용한다(다른 project 지정은 `forbidden`).
 30. 조상 instance chain에 같은 `(project, workflow)`가 있으면 cycle로 `conflict` 거절한다. 최대 중첩 깊이는 5단계다(root 0, child 1..5 허용, 초과 시 `conflict`).
 31. sub-workflow 안의 앱 `tool()` 호출은 그 sub-workflow 선언의 creator `agent` 할당을 그대로 사용한다(교집합 제한을 두지 않는다). flow의 앱 tool 호출은 선언의 `agent`(없으면 lophn)의 지금 할당과 비공개 규칙(앱의 비공개 command는 그 앱 workspace만) 안에서만 된다(`architecture/app-call.md`).
-31a. **participant별 권한 단계 (`participant_modes`)**:
+31a. **단계별·참가자별 권한 단계 (`step_modes` · `participant_modes`)**:
     - `workflow.yaml`과 flow code는 agent가 쓸 수 있으므로 권한 단계 칸을 파일에 두지 않는다.
-    - 사람이 `StartWorkflow`(user 전용)에 선택 `participant_modes`(`Record<participantKey, PermissionMode>`)를 실어 보내면 `workflow_instances.participant_modes_json` 열(schema step `workflows.instances-participant-modes`)에 고정 저장한다.
-    - StartBox 폼은 `lophn`·`custom` runtime participant마다 권한 단계 고르기를 보인다(기본값은 `approvals.workflow_modes`의 기억된 값 → agent 정의 `permission_mode` → 전역 기본 `approvals.default_mode` 순; `harness` participant는 이번 범위 밖으로 고르기를 두지 않는다). "이 workflow 기본으로 기억"을 켜면 사람 전용 core 설정 `approvals.workflow_modes`(key: project + workflow 이름 + participant, `locked: true`)에 저장한다.
-    - 해당 instance가 step을 넘겨 새 session을 열 때, 그 participant에 기록된 단계가 있으면 그 단계로 session을 연다.
-    - sub-workflow를 호출할 때 자식의 participant 단계는 부모 instance의 상한(같은 participant 또는 부모 instance의 가장 넓은/지정 단계)과 `min`으로 클램프해 부모보다 넓어지지 않는다.
-    - job이 시작하는 `workflow_start` instance는 기억된 `approvals.workflow_modes`를 해석해 전달하며, 승인 후 기억된 단계가 `full`로 올라가면 그 job은 재승인 전까지 자동으로 멈춘다(`architecture/job.md`).
+    - 사람이 `StartWorkflow`(user 전용)에 선택 `step_modes`(`Record<stepName, PermissionMode>`)와 `participant_modes`(`Record<participantKey, PermissionMode>`)를 실어 보내면, 참가자 기본은 `workflow_instances.participant_modes_json` 열(schema step `workflows.instances-participant-modes`)에, YAML workflow의 단계별 단계는 각 `instance.steps` 항목의 `permission_mode`에 고정 저장한다.
+    - StartBox 폼은 lophn agent(`lophn`·`custom` runtime)가 맡는 항목에만 권한 단계 고르기를 기존 접이식 `Settings` 패턴 안에 둔다(YAML workflow는 각 step의 `Settings` 칸 안에 `Session` 아래로, flow workflow는 `Run settings` 칸 안에 배치하며 harness·사람·program은 제외한다). 기본값은 `approvals.workflow_modes`(단계별 `step:<stepName>` → 참가자별 key) → agent 정의 `permission_mode` → 전역 기본 `approvals.default_mode` 순이며, 바꾼 항목 옆 `[Set as default]`로 사람 전용 core 설정 `approvals.workflow_modes`(`locked: true`)에 저장한다.
+    - 해당 instance가 step을 넘겨 새 session을 열 때, 그 step의 `permission_mode`(없으면 그 participant에 기록된 단계)가 있으면 그 단계로 session을 연다.
+    - sub-workflow를 호출할 때 자식의 단계별·참가자별 권한 단계는 부모 instance의 상한(현재 실행 step 또는 호출 참가자, 없으면 부모 단계들 중 가장 좁은 단계)과 `min`으로 클램프해 부모보다 넓어지지 않는다.
+    - job이 시작하는 `workflow_start` instance는 기억된 `approvals.workflow_modes`(단계별 포함)를 해석해 전달하며, 승인 후 기억된 단계가 `full`로 올라가면 그 job은 재승인 전까지 자동으로 멈춘다(`architecture/job.md`).
 
 ### `onEvent`와 `job` 정합성
 32. flow의 `onEvent({ source, event, workspace? }, handler)`는 비영속 메모리 구독이다. process가 꺼진 사이의 event는 저장·재전송하지 않으며 이 기계에서 발생한 event만 전달한다. 재시작 replay 시 handler가 변경했던 메모리 변수는 복원되지 않으므로, 현재 상태가 필요한 값은 `tool()`로 다시 조회한다.

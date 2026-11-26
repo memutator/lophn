@@ -125,9 +125,13 @@ async function setup() {
   });
   const slots: Record<string, unknown> = {
     terminals,
-    // 기기는 dev_a와 dev_b이고 dev_b만 허락받았다. 살아 있는 capability는 하나다.
+    // 기기는 dev_a(허락 없는 컴퓨터), dev_b(허락받은 컴퓨터), dev_phone(모바일 폰, 항상 허용)이다. 살아 있는 capability는 하나다.
     deviceKind: (principal: string) =>
-      principal.startsWith("device:") ? "phone" : null,
+      principal === "device:dev_phone"
+        ? "phone"
+        : principal.startsWith("device:")
+          ? "computer"
+          : null,
     terminalInputGrant: (principal: string) => principal === "device:dev_b",
     shellCapabilities: { has: (value: string) => value === CAPABILITY },
   };
@@ -211,6 +215,10 @@ test("agent 자격과 터미널 입력 허락이 없는 기기는 터미널에 �
 
   const device = await call(terminalsInput, "user", "device:dev_b", {
     terminal,
+    text: "from computer\n",
+  });
+  const phone = await call(terminalsInput, "user", "device:dev_phone", {
+    terminal,
     text: "from phone\n",
   });
   const shell = await call(terminalsInput, "user", "user", {
@@ -219,8 +227,13 @@ test("agent 자격과 터미널 입력 허락이 없는 기기는 터미널에 �
     shell_capability: CAPABILITY,
   });
   assert.equal(device.status, 200);
+  assert.equal(phone.status, 200);
   assert.equal(shell.status, 200);
-  assert.deepEqual(fake.written, ["from phone\n", "from desktop\n"]);
+  assert.deepEqual(fake.written, [
+    "from computer\n",
+    "from phone\n",
+    "from desktop\n",
+  ]);
 
   // 다시 띄우기도 같은 자격이다. 허락이 없는 기기와 죽은 capability는 PTY를 다시 띄우지 못한다.
   for (const [principal, extra] of [
@@ -274,8 +287,13 @@ test("터미널 입력 허락이 없는 기기가 terminals/open에 command나 r
   });
   assert.equal(empty.status, 200);
   await typedBy("device:dev_b", "echo granted");
+  await typedBy("device:dev_phone", "echo phone");
   await typedBy("user", "echo desktop");
-  assert.deepEqual(fake.written, ["echo granted\r", "echo desktop\r"]);
+  assert.deepEqual(fake.written, [
+    "echo granted\r",
+    "echo phone\r",
+    "echo desktop\r",
+  ]);
   await wiring.closeWork!();
 });
 

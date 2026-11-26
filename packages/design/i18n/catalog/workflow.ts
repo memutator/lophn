@@ -269,12 +269,12 @@ export const workflow = {
   "workflow.title.save-default-failed": "Couldn't save default for {workflow}",
   "workflow.title.start-failed": "Couldn't start {workflow}",
   "workflow.title.stop-failed": "Couldn't stop {workflow}",
-  "workflow.heading.participant-modes": "Participant permission modes",
-  "workflow.note.participant-modes":
-    "Choose the permission mode each lophn or custom agent uses for this run. Saved in your settings, not in workflow.yaml.",
-  "workflow.button.remember-modes": "Remember as workflow default",
-  "workflow.button.remembering-modes": "Saving…",
-  "workflow.notice.modes-remembered": "Saved as default for this workflow.",
+  "workflow.label.step-permission-mode": "Permission mode",
+  "workflow.label.step-permission-mode-of": "Permission mode for {step}",
+  "workflow.note.step-permission-mode":
+    "Permission mode for this step's lophn agent. Defaults are saved in your settings, not in workflow.yaml.",
+  "workflow.note.flow-permission-mode":
+    "Permission mode for this lophn agent. Defaults are saved in your settings, not in workflow.yaml.",
   "workflow.error.remember-modes-failed":
     "Couldn't save workflow permission modes. Try again.",
 } as const;

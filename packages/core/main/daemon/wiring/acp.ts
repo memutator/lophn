@@ -464,7 +464,8 @@ export const acpWiring: WiringFactory = () => {
                   who,
                   input,
                   (principal) =>
-                    ctx.peek.terminalInputGrant?.(principal) ?? false,
+                    ctx.peek.deviceKind?.(principal) === "phone" ||
+                    (ctx.peek.terminalInputGrant?.(principal) ?? false),
                 );
                 if (!allowed.ok) return allowed;
                 return coding.send(input);

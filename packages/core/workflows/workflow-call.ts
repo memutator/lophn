@@ -38,8 +38,8 @@ export type SubWorkflowRequest = {
 };
 
 // 부모 instance에서 sub-workflow가 넘을 수 없는 권한 상한을 구한다.
-// 호출한 참가자가 정해져 있으면 그 참가자의 단계, 없으면 현재 실행 step 담당 참가자의 단계,
-// 그마저 없으면(flow 등) 부모 participant_modes 가운데 가장 좁은 단계다.
+// 현재 실행 step의 단계(또는 호출 참가자의 단계)를 우선 보고,
+// 없으면(flow 등) 부모 step·participant 단계 가운데 가장 좁은 단계다.
 export function parentPermissionCeiling(
   parent: Pick<
     WorkflowInstance,
@@ -48,27 +48,35 @@ export function parentPermissionCeiling(
   callingParticipant?: string,
 ): PermissionMode | undefined {
   const modes = parent.participant_modes;
-  if (modes === undefined) return undefined;
-  if (
-    callingParticipant !== undefined &&
-    modes[callingParticipant] !== undefined
-  ) {
-    return modes[callingParticipant];
-  }
   if (parent.current !== null) {
     const step = parent.steps.find((s) => s.name === parent.current!.step);
     if (step !== undefined) {
-      const by = parent.participants[step.by];
-      const key =
-        by !== undefined && "kind" in by && by.kind === "human"
-          ? step.with
-          : step.by;
-      if (key !== null && modes[key] !== undefined) {
-        return modes[key];
+      if (step.permission_mode !== undefined) {
+        return step.permission_mode;
+      }
+      if (modes !== undefined) {
+        const by = parent.participants[step.by];
+        const key =
+          by !== undefined && "kind" in by && by.kind === "human"
+            ? step.with
+            : step.by;
+        if (key !== null && modes[key] !== undefined) {
+          return modes[key];
+        }
       }
     }
   }
-  const values = Object.values(modes);
+  if (
+    callingParticipant !== undefined &&
+    modes?.[callingParticipant] !== undefined
+  ) {
+    return modes[callingParticipant];
+  }
+  const values: PermissionMode[] = [];
+  if (modes !== undefined) values.push(...Object.values(modes));
+  for (const step of parent.steps) {
+    if (step.permission_mode !== undefined) values.push(step.permission_mode);
+  }
   if (values.length === 0) return undefined;
   let narrowest = values[0]!;
   for (let i = 1; i < values.length; i++) {

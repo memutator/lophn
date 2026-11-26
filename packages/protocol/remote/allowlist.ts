@@ -276,10 +276,10 @@ import { devicesSetPush, rosterLeave } from "./routes.ts";
 // 모든 기기의 목록에 넣지 않는 것: 만들기·고치기·지우기(agent, job, 앱, project, workflow 정의), secret, provider·model 관리, 설정 쓰기, 기기와 명단(자기를 명단에서 빼는
 // `roster/leave`와 자기 push 설정 `devices/set_push`만 둔다),
 // `tabs/*`, `sessions/delete`(되돌릴 수 없다), `permissions/trust-local-tool`, `permissions/untrust-local-tool`(로컬 스크립트 신뢰는 desktop 전용)은 넣지 않는다.
-// `sessions/change-mode`는 목록에 두되 원격 기기에서는 단계를 낮추는 것만 허락한다(올리기는 core가 forbidden).
+// `sessions/change-mode`는 목록에 두어 원격 기기에서도 권한 단계를 자유롭게 선택한다.
 // 컴퓨터의 coding agent(`coding_sessions/*`)는 폰이 목록을 보고 view를 바꾸고 새로 연다. 폰이 시작한 switch도
 // `confirmed: true`가 있어야 한다(도는 turn이 끊긴다). 터미널은 `terminals/open|input`으로 열고 치고, 화면은 `terminal_view/*`로 본다.
-// `terminals/input`은 목록에 있어도 사람이 컴퓨터에서 이 기기의 터미널 입력을 켰을 때만 core가 받는다. 그 스위치
+// `terminals/input`과 `terminals/open`의 `command`·`resume`은 모바일 폰(`kind === "phone"`)에는 항상 허용하고, 다른 컴퓨터는 터미널 입력 허락을 본다. 그 스위치
 // (`roster/set_terminal_input`)와 `host/*`는 넣지 않는다.
 // `jobs/update`는 켜고 끄기(`enabled`)만 받는다(core/remote/call.ts). `acp/send`는 안의 route를 기기 자격으로 부르므로 대화 조작 route도 여기 있어야 한다.
 // 두 목록 모두 user가 부를 수 있는 route여야 하고(아니면 core가 기기 자격을 만들지 못한다), 서로 겹치지 않는다.

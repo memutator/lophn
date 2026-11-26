@@ -66,6 +66,7 @@ import {
 import {
   parseDeclaration,
   participantsOf,
+  stepsOf,
 } from "../../../workflows/declaration.ts";
 
 type Query = Pick<Sql, "get" | "all">;
@@ -219,6 +220,7 @@ function workflowModesOf(sql: Query): JobWorkflowModes {
       const participants = participantsOf(parsed.declaration);
       const deps = workspaceDepsOf(sql);
       const resolved: Record<string, PermissionMode> = {};
+      const lophnDefaults = new Map<string, PermissionMode>();
       for (const [key, participant] of Object.entries(participants)) {
         if ("kind" in participant) continue;
         if (isBuiltinHarness(participant.agent)) continue;
@@ -228,8 +230,26 @@ function workflowModesOf(sql: Query): JobWorkflowModes {
         });
         const info = addr.ok ? deps.agents.agent(addr.value.agent) : null;
         if (info !== null && isHarnessRuntime(info.runtime)) continue;
-        resolved[key] =
+        const baseMode =
           remembered?.[key] ?? info?.permissionMode ?? globalDefault;
+        resolved[key] = baseMode;
+        lophnDefaults.set(key, baseMode);
+      }
+      if (parsed.declaration.steps !== undefined) {
+        for (const step of stepsOf(parsed.declaration)) {
+          const by = participants[step.by];
+          const effectiveKey =
+            by !== undefined && "kind" in by && by.kind === "human"
+              ? step.with
+              : step.by;
+          if (effectiveKey === null || !lophnDefaults.has(effectiveKey)) {
+            continue;
+          }
+          const stepOverride = remembered?.[`step:${step.name}`];
+          if (stepOverride !== undefined) {
+            resolved[`step:${step.name}`] = stepOverride;
+          }
+        }
       }
       return resolved;
     },

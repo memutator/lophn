@@ -264,11 +264,13 @@ export function WorkflowPage(props: WorkflowPageProps): ReactElement {
               key={entry.key}
               entry={entry}
               callableAgents={definitions.callableAgents}
+              stepModes={state.stepModes}
               participantModes={state.participantModes}
               faceOf={faceOf}
               onStart={state.start}
               onSaveDefault={state.saveDefaults}
-              onRememberModes={state.rememberParticipantModes}
+              onSaveStepModeDefault={state.saveStepModeDefault}
+              onSaveParticipantModeDefault={state.saveParticipantModeDefault}
             />
             <section className={styles.section}>
               {instances === null && showRunsLoading ? (

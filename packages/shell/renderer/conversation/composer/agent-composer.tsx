@@ -138,7 +138,6 @@ interface AgentComposerProps {
   mode?: {
     readonly current: string | null;
     readonly choices: readonly AcpChoice[];
-    readonly downgradeOnly?: boolean;
     readonly onChange: (mode: string) => void;
   };
   /** 켜고 끄는 session 설정(Plan mode, Fast). 주면 입력칸 아래 줄에 chip으로 그린다. */
@@ -634,7 +633,6 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
                 <ModeMenu
                   current={props.mode.current}
                   choices={props.mode.choices}
-                  downgradeOnly={props.mode.downgradeOnly}
                   onChange={props.mode.onChange}
                   open={modeOpen}
                   onOpenChange={setModeOpen}
@@ -703,7 +701,6 @@ function OpenComposer(props: AgentComposerProps): ReactNode {
                 onEdit={props.onEditPermissions}
                 onOpenRules={props.onOpenRules}
                 onChangeMode={props.onChangePermissionMode}
-                downgradeOnlyMode={props.mode?.downgradeOnly}
                 onRevokeGrant={props.onRevokeSessionGrant}
                 onTrustLocalTool={props.onTrustLocalTool}
                 onUntrustLocalTool={props.onUntrustLocalTool}

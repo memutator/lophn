@@ -476,14 +476,15 @@ export interface WorkspaceSource {
     inputs?: Record<string, unknown>;
     open?: "tab" | "background";
     step_open?: Record<string, "tab" | "background">;
+    step_modes?: Record<string, PermissionMode>;
     participant_modes?: Record<string, PermissionMode>;
   }): Promise<ReadResult<{ instance: string; title?: string | null }>>;
-  /** core 설정 `approvals.workflow_modes`에 기억해 둔 참가자별 권한 단계를 읽는다. */
+  /** core 설정 `approvals.workflow_modes`에 기억해 둔 workflow 권한 단계를 읽는다. */
   readWorkflowModes?(
     project: string,
     workflow: string,
   ): Promise<ReadResult<Readonly<Record<string, PermissionMode>>>>;
-  /** 참가자별 권한 단계를 core 설정 `approvals.workflow_modes`에 저장한다(`workflow.yaml`은 건드리지 않는다). */
+  /** workflow 권한 단계(단계별 `step:<name>` 또는 참가자별 key)를 core 설정 `approvals.workflow_modes`에 합쳐 저장한다(`workflow.yaml`은 건드리지 않는다). */
   saveWorkflowModes?(
     project: string,
     workflow: string,

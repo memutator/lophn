@@ -11,7 +11,6 @@ import {
   failHarnessMemberCall,
   type failSessionCompact,
   type forkSession,
-  isModeDowngrade,
   MESSAGE_BODY_OWNER_KIND,
   openHarnessMember,
   type recordMessage,
@@ -444,8 +443,7 @@ export function createConversationCommands(deps: ConversationDeps): {
         });
       },
     },
-    // 권한 단계 변경. 사람만 바꾸며, 낮추면 다음 tool 호출부터 바로 닿는다.
-    // 폰·다른 기기(`device:`)는 단계를 낮추기만 할 수 있고 올리지 못한다(forbidden).
+    // 권한 단계 변경. 사람(로컬·원격 기기 모두)만 바꾸며, 바꾸면 다음 tool 호출부터 바로 닿는다.
     changeMode: {
       route: changeSessionMode,
       handle(tx, ctx, input: Input<typeof changeSessionMode>, compare) {
@@ -455,15 +453,6 @@ export function createConversationCommands(deps: ConversationDeps): {
         if (session === undefined) return sessionNotFound();
         if (session.lifecycle !== "open") {
           return reject("conflict", "the session is archived");
-        }
-        if (
-          ctx.principal?.startsWith("device:") &&
-          !isModeDowngrade(session.permission_mode, input.mode)
-        ) {
-          return err({
-            code: "forbidden",
-            message: "a remote device can only lower the permission mode",
-          });
         }
         if (session.permission_mode === input.mode) {
           return ok({

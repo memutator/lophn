@@ -68,8 +68,8 @@ function isBangShellContent(content: readonly ContentBlock[]): boolean {
 
 /**
  * coding session(harness GUI)의 입력은 ledger route를 거치지 않고 handle로 바로 간다. 기기가 보낸 입력이면
- * 권한 mode 바꾸기(`set_mode`)는 lophn session과 같이 막고, shell 실행(`run_shell`과 `!` 글)은 이 컴퓨터에서
- * 터미널 입력을 허락한 기기만 받는다.
+ * shell 실행(`run_shell`과 `!` 글)은 터미널 입력이 허락된 기기(폰은 항상 허용)만 받는다.
+ * 권한 mode 바꾸기(`set_mode`)는 원격 기기에서도 허용한다.
  */
 export function checkCodingInputScope(
   who: AuthenticatedContext,
@@ -77,12 +77,6 @@ export function checkCodingInputScope(
   granted: (principal: string) => boolean,
 ): Result<void> {
   if (!isDevicePrincipal(who)) return ok(undefined);
-  if (input.type === "set_mode") {
-    return err({
-      code: "forbidden",
-      message: "a device cannot change permission mode",
-    });
-  }
   if (
     input.type === "run_shell" ||
     ((input.type === "send" || input.type === "edit_queued") &&

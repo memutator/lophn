@@ -2,13 +2,19 @@ import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { manualClock, ok, seededRandom } from "../../base/mod.ts";
+import { syncPlanOf } from "../../protocol/apps/declaration/sync-plan.ts";
 import { hlcAtMs } from "../../protocol/apps/sync/clock.ts";
 import type { Id } from "../../protocol/base/ids.ts";
 import { TOMBSTONE_HORIZON_MS } from "../../protocol/folder/mod.ts";
 import type { Sql } from "../../protocol/server/mod.ts";
 import { createSql } from "../storage/ledger/sqlite.ts";
-import { cleanupBefore } from "./environment.ts";
+import {
+  cleanupBefore,
+  createFolderSections,
+  readEnvironment,
+} from "./environment.ts";
 import { createFolderImport } from "./import/mod.ts";
+import { inboxAttachmentPath } from "./transfers.ts";
 import {
   FOLDER_CODE_COMMIT_STEPS,
   FOLDER_DESTINATION_STEPS,
@@ -231,5 +237,106 @@ test("a record that carries only source gives no horizon to the stream of that d
       },
     ]),
     [{ machine: LAPTOP, settled: at(NEWER), horizon: at(RECENT) }],
+  );
+});
+
+// 지우면 sync.app_policies 덮어쓰기가 반영되지 않거나 machine/environment가 hub·sync_policy·sync_override를 누락한다.
+test("sync.app_policies 덮어쓰기가 legacy/6.0.0 앱의 동기화를 켜고 끄며 machine/environment가 hub·sync_policy·sync_override를 노출한다", async () => {
+  const decl6 = {
+    runs_on: ["computer" as const],
+    sdk_dependencies: [{ name: "@lophn/declaration", version: "6.0.0" }],
+  };
+  const declLegacy = {
+    runs_on: ["computer" as const],
+    sdk_dependencies: [{ name: "@lophn/declaration", version: "5.2.0" }],
+  };
+  assert.equal(
+    syncPlanOf(decl6, "default").destinations.has("computers"),
+    true,
+  );
+  assert.equal(syncPlanOf(decl6, "local").destinations.size, 0);
+  assert.equal(syncPlanOf(declLegacy, "default").destinations.size, 0);
+  assert.equal(
+    syncPlanOf(declLegacy, "computers").destinations.has("computers"),
+    true,
+  );
+
+  const env = await readEnvironment({
+    machine: () => ({ id: ME, name: "Desk" }),
+    alwaysOn: () => ({
+      keep_running: true,
+      starts_at_login: true,
+      keep_awake: false,
+    }),
+    hub: () => true,
+    machineHub: (m) => m === LAPTOP,
+    addresses: () => ({ lan: [], port: 7432, relay: null, relays: [] }),
+    version: () => "0.24.0",
+    destinations: { list: () => [], resolve: () => null },
+    apps: () => [
+      {
+        app: APP,
+        name: "Notes",
+        destinations: [{ name: "computers", tables: null }],
+        code_commit: null,
+        sync_policy: "computers",
+        sync_override: "computers",
+      },
+    ],
+    exportStatus: () => null,
+    importStatus: () => [],
+    away: async () => null,
+    exchange: () => [],
+    update: () => null,
+    records: () => ({
+      machines: [
+        {
+          machine: LAPTOP,
+          destinations: ["computers"],
+          read_at: "2026-11-26T00:00:00.000Z",
+          record: {
+            format: 2,
+            machine: LAPTOP,
+            revision: 1,
+            updated_at: "2026-11-26T00:00:00.000Z",
+            name: "VM",
+            always_on: null,
+            hub: true,
+            addresses: { lan: [], port: null, relay: null },
+            lophn: {
+              version: "0.24.0",
+              protocol: { version: 3, min_version: 2 },
+              folder: { version: 2, min_version: 2 },
+            },
+            projects: [],
+          },
+        },
+      ],
+      apps: [],
+    }),
+    available: () => ok([]),
+    sections: createFolderSections(),
+  });
+  assert.equal(env.machines.find((m) => m.id === ME)?.hub, true);
+  assert.equal(env.machines.find((m) => m.id === LAPTOP)?.hub, true);
+  assert.equal(env.apps[0]?.sync_policy, "computers");
+  assert.equal(env.apps[0]?.sync_override, "computers");
+
+  // --attach 첨부 경로는 inbox/<trf>/ 아래로만 안전하게 매핑된다.
+  const trf = "trf_01hzzzzzzzzzzzzzzzzzzzzzzz";
+  assert.equal(
+    inboxAttachmentPath("/data", {
+      transfer: trf,
+      name: "report.pdf",
+      rel_path: "../../etc/passwd",
+    }),
+    `/data/inbox/${trf}/report.pdf`,
+  );
+  assert.equal(
+    inboxAttachmentPath("/data", {
+      transfer: "not_a_trf",
+      name: "report.pdf",
+    }),
+    null,
   );
 });

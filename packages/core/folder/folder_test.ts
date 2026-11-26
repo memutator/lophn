@@ -2,11 +2,13 @@ import assert from "node:assert/strict";
 import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   readdirSync,
   readFileSync,
   rmSync,
+  statSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -16,12 +18,16 @@ import { dirname, join, relative, sep } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import {
+  canonicalize,
   createIdSource,
+  err,
   manualClock,
   ok,
   type Result,
   seededRandom,
+  sha256Hex,
 } from "../../base/mod.ts";
+import { CUSTODY_SIGN_CONTEXT } from "../../protocol/apps/app-sync.ts";
 import { hlcAtMs } from "../../protocol/apps/sync/mod.ts";
 import type { Id } from "../../protocol/base/ids.ts";
 import {
@@ -44,6 +50,7 @@ import {
   encodeRecord,
   machineRecordSchema,
   recordPath,
+  TRANSFER_TTL_MS,
 } from "../../protocol/folder/mod.ts";
 import { generateKeyPair, remoteKeyText } from "../../protocol/remote/noise.ts";
 import {
@@ -51,9 +58,18 @@ import {
   type RosterEntryBody,
   type RosterStatement,
   rosterView,
+  signDetached,
   signRoster,
 } from "../../protocol/remote/roster.ts";
-import type { Sql, Tx } from "../../protocol/server/mod.ts";
+import type {
+  AuthenticatedContext,
+  Sql,
+  Tx,
+} from "../../protocol/server/mod.ts";
+import { createCustodyService } from "./custody.ts";
+import { publishManifest } from "./export/manifest.ts";
+import { createSettingsExportService } from "./settings-export.ts";
+import { createTransfersService } from "./transfers.ts";
 import type { SyncLog } from "../apps/sync/log.ts";
 import {
   SYNC_LOG_DESTINATION_STEPS,
@@ -1595,4 +1611,814 @@ test("앞 목록의 정리가 도는 사이 새 앱 목록이 와도 새 목록�
     }
     assert.deepEqual(await env.replica.wants(100), ok([]));
   });
+});
+
+// 지우면 agent가 workspace 밖 파일을 유출하거나, 받은 파일에 실행 비트가 남거나, 허브 보관/만료 정리가 깨진다.
+test("transfers: agent workspace 경계를 강제하고, offline 대상은 held_at_hub로 보내며, 수신 inbox는 0644로 안전하게 내려놓고 ack·TTL로 정리한다", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "lophn-trf-"));
+  try {
+    const clock = manualClock(Date.UTC(2026, 10, 26, 12, 0, 0));
+    const random = seededRandom(77);
+    const ids = createIdSource({ clock, random });
+    const senderRoot = join(dir, "sender");
+    const targetRoot = join(dir, "target");
+    const workspace = join(dir, "ws");
+    const outside = join(dir, "outside");
+    mkdirSync(senderRoot, { recursive: true });
+    mkdirSync(targetRoot, { recursive: true });
+    mkdirSync(workspace, { recursive: true });
+    mkdirSync(outside, { recursive: true });
+
+    const inWs = join(workspace, "script.sh");
+    const inWs2Dir = join(workspace, "sub");
+    mkdirSync(inWs2Dir, { recursive: true });
+    const inWsDup = join(inWs2Dir, "script.sh");
+    const secretOutside = join(outside, "secret.txt");
+    const escapeLink = join(workspace, "escape.txt");
+    writeFileSync(inWs, "#!/bin/sh\necho hi\n");
+    chmodSync(inWs, 0o755);
+    writeFileSync(inWsDup, "second script\n");
+    writeFileSync(secretOutside, "do not leak");
+    symlinkSync(secretOutside, escapeLink);
+
+    const HUB = "mch_01hwwwwwwwwwwwwwwwwwwwwwww" as Id<"mch">;
+    const senderComputers = join(senderRoot, "computers");
+    const targetComputers = join(targetRoot, "computers");
+    mkdirSync(senderComputers, { recursive: true });
+    mkdirSync(targetComputers, { recursive: true });
+
+    const agentAuth: AuthenticatedContext = {
+      principal: "agent:ses_01hzzzzzzzzzzzzzzzzzzzzzzz",
+      actor: "agent:ses_01hzzzzzzzzzzzzzzzzzzzzzzz",
+      scope: { operations: [], targets: {} },
+      conditions: {},
+      credential_ref: "agent:test",
+    };
+    const userAuth: AuthenticatedContext = {
+      principal: "user:me",
+      actor: "user",
+      scope: { operations: [], targets: {} },
+      conditions: {},
+      credential_ref: "user:test",
+    };
+
+    const senderDb = new DatabaseSync(":memory:");
+    senderDb.exec(
+      "create table releases (id text, app text, status text, declaration text)",
+    );
+    for (const step of [
+      ...FOLDER_SCHEMA_STEPS,
+      ...FOLDER_CODE_COMMIT_STEPS,
+      ...FOLDER_DESTINATION_STEPS,
+      ...FOLDER_CARRY_MARKS_STEPS,
+    ]) {
+      senderDb.exec(step.sql);
+    }
+    const senderSql = createSql(senderDb, () => true);
+
+    const targetDb = new DatabaseSync(":memory:");
+    targetDb.exec(
+      "create table releases (id text, app text, status text, declaration text)",
+    );
+    for (const step of [
+      ...FOLDER_SCHEMA_STEPS,
+      ...FOLDER_CODE_COMMIT_STEPS,
+      ...FOLDER_DESTINATION_STEPS,
+      ...FOLDER_CARRY_MARKS_STEPS,
+    ]) {
+      targetDb.exec(step.sql);
+    }
+    const targetSql = createSql(targetDb, () => true);
+
+    const senderKey = generateSigningKey(seededRandom(101));
+    const targetKey = generateSigningKey(seededRandom(102));
+    const signingKeyOf = (machine: string) =>
+      machine === ME
+        ? remoteKeyText(senderKey.publicKey)
+        : machine === OTHER
+          ? remoteKeyText(targetKey.publicKey)
+          : null;
+
+    const senderReplica = createReplica({
+      dataRoot: senderRoot,
+      machine: () => ME,
+      signingKey: signingKeyOf,
+      removed: () => false,
+      sql: senderSql,
+      transaction: (fn) => fn({ sql: senderSql }),
+      clock,
+      random,
+      manifestsChanged: () => {},
+      filesChanged: () => {},
+    });
+    const targetReplica = createReplica({
+      dataRoot: targetRoot,
+      machine: () => OTHER,
+      signingKey: signingKeyOf,
+      removed: () => false,
+      sql: targetSql,
+      transaction: (fn) => fn({ sql: targetSql }),
+      clock,
+      random,
+      manifestsChanged: () => {},
+      filesChanged: () => {},
+    });
+
+    const sender = createTransfersService({
+      dataRoot: senderRoot,
+      computersRoot: senderComputers,
+      me: () => ({ id: ME, name: "Desk" }),
+      resolveMachine: (ref) =>
+        ref === "Laptop" || ref === OTHER
+          ? ok({ machine: OTHER, name: "Laptop", self: false })
+          : err({ code: "not_found", message: "unknown" }),
+      onlineMachines: () => [
+        { machine: OTHER, status: "offline", hub: false },
+        { machine: HUB, status: "connected", hub: true },
+      ],
+      isHub: () => false,
+      holds: (m, p) => senderReplica.holds(m, p),
+      workspaceRoots: async (auth) =>
+        auth.actor.startsWith("agent:") ? [workspace] : null,
+      clock,
+      random,
+      newTransferId: () => ids.newId("trf") as Id<"trf">,
+      carryKick: () => {},
+      log: () => {},
+    });
+
+    // 1) agent는 allow_outside_workspace=true여도 workspace 밖·symlink 탈출이 차단된다.
+    const blockedOutside = await sender.send(agentAuth, {
+      to: "Laptop",
+      paths: [secretOutside],
+      allow_outside_workspace: true,
+    });
+    assert.equal(blockedOutside.ok, false);
+    assert.equal(!blockedOutside.ok && blockedOutside.error.code, "forbidden");
+
+    const blockedSymlink = await sender.send(agentAuth, {
+      to: "Laptop",
+      paths: [escapeLink],
+    });
+    assert.equal(blockedSymlink.ok, false);
+    assert.equal(!blockedSymlink.ok && blockedSymlink.error.code, "forbidden");
+
+    // 2) workspace 안 실행 파일 + 동일 이름 파일 전송 → offline 대상 + online hub → held_at_hub.
+    const sent = await sender.send(agentAuth, {
+      to: "Laptop",
+      paths: [inWs, inWsDup],
+      note: "check scripts",
+    });
+    assert.equal(sent.ok, true);
+    if (!sent.ok) return;
+    assert.equal(sent.value.state, "held_at_hub");
+    assert.deepEqual(sent.value.held_by, [HUB]);
+    assert.equal(sent.value.files[0]?.executable_stripped, true);
+
+    // 3) manifest 발행 → target replica로 carry 전달 → inbox에 0644 + 충돌 접미사로 materialize.
+    const pub = await publishManifest({
+      me: ME,
+      root: senderComputers,
+      sql: senderSql,
+      transaction: (fn) => fn({ sql: senderSql }),
+      clock,
+      random,
+      sign: (body) => signManifest(body, senderKey.secretKey),
+    });
+    assert.deepEqual(pub, ok(true));
+    const manifestText = readFileSync(
+      join(senderComputers, ...manifestPath(ME).split("/")),
+      "utf8",
+    );
+    assert.deepEqual(
+      await targetReplica.offerManifest(manifestText, "link"),
+      ok("accepted"),
+    );
+    const wants = await targetReplica.wants(100);
+    assert.ok(wants.ok && wants.value.length === 3);
+    for (const want of wants.value) {
+      const bytes = readFileSync(
+        join(senderComputers, ...want.path.split("/")),
+      );
+      const recv = await targetReplica.receive({
+        machine: ME,
+        path: want.path,
+        size: want.size,
+        sha256: want.sha256,
+        via: "link",
+        chunks: (async function* () {
+          yield bytes;
+        })(),
+      });
+      assert.deepEqual(recv, ok("accepted"));
+    }
+
+    const target = createTransfersService({
+      dataRoot: targetRoot,
+      computersRoot: targetComputers,
+      me: () => ({ id: OTHER, name: "Laptop" }),
+      resolveMachine: () => err({ code: "not_found", message: "none" }),
+      onlineMachines: () => [],
+      isHub: () => false,
+      holds: (m, p) => targetReplica.holds(m, p),
+      workspaceRoots: async () => null,
+      clock,
+      random,
+      newTransferId: () => ids.newId("trf") as Id<"trf">,
+      carryKick: () => {},
+      log: () => {},
+    });
+
+    assert.equal(await target.processIncoming(), 1);
+    const inboxDir = join(targetRoot, "inbox", sent.value.transfer);
+    const mat1 = join(inboxDir, "script.sh");
+    const mat2 = join(inboxDir, "script-1.sh");
+    assert.equal(readFileSync(mat1, "utf8"), "#!/bin/sh\necho hi\n");
+    assert.equal(readFileSync(mat2, "utf8"), "second script\n");
+    // 실행 비트가 제거된 0644인지 검증.
+    assert.equal(statSync(mat1).mode & 0o777, 0o644);
+    assert.equal(statSync(mat1).mode & 0o111, 0);
+
+    // 4) target의 acks.json이 sender로 돌아가면 sender가 delivered로 닫고 carry file을 정리한다.
+    const targetPub = await publishManifest({
+      me: OTHER,
+      root: targetComputers,
+      sql: targetSql,
+      transaction: (fn) => fn({ sql: targetSql }),
+      clock,
+      random,
+      sign: (body) => signManifest(body, targetKey.secretKey),
+    });
+    assert.deepEqual(targetPub, ok(true));
+    const targetManifest = readFileSync(
+      join(targetComputers, ...manifestPath(OTHER).split("/")),
+      "utf8",
+    );
+    assert.deepEqual(
+      await senderReplica.offerManifest(targetManifest, "link"),
+      ok("accepted"),
+    );
+    const senderWants = await senderReplica.wants(100);
+    assert.ok(senderWants.ok && senderWants.value.length === 1);
+    for (const want of senderWants.value) {
+      const bytes = readFileSync(
+        join(targetComputers, ...want.path.split("/")),
+      );
+      await senderReplica.receive({
+        machine: OTHER,
+        path: want.path,
+        size: want.size,
+        sha256: want.sha256,
+        via: "link",
+        chunks: (async function* () {
+          yield bytes;
+        })(),
+      });
+    }
+    assert.equal(await sender.processAcksAndGc(), 1);
+    const status = await sender.status(userAuth, {
+      transfer: sent.value.transfer,
+    });
+    assert.ok(status.ok && status.value.transfer.state === "delivered");
+
+    // 5) 만료(TTL 7일) GC와 clear(delete_inbox_files).
+    const sent2 = await sender.send(userAuth, {
+      to: "Laptop",
+      paths: [secretOutside],
+      allow_outside_workspace: true,
+    });
+    assert.ok(sent2.ok);
+    clock.advance(TRANSFER_TTL_MS + 1000);
+    assert.equal(await sender.processAcksAndGc(), 1);
+    const expiredStatus = await sender.status(userAuth, {
+      transfer: sent2.value.transfer,
+    });
+    assert.ok(
+      expiredStatus.ok && expiredStatus.value.transfer.state === "expired",
+    );
+
+    const cleared = await target.clear(userAuth, {
+      transfer: sent.value.transfer,
+      delete_inbox_files: true,
+    });
+    assert.deepEqual(cleared, ok({ cleared: true }));
+    assert.equal(existsSync(inboxDir), false);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+// 지우면 위조·사칭된 폰 custody delta가 hub에 보관되거나 대상 컴퓨터에 중복 적용된다.
+test("custody: 폰 Ed25519 서명 검증과 기기 사칭 차단을 통과한 봉투만 hub 보관·carry 전달되고 대상 컴퓨터에서 재검증 후 한 번만 적용된다", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "lophn-pcs-"));
+  try {
+    const clock = manualClock(Date.UTC(2026, 10, 26, 12, 0, 0));
+    const random = seededRandom(88);
+    const ids = createIdSource({ clock, random });
+    const hubRoot = join(dir, "hub");
+    const targetRoot = join(dir, "target");
+    const hubComputers = join(hubRoot, "computers");
+    const targetComputers = join(targetRoot, "computers");
+    mkdirSync(hubComputers, { recursive: true });
+    mkdirSync(targetComputers, { recursive: true });
+
+    const HUB = ME;
+    const TARGET = OTHER;
+    const PHONE_A = "dev_01hzzzzzzzzzzzzzzzzzzzzzaa" as Id<"dev">;
+    const PHONE_B = "dev_01hzzzzzzzzzzzzzzzzzzzzzbb" as Id<"dev">;
+    const hubKey = generateSigningKey(seededRandom(201));
+    const targetKey = generateSigningKey(seededRandom(202));
+    const phoneAKey = generateSigningKey(seededRandom(203));
+    const phoneBKey = generateSigningKey(seededRandom(204));
+
+    const phoneKeys = new Map<string, string>([
+      [PHONE_A, remoteKeyText(phoneAKey.publicKey)],
+      [PHONE_B, remoteKeyText(phoneBKey.publicKey)],
+    ]);
+    const machineKeys = (m: string) =>
+      m === HUB
+        ? remoteKeyText(hubKey.publicKey)
+        : m === TARGET
+          ? remoteKeyText(targetKey.publicKey)
+          : null;
+
+    const hubDb = new DatabaseSync(":memory:");
+    const targetDb = new DatabaseSync(":memory:");
+    for (const db of [hubDb, targetDb]) {
+      db.exec(
+        "create table releases (id text, app text, status text, declaration text)",
+      );
+      for (const step of [
+        ...FOLDER_SCHEMA_STEPS,
+        ...FOLDER_CODE_COMMIT_STEPS,
+        ...FOLDER_DESTINATION_STEPS,
+        ...FOLDER_CARRY_MARKS_STEPS,
+      ]) {
+        db.exec(step.sql);
+      }
+    }
+    const hubSql = createSql(hubDb, () => true);
+    const targetSql = createSql(targetDb, () => true);
+
+    const hubReplica = createReplica({
+      dataRoot: hubRoot,
+      machine: () => HUB,
+      signingKey: machineKeys,
+      removed: () => false,
+      sql: hubSql,
+      transaction: (fn) => fn({ sql: hubSql }),
+      clock,
+      random,
+      manifestsChanged: () => {},
+      filesChanged: () => {},
+    });
+    const targetReplica = createReplica({
+      dataRoot: targetRoot,
+      machine: () => TARGET,
+      signingKey: machineKeys,
+      removed: () => false,
+      sql: targetSql,
+      transaction: (fn) => fn({ sql: targetSql }),
+      clock,
+      random,
+      manifestsChanged: () => {},
+      filesChanged: () => {},
+    });
+
+    const hub = createCustodyService({
+      dataRoot: hubRoot,
+      computersRoot: hubComputers,
+      me: () => HUB,
+      knownComputer: (m) => m === TARGET,
+      phoneSigningKey: (dev) => phoneKeys.get(dev) ?? null,
+      deviceKind: (p) => (p.startsWith("device:") ? "phone" : null),
+      deviceMachine: () => null,
+      applyLocal: async () => ok(undefined),
+      holds: (m, p) => hubReplica.holds(m, p),
+      clock,
+      random,
+      carryKick: () => {},
+      log: () => {},
+    });
+
+    const payloadBytes = new TextEncoder().encode(
+      JSON.stringify({
+        app: APP,
+        release: "rel_01hzzzzzzzzzzzzzzzzzzzzzzz",
+        changes: [
+          {
+            id: "01hzzzzzzzzzzzzzzzzzzzzzzz",
+            operation: "add_note",
+            started_at: clock.now(),
+            hlc: String(hlcAtMs(clock.nowMs())),
+            changeset: Buffer.from("delta").toString("base64"),
+          },
+        ],
+      }),
+    );
+    const custodyId = ids.newId("pcs") as Id<"pcs">;
+    const body = {
+      format: 1 as const,
+      custody: custodyId,
+      app: APP,
+      target: TARGET,
+      device: PHONE_A,
+      base_seq: 3,
+      written_at: clock.now(),
+      payload: Buffer.from(payloadBytes).toString("base64"),
+      sha256: await sha256Hex(payloadBytes),
+      size: payloadBytes.byteLength,
+    };
+    const validSig = signDetached(
+      CUSTODY_SIGN_CONTEXT,
+      canonicalize(body),
+      phoneAKey.secretKey,
+    );
+    const forgedSig = signDetached(
+      CUSTODY_SIGN_CONTEXT,
+      canonicalize(body),
+      phoneBKey.secretKey,
+    );
+
+    const phoneAAuth: AuthenticatedContext = {
+      principal: `device:${PHONE_A}`,
+      actor: "user",
+      scope: { operations: [], targets: {} },
+      conditions: {},
+      credential_ref: `device:${PHONE_A}`,
+    };
+    const phoneBAuth: AuthenticatedContext = {
+      principal: `device:${PHONE_B}`,
+      actor: "user",
+      scope: { operations: [], targets: {} },
+      conditions: {},
+      credential_ref: `device:${PHONE_B}`,
+    };
+
+    // 위조 서명 거부.
+    const badSig = await hub.push(phoneAAuth, { body, signature: forgedSig });
+    assert.equal(badSig.ok, false);
+    assert.equal(!badSig.ok && badSig.error.code, "forbidden");
+
+    // 다른 폰 사칭 거부.
+    const spoofed = await hub.push(phoneBAuth, { body, signature: validSig });
+    assert.equal(spoofed.ok, false);
+    assert.equal(!spoofed.ok && spoofed.error.code, "forbidden");
+
+    // 정상 서명 → hub에 held 저장, custody_file로 본인 폰만 읽기 가능.
+    const pushed = await hub.push(phoneAAuth, { body, signature: validSig });
+    assert.deepEqual(
+      pushed,
+      ok({ custody: custodyId, hub: HUB, state: "held" }),
+    );
+
+    const readOk = await hub.readFile(phoneAAuth, {
+      custody: custodyId,
+      offset: 0,
+      length: payloadBytes.byteLength,
+    });
+    assert.ok(readOk.ok && Buffer.from(readOk.value).equals(payloadBytes));
+    const readOtherPhone = await hub.readFile(phoneBAuth, {
+      custody: custodyId,
+      offset: 0,
+      length: 4,
+    });
+    assert.equal(readOtherPhone.ok, false);
+    assert.equal(!readOtherPhone.ok && readOtherPhone.error.code, "forbidden");
+
+    // Hub manifest → Target replica → 재검증 후 1회만 적용 + ack 정리.
+    assert.deepEqual(
+      await publishManifest({
+        me: HUB,
+        root: hubComputers,
+        sql: hubSql,
+        transaction: (fn) => fn({ sql: hubSql }),
+        clock,
+        random,
+        sign: (b) => signManifest(b, hubKey.secretKey),
+      }),
+      ok(true),
+    );
+    const hubManifest = readFileSync(
+      join(hubComputers, ...manifestPath(HUB).split("/")),
+      "utf8",
+    );
+    assert.deepEqual(
+      await targetReplica.offerManifest(hubManifest, "link"),
+      ok("accepted"),
+    );
+    const wants = await targetReplica.wants(100);
+    assert.ok(wants.ok && wants.value.length === 1);
+    for (const want of wants.value) {
+      const bytes = readFileSync(join(hubComputers, ...want.path.split("/")));
+      assert.deepEqual(
+        await targetReplica.receive({
+          machine: HUB,
+          path: want.path,
+          size: want.size,
+          sha256: want.sha256,
+          via: "link",
+          chunks: (async function* () {
+            yield bytes;
+          })(),
+        }),
+        ok("accepted"),
+      );
+    }
+
+    const appliedIds: string[] = [];
+    const target = createCustodyService({
+      dataRoot: targetRoot,
+      computersRoot: targetComputers,
+      me: () => TARGET,
+      knownComputer: () => true,
+      phoneSigningKey: (dev) => phoneKeys.get(dev) ?? null,
+      deviceKind: () => null,
+      deviceMachine: () => null,
+      applyLocal: async (input) => {
+        appliedIds.push(input.custody);
+        return ok(undefined);
+      },
+      holds: (m, p) => targetReplica.holds(m, p),
+      clock,
+      random,
+      carryKick: () => {},
+      log: () => {},
+    });
+
+    assert.equal(await target.processIncoming(), 1);
+    assert.equal(await target.processIncoming(), 0);
+    assert.deepEqual(appliedIds, [custodyId]);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+// 지우면 permission_rules나 locked_fields가 사람 직접 확인 없이 자동 적용되거나 경로 탈출이 통과한다.
+test("settings_export: permission_rules와 locked_fields는 confirm_permissions=true 없이 절대 적용되지 않고, 확인 후에만 안전하게 적용된다", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "lophn-stg-"));
+  try {
+    const clock = manualClock(Date.UTC(2026, 10, 26, 12, 0, 0));
+    const random = seededRandom(99);
+    const ids = createIdSource({ clock, random });
+    const senderRoot = join(dir, "sender");
+    const targetRoot = join(dir, "target");
+    const senderComputers = join(senderRoot, "computers");
+    const targetComputers = join(targetRoot, "computers");
+    mkdirSync(senderComputers, { recursive: true });
+    mkdirSync(targetComputers, { recursive: true });
+
+    const senderDb = new DatabaseSync(":memory:");
+    const targetDb = new DatabaseSync(":memory:");
+    for (const db of [senderDb, targetDb]) {
+      db.exec(
+        "create table releases (id text, app text, status text, declaration text)",
+      );
+      for (const step of [
+        ...FOLDER_SCHEMA_STEPS,
+        ...FOLDER_CODE_COMMIT_STEPS,
+        ...FOLDER_DESTINATION_STEPS,
+        ...FOLDER_CARRY_MARKS_STEPS,
+      ]) {
+        db.exec(step.sql);
+      }
+    }
+    const senderSql = createSql(senderDb, () => true);
+    const targetSql = createSql(targetDb, () => true);
+    const senderKey = generateSigningKey(seededRandom(301));
+    const targetKey = generateSigningKey(seededRandom(302));
+    const signingKeyOf = (m: string) =>
+      m === ME
+        ? remoteKeyText(senderKey.publicKey)
+        : m === OTHER
+          ? remoteKeyText(targetKey.publicKey)
+          : null;
+
+    const targetReplica = createReplica({
+      dataRoot: targetRoot,
+      machine: () => OTHER,
+      signingKey: signingKeyOf,
+      removed: () => false,
+      sql: targetSql,
+      transaction: (fn) => fn({ sql: targetSql }),
+      clock,
+      random,
+      manifestsChanged: () => {},
+      filesChanged: () => {},
+    });
+
+    const userAuth: AuthenticatedContext = {
+      principal: "user:me",
+      actor: "user",
+      scope: { operations: [], targets: {} },
+      conditions: {},
+      credential_ref: "user:test",
+    };
+    const agentAuth: AuthenticatedContext = {
+      principal: "agent:ses_01hzzzzzzzzzzzzzzzzzzzzzzz",
+      actor: "agent:ses_01hzzzzzzzzzzzzzzzzzzzzzzz",
+      scope: { operations: [], targets: {} },
+      conditions: {},
+      credential_ref: "agent:test",
+    };
+
+    const sender = createSettingsExportService({
+      dataRoot: senderRoot,
+      computersRoot: senderComputers,
+      me: () => ({ id: ME, name: "Desk" }),
+      resolveMachine: () => ok({ machine: OTHER, name: "Laptop", self: false }),
+      onlineMachines: () => [
+        { machine: OTHER, status: "connected", hub: false },
+      ],
+      holds: async () => false,
+      readPermissionRules: () => ({ global: [], projects: {} }),
+      applyPermissionRules: async () => ok("applied"),
+      clock,
+      random,
+      newBatchId: () => ids.newId("stg") as Id<"stg">,
+      carryKick: () => {},
+      log: () => {},
+    });
+
+    const skillBody = "# Review skill\n";
+    const rulesBody = JSON.stringify({ global: [], projects: {} });
+    const agentBody = "---\npermission_mode: allow\n---\nHello\n";
+
+    // 경로 탈출 거부.
+    const badPath = await sender.send(userAuth, {
+      to: OTHER,
+      raw_items: [
+        {
+          kind: "skill",
+          id: "review",
+          title: "Review",
+          files: [
+            {
+              rel_path: "../escape.md",
+              content: skillBody,
+              sha256: await sha256Hex(skillBody),
+            },
+          ],
+        },
+      ],
+    });
+    assert.equal(badPath.ok, false);
+    assert.equal(!badPath.ok && badPath.error.code, "invalid_input");
+
+    const sent = await sender.send(userAuth, {
+      to: OTHER,
+      raw_items: [
+        {
+          kind: "skill",
+          id: "review",
+          title: "Review",
+          files: [
+            {
+              rel_path: "SKILL.md",
+              content: skillBody,
+              sha256: await sha256Hex(skillBody),
+            },
+          ],
+        },
+        {
+          kind: "permission_rules",
+          id: "global",
+          title: "Permission rules",
+          files: [
+            {
+              rel_path: "permission-rules.json",
+              content: rulesBody,
+              sha256: await sha256Hex(rulesBody),
+            },
+          ],
+          locked_fields: ["permission_rules"],
+        },
+        {
+          kind: "agent",
+          id: "agt_01hzzzzzzzzzzzzzzzzzzzzzzz",
+          title: "Reviewer",
+          files: [
+            {
+              rel_path: "agt_01hzzzzzzzzzzzzzzzzzzzzzzz.md",
+              content: agentBody,
+              sha256: await sha256Hex(agentBody),
+            },
+          ],
+          locked_fields: ["permissions"],
+        },
+      ],
+    });
+    assert.ok(sent.ok);
+
+    assert.deepEqual(
+      await publishManifest({
+        me: ME,
+        root: senderComputers,
+        sql: senderSql,
+        transaction: (fn) => fn({ sql: senderSql }),
+        clock,
+        random,
+        sign: (b) => signManifest(b, senderKey.secretKey),
+      }),
+      ok(true),
+    );
+    const manifestText = readFileSync(
+      join(senderComputers, ...manifestPath(ME).split("/")),
+      "utf8",
+    );
+    assert.deepEqual(
+      await targetReplica.offerManifest(manifestText, "link"),
+      ok("accepted"),
+    );
+    const wants = await targetReplica.wants(100);
+    assert.ok(wants.ok && wants.value.length === 1);
+    for (const want of wants.value) {
+      const bytes = readFileSync(
+        join(senderComputers, ...want.path.split("/")),
+      );
+      await targetReplica.receive({
+        machine: ME,
+        path: want.path,
+        size: want.size,
+        sha256: want.sha256,
+        via: "link",
+        chunks: (async function* () {
+          yield bytes;
+        })(),
+      });
+    }
+
+    let permissionRulesApplied = 0;
+    const target = createSettingsExportService({
+      dataRoot: targetRoot,
+      computersRoot: targetComputers,
+      me: () => ({ id: OTHER, name: "Laptop" }),
+      resolveMachine: () => err({ code: "not_found", message: "none" }),
+      onlineMachines: () => [],
+      holds: (m, p) => targetReplica.holds(m, p),
+      readPermissionRules: () => ({ global: [], projects: {} }),
+      applyPermissionRules: async () => {
+        permissionRulesApplied += 1;
+        return ok("applied");
+      },
+      clock,
+      random,
+      newBatchId: () => ids.newId("stg") as Id<"stg">,
+      carryKick: () => {},
+      log: () => {},
+    });
+
+    assert.equal(await target.processIncoming(), 1);
+    const staged = await target.staged(userAuth, {});
+    assert.ok(staged.ok && staged.value.batches.length === 1);
+
+    // agent는 apply 불가.
+    const agentDenied = await target.apply(agentAuth, {
+      batch: sent.value.batch,
+      confirm_permissions: true,
+    });
+    assert.equal(agentDenied.ok, false);
+    assert.equal(!agentDenied.ok && agentDenied.error.code, "forbidden");
+
+    // confirm_permissions 없이 호출 → permission_rules와 locked agent는 절대 적용되지 않는다.
+    const unconfirmed = await target.apply(userAuth, {
+      batch: sent.value.batch,
+    });
+    assert.ok(unconfirmed.ok);
+    assert.equal(unconfirmed.value.requires_permission_confirmation, true);
+    assert.deepEqual(
+      unconfirmed.value.applied.map((a) => [a.kind, a.status]),
+      [
+        ["skill", "applied"],
+        ["permission_rules", "requires_person_confirmation"],
+        ["agent", "requires_person_confirmation"],
+      ],
+    );
+    assert.equal(permissionRulesApplied, 0);
+    assert.equal(
+      existsSync(
+        join(targetRoot, "agents", "agt_01hzzzzzzzzzzzzzzzzzzzzzzz.md"),
+      ),
+      false,
+    );
+
+    // 사람이 confirm_permissions: true로 확인하면 적용된다.
+    const confirmed = await target.apply(userAuth, {
+      batch: sent.value.batch,
+      overwrite: true,
+      confirm_permissions: true,
+    });
+    assert.ok(confirmed.ok);
+    assert.equal(confirmed.value.requires_permission_confirmation, false);
+    assert.equal(permissionRulesApplied, 1);
+    assert.equal(
+      readFileSync(
+        join(targetRoot, "agents", "agt_01hzzzzzzzzzzzzzzzzzzzzzzz.md"),
+        "utf8",
+      ),
+      agentBody,
+    );
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });

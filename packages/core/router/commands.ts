@@ -13,6 +13,7 @@ import {
   callReply,
   callReplySchema,
   callStateSchema,
+  transferAttachmentSchema,
 } from "../../protocol/lophn-agent/calls.ts";
 import {
   mailAppliedSchema,
@@ -35,6 +36,11 @@ import {
   sesId,
   TEAM_SPAWNED_TOPIC,
 } from "./model.ts";
+import {
+  appendAttachmentBlock,
+  dataRootFromSql,
+  mapTransferAttachments,
+} from "./remote-reach.ts";
 
 // lophn을 켤 때 core가 한 번 부른다. queue와 앱 줄이 메모리라 잃어버린 call을 닫고 도는 turn을 닫는다.
 // core 안 machine만 쓴다.
@@ -184,6 +190,7 @@ export const callsMailSend = defineCommand({
     address: remoteAddressSchema,
     reply: callReplySchema,
     body: mailBodySchema,
+    attachments: z.array(transferAttachmentSchema).max(32).optional(),
     // `team spawn --on`: 보낸 session 밑에 그 컴퓨터에서 도는 팀원의 자리를 연다.
     spawn: z.boolean().optional(),
   }),
@@ -365,12 +372,31 @@ const sendCallCommand: CommandDefinition<typeof agentCallSend> = {
     if (!unattended.ok) return unattended;
     const router = routerFor(tx);
     if (!router.ok) return router;
+    let body = input.body;
+    let refs = input.refs;
+    if (input.attachments !== undefined && input.attachments.length > 0) {
+      const mapped = mapTransferAttachments(
+        input.attachments,
+        dataRootFromSql(tx.sql),
+      );
+      if (!mapped.ok) return mapped;
+      const seenFiles = new Set(
+        refs.filter((ref) => ref.kind === "file").map((ref) => ref.path),
+      );
+      refs = [
+        ...refs,
+        ...mapped.value
+          .filter(({ path }) => !seenFiles.has(path))
+          .map(({ path }) => ({ kind: "file" as const, path })),
+      ];
+      body = appendAttachmentBlock(body, mapped.value);
+    }
     const routed = router.value.route(tx, {
       from: { kind: "agent", session: session.value },
       to: input.to,
       reply: input.reply,
-      body: input.body,
-      refs: input.refs,
+      body,
+      refs,
       reply_to: null,
       dedup: input.dedup,
       kind: "call",

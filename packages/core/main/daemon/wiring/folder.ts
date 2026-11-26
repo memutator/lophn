@@ -11,6 +11,7 @@
 // (앱, destination)·(앱, 출처)마다 한 번에 하나만 돈다. 한 앱이 표마다 다른 destination으로 보내면 내보내기는 destination마다
 // 따로 돌고 따로 물러난다(한 destination이 막혀도 다른 destination은 나간다). 결과가 `more`면 바로 이어 돌고, 실패한 일은 1분부터 두 배씩 1시간까지
 // 물러난다(읽기의 data stream은 import가 stream마다 따로 물러난다). 이 일들은 idle-exit를 막지 않는다.
+import { createHash } from "node:crypto";
 import { type FSWatcher, readdirSync, watch } from "node:fs";
 import { rm } from "node:fs/promises";
 import { join } from "node:path";
@@ -26,11 +27,16 @@ import {
 import { readChangeset } from "../../../../base/changeset-invert.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import { encodePk } from "../../../../protocol/apps/sync/changeset.ts";
-import { msOfHlc } from "../../../../protocol/apps/sync/clock.ts";
+import { hlcAtMs, msOfHlc } from "../../../../protocol/apps/sync/clock.ts";
 import {
   appSyncCustodyFile,
   appSyncCustodyPush,
+  appSyncPush,
 } from "../../../../protocol/apps/app-sync.ts";
+import {
+  DEFAULT_PERMISSION_RULES_SETTING,
+  permissionRulesSettingSchema,
+} from "../../../../protocol/approvals/mod.ts";
 import {
   appSyncHeld,
   appSyncResume,
@@ -42,19 +48,32 @@ import {
   machineEnvironment,
   machineForget,
   parsePackageEntry,
-  SETTINGS_EXPORT_ROUTES,
+  settingsExportApply,
+  settingsExportDismiss,
+  settingsExportSend,
+  settingsExportStaged,
   takeInInputSchema,
-  TRANSFER_ROUTES,
+  transfersClear,
+  transfersList,
+  transfersSend,
+  transfersStatus,
 } from "../../../../protocol/folder/mod.ts";
 import { parseActor } from "../../../../protocol/base/mod.ts";
 import { machineComputers } from "../../../../protocol/machine/mod.ts";
+import { resolveMachine } from "../../../../protocol/machine/requester.ts";
 import { appUpdateState } from "../../../../protocol/apps/update-state.ts";
 import { publishStateChanged } from "../../../../protocol/events/changes.ts";
+import {
+  projectCommandSchema,
+  projectCommandsStore,
+} from "../../../../protocol/projects/project-commands.ts";
 import {
   REMOTE_PROTOCOL_MIN_VERSION,
   REMOTE_PROTOCOL_VERSION,
 } from "../../../../protocol/remote/mod.ts";
+import { rosterView } from "../../../../protocol/remote/roster.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
+import { permissionRulesSetting } from "../../../approvals/permission-rules/settings.ts";
 import type { SyncHeld } from "../../../apps/calls/service.ts";
 import { PACKAGE_PUBLISH_CONTEXT } from "../../../apps/control.ts";
 import { createFolderAppsHost } from "../../../apps/folder-host.ts";
@@ -64,6 +83,7 @@ import { createFollow } from "../../../apps/follow/mod.ts";
 import { readUpdateState } from "../../../apps/update-state/mod.ts";
 import {
   FOLDER_APPS_CONTEXT,
+  loadApp,
   loadApps,
 } from "../../../apps/registration/mod.ts";
 import {
@@ -74,6 +94,8 @@ import {
 import {
   sendsTo,
   sentTables,
+  type SyncPlan,
+  type SyncPolicyOverride,
   syncPlanOf,
   type TableFilter,
 } from "../../../../protocol/apps/declaration/sync-plan.ts";
@@ -93,8 +115,10 @@ import {
   remoteHubSetting,
   remotePortSetting,
   remoteRelaySetting,
+  syncAppPoliciesSetting,
 } from "../../../config/shell-settings.ts";
 import { createFolderApps } from "../../../folder/apps/mod.ts";
+import { createCustodyService } from "../../../folder/custody.ts";
 import {
   createDestinations,
   DESTINATIONS_KEY,
@@ -141,6 +165,8 @@ import { carryRoutes } from "../../../folder/carry-routes.ts";
 import { carryStatusHandler } from "../../../folder/carry-status.ts";
 import { createMirror } from "../../../folder/mirror.ts";
 import { CARRY_STAGING_DIR, createReplica } from "../../../folder/replica.ts";
+import { createSettingsExportService } from "../../../folder/settings-export.ts";
+import { createTransfersService } from "../../../folder/transfers.ts";
 import {
   MAIL_FILE_AFTER_MS,
   writeMailFiles,
@@ -153,14 +179,22 @@ import {
   seenArrivedMail,
 } from "../../../folder/import/mail.ts";
 import {
+  createSessionDirectory,
+  workspaceDepsOf,
+} from "../../../lophn-agent/workspaces/mod.ts";
+import { loadProjectCommands } from "../../../projects/commands/store.ts";
+import { loadProject, loadProjects } from "../../../projects/registry/mod.ts";
+import { projectHoldingIdentity } from "../../../projects/registry/store.ts";
+import {
   callsMailRefuse,
   callsMailSent,
   MAIL_QUEUED_TOPIC,
   mailSeen,
   pendingMails,
 } from "../../../router/mod.ts";
+import { bytesFileStream } from "../../../server/mod.ts";
 import { withAfterCommit } from "../../../storage/ledger/mod.ts";
-import type { FolderApply } from "../../../folder/ports.ts";
+import type { FolderApply, FolderChange } from "../../../folder/ports.ts";
 import {
   COMPUTERS_DESTINATION,
   carryStatus,
@@ -212,6 +246,38 @@ const FOLDER_MAIL_CONTEXT: AuthenticatedContext = {
   conditions: {},
   credential_ref: FOLDER_MAIL_PRINCIPAL,
 };
+const FOLDER_SETTINGS_PRINCIPAL = "machine:folder-settings";
+const FOLDER_SETTINGS_CONTEXT: AuthenticatedContext = {
+  principal: FOLDER_SETTINGS_PRINCIPAL,
+  actor: "machine",
+  scope: {
+    operations: [projectCommandsStore.name],
+    targets: {},
+  },
+  conditions: {},
+  credential_ref: FOLDER_SETTINGS_PRINCIPAL,
+};
+
+function syncPolicySummary(plan: SyncPlan): "computers" | "local" | "mixed" {
+  if (plan.destinations.size === 0) return "local";
+  if (
+    plan.destinations.size === 1 &&
+    plan.destinations.has(COMPUTERS_DESTINATION) &&
+    plan.destinations.get(COMPUTERS_DESTINATION) === null &&
+    plan.localTables.size === 0
+  ) {
+    return "computers";
+  }
+  return "mixed";
+}
+
+function appSyncOverride(
+  policies: Readonly<Record<string, SyncPolicyOverride>> | undefined,
+  appId: string,
+  slug: string,
+): SyncPolicyOverride {
+  return policies?.[appId] ?? policies?.[slug] ?? "default";
+}
 // 받았다고 알려 온 mail의 결과. 적용 결과(받은 call의 상태)는 받은 기계가 state mail로 따로 알린다.
 const ACKED_BY_FOLDER = {
   kind: "acked",
@@ -232,6 +298,8 @@ type LocalApp = {
   // 선언의 `sync`가 table을 보내는 destination(글자 순서)과 그리 가는 표(sent·tables가 null이면 모든 표, 옛 release).
   // 보내지 않으면 비었다.
   destinations: { name: string; sent: TableFilter; tables: string[] | null }[];
+  sync_policy: "computers" | "local" | "mixed";
+  sync_override: SyncPolicyOverride;
   release: {
     id: Id<"rel">;
     code_commit: string;
@@ -268,7 +336,11 @@ export const folderWiring: WiringFactory = () => {
 
   return {
     name: "folder",
-    records: () => [FOLDER_APPS_CONTEXT, FOLDER_MAIL_CONTEXT],
+    records: () => [
+      FOLDER_APPS_CONTEXT,
+      FOLDER_MAIL_CONTEXT,
+      FOLDER_SETTINGS_CONTEXT,
+    ],
     // 뒤 계획이 자기 build에서 등록할 수 있게 build 앞에 낸다.
     prepare(ctx) {
       ctx.provide("folderEnvironment", { register: sections.register });
@@ -436,15 +508,17 @@ export const folderWiring: WiringFactory = () => {
         ),
       );
 
-      // 활성 release가 있는 보관하지 않은 앱. data가 가는 길은 그 release 선언의 것이다(`syncPlanOf`).
+      // 활성 release가 있는 보관하지 않은 앱. data가 가는 길은 그 release 선언과 `sync.app_policies` 덮어쓰기다(`syncPlanOf`).
       function localApps(): LocalApp[] {
         const listed = loadApps(sql, "active");
         if (!listed.ok) return [];
+        const policies = ctx.settings.get(syncAppPoliciesSetting) ?? {};
         return listed.value.flatMap((app): LocalApp[] => {
           const stored = loadActiveDeclaration(sql, app.id);
           if (!stored.ok || stored.value === null) return [];
           const { release, declaration } = stored.value;
-          const plan = syncPlanOf(declaration);
+          const override = appSyncOverride(policies, app.id, app.slug);
+          const plan = syncPlanOf(declaration, override);
           return [
             {
               app: app.id as Id<"app">,
@@ -460,6 +534,8 @@ export const folderWiring: WiringFactory = () => {
                   tables: tables === null ? null : [...tables].sort(),
                 };
               }),
+              sync_policy: syncPolicySummary(plan),
+              sync_override: override,
               release: {
                 id: release.id as Id<"rel">,
                 code_commit: release.code_commit,
@@ -622,11 +698,21 @@ export const folderWiring: WiringFactory = () => {
             : null;
         },
         sentOf(release, destination) {
-          // 줄의 release 선언(봉인한 것)이 그 destination으로 보내는 표. 읽지 못하면 아무 표도 보내지 않는다.
+          // 줄의 release 선언(봉인한 것)과 `sync.app_policies` 덮어쓰기로 그 destination으로 보내는 표를 구한다.
           const stored = loadStoredDeclaration(sql, release);
-          return stored.ok && stored.value !== null
-            ? sentTables(syncPlanOf(stored.value.declaration), destination)
-            : () => false;
+          if (!stored.ok || stored.value === null) return () => false;
+          const appId = stored.value.release.app;
+          const loadedApp = loadApp(sql, appId);
+          const slug =
+            loadedApp.ok && loadedApp.value !== null
+              ? loadedApp.value.slug
+              : "";
+          const policies = ctx.settings.get(syncAppPoliciesSetting) ?? {};
+          const override = appSyncOverride(policies, appId, slug);
+          return sentTables(
+            syncPlanOf(stored.value.declaration, override),
+            destination,
+          );
         },
         operationOf(invocation) {
           const found = ctx.invocationLedger.get(invocation as Id<"inv">);
@@ -1124,6 +1210,12 @@ export const folderWiring: WiringFactory = () => {
         followUp();
         await readEvents();
         await readMail(byTimer);
+        await transfers.processIncoming();
+        await transfers.processAcksAndGc();
+        await custody.processIncoming();
+        await custody.processAcks();
+        await settingsExport.processIncoming();
+        await settingsExport.processAcks();
         return { ok: true, more: false };
       }
 
@@ -1309,6 +1401,9 @@ export const folderWiring: WiringFactory = () => {
             dirs.push(
               join(machines, machine),
               join(machines, machine, "packages"),
+              join(machines, machine, "transfers"),
+              join(machines, machine, "custody"),
+              join(machines, machine, "staged-settings"),
               apps,
             );
             for (const app of children(apps)) {
@@ -1397,11 +1492,411 @@ export const folderWiring: WiringFactory = () => {
         sql,
       };
 
+      // --- transfers, phone custody, settings_export ---
+      const resolveTargetMachine = (ref: string) => {
+        const linked = ctx.peek.machineLinks?.resolve(ref);
+        if (linked !== undefined) {
+          return linked.ok
+            ? ok({
+                machine: linked.value.machine as Id<"mch">,
+                name: linked.value.name,
+                self: linked.value.self,
+              })
+            : linked;
+        }
+        const candidates = [
+          {
+            device: me(),
+            machine: me(),
+            name: ctx.machine.status().name,
+            self: true,
+          },
+          ...importer.records().machines.map((row) => ({
+            device: row.machine,
+            machine: row.machine,
+            name: row.record.name,
+            self: row.machine === me(),
+          })),
+        ];
+        const resolved = resolveMachine(ref, candidates);
+        return resolved.ok
+          ? ok({
+              machine: resolved.value.machine as Id<"mch">,
+              name: resolved.value.name,
+              self: resolved.value.self,
+            })
+          : resolved;
+      };
+
+      const onlineMachines = () => {
+        const list = ctx.peek.machineLinks?.list() ?? [];
+        const recordHubs = new Set(
+          importer
+            .records()
+            .machines.filter((row) => row.record.hub === true)
+            .map((row) => row.machine),
+        );
+        return list.map((row) => ({
+          machine: row.machine,
+          status: row.status,
+          hub:
+            (row as { hub?: boolean }).hub === true ||
+            recordHubs.has(row.machine),
+        }));
+      };
+
+      const phoneSigningKey = (device: Id<"dev">): string | null => {
+        const statements = ctx.peek.rosterCarry?.statements();
+        const selfKey = ctx.peek.computerSigningKey?.(me());
+        if (!statements || !selfKey) return null;
+        const view = rosterView(statements, [selfKey], selfKey);
+        const found = view.devices.filter(
+          (each) => each.body.kind === "phone" && each.body.id === device,
+        );
+        return found.length === 1 ? found[0]!.body.signing_key : null;
+      };
+
+      const transfers = createTransfersService({
+        dataRoot,
+        computersRoot,
+        me: () => ({ id: me(), name: ctx.machine.status().name }),
+        resolveMachine: resolveTargetMachine,
+        onlineMachines,
+        isHub: () => facts().hub,
+        holds: (machine, path) => replica.holds(machine, path),
+        async workspaceRoots(auth) {
+          if (parseActor(auth.actor)?.kind !== "agent") return null;
+          const sessionId = auth.conditions.session as Id<"ses"> | undefined;
+          if (sessionId !== undefined) {
+            const workspaces = workspaceDepsOf(sql);
+            const found = createSessionDirectory({
+              ...workspaces,
+              publish: () => {},
+              sql: () => sql,
+            }).find(sessionId);
+            if (found !== null) {
+              const ws = found.agent.workspace;
+              if (ws === null) {
+                return [
+                  join(dataRoot, "workspaces", "home"),
+                  join(dataRoot, "inbox"),
+                ];
+              }
+              if (ws.kind === "project") {
+                const proj = loadProject(sql, ws.id);
+                return proj.ok && proj.value !== null
+                  ? proj.value.folders.map((f) => f.path)
+                  : [];
+              }
+              if (ws.kind === "app") {
+                const app = loadApp(sql, ws.id);
+                return app.ok && app.value?.source_path
+                  ? [app.value.source_path]
+                  : [];
+              }
+            }
+          }
+          if (auth.conditions.app !== undefined) {
+            const app = loadApp(sql, auth.conditions.app);
+            return app.ok && app.value?.source_path
+              ? [app.value.source_path]
+              : [];
+          }
+          return [];
+        },
+        clock: ctx.clock,
+        random: ctx.random,
+        newTransferId: () => ids.newId("trf") as Id<"trf">,
+        carryKick: () => scheduleCarry(),
+        log,
+      });
+
+      const custody = createCustodyService({
+        dataRoot,
+        computersRoot,
+        me,
+        knownComputer: known,
+        phoneSigningKey,
+        deviceKind: (principal) => ctx.peek.deviceKind?.(principal) ?? null,
+        deviceMachine: (principal) => {
+          if (!principal.startsWith("device:")) return null;
+          const dev = principal.slice("device:".length);
+          const found = ctx.peek.machineLinks
+            ?.computers()
+            .find((c) => c.device === dev);
+          return found ? (found.machine as Id<"mch">) : null;
+        },
+        async forwardToTarget(target, envelope) {
+          const links = ctx.peek.machineLinks;
+          if (links === undefined) return null;
+          const isOnline = links
+            .list()
+            .some(
+              (each) => each.machine === target && each.status === "connected",
+            );
+          if (!isOnline) return null;
+          const targetComp = links
+            .computers()
+            .find((c) => c.machine === target && !c.self);
+          if (targetComp === undefined) return null;
+          const res = await links.call(
+            targetComp.device,
+            {
+              resource: appSyncCustodyPush.resource,
+              method: appSyncCustodyPush.method,
+              body: envelope,
+            },
+            { kind: "screen" },
+          );
+          if (!res.ok) return null;
+          const state = (res.value as { state?: unknown })?.state;
+          return state === "held" ||
+            state === "duplicate" ||
+            state === "applied"
+            ? ok({ state })
+            : null;
+        },
+        async applyLocal(input) {
+          const active = loadActiveDeclaration(sql, input.app);
+          if (!active.ok) return active;
+          if (active.value === null) {
+            return err({ code: "not_found", message: "app not found" });
+          }
+          let releaseId = active.value.release.id as Id<"rel">;
+          let changes: FolderChange[];
+          try {
+            const raw = JSON.parse(
+              new TextDecoder("utf-8", { fatal: true }).decode(input.payload),
+            );
+            const push = appSyncPush.input.safeParse(raw);
+            if (push.success) {
+              if (push.data.app !== input.app) {
+                return err({
+                  code: "invalid_input",
+                  message: "custody payload app does not match envelope",
+                });
+              }
+              releaseId = push.data.release as Id<"rel">;
+              changes = push.data.changes.map((c) => ({
+                id: c.id,
+                hlc: c.hlc,
+                operation: c.operation,
+                started_at: c.started_at,
+                changeset: new Uint8Array(Buffer.from(c.changeset, "base64")),
+              }));
+            } else {
+              const parsed = raw as {
+                changes?: {
+                  id: string;
+                  operation: string;
+                  started_at: string;
+                  hlc: string;
+                  changeset: string;
+                }[];
+              };
+              if (Array.isArray(parsed?.changes) && parsed.changes.length > 0) {
+                changes = parsed.changes.map((c) => ({
+                  id: String(c.id),
+                  hlc: String(c.hlc),
+                  operation: String(c.operation),
+                  started_at: String(c.started_at),
+                  changeset: new Uint8Array(Buffer.from(c.changeset, "base64")),
+                }));
+              } else {
+                changes = [
+                  {
+                    id: input.custody,
+                    hlc: hlcAtMs(Date.parse(input.written_at)).toString(),
+                    operation: "custody.sync",
+                    started_at: input.written_at,
+                    changeset: input.payload,
+                  },
+                ];
+              }
+            }
+          } catch {
+            changes = [
+              {
+                id: input.custody,
+                hlc: hlcAtMs(Date.parse(input.written_at)).toString(),
+                operation: "custody.sync",
+                started_at: input.written_at,
+                changeset: input.payload,
+              },
+            ];
+          }
+          const applied = await ports.apply.applyChanges({
+            app: input.app,
+            release: releaseId,
+            origin: input.origin,
+            destination: COMPUTERS_DESTINATION,
+            changes,
+          });
+          return applied.ok ? ok(undefined) : applied;
+        },
+        holds: (machine, path) => replica.holds(machine, path),
+        clock: ctx.clock,
+        random: ctx.random,
+        carryKick: () => scheduleCarry(),
+        log,
+      });
+
+      const resolveProjectRef = (ref: string) => {
+        let projectId: string | null = null;
+        if (ref.startsWith("pri_")) {
+          projectId = projectHoldingIdentity(sql, ref);
+        } else if (ref.startsWith("prj_")) {
+          projectId = ref;
+        } else {
+          const all = loadProjects(sql);
+          if (all.ok) {
+            const match = all.value.find((p) => p.name === ref);
+            if (match) projectId = match.id;
+          }
+        }
+        if (projectId === null) return null;
+        const loaded = loadProject(sql, projectId);
+        if (!loaded.ok || loaded.value === null) return null;
+        return {
+          id: loaded.value.id as Id<"prj">,
+          identity: loaded.value.identity as Id<"pri">,
+          folder: loaded.value.folders[0]?.path ?? null,
+        };
+      };
+
+      const settingsExport = createSettingsExportService({
+        dataRoot,
+        computersRoot,
+        me: () => ({ id: me(), name: ctx.machine.status().name }),
+        resolveMachine: resolveTargetMachine,
+        onlineMachines,
+        holds: (machine, path) => replica.holds(machine, path),
+        resolveProject: resolveProjectRef,
+        readPermissionRules: () =>
+          ctx.settings.get(permissionRulesSetting) ??
+          DEFAULT_PERMISSION_RULES_SETTING,
+        async applyPermissionRules(value, overwrite) {
+          const parsed = permissionRulesSettingSchema.safeParse(value);
+          if (!parsed.success) {
+            return err({
+              code: "invalid_input",
+              message: parsed.error.message,
+            });
+          }
+          const current =
+            ctx.settings.get(permissionRulesSetting) ??
+            DEFAULT_PERMISSION_RULES_SETTING;
+          const next = overwrite
+            ? parsed.data
+            : {
+                global: [...current.global, ...parsed.data.global],
+                projects: { ...current.projects, ...parsed.data.projects },
+              };
+          const updated = ctx.settingsUpdate([
+            { key: permissionRulesSetting.key, action: "set", value: next },
+          ]);
+          if (!updated.ok) return updated;
+          if (updated.value.rejected.length > 0) {
+            return err({
+              code: "invalid_input",
+              message:
+                updated.value.rejected[0]!.message ??
+                "permission rules rejected",
+            });
+          }
+          return ok("applied");
+        },
+        readProjectCommand(project, id) {
+          const loaded = loadProjectCommands(sql, project);
+          if (!loaded.ok) return loaded;
+          const found = loaded.value.commands.find(
+            (cmd) => cmd.id === id || cmd.name === id,
+          );
+          if (found === undefined) {
+            return err({
+              code: "not_found",
+              message: `project command not found: ${id}`,
+            });
+          }
+          const content = `${JSON.stringify(found, null, 2)}\n`;
+          return ok({
+            kind: "project_command",
+            id: found.id,
+            title: found.name,
+            files: [
+              {
+                rel_path: `${found.id}.json`,
+                content,
+                sha256: createHash("sha256")
+                  .update(content, "utf8")
+                  .digest("hex"),
+              },
+            ],
+          });
+        },
+        async applyProjectCommand(project, item, overwrite) {
+          const primary = item.files[0];
+          if (primary === undefined) {
+            return err({
+              code: "invalid_input",
+              message: "project_command item has no file",
+            });
+          }
+          let parsedJson: unknown;
+          try {
+            parsedJson = JSON.parse(primary.content);
+          } catch {
+            return err({
+              code: "invalid_input",
+              message: "project_command content is not valid JSON",
+            });
+          }
+          const parsed = projectCommandSchema.safeParse(parsedJson);
+          if (!parsed.success) {
+            return err({
+              code: "invalid_input",
+              message: parsed.error.message,
+            });
+          }
+          const loaded = loadProjectCommands(sql, project);
+          if (!loaded.ok) return loaded;
+          const exists = loaded.value.commands.some(
+            (c) => c.id === parsed.data.id || c.name === parsed.data.name,
+          );
+          if (exists && !overwrite) return ok("skipped_conflict");
+          const commands = exists
+            ? loaded.value.commands.map((c) =>
+                c.id === parsed.data.id || c.name === parsed.data.name
+                  ? parsed.data
+                  : c,
+              )
+            : [...loaded.value.commands, parsed.data];
+          const saved = await ctx.writer.command(FOLDER_SETTINGS_CONTEXT, {
+            command: projectCommandsStore.name,
+            input: { project, commands },
+            idempotency_key: `settings-export-${ids.newId("key")}`,
+            compare: {},
+            prepared: [],
+          });
+          return saved.ok ? ok("applied") : saved;
+        },
+        clock: ctx.clock,
+        random: ctx.random,
+        newBatchId: () => ids.newId("stg") as Id<"stg">,
+        carryKick: () => scheduleCarry(),
+        log,
+      });
+
       async function environment() {
+        const peerHubMap = new Map(
+          onlineMachines().map((m) => [m.machine, m.hub]),
+        );
         return ok(
           await readEnvironment({
             machine: () => ({ id: me(), name: ctx.machine.status().name }),
             alwaysOn: () => alwaysOn(ctx),
+            hub: () => facts().hub,
+            machineHub: (machine) => peerHubMap.get(machine) === true,
             addresses: () => facts().addresses,
             version: () => version,
             destinations,
@@ -1414,6 +1909,8 @@ export const folderWiring: WiringFactory = () => {
                   tables,
                 })),
                 code_commit: app.release?.code_commit ?? null,
+                sync_policy: app.sync_policy,
+                sync_override: app.sync_override,
               })),
             exportStatus: (app, destination) =>
               exporter.status(app, destination),
@@ -1577,8 +2074,8 @@ export const folderWiring: WiringFactory = () => {
         }
         const taken = await apps.takeIn(parsed.data);
         if (!taken.ok) return taken;
-        // 들인 앱의 source와(활성화 뒤) data를 바로 받는다.
-        const app = parsed.data.app as Id<"app">;
+        // 들인 앱의 source와(활성화 뒤) data를 바로 받는다. slug 입력도 풀린 `app_` id로 깨운다.
+        const app = taken.value.app as Id<"app">;
         kick(`source:${app}`, () => importSource(app));
         return ok(taken.value);
       }
@@ -1660,7 +2157,8 @@ export const folderWiring: WiringFactory = () => {
                       (change.id === null ||
                         change.id === DESTINATIONS_KEY ||
                         change.id === SHARED_FOLDER_KEY ||
-                        change.id === callPolicySetting.key),
+                        change.id === callPolicySetting.key ||
+                        change.id === syncAppPoliciesSetting.key),
                   )
                 ) {
                   rewatch();
@@ -1725,53 +2223,57 @@ export const folderWiring: WiringFactory = () => {
           [key(appUpdateState), updateState],
           [
             key(appSyncCustodyPush),
-            () =>
-              Promise.resolve(
-                err({
-                  code: "unavailable" as const,
-                  message: "app_sync/custody_push is not implemented yet",
-                }),
-              ),
+            (auth, input) => custody.push(auth, input as never),
           ],
-          ...TRANSFER_ROUTES.map(
-            (route) =>
-              [
-                key(route),
-                () =>
-                  Promise.resolve(
-                    err({
-                      code: "unavailable" as const,
-                      message: `${route.name} is not implemented yet`,
-                    }),
-                  ),
-              ] as const,
-          ),
-          ...SETTINGS_EXPORT_ROUTES.map(
-            (route) =>
-              [
-                key(route),
-                () =>
-                  Promise.resolve(
-                    err({
-                      code: "unavailable" as const,
-                      message: `${route.name} is not implemented yet`,
-                    }),
-                  ),
-              ] as const,
-          ),
+          [
+            key(transfersSend),
+            (auth, input) => transfers.send(auth, input as never),
+          ],
+          [
+            key(transfersList),
+            (auth, input) => transfers.list(auth, input as never),
+          ],
+          [
+            key(transfersStatus),
+            (auth, input) => transfers.status(auth, input as never),
+          ],
+          [
+            key(transfersClear),
+            (auth, input) => transfers.clear(auth, input as never),
+          ],
+          [
+            key(settingsExportSend),
+            (auth, input) => settingsExport.send(auth, input as never),
+          ],
+          [
+            key(settingsExportStaged),
+            (auth, input) => settingsExport.staged(auth, input as never),
+          ],
+          [
+            key(settingsExportApply),
+            (auth, input) => settingsExport.apply(auth, input as never),
+          ],
+          [
+            key(settingsExportDismiss),
+            (auth, input) => settingsExport.dismiss(auth, input as never),
+          ],
           ...carry.memory,
         ],
         fileStreams: [
           ...carry.fileStreams,
           [
             key(appSyncCustodyFile),
-            () =>
-              Promise.resolve(
-                err({
-                  code: "unavailable" as const,
-                  message: "app_sync/custody_file is not implemented yet",
-                }),
-              ),
+            async (auth, input) => {
+              const read = await custody.readFile(auth, input as never);
+              return read.ok
+                ? ok(
+                    bytesFileStream(
+                      read.value,
+                      appSyncCustodyFile.output.contentType,
+                    ),
+                  )
+                : read;
+            },
           ],
         ],
         reads: (reads) => {

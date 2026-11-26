@@ -1,3 +1,4 @@
+import { dirname, isAbsolute } from "node:path";
 import { err, ok, type Result } from "../../base/mod.ts";
 import type { Id } from "../../protocol/base/ids.ts";
 import {
@@ -8,7 +9,11 @@ import {
   type CallPolicy,
   isPrivate,
 } from "../../protocol/lophn-agent/call-policy.ts";
-import type { RemoteWorkspace } from "../../protocol/lophn-agent/calls.ts";
+import type {
+  RemoteWorkspace,
+  TransferAttachment,
+} from "../../protocol/lophn-agent/calls.ts";
+import type { ContentBlock } from "../../protocol/lophn-agent/content-block.ts";
 import type {
   AgentAddress,
   AgentId,
@@ -16,6 +21,10 @@ import type {
 } from "../../protocol/lophn-agent/workspaces.ts";
 import type { Sql } from "../../protocol/server/mod.ts";
 import { loadRecords } from "../folder/import/deps.ts";
+import {
+  inboxAttachmentPath,
+  safeAttachmentRelPath,
+} from "../folder/transfers.ts";
 import { routerEnvironment } from "./environment.ts";
 import type { SessionDirectory } from "./ports.ts";
 import type { RouterDeps } from "./router.ts";
@@ -190,4 +199,63 @@ export function remoteWorkspaceOf(
     targetMachine,
   );
   return ok({ app: fromFolder ?? name.app });
+}
+
+/** main ledger 파일의 폴더(data root)를 구한다. 메모리 DB면 null이다. */
+export function dataRootFromSql(sql: ReadSql): string | null {
+  try {
+    const row = sql.get(
+      "select file from pragma_database_list where name = 'main'",
+      [],
+    );
+    const file = row?.["file"];
+    return typeof file === "string" && isAbsolute(file) ? dirname(file) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 첨부 파일 목록을 검증하고 받는 컴퓨터의 `<dataRoot>/inbox/<trf>/` 아래 안전한 경로로 매핑한다.
+ * 경로 탈출이나 잘못된 파일 이름은 거절한다.
+ */
+export function mapTransferAttachments(
+  attachments: readonly TransferAttachment[],
+  dataRoot: string | null,
+): Result<{ attachment: TransferAttachment; path: string }[]> {
+  const mapped: { attachment: TransferAttachment; path: string }[] = [];
+  for (const attachment of attachments) {
+    const rel = safeAttachmentRelPath(attachment);
+    const path = inboxAttachmentPath(dataRoot, attachment);
+    if (rel === null || path === null) {
+      return err({
+        code: "invalid_input",
+        message: `invalid attachment path: ${attachment.rel_path ?? attachment.name}`,
+      });
+    }
+    mapped.push({
+      attachment: { ...attachment, rel_path: rel },
+      path,
+    });
+  }
+  return ok(mapped);
+}
+
+/** 첨부 파일 참조 목록을 본문 끝에 추가할 텍스트 블록으로 만든다. */
+export function appendAttachmentBlock(
+  body: readonly ContentBlock[],
+  mapped: readonly { attachment: TransferAttachment; path: string }[],
+): ContentBlock[] {
+  if (mapped.length === 0) return [...body];
+  const lines = mapped.map(
+    ({ attachment, path }) =>
+      `- ${attachment.name} (${attachment.size} bytes, sha256:${attachment.sha256}, transfer:${attachment.transfer}): ${path}`,
+  );
+  return [
+    ...body,
+    {
+      type: "text",
+      text: `Attached files:\n${lines.join("\n")}`,
+    },
+  ];
 }

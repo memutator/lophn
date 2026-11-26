@@ -3,7 +3,9 @@
 // 싣는다.
 // 목록은 내보내기가 쓴 file의 기록(`folder_written`)과 자기 기록 file(`record.json`, `roster.json`)로 만들고 폴더를 훑지
 // 않는다: 쓰는 중에 훑은 목록은 서명된 채 빠진 file이 있어 받는 쪽이 멀쩡한 사본을 지운다. 목록이 같으면 다시 쓰지 않는다.
-import { readdir } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { createReadStream } from "node:fs";
+import { readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 import {
   canonicalize,
@@ -41,10 +43,17 @@ import {
   packagesDir,
   RECORD_MAX_BYTES,
   recordPath,
+  TRANSFER_MAX_FILE_BYTES,
 } from "../../../protocol/folder/mod.ts";
 import type { Sql, Tx } from "../../../protocol/server/mod.ts";
+import { CUSTODY_FILE_MAX_BYTES, custodyDir } from "../custody.ts";
 import { createFolderReader, createFolderWriter } from "../fs.ts";
 import { parseManifestText } from "../replica.ts";
+import {
+  STAGED_SETTINGS_FILE_MAX_BYTES,
+  stagedSettingsDir,
+} from "../settings-export.ts";
+import { transfersDir } from "../transfers.ts";
 import { updateStream } from "./status.ts";
 
 export type ManifestDeps = {
@@ -146,6 +155,58 @@ async function dirEntries(
   return out;
 }
 
+// 자기 하위 폴더의 `transfers/` 안 carry file(`acks.json`, `<trf>/meta.json`, `<trf>/files/0000.bin`)을 모은다.
+// 큰 `.bin` 파일은 stream으로 hash해 메모리를 과하게 쓰지 않는다.
+async function transferDirEntries(
+  root: string,
+  dir: string,
+): Promise<CarryFileEntry[]> {
+  const base = join(root, ...dir.split("/"));
+  let entries;
+  try {
+    entries = await readdir(base, { recursive: true, withFileTypes: true });
+  } catch {
+    return [];
+  }
+  const paths: string[] = [];
+  for (const entry of entries) {
+    if (!entry.isFile()) continue;
+    const rel = [
+      dir,
+      ...join(entry.parentPath, entry.name)
+        .slice(base.length + 1)
+        .split(/[\\/]/),
+    ].join("/");
+    if (parseCarryPath(rel) !== null) paths.push(rel);
+  }
+  paths.sort();
+  const out: CarryFileEntry[] = [];
+  for (const rel of paths) {
+    const abs = join(root, ...rel.split("/"));
+    let info;
+    try {
+      info = await stat(abs);
+    } catch {
+      continue;
+    }
+    if (!info.isFile() || info.size > TRANSFER_MAX_FILE_BYTES) continue;
+    const hash = createHash("sha256");
+    let size = 0;
+    try {
+      for await (const chunk of createReadStream(abs)) {
+        const buf = chunk as Uint8Array;
+        hash.update(buf);
+        size += buf.byteLength;
+      }
+    } catch {
+      continue;
+    }
+    if (size > TRANSFER_MAX_FILE_BYTES) continue;
+    out.push({ path: rel, size, sha256: hash.digest("hex") });
+  }
+  return out;
+}
+
 /**
  * 앱 목록과 manifest를 지금 기록에 맞춘다. manifest를 새로 썼으면 true. 서명 key가 없으면 쓰지 않는다. 앱 목록이 한도를
  * 넘으면 지난 목록을 두고 그 앱 stream에 `too_large`를 남긴다(받는 쪽은 지난 목록으로 계속 받는다).
@@ -182,8 +243,8 @@ export async function publishManifest(
   }
   packageEntries.sort((a, b) => (a.path < b.path ? -1 : 1));
 
-  // mail file과 받은 id 목록(`export/mail.ts`), handoff note(`projects/handoff`)도 temp와 rename으로만 놓인다. layout이 이
-  // 폴더들을 나열하지 않아 바로 읽는다.
+  // mail file과 받은 id 목록(`export/mail.ts`), handoff note(`projects/handoff`), transfers·custody·staged-settings도
+  // temp와 rename으로만 놓인다.
   const mailEntries = await dirEntries(deps.root, mailDir(me), (path) =>
     path === mailAcksPath(me) ? MAIL_ACKS_MAX_BYTES : MAIL_FILE_MAX_BYTES,
   );
@@ -191,6 +252,17 @@ export async function publishManifest(
     deps.root,
     notesDir(me),
     () => NOTE_FILE_MAX_BYTES,
+  );
+  const transferEntries = await transferDirEntries(deps.root, transfersDir(me));
+  const custodyEntries = await dirEntries(
+    deps.root,
+    custodyDir(me),
+    () => CUSTODY_FILE_MAX_BYTES,
+  );
+  const stagedSettingsEntries = await dirEntries(
+    deps.root,
+    stagedSettingsDir(me),
+    () => STAGED_SETTINGS_FILE_MAX_BYTES,
   );
 
   const rows = sql
@@ -275,6 +347,10 @@ export async function publishManifest(
     canonicalize(before.packages ?? []) === canonicalize(packageEntries) &&
     canonicalize(before.mail ?? []) === canonicalize(mailEntries) &&
     canonicalize(before.notes ?? []) === canonicalize(noteEntries) &&
+    canonicalize(before.transfers ?? []) === canonicalize(transferEntries) &&
+    canonicalize(before.custody ?? []) === canonicalize(custodyEntries) &&
+    canonicalize(before.staged_settings ?? []) ===
+      canonicalize(stagedSettingsEntries) &&
     mark <= before.revision
   ) {
     return ok(false);
@@ -292,6 +368,11 @@ export async function publishManifest(
     ...(packageEntries.length > 0 ? { packages: packageEntries } : {}),
     ...(mailEntries.length > 0 ? { mail: mailEntries } : {}),
     ...(noteEntries.length > 0 ? { notes: noteEntries } : {}),
+    ...(transferEntries.length > 0 ? { transfers: transferEntries } : {}),
+    ...(custodyEntries.length > 0 ? { custody: custodyEntries } : {}),
+    ...(stagedSettingsEntries.length > 0
+      ? { staged_settings: stagedSettingsEntries }
+      : {}),
   });
   if (text === null) return ok(false);
   const bytes = encoder.encode(text);

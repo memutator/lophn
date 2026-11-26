@@ -37,7 +37,12 @@ import {
   remoteStepBody,
   remoteWorkspaceOf,
 } from "../router/mod.ts";
-import { localAppIdOf } from "../router/remote-reach.ts";
+import {
+  appendAttachmentBlock,
+  dataRootFromSql,
+  localAppIdOf,
+  mapTransferAttachments,
+} from "../router/remote-reach.ts";
 import type { MemoryHandler } from "../server/mod.ts";
 
 // 폴더 길(mail-carry)도 link와 같은 입구로 적용한다. origin은 mail을 실어 온 컴퓨터의 기계다.
@@ -87,6 +92,7 @@ type RemoteSend = {
   to: z.infer<typeof callSendRemote.input>["to"];
   reply: z.infer<typeof callSendRemote.input>["reply"];
   body: z.infer<typeof callSendRemote.input>["body"];
+  attachments?: z.infer<typeof callSendRemote.input>["attachments"];
   dedup: string;
   spawn: boolean;
 };
@@ -152,9 +158,16 @@ async function sendRemote(
     });
   }
   // team spawn의 첫 call은 이 컴퓨터의 spawn과 같은 고정 글을 앞에 붙인다.
-  const body = input.spawn
+  let body = input.spawn
     ? [{ type: "text" as const, text: TEAM_MEMBER_PREAMBLE }, ...safe]
     : safe;
+  let validatedAttachments: RemoteSend["attachments"];
+  if (input.attachments !== undefined && input.attachments.length > 0) {
+    const mapped = mapTransferAttachments(input.attachments, null);
+    if (!mapped.ok) return mapped;
+    validatedAttachments = mapped.value.map((each) => each.attachment);
+    body = appendAttachmentBlock(body, mapped.value);
+  }
   const checked = mailBodySchema.safeParse(body);
   if (!checked.success) {
     return err({
@@ -170,6 +183,9 @@ async function sendRemote(
     address: address.value,
     reply: input.reply,
     body: checked.data,
+    ...(validatedAttachments !== undefined
+      ? { attachments: validatedAttachments }
+      : {}),
     ...(input.spawn ? { spawn: true } : {}),
   });
 }
@@ -202,6 +218,7 @@ export function spawnRemoteHandler(deps: MailEntryDeps): MemoryHandler {
       },
       reply: input.reply,
       body: input.body,
+      attachments: input.attachments,
       dedup: input.dedup,
       spawn: true,
     });
@@ -317,7 +334,10 @@ async function applyFrom(
     }
     if (!reported.ok) return await refuse(deps, mail, origin, reported);
   }
-  const resolvedMail = resolveIncomingAppSlug(deps.sql, mail);
+  const resolvedMail = resolveIncomingAttachments(
+    deps.sql,
+    resolveIncomingAppSlug(deps.sql, mail),
+  );
   const applied = await deps.command(callsMailApply, {
     mail: resolvedMail,
     origin,
@@ -326,6 +346,31 @@ async function applyFrom(
   });
   if (applied.ok) return ok(applied.value as MailApplied);
   return await refuse(deps, resolvedMail, origin, applied);
+}
+
+// 받는 call/reply mail에 첨부(`attachments`)가 실렸으면 이 기계의 `<dataRoot>/inbox/<trf>/` 아래 경로로
+// 안전하게 매핑해 받는 agent가 바로 찾아 읽을 수 있도록 본문에 붙인다.
+function resolveIncomingAttachments(
+  sql: Pick<Sql, "get" | "all">,
+  mail: Mail,
+): Mail {
+  if (
+    (mail.kind !== "call" && mail.kind !== "reply") ||
+    mail.attachments === undefined ||
+    mail.attachments.length === 0 ||
+    mail.body === null
+  ) {
+    return mail;
+  }
+  const mapped = mapTransferAttachments(mail.attachments, dataRootFromSql(sql));
+  if (!mapped.ok || mapped.value.length === 0) return mail;
+  const nextBody = appendAttachmentBlock(mail.body, mapped.value);
+  const checked = mailBodySchema.safeParse(nextBody);
+  if (!checked.success) return mail;
+  return {
+    ...mail,
+    body: checked.data,
+  };
 }
 
 // 받는 call mail의 workspace `{ app }`이 `app_` id 대신 slug면 이 기계의 apps 표에서 id로 푼다.

@@ -110,11 +110,15 @@ export type EnvironmentApp = {
   // 선언의 `sync`가 table을 보내는 destination과 그리 가는 표(null이면 모든 표). 보내지 않으면 비었다.
   destinations: readonly { name: string; tables: string[] | null }[];
   code_commit: string | null;
+  sync_policy?: "computers" | "local" | "mixed";
+  sync_override?: "default" | "computers" | "local";
 };
 
 export type EnvironmentDeps = {
   machine(): { id: Id<"mch">; name: string };
   alwaysOn(): Env["machines"][number]["always_on"];
+  hub?(): boolean;
+  machineHub?(machine: Id<"mch">): boolean;
   addresses(): Env["machines"][number]["addresses"];
   version(): string | null;
   destinations: DestinationsView;
@@ -146,6 +150,7 @@ export async function readEnvironment(deps: EnvironmentDeps): Promise<Env> {
       id: me.id,
       name: me.name,
       always_on: deps.alwaysOn(),
+      hub: deps.hub?.() ?? false,
       addresses: deps.addresses(),
       lophn_version: deps.version(),
       record_at: null,
@@ -157,6 +162,7 @@ export async function readEnvironment(deps: EnvironmentDeps): Promise<Env> {
         id: machine,
         name: record.name,
         always_on: record.always_on,
+        hub: record.hub === true || (deps.machineHub?.(machine) ?? false),
         addresses: record.addresses,
         lophn_version: record.lophn.version,
         record_at: record.updated_at,
@@ -204,6 +210,12 @@ export async function readEnvironment(deps: EnvironmentDeps): Promise<Env> {
           };
         }),
         release: app.code_commit,
+        ...(app.sync_policy !== undefined
+          ? { sync_policy: app.sync_policy }
+          : {}),
+        ...(app.sync_override !== undefined
+          ? { sync_override: app.sync_override }
+          : {}),
         follow: update?.follow ?? null,
         held: update?.held ?? [],
         machines: update?.machines ?? [],

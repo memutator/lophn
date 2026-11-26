@@ -17,6 +17,7 @@ import { DatabaseSync } from "node:sqlite";
 import { err, ok, type Result } from "../../../../base/result.ts";
 import {
   clockedTables,
+  conflictStrategyOf,
   sentTableNames,
   sentTables,
   type SyncPlan,
@@ -385,7 +386,9 @@ export function applyRemoteChanges(
         let applied: Result<ApplyStats>;
         sync.record.begin();
         try {
-          applied = applyRemote(db, [change], sync.clock);
+          applied = applyRemote(db, [change], sync.clock, {
+            conflict: (table) => conflictStrategyOf(sync.plan, table),
+          });
         } catch (error) {
           sync.record.end();
           db.exec("rollback to lophn_change");
@@ -681,6 +684,7 @@ export function mergeSnapshotFile(
         try {
           const tables = sentTables(sync.plan, input.destination);
           merged = mergeSnapshot(db, nodeSyncDb(source), sync.clock, {
+            conflict: (table) => conflictStrategyOf(sync.plan, table),
             ...(tables === null ? {} : { tables }),
             ...(absent === undefined
               ? {}

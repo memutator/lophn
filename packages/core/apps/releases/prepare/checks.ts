@@ -80,12 +80,17 @@ function planOf(declaration: unknown): SyncPlan {
       ? (given["runs_on"] as AppDeclaration["runs_on"])
       : undefined,
     sync:
-      sync !== null && typeof sync === "object" && !Array.isArray(sync)
-        ? (sync as Record<string, string>)
-        : undefined,
+      sync === "local"
+        ? "local"
+        : sync !== null && typeof sync === "object" && !Array.isArray(sync)
+          ? (sync as AppDeclaration["sync"])
+          : undefined,
     // 다른 컴퓨터에서 온 옛 release(take-in·따라가기)는 이 칸으로 모든 표를 보낸다.
     sync_to:
       typeof given["sync_to"] === "string" ? given["sync_to"] : undefined,
+    sdk_dependencies: Array.isArray(given["sdk_dependencies"])
+      ? (given["sdk_dependencies"] as AppDeclaration["sdk_dependencies"])
+      : undefined,
   });
 }
 

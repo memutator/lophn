@@ -3174,17 +3174,39 @@ flows:
     boundary: [app-runtime, app-data, folder, remote]
     code:
       - packages/protocol/apps/app-sync.ts
+      - packages/core/folder/custody.ts
       - packages/core/main/daemon/wiring/folder.ts
     steps:
-      - "Step 0 stub: Wave 2에서 폰 Ed25519 signing_key 서명 검증, hub carry 보관과 대상 컴퓨터 전달을 붙인다"
+      - "폰이 대상 컴퓨터가 offline일 때 온라인 hub 컴퓨터로 `app_sync/custody_push`를 부른다(Ed25519 signing_key로 `CUSTODY_SIGN_CONTEXT` 서명)"
+      - "hub는 명단의 `body.kind === \"phone\"` 항목에서 `from_device`의 `signing_key`를 찾아 서명과 sha256을 검증하고(위조·다른 기기 사칭 거절), 대상이 온라인이면 즉시 전달하거나 `<dataRoot>/computers/machines/<hub>/custody/<pcs>.json`에 원문 그대로 보관해 carry를 깨운다"
+      - "`app_sync/custody_file`은 인증된 기기에게 보관 중인 custody payload를 안전하게 읽힌다"
+      - "대상 컴퓨터가 켜져 carry로 받으면 폰의 `signing_key` 서명과 sha256을 다시 검증한 뒤 해당 앱의 sync apply 경로로 중복 없이 적용하고 `custody/acks.json`을 써 hub 보관을 정리한다"
     outcomes:
+      - id: held
+        when: "서명 검증을 통과해 hub가 보관(held)하거나 대상 컴퓨터에 전달(forwarded)했다"
+        observe: [response, "disk:<dataRoot>/computers/machines/<hub>/custody/"]
+      - id: duplicate
+        when: "같은 custody id(`pcs_`)가 이미 보관 또는 처리되어 멱등 응답했다"
+        observe: [response]
+      - id: invalid-input
+        code: invalid_input
+        when: "입력이 schema·sha256·서명 검증에 맞지 않는다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "폰 명단 항목이 없거나 `from_device`가 호출 기기와 다르거나 서명이 유효하지 않다"
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: "대상 컴퓨터나 요청한 custody file이 없다"
+        observe: [response]
       - id: unavailable
         code: unavailable
-        when: "구현 전 stub 상태다"
+        when: "hub 보관 저장소나 전달 경로를 열 수 없다"
         observe: [response]
-    declared_only: [invalid_input, not_found, forbidden]
     crosses_process: true
     risk: [data-loss, secret]
+    docs: [architecture/multi-computer.md, architecture/app-sync.md]
 
   - id: transfers-send
     title: "사람이나 agent가 다른 컴퓨터로 file을 보낸다(꺼져 있으면 hub가 맡는다)"
@@ -3193,17 +3215,40 @@ flows:
     boundary: [folder, remote, core-api]
     code:
       - packages/protocol/folder/transfers.ts
+      - packages/core/folder/transfers.ts
       - packages/core/main/daemon/wiring/folder.ts
     steps:
-      - "Step 0 stub: Wave 2에서 transfers 폴더 Materialize(0644), hub 보관(held_at_hub), 7일 만료 정리를 붙인다"
+      - "`transfers/send`가 대상 컴퓨터를 풀고 파일 크기·개수를 검사한다. agent 호출은 `allow_outside_workspace`가 true여도 workspace 경계 밖 경로와 symlink 탈출을 차단한다"
+      - "`<dataRoot>/computers/machines/<this>/transfers/<trf>/`에 `meta.json`과 파일 조각을 기록해 carry를 깨운다. 대상이 온라인이면 즉시 전달을 추적하고, offline이지만 온라인 hub가 있으면 `held_at_hub`(+ `held_by`), 없으면 `queued`를 돌려준다"
+      - "받는 컴퓨터는 carry로 받은 뒤 크기·sha256을 검증해 `<dataRoot>/inbox/<trf>/`에 실행 비트 없는 `0644`로 원자적 배치(충돌 시 안전한 접미사)하고 `acks.json`을 써 보낸 쪽·hub를 정리한다. 7일(`TRANSFER_TTL_MS`)이 지난 보관 파일은 GC한다"
+      - "`transfers/list`, `transfers/status`, `transfers/clear`로 송수신 목록·상태를 읽고 정리한다"
     outcomes:
+      - id: ok
+        when: "전송이 접수(`delivered` / `held_at_hub` / `queued`)되거나 목록·상태 조회·정리가 완료됐다"
+        observe: [response, "disk:<dataRoot>/computers/machines/<this>/transfers/", "disk:<dataRoot>/inbox/"]
+      - id: invalid-input
+        code: invalid_input
+        when: "입력이 schema·파일 개수·크기 상한에 맞지 않거나 자기 컴퓨터를 대상으로 지정했다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "agent가 workspace 밖 경로를 보내려 하거나 허용되지 않은 actor다"
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: "대상 컴퓨터, 원본 파일, 또는 조회·정리할 transfer id가 없다"
+        observe: [response]
+      - id: conflict
+        code: conflict
+        when: "상태 충돌로 작업을 진행할 수 없다"
+        observe: [response]
       - id: unavailable
         code: unavailable
-        when: "구현 전 stub 상태다"
+        when: "저장소나 carry 경로를 열 수 없다"
         observe: [response]
-    declared_only: [invalid_input, not_found, forbidden, conflict]
     crosses_process: true
     risk: [sandbox, data-loss]
+    docs: [architecture/multi-computer.md, architecture/folder-sync.md]
 
   - id: settings-export-send
     title: "사람이 agent, skill, project command, permission rules, workflow를 다른 컴퓨터로 보내고 받은 쪽에서 검토해 적용한다"
@@ -3212,14 +3257,37 @@ flows:
     boundary: [folder, remote, core-api]
     code:
       - packages/protocol/folder/settings-export.ts
+      - packages/core/folder/settings-export.ts
       - packages/core/main/daemon/wiring/folder.ts
     steps:
-      - "Step 0 stub: Wave 2에서 5종 설정·workflow 내보내기와 staged 검토, permission_rules 및 locked field 사람 직접 확인 적용을 붙인다"
+      - "`settings_export/send`가 5종(`agent`, `skill`, `project_command`, `permission_rules`, `workflow`) 항목을 `stg_` 배치로 묶어 carry(`staged-settings/<stg>.json`)로 보낸다(대상이 offline이면 hub 보관 `held_at_hub`)"
+      - "받는 컴퓨터는 carry로 온 배치를 검증해 `<dataRoot>/staged-settings/<stg>.json`에 `pending`으로 저장하고 바로 덮어쓰지 않는다"
+      - "`settings_export/staged`·`dismiss`로 대기 배치를 검토하거나 닫는다"
+      - "`settings_export/apply`(사람 자격 전용)는 항목에 `permission_rules`나 `locked_fields`가 있으면 `confirm_permissions: true`가 아닐 때 `requires_person_confirmation`을 돌려주며 자동 적용을 막는다. 확인이 통과한 항목만 대상 폴더·설정에 안전하게 적용한다"
     outcomes:
+      - id: ok
+        when: "내보내기 접수, 대기 목록 조회, 적용 또는 닫기가 완료됐다"
+        observe: [response, "disk:<dataRoot>/staged-settings/"]
+      - id: invalid-input
+        code: invalid_input
+        when: "입력이 schema·경로 경계·sha256 검사에 맞지 않는다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "사람 자격이 아닌 actor가 적용·내보내기를 호출했다"
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: "대상 컴퓨터, 내보낼 항목, 또는 `stg_` 배치가 없다"
+        observe: [response]
+      - id: conflict
+        code: conflict
+        when: "덮어쓰기 옵션 없이 기존 항목과 충돌하거나 이미 처리된 배치다"
+        observe: [response]
       - id: unavailable
         code: unavailable
-        when: "구현 전 stub 상태다"
+        when: "저장소나 carry 경로를 열 수 없다"
         observe: [response]
-    declared_only: [invalid_input, not_found, forbidden, conflict]
     crosses_process: true
     risk: [permission, data-loss]
+    docs: [architecture/multi-computer.md, architecture/settings.md]

@@ -22,7 +22,7 @@ export const mobileTerminal = {
   "mobile.terminal.label.view-only": "View only",
   "mobile.terminal.label.loading": "Waiting for the terminal’s screen…",
   "mobile.terminal.notice.typing-off":
-    "Typing is off for this phone. Turn it on in Settings › Remote on the computer.",
+    "Control is off for this phone. Turn on “Allow controlling this computer” in Settings › My computers on the computer.",
   "mobile.terminal.notice.gone": "This terminal is closed on {computer}.",
   "mobile.terminal.notice.unreachable":
     "lophn on {computer} isn’t answering. The screen may be out of date.",

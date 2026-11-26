@@ -1,0 +1,56 @@
+id: computer-hub
+version: 0.23.180
+platform_note: none
+title: Add embedded Hub relay, file transfers, phone custody, default computer app sync, keep_both conflict preservation, remote clipboard, and unified My computers settings
+modules:
+  - packages/protocol
+  - packages/protocol/apps/sync
+  - packages/protocol/folder
+  - packages/remote-client
+  - packages/relay
+  - packages/core/config
+  - packages/core/folder
+  - packages/core/remote
+  - packages/core/router
+  - packages/core/secrets
+  - packages/core/terminals
+  - packages/core/projects
+  - packages/core/apps
+  - packages/core/apps/sync
+  - packages/core/lophn-agent
+  - packages/core/agent-workspaces
+  - packages/core/main
+  - packages/coding-agent
+  - packages/cli
+  - packages/sdk
+  - packages/design
+  - packages/shell/ipc
+  - packages/shell/preload
+  - packages/shell/main
+  - packages/shell/renderer
+  - packages/mobile
+  - tools
+change: |
+  Added embedded Hub relay (`/v1/host`, `/v1/phone`, `/v1/data`) on `remote.port` gated by `remote.hub`, ordered multi-relay propagation (Hub relays first, Fly fallback last) through hello/roster/record without re-pairing, and a unified `createReceiveScheduler` fixing dropped kicks during exponential backoff across folder carry and vault-sync.
+  Added cross-computer app slug resolution (`remoteWorkspaceOf`, `a2a/agents`, `a2a/sessions`, `a2a/mail`, `app.take_in`), unmasked `carriesReason` diagnostics for cross-computer commands, and updated agent skills/prompts (`lophn-agent`, `connect-computers`, `home.md`) with the Two Promises model.
+  Added disk-backed file transfers (`transfers/*`, `lophn send`, `<data root>/inbox/<trf>/` 0644 atomic materialization, hub hold `held_at_hub`, 7-day GC) and `--attach` support on `call send --on` and `handoff write`.
+  Added phone Ed25519 custody key advertisement (`clientHello.signing_key` / `roster/join` while keeping roster `trust()` strictly computer-only) and signed offline `app_sync/custody_push|file` via online Hub computers.
+  Updated `@lophn/declaration` to `6.0.0` (`@lophn/app-ui` `2.26.0`, `@lophn/app-ui-native` `1.12.0` + `migrate-sdk` notes) so tables default to `"computers"` sync with `"local"` opt-out (preserving local default for sealed `<= 5.2.0` computer-only bundles), added deterministic `keep_both` text conflict preservation using only existing `lophn_sync_*` tables, and added per-app `sync.app_policies` overrides.
+  Added 5-kind staged settings/workflow export (`settings_export/*`, `lophn settings export|staged|apply|dismiss`) with mandatory person confirmation (`confirm_permissions: true`) for `permission_rules` and `locked_fields`.
+  Added terminal image paste/drop (`terminals/paste_image`), OSC 52 writes up to 1 MiB with `shell.terminal.osc52_clipboard` toggle and remote `TerminalClipboardWritten` toast (blocking `?` reads), Linux headless PATH clipboard shims (`pbcopy`/`xclip`/`xsel`/`wl-copy`), and remote Explorer copy/paste (`project_files/write_bytes|copy`).
+  Unified Settings › Remote and Sync into Settings › My computers with "Allow controlling this computer" wording, Hub/Two Promises badges, app sync overrides, received files, staged settings review/apply, attachment badges, and offline-capable `settings_export/send` export dialog.
+why: |
+  Users with an always-on computer (such as a VPS or home machine) needed it to act as a relay and offline custodian for files, phone app changes, and settings/workflows without re-pairing, with sensible default computer sync for app data, conflict preservation for text fields, seamless remote clipboard/image paste on headless machines, and a single unified My computers settings surface.
+decisions:
+  - text: |
+      Keep Hub activation explicit per computer (`remote.hub` locked to person), store held carry data in plaintext on the person's own Hub computer, and dial Hub relays before Fly fallback.
+    by: person
+  - text: |
+      Split data policy by kind: app data syncs across computers by default from `@lophn/declaration` 6.0.0 with `"local"` opt-out and `"keep_both"` text conflict preservation, while environment-dependent settings (`agent`, `skill`, `project_command`, `permission_rules`, `workflow`) use staged export with mandatory person confirmation for permission rules and locked fields.
+    by: person
+  - text: |
+      Materialize received user transfers under `<data root>/inbox/<trf>/` with mode `0644` without overwriting project folders or executing files.
+    by: person
+  - text: |
+      Unify device control switch naming to "Allow controlling this computer" and allow OSC 52 writes up to 1 MiB with toast notification and a settings switch while continuing to block OSC 52 reads (`?`).
+    by: person

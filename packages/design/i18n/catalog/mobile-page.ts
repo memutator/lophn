@@ -14,7 +14,7 @@ export const mobilePage = {
   "mobile.page.notice.not-painting":
     "The page’s window on {computer} is minimized or hidden, so it isn’t drawn. The picture comes back when the window shows again.",
   "mobile.page.notice.view-only":
-    "This phone can only watch pages. To use them, turn on “Allow typing in terminals” for this phone in Settings › Remote › My devices on {computer}.",
+    "This phone can only watch pages. To use them, turn on “Allow controlling this computer” for this phone in Settings › My computers on {computer}.",
   "mobile.page.notice.gone": "This page is closed on {computer}.",
   "mobile.page.notice.unreachable":
     "lophn on {computer} isn’t answering. The picture may be out of date.",

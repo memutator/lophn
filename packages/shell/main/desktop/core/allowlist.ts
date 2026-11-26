@@ -45,6 +45,7 @@ const RENDERER_MEMORY_ROUTES: readonly string[] = [
   "memory:apps/oauth_cancel",
   "memory:apps/oauth_sign_out",
   "memory:apps/oauth_state",
+  "memory:apps/sync_held",
   "memory:apps/update_state",
   "memory:settings/list",
   "memory:settings/update",

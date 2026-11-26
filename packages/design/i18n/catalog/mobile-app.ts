@@ -64,7 +64,7 @@ export const mobileApp = {
   "mobile.setup.notice.handoff-waiting":
     "Open the page and finish signing in. When your browser redirects to a localhost page that can’t load, copy the full URL from the address bar and paste it below.",
   "mobile.setup.notice.not-allowed":
-    "{computer} doesn’t let this phone change its settings. To allow it, turn on “Allow typing in terminals” for this phone in Settings › Remote › My devices on that computer.",
+    "{computer} doesn’t let this phone change its settings. To allow it, turn on “Allow controlling this computer” for this phone in Settings › My computers on that computer.",
   "mobile.start.button.continue": "Continue",
   "mobile.start.button.enter-code": "Paste the invite instead",
   "mobile.start.button.flashlight": "Flashlight",
@@ -83,15 +83,15 @@ export const mobileApp = {
   "mobile.start.heading.unreachable": "Cannot reach {name}",
   "mobile.start.heading.welcome": "lophn on your phone",
   "mobile.start.intro.expired":
-    "An invite works once and lasts 30 minutes. Choose New invite in Settings › Remote on your computer and scan again.",
+    "An invite works once and lasts 30 minutes. Choose New invite in Settings › My computers on your computer and scan again.",
   "mobile.start.intro.paired":
-    "This phone now shows under Settings › Remote on that computer. You can remove it from either side.",
+    "This phone now shows under Settings › My computers on that computer. You can remove it from either side.",
   "mobile.start.intro.unreachable":
     "The code is fine but the connection did not open. Check that lophn is running on the computer and that it is online.",
   "mobile.start.intro.welcome":
     "Use your apps, talk to your agents and answer what they ask, wherever you are.",
-  "mobile.start.label.scan-path": "Settings › Remote › Invite a phone",
-  "mobile.start.label.settings-remote": "Settings › Remote",
+  "mobile.start.label.scan-path": "Settings › My computers › Invite a phone",
+  "mobile.start.label.settings-remote": "Settings › My computers",
   "mobile.start.note.encrypted":
     "End-to-end encrypted. Only this phone and your computer can read what passes between them.",
   "mobile.start.note.enter-code":

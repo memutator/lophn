@@ -39,7 +39,7 @@ export const terminalShownSchema = z
 
 /** 터미널에서 고른 글. main이 OS clipboard에 쓴다. shell 창 session은 web clipboard permission을 거절한다. */
 export const terminalCopySchema = z
-  .object({ text: z.string().min(1).max(60_000) })
+  .object({ text: z.string().min(1).max(1_048_576) })
   .strict();
 
 /**

@@ -19,7 +19,7 @@
 - 목표: agent가 팀원을 다른 컴퓨터에 열고(`team spawn --on`) 그 팀원이 이 컴퓨터의 팀 규칙 하나 아래 이 컴퓨터의 팀원처럼 일한다. 팀 규칙과 팀의 모양은 연 컴퓨터가 쥔다.
 - 목표: session이 남긴 handoff note가 사람이 정해 둔 길로 다른 컴퓨터에 가고, 그 컴퓨터의 사람이 그 project에서 note를 첫 말로 새 session을 연다.
 - 비목표: agent 정의, skill, 설정, 자격을 기계 사이에 맞추기. 받는 기계는 자기 정의와 자기 model key로 돈다.
-- 비목표: transcript, file, image, commit하지 않은 변경을 옮기기. 글만 간다. code는 git이 옮기고 방법은 지침에 있다.
+- 비목표: transcript와 commit하지 않은 변경을 옮기기. 글과 선택적 전송 첨부(`--attach`, `transfers/*` 참조)만 간다. code는 git이 옮기고 방법은 지침에 있다.
 - 비목표: 받은 일을 또 다른 기계로 넘기기. program이 기계나 agent를 대신 고르기, 꺼진 기계 대신 이 기계에서 돌리기, 지침이 가리킨 기계·agent가 맞는지 검사하기.
 - 비목표: 결과를 모르는 일을 새 call로 다시 시키기. relay나 서버가 mail을 맡아 두기.
 - 비목표: workflow run 화면의 컴퓨터와 배달 상태(roadmap `a2a-multi-device.md`에 남았다). 다른 컴퓨터에 연 팀원이 그 컴퓨터에서 또 팀원을 열기(팀원은 잎이다).
@@ -54,7 +54,7 @@
 ### 주소
 
 - agent가 적는 주소는 이 기계의 call 주소(`agent-call.md`의 세 꼴)에 `machine`을 더한 것이다. 컴퓨터는 명단의 이름, `mch_`, `dev_`로 고르고(`remote.md`의 "이름 풀기") 이 컴퓨터면 `invalid_input`이다.
-- mail 안의 주소는 workspace를 늘 밝히고 기계를 건너는 이름을 쓴다: project는 기계 사이에 같은 id(`pri_…`. 두 컴퓨터가 같은 project를 어떻게 맞추는지는 `project-identity.md`), 앱은 앱 id, Home은 그 기계의 Home이다. 보내는 쪽이 바꾼다: workspace를 빼면 이 기계의 call과 같이 `lophn`은 부른 쪽 workspace, 다른 agent는 Home이다. project 이름이나 `prj_`는 이 기계의 project로 풀어 그 id를 싣고, `pri_`는 그대로 싣는다(그 컴퓨터에만 있는 project). 앱 slug는 앱 id로 바꾼다.
+- mail 안의 주소는 workspace를 늘 밝히고 기계를 건너는 이름을 쓴다: project는 기계 사이에 같은 id(`pri_…`. 두 컴퓨터가 같은 project를 어떻게 맞추는지는 `project-identity.md`), 앱은 앱 id 또는 slug, Home은 그 기계의 Home이다. 보내는 쪽이 바꾼다: workspace를 빼면 이 기계의 call과 같이 `lophn`은 부른 쪽 workspace, 다른 agent는 Home이다. project 이름이나 `prj_`는 이 기계의 project로 풀어 그 id를 싣고, `pri_`는 그대로 싣는다(그 컴퓨터에만 있는 project). 앱 slug는 이 컴퓨터에 있으면 앱 id로, 없으면 대상 기계의 폴더 기록(`app.json`)에서 풀어 id를 싣고, 그래도 찾지 못하면 원문 slug를 그대로 실어 보내 받는 컴퓨터의 `a2a/agents`·`a2a/sessions`·`a2a/mail`이 자기 앱 목록에서 푼다. `call.send`, `team.spawn`, `session.list`, `agent.list`, `send` 등 교차 컴퓨터 명령의 실패는 원인을 공통 문장으로 가리지 않고 오프라인·미발견 이유를 그대로 전한다. `call send --on --attach`와 `handoff write --attach`는 `transfers/send`로 올린 첨부 참조(`attachments`)를 함께 실어 보내며, 받는 컴퓨터는 `<data root>/inbox/<trf>/` 경로로 안전하게 연결한다.
 - 받는 기계는 `pri_`를 자기 project로 푼다. 없으면 없다고 답한다(`not_found`). code가 없거나 옛것일 때의 처리는 지침의 일이다.
 - session을 가리키는 주소는 그 session을 연 것이 보낸 기계의 mail일 때만 그 session으로 간다. 사람이 연 session, 이 기계의 call이 연 session, 다른 기계의 mail이 연 session은 없는 session과 같다(`{session}` 꼴은 `not_found`, `fallback: new` 꼴은 새 session). 이 기계가 그 기계에 연 팀원이 보낸 mail만 이 기계의 팀원처럼 어느 session이든 가리키고 팀 규칙이 거른다("다른 컴퓨터에 연 팀원").
 

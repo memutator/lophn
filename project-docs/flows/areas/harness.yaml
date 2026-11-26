@@ -4253,13 +4253,34 @@ flows:
     code:
       - packages/shell/ipc/terminal.ts
       - packages/shell/main/desktop/wiring/terminal.ts
+      - packages/core/terminals/paste-image.ts
+      - packages/core/terminals/routes.ts
       - packages/core/main/daemon/wiring/terminals.ts
     steps:
-      - "Step 0 stub: Wave 1에서 PNG/JPEG/WEBP 이미지를 core 임시 경로에 쓰고 경로를 돌려준다"
+      - "터미널 탭이 클립보드 이미지 붙여넣기나 이미지 drop을 받아 `shell:terminal-paste-image` IPC로 보낸다"
+      - "shell main이 focus와 터미널 권한을 확인해 `terminals/paste_image`를 부른다(다른 컴퓨터 터미널은 제어 허락이 있는 기기만 허용)"
+      - "core가 `image/png`, `image/jpeg`, `image/webp`와 최대 10 MiB를 검증한 뒤 `<dataRoot>/tmp/terminal-paste/`에 `0600`으로 저장(오래된 임시 파일 정리)하고 `{ path, bytes }`를 돌려준다"
+      - "renderer가 반환된 경로를 shell-quoted 텍스트로 터미널에 입력한다"
     outcomes:
+      - id: written
+        when: "이미지가 임시 경로에 저장되고 `{ path, bytes }`를 돌려받았다"
+        observe: [response, "disk:<dataRoot>/tmp/terminal-paste/"]
+      - id: invalid-input
+        code: invalid_input
+        when: "지원하지 않는 media_type이거나 잘못된 base64·크기 상한 초과다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "focus capability나 원격 제어 허락이 없다"
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: "대상 터미널이 없다"
+        observe: [response]
       - id: unavailable
         code: unavailable
-        when: "구현 전 stub 상태다"
+        when: "임시 폴더에 파일을 쓸 수 없다"
         observe: [response]
     crosses_process: true
     risk: [sandbox]
+    docs: [architecture/terminal-agent.md, architecture/multi-computer.md]

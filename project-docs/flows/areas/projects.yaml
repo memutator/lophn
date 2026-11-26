@@ -1063,15 +1063,39 @@ flows:
       - packages/core/projects/files/mod.ts
       - packages/core/main/daemon/wiring/projects.ts
     steps:
-      - "Step 0 stub: Wave 1에서 base64 bytes 디코드, 폴더 경계 검사 및 파일 쓰기를 붙인다"
+      - "등록된 project 폴더 경계와 symlink 탈출 여부를 검사하고, 원격 호출은 제어 허락이 있는 기기만 허용한다"
+      - "base64 입력(최대 24 MiB)을 디코드해 `O_NOFOLLOW`와 원자적 교체로 대상 경로에 쓴다(`overwrite`가 false인데 파일이 이미 있으면 `conflict`)"
     outcomes:
+      - id: written
+        when: "파일을 성공적으로 썼다"
+        observe: [response]
+      - id: invalid-input
+        code: invalid_input
+        when: "경로가 폴더 밖이거나 base64·크기 상한을 어겼다"
+        observe: [response]
+      - id: unauthorized
+        code: unauthorized
+        when: "인증 자격이 없다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "허락 없는 기기이거나 symlink 탈출·권한 밖 요청이다"
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: "project나 상위 폴더가 없다"
+        observe: [response]
+      - id: conflict
+        code: conflict
+        when: "`overwrite` 없이 대상 파일이 이미 존재한다"
+        observe: [response]
       - id: unavailable
         code: unavailable
-        when: "구현 전 stub 상태다"
+        when: "디스크 쓰기에 실패했다"
         observe: [response]
-    declared_only: [invalid_input, unauthorized, forbidden, not_found, conflict]
     crosses_process: false
     risk: [sandbox, data-loss]
+    docs: [architecture/multi-computer.md]
 
   - id: project-files-copy
     title: "project 등록 폴더 안에서 file이나 폴더를 복사한다"
@@ -1083,15 +1107,39 @@ flows:
       - packages/core/projects/files/mod.ts
       - packages/core/main/daemon/wiring/projects.ts
     steps:
-      - "Step 0 stub: Wave 1에서 출처·대상 폴더 경계 검사 및 복사를 붙인다"
+      - "출처와 대상 경로가 모두 등록된 project 폴더 안에 있는지, symlink 탈출·순환 symlink·자기 하위 복사가 아닌지 검사한다"
+      - "원격 호출은 제어 허락이 있는 기기만 허용하며, 파일 또는 디렉터리를 안전하게 복사한다"
     outcomes:
+      - id: copied
+        when: "파일이나 폴더 복사가 완료됐다"
+        observe: [response]
+      - id: invalid-input
+        code: invalid_input
+        when: "경로가 잘못됐거나 자기 자신·하위 폴더로의 복사다"
+        observe: [response]
+      - id: unauthorized
+        code: unauthorized
+        when: "인증 자격이 없다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "허락 없는 기기이거나 symlink 탈출·폴더 밖 접근이다"
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: "project나 원본 경로가 없다"
+        observe: [response]
+      - id: conflict
+        code: conflict
+        when: "`overwrite` 없이 대상 경로가 이미 존재한다"
+        observe: [response]
       - id: unavailable
         code: unavailable
-        when: "구현 전 stub 상태다"
+        when: "복사 중 디스크 오류가 발생했다"
         observe: [response]
-    declared_only: [invalid_input, unauthorized, forbidden, not_found, conflict]
     crosses_process: false
     risk: [sandbox, data-loss]
+    docs: [architecture/multi-computer.md]
 
   - id: artifacts-list
     title: "다른 컴퓨터의 창이 project나 앱의 artifact 목록을 읽는다"

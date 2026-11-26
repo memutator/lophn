@@ -24,6 +24,7 @@ import { openTerminal } from "./kinds/terminal.tsx";
 import {
   agentRow,
   openedWorkspaceLophnSession,
+  sessionAgentTarget,
 } from "./sidebar/panel-sessions.ts";
 import type { WorkspaceSource } from "./source.ts";
 
@@ -125,11 +126,22 @@ export function useTabHostSlices(input: TabHostSlicesInput) {
             onSettings(target === "rules" ? "shell-rules" : "tools"),
           openConnections: () => onSettings("providers"),
           openSession: (session, open) => {
-            const row = rowOfSession(session);
-            if (row === undefined) return;
+            const entry = sessionStates.find(
+              (item) => item.session === session,
+            );
+            const target =
+              entry === undefined
+                ? undefined
+                : sessionAgentTarget(
+                    entry,
+                    sidebarAgents.agents,
+                    workspace,
+                    sessionTitles.known.get(session)?.title,
+                  );
+            if (target === undefined) return;
             openAgent(hostRef.current(), {
-              agent: row.assignment,
-              name: row.name,
+              agent: target.assignment,
+              name: target.name,
               session,
               ...open,
             });

@@ -221,6 +221,7 @@ function viewHost(
   slice: AgentViewSlice,
 ): AgentViewHost {
   const agent = agentOf(tab)!;
+  const machine = tab.machine ?? host.machine;
   return {
     // 편집 카드의 [Open]. 그 파일을 파일 탭으로 연다. 자리는 이 탭을 source로 `showAfter`가 정한다.
     openFile: (path) => slice.openFile(path, tab.key),
@@ -233,7 +234,12 @@ function viewHost(
     openForked: (session) =>
       openAgent(host, { agent, name: tab.title, session }),
     // 이 project의 session이면 그 탭, 아니면 그 session의 창으로 간다(toast의 [Open]과 같은 길).
-    openSession: (session) => runToastAction({ kind: "session", session }),
+    openSession: (session) =>
+      runToastAction({
+        kind: "session",
+        session,
+        ...(machine === null ? {} : { machine }),
+      }),
     openConnections: slice.openConnections,
     desktop: desktopParts,
   };

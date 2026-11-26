@@ -66,6 +66,7 @@ import {
   openWorkspaceNewSession,
   openWorkspaceSession,
   openWorkspaceSettings,
+  openWorkspaceTerminal,
   type Route,
 } from "./router.ts";
 import { applyAppearance } from "./settings/appearance/model.ts";
@@ -235,6 +236,8 @@ export function Desktop({
     session: string,
     machine?: string,
   ) => setRoute(openWorkspaceSession(workspace, session, machine));
+  const terminalAt = (workspace: WorkspaceRef, terminal: string) =>
+    setRoute(openWorkspaceTerminal(workspace, terminal));
   const appSpace = (app: string, machine?: string) =>
     setRoute(openApp(app, undefined, machine));
   // 전역 팔레트에서 고른 대상. Workspace 팔레트와 같은 목적지로만 간다.
@@ -322,21 +325,9 @@ export function Desktop({
         )?.project;
       }
       if (project === undefined) return;
-      const targetProject = project;
-      setRoute((current) => {
-        if (
-          (targetProject === HOME_TERMINAL_PROJECT
-            ? current.space === "home"
-            : current.space === "project" &&
-              current.project === targetProject) &&
-          current.machine === machine &&
-          data.terminal?.store.has(terminalRef)
-        ) {
-          data.terminal.store.reveal(terminalRef);
-          return current;
-        }
-        return openTerminalIn(targetProject, terminalRef, machine);
-      });
+      // 이미 보이는 workspace layout에 탭이 있으면 useToastHandler가 먼저 열었다. store.has는 같은 기계의 다른 workspace 탭에도
+      // 참이라 여기서 건너뛰면 빈 desk에 머문다.
+      setRoute(openTerminalIn(project, terminalRef, machine));
     })();
   };
   // 다른 project나 공간에 있을 때 터미널 알림을 누르면 그 터미널의 project로 가서 연다. 같은 project이거나
@@ -420,6 +411,7 @@ export function Desktop({
         apps={at.apps}
         onWorkspace={goWorkspace}
         onSessionAt={sessionAt}
+        onTerminalAt={terminalAt}
         onAppScreenAt={(app, machine) =>
           setRoute(openAppScreenAt(app, machine))
         }
@@ -466,6 +458,7 @@ export function Desktop({
         apps={at.apps}
         onWorkspace={goWorkspace}
         onSessionAt={sessionAt}
+        onTerminalAt={terminalAt}
         onAppScreenAt={(app, machine) =>
           setRoute(openAppScreenAt(app, machine))
         }
@@ -505,6 +498,7 @@ export function Desktop({
         appDetail={at.appDetail}
         onWorkspace={goWorkspace}
         onSessionAt={sessionAt}
+        onTerminalAt={terminalAt}
         onAppScreenAt={(app, machine) =>
           setRoute(openAppScreenAt(app, machine))
         }

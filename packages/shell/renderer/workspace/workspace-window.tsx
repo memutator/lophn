@@ -24,6 +24,7 @@ import {
   isHarnessRuntime,
   LOPHN_AGENT_NAME,
 } from "../../../protocol/lophn-agent/agent-values.ts";
+import { codingBuiltinOf } from "../../../protocol/lophn-agent/workspaces.ts";
 import type {
   ProjectCommand,
   ProjectCommandRun,
@@ -297,7 +298,10 @@ import {
   sessionTab,
   tabMachineOf,
 } from "./sidebar/move-tab.ts";
-import { agentRow } from "./sidebar/panel-sessions.ts";
+import {
+  findTerminalTabByRef,
+  sessionAgentTarget,
+} from "./sidebar/panel-sessions.ts";
 import {
   SIDEBAR_KEEP_PREFIX,
   type SidebarCtx,
@@ -364,6 +368,8 @@ export interface WorkspaceWindowProps {
     session: string,
     machine?: string,
   ) => void;
+  /** 왼쪽 sidebar의 다른 workspace 줄의 터미널(다른 기계 coding agent 포함). 그 workspace로 가서 연다. */
+  onTerminalAt?: (workspace: WorkspaceRef, terminal: string) => void;
   /** 왼쪽 sidebar의 다른 앱 줄. 그 앱 공간으로 가서 앱 화면 탭을 연다. */
   onAppScreenAt?: (app: string, machine?: string) => void;
   /** Create app으로 만든 앱의 앱 공간으로 간다. */
@@ -1631,9 +1637,13 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
         .stores.sessions.get()
         .sessions.find((item) => item.session === session);
       if (there?.agent == null || agentViewSource === undefined) return false;
+      const title = sessionTitles.known.get(session)?.title;
       return openAgent(host, {
         agent: there.agent,
-        name: LOPHN_AGENT_NAME,
+        name:
+          (title && title.length > 0 ? title : undefined) ??
+          codingBuiltinOf(there.agent)?.label ??
+          LOPHN_AGENT_NAME,
         session,
         machine: on,
         workspace: there.workspace?.id ?? "home",
@@ -1641,11 +1651,16 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
       });
     }
     const entry = sessionStates.find((item) => item.session === session);
-    const row =
+    const target =
       entry === undefined
         ? undefined
-        : agentRow(entry, sidebarAgents.agents, workspace);
-    if (row === undefined || agentViewSource === undefined) return false;
+        : sessionAgentTarget(
+            entry,
+            sidebarAgents.agents,
+            workspace,
+            sessionTitles.known.get(session)?.title,
+          );
+    if (target === undefined || agentViewSource === undefined) return false;
     const workflowOrigin =
       open?.options?.desk === undefined &&
       entry?.workflowOrigin != null &&
@@ -1654,8 +1669,8 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
         ? entry.workflowOrigin
         : undefined;
     return openAgent(host, {
-      agent: row.assignment,
-      name: row.name,
+      agent: target.assignment,
+      name: target.name,
       session,
       ...open,
       ...(workflowOrigin === undefined
@@ -1978,8 +1993,27 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     agents: () => agentsRef.current,
   };
   useToastHandler({
+    machine,
     openSession: openSessionTab,
+    revealTerminal: (ref) => {
+      const existing = findTerminalTabByRef(
+        latestLayout.current,
+        ref,
+        (key) => terminal?.store.refOf(key) ?? null,
+      );
+      if (existing === undefined) return false;
+      revealTab(existing.key);
+      return true;
+    },
   });
+
+  const remoteSessionIds =
+    props.sessionMachine === undefined || props.sessionMachine === machine
+      ? ""
+      : machineLists.entries
+          .filter((entry) => entry.machine === props.sessionMachine)
+          .map((entry) => entry.session)
+          .join();
 
   // 시작 route(session·lophn·파일)는 이 project의 배치가 선 뒤 값마다 한 번 연다. session과 agent 목록을 아직 모르면 목록이 올 때 다시 본다.
   const started = useRef<{
@@ -2029,7 +2063,12 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
       started.current.terminal !== reveal
     ) {
       started.current.terminal = reveal;
-      if (terminal.store.has(reveal)) terminal.store.reveal(reveal);
+      const existing = findTerminalTabByRef(
+        latestLayout.current,
+        reveal,
+        (key) => terminal.store.refOf(key),
+      );
+      if (existing !== undefined) revealTab(existing.key);
       else openTerminalTab(host, { terminal: reveal });
     }
     if (
@@ -2054,6 +2093,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     readyWorkspace,
     workspaceId,
     props.session,
+    props.sessionMachine,
     props.startLophn,
     props.startSession,
     props.startSettings,
@@ -2062,6 +2102,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     props.open,
     sidebarAgents.agents,
     sessionIds,
+    remoteSessionIds,
   ]);
 
   useSurfaceRequests({
@@ -4227,6 +4268,9 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
                   {...(props.onSessionAt === undefined
                     ? {}
                     : { onSessionAt: props.onSessionAt })}
+                  {...(props.onTerminalAt === undefined
+                    ? {}
+                    : { onTerminalAt: props.onTerminalAt })}
                   layoutsMoved={layoutsMoved}
                   onMoveSession={moveSessionTo}
                   onMoveTab={(key, to) => void moveTabTo(key, to)}
@@ -4238,13 +4282,16 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
                     const row = sidebarAgents.agents.find(
                       (item) => item.assignment === agent,
                     );
-                    if (row !== undefined) {
-                      openAgent(host, {
-                        agent: row.assignment,
-                        name: row.name,
-                        session,
-                      });
-                    }
+                    const title = sessionTitles.known.get(session)?.title;
+                    openAgent(host, {
+                      agent,
+                      name:
+                        row?.name ??
+                        (title && title.length > 0 ? title : undefined) ??
+                        codingBuiltinOf(agent)?.label ??
+                        LOPHN_AGENT_NAME,
+                      session,
+                    });
                   }}
                   onTerminal={(item) => {
                     if (item.live !== null) {

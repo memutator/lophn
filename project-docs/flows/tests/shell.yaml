@@ -471,6 +471,10 @@ files:
       - agent-tab-request:opened
     note: "agent가 요청한 탭의 relation(말하지 않으면 target별 기본)과 source 탭의 자리로 접힌·펴진 float이나 source 옆(aside, peer, stage)을 정하는 판정. source가 float이거나 없으면 자리 없이 연다. 칸 규칙(peer 나눔, 가득 찬 group 쌓기)은 desk-model_test가 본다"
 
+  - path: packages/shell/renderer/workspace/sidebar/panel-sessions_test.ts
+    covers: []
+    note: "다른 기계의 coding agent 터미널·lophn session으로 이동할 때 workspace route에 터미널 참조를 싣고, 현재 layout 기준으로 기존 탭을 찾으며, agent 목록 도착 전에도 session 탭을 여는 순수 함수"
+
   - path: packages/shell/main/app-frame/app-protocol_test.ts
     covers: [app-file-view-serve:served, app-file-view-serve:not-found]
     note: "_files는 그 view가 묶인 앱 대상으로만 읽고(주소로 앱을 고르지 못하고 다른 앱 view는 404), 적힌 type이 html·script·css·xml·svg여도 octet-stream으로 나간다"

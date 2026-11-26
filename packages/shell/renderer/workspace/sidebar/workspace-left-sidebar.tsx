@@ -209,6 +209,8 @@ export interface WorkspaceLeftSidebarProps {
     session: string,
     machine?: string,
   ) => void;
+  /** 다른 workspace 줄의 터미널(다른 기계 coding agent 포함). 그 workspace로 가서 곧바로 탭을 연다. */
+  onTerminalAt?: (workspace: WorkspaceRef, terminal: string) => void;
   onTerminal: (terminal: PanelTerminal) => void;
   onWorkflow: (workflow: string) => void;
   /** 이 workspace의 desk를 고른다. 없으면 `onWorkflow`로 간다. */
@@ -297,8 +299,12 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
           command: cmd.id,
           dismiss: true,
         }),
-      onViewTerminal: () => {
-        props.onWorkspace(ref);
+      onViewTerminal: (_group, _cmd, run) => {
+        if (run.terminal_id !== null && props.onTerminalAt !== undefined) {
+          props.onTerminalAt(ref, run.terminal_id);
+        } else {
+          props.onWorkspace(ref);
+        }
       },
       onOpenPreview: (group, url) => {
         if (props.onCommandPreview !== undefined) {
@@ -804,31 +810,51 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
     }
   };
 
-  // 다른 기계의 coding agent 터미널. 이 창에 그 탭이 있으면 그 탭을 고르고(탭은 그 기계의 store를 쓴다), 없으면 그 기계의 터미널에
-  // 붙는 탭을 연다. 다른 workspace의 줄은 그 workspace로 간다(탭을 여는 것은 그 workspace가 보인 뒤다).
+  // 다른 기계의 coding agent 터미널. 지금 workspace면 열린 탭을 고르거나 바로 붙는 탭을 열고,
+  // 다른 workspace면 터미널 참조를 실어 그 workspace로 이동해 첫 클릭에 탭이 바로 열리게 한다.
   const openRemoteTerminal = (
     workspace: SidebarWorkspace,
     item: SidebarSession,
     remote: NonNullable<SidebarSession["remote"]>,
   ) => {
     const here = workspaceKey(workspace.ref) === workspaceKey(current);
-    if (remote.tab !== null) {
-      if (here) props.onTab(remote.tab);
-      else void showTabAt(workspace.ref, remote.tab);
-    } else if (here) {
-      props.onTerminal({
-        key: item.ref,
-        harness: remote.harness,
-        label: remote.harness,
-        title: item.title,
-        dot: item.dot,
-        at: item.at,
-        live: null,
-        saved: null,
-        machine: remote.machine,
-        remote: { terminal: remote.terminal },
-      });
-    } else props.onWorkspace(workspace.ref);
+    if (here) {
+      // elsewhere.terminals는 지금 workspace에서 탭을 닫은 직후 아직 낡았을 수 있어 지금 layout을 직접 본다.
+      const openTab =
+        props
+          .hereTabs?.()
+          .find(
+            (tab) =>
+              tab.kind === "terminal" &&
+              (tab.key === remote.tab ||
+                terminalRefOf(tab) === remote.terminal),
+          )?.key ?? (props.hereTabs === undefined ? remote.tab : null);
+      if (openTab !== null) props.onTab(openTab);
+      else {
+        props.onTerminal({
+          key: item.ref,
+          harness: remote.harness,
+          label: remote.harness,
+          title: item.title,
+          dot: item.dot,
+          at: item.at,
+          live: null,
+          saved: null,
+          ...(remote.machine === workspace.ref.machine
+            ? {}
+            : { machine: remote.machine }),
+          remote: { terminal: remote.terminal },
+        });
+      }
+      return;
+    }
+    if (props.onTerminalAt !== undefined) {
+      props.onTerminalAt(workspace.ref, remote.terminal);
+    } else if (remote.tab !== null) {
+      void showTabAt(workspace.ref, remote.tab);
+    } else {
+      props.onWorkspace(workspace.ref);
+    }
   };
 
   const open = (workspace: SidebarWorkspace, item: SidebarSession) => {

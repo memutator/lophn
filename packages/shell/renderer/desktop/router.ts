@@ -132,6 +132,18 @@ export function openWorkspaceSession(
       : { space: "app", app: workspace.id, ...start };
 }
 
+/** 그 workspace로 가서 터미널(다른 기계의 coding agent 포함)을 연다. */
+export function openWorkspaceTerminal(
+  workspace: WorkspaceRef,
+  terminal: string,
+): Route {
+  return workspace.kind === "home"
+    ? openTerminalIn(HOME_TERMINAL_PROJECT, terminal, workspace.machine)
+    : workspace.kind === "project"
+      ? openTerminalIn(workspace.id, terminal, workspace.machine)
+      : openWorkspace(workspace);
+}
+
 /** 그 workspace로 간다. */
 export function openWorkspace(workspace: WorkspaceRef): Route {
   return workspace.kind === "home"

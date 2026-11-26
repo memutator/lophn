@@ -42,10 +42,18 @@ export const jobsKind: TabKindDef = {
         <JobsPage
           source={source}
           onOpenSession={(session) =>
-            runToastAction({ kind: "session", session })
+            runToastAction({
+              kind: "session",
+              session,
+              ...(host.machine === null ? {} : { machine: host.machine }),
+            })
           }
           onOpenProject={(project) =>
-            host.props.onWorkspace?.({ kind: "project", id: project })
+            host.props.onWorkspace?.({
+              kind: "project",
+              id: project,
+              ...(host.machine === null ? {} : { machine: host.machine }),
+            })
           }
         />
       </PaddedTab>

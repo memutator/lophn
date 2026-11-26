@@ -117,6 +117,10 @@ function coreLaunch(options: ShellLaunch): {
       ...process.env,
       // process.execPath가 Electron이어도 이 표시가 없으면 두 번째 Electron 앱으로 뜬다.
       ELECTRON_RUN_AS_NODE: "1",
+      // core와 그 자식들이 raw TS를 매 기동마다 다시 컴파일하지 않게 V8 compile cache를 둔다.
+      NODE_COMPILE_CACHE:
+        process.env.NODE_COMPILE_CACHE ||
+        join(options.dataRoot, "cache", "v8-compile"),
       LOPHN_HOME: options.dataRoot,
       // 사람이 쓰는 core만 browser가 필요할 때 이 앱을 다시 띄울 수 있다.
       [LAUNCH_SHELL_ENV]: "1",

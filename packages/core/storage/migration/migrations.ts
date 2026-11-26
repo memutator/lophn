@@ -129,6 +129,14 @@ function integrityPassed(connection: LedgerConnection): boolean {
   }
 }
 
+function quickCheckPassed(connection: LedgerConnection): boolean {
+  try {
+    return connection.quickCheckOk();
+  } catch {
+    return false;
+  }
+}
+
 // hash가 보는 step의 내용이다. FK를 끄고 도는 step은 그 사실이 실행 방식을 바꾸므로 hash에 든다(낸 step의 flag를 조용히 바꾸지 못한다).
 export function stepContent(step: SchemaStep): string {
   return step.foreignKeys === "off"
@@ -142,7 +150,6 @@ export async function applyMigrations(
   steps: readonly SchemaStep[],
   deps: MigrationDeps,
 ): Promise<Result<number>> {
-  const planned: PlannedStep[] = [];
   const ids = new Set<string>();
   for (const step of steps) {
     if (ids.has(step.id)) {
@@ -152,25 +159,48 @@ export async function applyMigrations(
       });
     }
     ids.add(step.id);
-    planned.push({ step, contentHash: await sha256Hex(stepContent(step)) });
   }
+  const planned: PlannedStep[] = await Promise.all(
+    steps.map(async (step) => ({
+      step,
+      contentHash: await sha256Hex(stepContent(step)),
+    })),
+  );
   const opened = openConnection(path);
   if (!opened.ok) {
     return startFailure("damaged_original", opened.error.message);
   }
   const connection = opened.value;
   try {
+    let recorded: Recorded[];
+    try {
+      recorded = readRecorded(connection.sql);
+    } catch {
+      return startFailure(
+        "damaged_original",
+        "ledger 무결성 검사가 실패해 정상 시작을 거절한다",
+      );
+    }
+    const unapplied = unappliedSteps(recorded, planned);
+    if (!unapplied.ok) return unapplied;
+    if (unapplied.value.length === 0) {
+      // 적용할 schema step이 없는 정상 기동에서는 전체 integrity_check 두 번과 FK 전체 scan을
+      // 돌리지 않고 quick_check 한 번으로 B-tree 손상을 확인한다.
+      if (!quickCheckPassed(connection)) {
+        return startFailure(
+          "damaged_original",
+          "ledger 무결성 검사가 실패해 정상 시작을 거절한다",
+        );
+      }
+      return ok(0);
+    }
     if (!integrityPassed(connection)) {
       return startFailure(
         "damaged_original",
         "ledger 무결성 검사가 실패해 정상 시작을 거절한다",
       );
     }
-    const recorded = readRecorded(connection.sql);
-    const unapplied = unappliedSteps(recorded, planned);
-    if (!unapplied.ok) return unapplied;
     if (
-      unapplied.value.length > 0 &&
       deps.recovery !== undefined &&
       // 새 설치(변환 전 schema 0)는 남길 변환 전 자료가 없어 복구본을 만들지 않는다.
       recorded.length > 0

@@ -93,6 +93,9 @@ export function spawnDetachedCore(options: {
       env: {
         ...process.env,
         ELECTRON_RUN_AS_NODE: "1",
+        NODE_COMPILE_CACHE:
+          process.env.NODE_COMPILE_CACHE ||
+          join(options.dataRoot, "cache", "v8-compile"),
         LOPHN_HOME: options.dataRoot,
         // 사람이 쓰는 core만 browser가 필요할 때 앱을 띄울 수 있다.
         [LAUNCH_SHELL_ENV]: "1",

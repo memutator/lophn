@@ -425,15 +425,16 @@ export async function sameInstallCopy(
   try {
     const found = await copiedPaths(target, "");
     if (found.length !== files.length) return false;
-    for (const file of files) {
-      const bytes = await readFile(`${target}/${file.path}`);
-      if (
-        bytes.length !== file.bytes.length ||
-        bytes.some((byte, index) => byte !== file.bytes[index])
-      )
-        return false;
-    }
-    return true;
+    const matches = await Promise.all(
+      files.map(async (file) => {
+        const bytes = await readFile(`${target}/${file.path}`);
+        return (
+          bytes.length === file.bytes.length &&
+          !bytes.some((byte, index) => byte !== file.bytes[index])
+        );
+      }),
+    );
+    return matches.every(Boolean);
   } catch {
     return false;
   }
@@ -573,14 +574,13 @@ export async function installSdkCopies(deps: {
     return invalid(`sdk source is unreadable: ${deps.packagesRoot}/sdk`);
   }
   sources.push(...SUPPORT_SOURCES);
+  const results = await Promise.all(
+    sources.map(({ source, skip }) =>
+      installSource(deps.dataRoot, deps.packagesRoot, source, skip),
+    ),
+  );
   const installed = [];
-  for (const { source, skip } of sources) {
-    const result = await installSource(
-      deps.dataRoot,
-      deps.packagesRoot,
-      source,
-      skip,
-    );
+  for (const result of results) {
     if (!result.ok) return result;
     installed.push(result.value);
   }

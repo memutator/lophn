@@ -179,6 +179,9 @@ export function openDesktopWindow(
     // 저장한 자리로 여는 창은 숨긴 채 만들고 크기를 맞춘 뒤 보인다(`rememberWorkspace`).
     ...(workspace || options.inactive ? { show: false } : {}),
     ...(start?.title === undefined ? {} : { title: start.title }),
+    ...(ctx.appearanceBackground() === undefined
+      ? {}
+      : { backgroundColor: ctx.appearanceBackground() }),
     detached: start === undefined ? false : start.detached !== false,
     url:
       start !== undefined

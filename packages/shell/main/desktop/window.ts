@@ -35,6 +35,8 @@ interface WindowOptions {
   bounds?: WindowBounds;
   /** detached 창이면 작은 최소 크기를 쓴다. bounds가 없으면 기본 크기로 연다. */
   detached?: boolean;
+  /** 첫 페인트 전에 보일 창 바탕색. 지금 appearance의 shell surface 색이다. */
+  backgroundColor?: string;
 }
 
 export interface WindowConfig {
@@ -48,6 +50,7 @@ export interface WindowConfig {
   frame: false;
   title: string;
   autoHideMenuBar: true;
+  backgroundColor?: string;
   trafficLightPosition?: { x: number; y: number };
   webPreferences: WebPreferences & { preload: string };
 }
@@ -59,6 +62,9 @@ function windowConfig(options: WindowOptions): WindowConfig {
   return {
     ...(options.bounds ? { x: options.bounds.x, y: options.bounds.y } : {}),
     ...(options.show === false ? { show: false } : {}),
+    ...(options.backgroundColor
+      ? { backgroundColor: options.backgroundColor }
+      : {}),
     width: Math.max(options.bounds?.width ?? MIN_WINDOW_WIDTH, minWidth),
     height: Math.max(options.bounds?.height ?? MIN_WINDOW_HEIGHT, minHeight),
     minWidth,

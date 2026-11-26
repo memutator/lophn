@@ -139,6 +139,8 @@ export type ShellContext = {
   ): Promise<CallResult>;
   /** core의 `/host-link` 연결. core가 시킬 일(`request`)을 받고 보이는 workspace와 답·탭 보고를 올린다. */
   hostLink: HostLink;
+  /** 지금 적용된 appearance의 shell 창 바탕색. appearance wiring이 채운다. */
+  appearanceBackground: () => string | undefined;
   /** core 설정의 살아 있는 사본. 설정을 적용하는 영역이 듣는다. */
   settings: ShellSettings;
   /** core의 browser profile 목록 사본. partition 붙이기와 driver가 읽는다. */
@@ -280,6 +282,7 @@ export function createShellContext(): ShellContext {
     core,
     coreInternal,
     hostLink,
+    appearanceBackground: () => undefined,
     settings,
     browserProfiles,
     ipc: {

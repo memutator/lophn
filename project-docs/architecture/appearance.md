@@ -35,7 +35,7 @@ main (core 설정의 사본: shell.* 값과 shell.themes 항목)
 ```
 
 - 값을 main에 보내는 통로는 없다. desktop 창이 직접 쓰는 것은 자기 문서의 `data-theme`(모드)뿐이고, 같은 설정 event로 맞춘다. 나머지는 desktop 창도 앱 화면 guest와 같은 길(main의 insertCSS)로 받는다.
-- main은 처음에 값을 모른다. core가 붙어 설정을 읽으면 그때부터 열린 모든 문서와 이후 열리는 문서에 넣는다. 그 전의 첫 한 번은 기본 모양이 잠깐 보일 수 있다.
+- 첫 창을 열기 전(core가 아직 붙기 전, "lophn is getting ready." 화면)에는 main이 `<data root>/settings.json`과 `<data root>/themes/`를 같은 검사 규칙으로 한 번 읽어 `nativeTheme.themeSource`, 창 `backgroundColor`, 초기 CSS를 미리 맞춘다. core가 붙어 설정 사본을 읽으면 그때부터는 core 설정 사본이 정본으로 이어받는다.
 - CSS는 insertCSS로 들어가 앱 화면 guest의 CSP를 지난다. 그래서 CSS 문자열에 들어가는 값은 preset 상수, 허용 목록의 굵기, 검사한 Custom 글꼴 이름뿐이다.
 - 덮어쓰는 CSS를 만드는 규칙은 순수 함수 하나이고 main, gallery, test가 같은 규칙을 쓴다. core도 설정을 받을 때 같은 규칙으로 theme과 글꼴 이름을 본다.
 - theme file이 바뀌면 설정이 바뀐 것이다. main이 CSS를 다시 만들고 Settings가 목록을 다시 받는다.

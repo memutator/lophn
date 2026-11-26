@@ -29,6 +29,8 @@ type Pending = {
 type Slot = {
   worker: Worker;
   health: ReaderHealth;
+  // 배경에서 기동이 끝나 secret sync가 도는 동안 broadcast만 받고 read는 아직 넣지 않는다.
+  syncing?: boolean;
   pending?: Pending;
   timer?: ReturnType<typeof setTimeout>;
   startedAt?: number;
@@ -114,7 +116,8 @@ export async function createReaderPool(
   }
 
   function fail(slot: Slot) {
-    if (slot.health !== "healthy") return;
+    if (slot.health !== "healthy" && !slot.syncing) return;
+    slot.syncing = false;
     slot.health = "unhealthy";
     clearTimeout(slot.timer);
     slot.pending?.resolve(unavailable());
@@ -293,7 +296,12 @@ export async function createReaderPool(
         worker.off("error", onBootError);
         worker.on("message", (reply) => {
           // 다시 띄워 바뀐 slot의 옛 worker가 늦게 보낸 message는 버린다.
-          if (slot.worker !== worker || slot.health !== "healthy") return;
+          if (
+            slot.worker !== worker ||
+            (slot.health !== "healthy" && !slot.syncing)
+          ) {
+            return;
+          }
           const ack = reply.known_ack;
           if (typeof ack === "number") {
             settleKnown(ack, slot);
@@ -327,16 +335,14 @@ export async function createReaderPool(
     });
   }
 
-  let started: boolean[];
+  // 기동 때 두 reader가 writer와 동시에 TS를 파싱하면 부팅이 크게 느려진다.
+  // 첫 reader가 서면 바로 서빙을 열고, 두 번째 reader는 배경에서 띄워 secret sync 뒤 합류한다.
+  let firstStarted: boolean;
   try {
-    started = await Promise.all(
-      Array.from({ length: 2 }, () => {
-        const worker = newWorker();
-        const slot: Slot = { worker, health: "healthy" };
-        slots.push(slot);
-        return boot(slot, worker);
-      }),
-    );
+    const worker = newWorker();
+    const slot: Slot = { worker, health: "healthy" };
+    slots.push(slot);
+    firstStarted = await boot(slot, worker);
   } catch {
     slots.forEach((slot) => {
       clearTimeout(slot.timer);
@@ -345,7 +351,7 @@ export async function createReaderPool(
     });
     return unavailable();
   }
-  if (!started.every(Boolean)) {
+  if (!firstStarted) {
     slots.forEach((slot) => {
       clearTimeout(slot.timer);
       slot.health = "closed";
@@ -354,6 +360,31 @@ export async function createReaderPool(
     return unavailable();
   }
   serving = true;
+  // 두 번째 reader slot은 배경에서 띄운다. boot가 끝나면 알려진 secret을 맞춘 뒤 healthy로 올린다.
+  try {
+    const secondWorker = newWorker();
+    const secondSlot: Slot = { worker: secondWorker, health: "unhealthy" };
+    slots.push(secondSlot);
+    void boot(secondSlot, secondWorker).then(async (booted) => {
+      if (closed) {
+        secondWorker.terminate();
+        return;
+      }
+      if (!booted) {
+        secondWorker.terminate();
+        scheduleRespawn();
+        return;
+      }
+      secondSlot.syncing = true;
+      await Promise.resolve(options.onRespawn?.()).catch(() => undefined);
+      if (closed || secondSlot.worker !== secondWorker) return;
+      secondSlot.syncing = false;
+      secondSlot.health = "healthy";
+      pump();
+    });
+  } catch {
+    // 두 번째 slot을 못 띄워도 첫 reader로 서빙한다.
+  }
   // 모든 healthy reader에 같은 등록·회수를 보내고 반영 확인을 기다린다. 값은 postMessage의
   // 구조적 복사로만 가고 어디에도 기록하지 않는다.
   function broadcast(
@@ -363,7 +394,9 @@ export async function createReaderPool(
     if (values.length === 0 && op !== "ready" && op !== "unready") {
       return Promise.resolve(ok(undefined));
     }
-    const targets = slots.filter((slot) => slot.health === "healthy");
+    const targets = slots.filter(
+      (slot) => slot.health === "healthy" || slot.syncing,
+    );
     if (closed || targets.length === 0) return Promise.resolve(unavailable());
     const id = ++nextKnown;
     return new Promise((resolve) => {

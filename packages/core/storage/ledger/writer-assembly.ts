@@ -77,8 +77,10 @@ export async function assembleWriter(
   ];
   const names = new Set(commands.map((command) => command.route.name));
   const blobFields: BlobFieldDefinition[] = [];
-  for (const url of boot.modules) {
-    const team: TeamModule = await import(url);
+  const teams: TeamModule[] = await Promise.all(
+    boot.modules.map((url) => import(url)),
+  );
+  for (const team of teams) {
     const loose = teamRegistration(team);
     for (const command of loose?.commands ?? []) {
       if (names.has(command.route.name)) {

@@ -47,6 +47,8 @@ export type LedgerConnection = {
   inTransaction(): boolean;
   // handler SQL은 pragma를 못 쓰므로 무결성 검사는 연결이 직접 한다.
   integrityOk(): boolean;
+  // 정상 기동(migration 0개)에서 쓰는 빠른 B-tree 무결성 검사다.
+  quickCheckOk(): boolean;
   // SQLite online backup API로 일관된 사본을 만든다(WAL 안의 내용 포함, 원본은 읽기만). 권한을
   // 제한한 worker에서는 VACUUM INTO가 쓰는 attach가 막히므로 사본은 이 방법으로 만든다.
   backupTo(path: string): Promise<void>;
@@ -239,6 +241,11 @@ export function openConnection(path: string): Result<LedgerConnection> {
       if (dead) return false;
       const rows = db.prepare("pragma integrity_check").all();
       return rows.length === 1 && rows[0]?.["integrity_check"] === "ok";
+    },
+    quickCheckOk() {
+      if (dead) return false;
+      const rows = db.prepare("pragma quick_check").all();
+      return rows.length === 1 && rows[0]?.["quick_check"] === "ok";
     },
     fault() {
       if (dead) return;

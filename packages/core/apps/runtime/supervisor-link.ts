@@ -98,6 +98,8 @@ export type SupervisorChannel = {
   // 감독 callback이 자식의 bytes·end·abort frame을 넘긴다. 응답이 control frame에 담기지 않아
   // stream으로 오는 요청의 것만 쓰고 나머지는 버린다.
   onFrame(frame: Frame): void;
+  // 초기 supervisor 기동이 진행 중인 동안 들어온 요청이 bind 완료까지 기다리게 한다.
+  setStarting(promise: Promise<void>): void;
   bind(senders: SupervisorSenders): void;
   // supervisor가 멈췄다. 기다리던 요청은 unavailable로 끝난다.
   unbind(): void;
@@ -109,6 +111,7 @@ export type SupervisorChannel = {
 
 export function createSupervisorChannel(): SupervisorChannel {
   let senders: SupervisorSenders | null = null;
+  let starting: Promise<void> | null = null;
   let counter = 0;
   // 진행 중인 apply끼리 겹치지 않게 1부터 올린다.
   let nextChannel = 0;
@@ -125,20 +128,29 @@ export function createSupervisorChannel(): SupervisorChannel {
     }
   }
   return {
-    request(op, payload, timeoutMs = REQUEST_TIMEOUT_MS, body) {
+    async request(op, payload, timeoutMs = REQUEST_TIMEOUT_MS, body) {
+      if (senders === null && starting !== null) {
+        const wait = starting;
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        await Promise.race([
+          wait.catch(() => undefined),
+          new Promise<void>((resolve) => {
+            timer = setTimeout(resolve, timeoutMs);
+          }),
+        ]);
+        clearTimeout(timer);
+      }
       const sender = senders;
       if (sender === null) {
-        return Promise.resolve(
-          err({
-            code: "unavailable",
-            message: "app supervisor is not ready",
-          }),
-        );
+        return err({
+          code: "unavailable",
+          message: "app supervisor is not ready",
+        });
       }
       counter += 1;
       const id = `apps-request-${counter}`;
       const channel = body ? ++nextChannel : undefined;
-      return new Promise<Result<unknown>>((resolve) => {
+      return await new Promise<Result<unknown>>((resolve) => {
         const timer = setTimeout(() => {
           pending.delete(id);
           if (channel !== undefined) sender.sendAbort(channel).catch(() => {});
@@ -263,12 +275,20 @@ export function createSupervisorChannel(): SupervisorChannel {
         settle(lost);
       }
     },
+    setStarting(promise) {
+      const tracked = promise.finally(() => {
+        if (starting === tracked) starting = null;
+      });
+      starting = tracked;
+    },
     bind(next) {
       senders = next;
+      starting = null;
     },
     failPending,
     unbind() {
       senders = null;
+      starting = null;
       failPending("app supervisor stopped");
     },
     get bound() {

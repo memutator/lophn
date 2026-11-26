@@ -12,10 +12,12 @@ export async function readerModulesOf(
   modules: readonly string[],
 ): Promise<URL[]> {
   const found = [new URL("./reader-registration.ts", import.meta.url)];
-  for (const url of modules) {
-    const module = (await import(url)) as ReaderRegistrationModule;
-    if (typeof module.createReaderRegistration === "function") {
-      found.push(new URL(url));
+  const loaded = (await Promise.all(
+    modules.map((url) => import(url)),
+  )) as ReaderRegistrationModule[];
+  for (let i = 0; i < modules.length; i += 1) {
+    if (typeof loaded[i]?.createReaderRegistration === "function") {
+      found.push(new URL(modules[i]!));
     }
   }
   return found;

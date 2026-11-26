@@ -211,6 +211,7 @@ export const appsWiring: WiringFactory = () => {
   let unsubscribePhoneChanged: (() => void) | undefined;
   let syncLog: SyncLog | undefined;
   let snapshots: Snapshots | undefined;
+  let closingChildren = false;
   return {
     name: "apps",
     restartOwners: [observeInvocations, observeReleaseActivations],
@@ -1197,74 +1198,86 @@ export const appsWiring: WiringFactory = () => {
       const recorded =
         issued.ok && current.ok ? await runtime.record(current.value) : current;
       if (issued.ok && current.ok && recorded.ok) {
-        const started = await ctx.appsSupervision.start(
-          appSupervisorSpec(),
-          {
-            type: "hello",
-            core_epoch: ctx.epoch,
-            process_identity: ctx.epoch,
-            kind: APPS_SUPERVISOR_KIND,
-            task: "apps",
-            scope: {
-              operations: [],
-              targets: { task: "apps" },
+        // app-supervisor child는 배경에서 띄워 control ready를 막지 않는다.
+        // 기동 중에 들어온 요청은 channel.setStarting이 bind 완료까지 기다린다.
+        const starting = ctx.appsSupervision
+          .start(
+            appSupervisorSpec(),
+            {
+              type: "hello",
+              core_epoch: ctx.epoch,
+              process_identity: ctx.epoch,
+              kind: APPS_SUPERVISOR_KIND,
+              task: "apps",
+              scope: {
+                operations: [],
+                targets: { task: "apps" },
+              },
+              credential: issued.value.token,
+              api_port: ctx.server.port,
             },
-            credential: issued.value.token,
-            api_port: ctx.server.port,
-          },
-          {
-            onMessage: (message) => {
-              if (
-                message.type === "diagnostic" &&
-                message.kind === "lophn_internal"
-              ) {
-                // 보내는 쪽 값을 믿지 않고 core가 component·location을 정한다.
-                void ctx
-                  .diagnosticsWrite({
-                    ...message,
-                    payload: {
-                      ...message.payload,
-                      component: "platform/app-supervisor",
-                      location: CRASH_LOCATIONS.appSupervisor,
-                    },
-                  })
-                  .catch(() => {});
-                return;
-              }
-              appsControl.onSupervisorMessage(message);
+            {
+              onMessage: (message) => {
+                if (
+                  message.type === "diagnostic" &&
+                  message.kind === "lophn_internal"
+                ) {
+                  // 보내는 쪽 값을 믿지 않고 core가 component·location을 정한다.
+                  void ctx
+                    .diagnosticsWrite({
+                      ...message,
+                      payload: {
+                        ...message.payload,
+                        component: "platform/app-supervisor",
+                        location: CRASH_LOCATIONS.appSupervisor,
+                      },
+                    })
+                    .catch(() => {});
+                  return;
+                }
+                appsControl.onSupervisorMessage(message);
+              },
+              // 화면 operation의 큰 응답은 bytes frame과 end로 온다(`supervisor-link.ts`의 stream).
+              onFrame: (frame) => appsControl.channel.onFrame(frame),
+              // supervisor child가 끝나면 답을 기다리던 질의를 기한(5초·재시작 30초)까지 두지 않고 끝낸다.
+              onEnd: () =>
+                appsControl.channel.failPending(
+                  "app supervisor가 끝나 요청이 끝나지 못했다",
+                ),
             },
-            // 화면 operation의 큰 응답은 bytes frame과 end로 온다(`supervisor-link.ts`의 stream).
-            onFrame: (frame) => appsControl.channel.onFrame(frame),
-            // supervisor child가 끝나면 답을 기다리던 질의를 기한(5초·재시작 30초)까지 두지 않고 끝낸다.
-            onEnd: () =>
-              appsControl.channel.failPending(
-                "app supervisor가 끝나 요청이 끝나지 못했다",
-              ),
-          },
-        );
-        if (started.ok) {
-          const supervision = ctx.appsSupervision;
-          appsControl.channel.bind({
-            send: (payload) =>
-              supervision
-                .send(APPS_SUPERVISOR_KIND, payload)
-                .then((sent) => sent.ok),
-            sendBytes: (channel, chunk) =>
-              supervision
-                .sendBytes(APPS_SUPERVISOR_KIND, channel, chunk)
-                .then((sent) => sent.ok),
-            sendEnd: (channel) =>
-              supervision
-                .sendEnd(APPS_SUPERVISOR_KIND, channel)
-                .then((sent) => sent.ok),
-            sendAbort: (channel) =>
-              supervision
-                .sendAbort(APPS_SUPERVISOR_KIND, channel)
-                .then((sent) => sent.ok),
+          )
+          .then((started) => {
+            if (closingChildren) return;
+            if (started.ok) {
+              const supervision = ctx.appsSupervision;
+              appsControl.channel.bind({
+                send: (payload) =>
+                  supervision
+                    .send(APPS_SUPERVISOR_KIND, payload)
+                    .then((sent) => sent.ok),
+                sendBytes: (channel, chunk) =>
+                  supervision
+                    .sendBytes(APPS_SUPERVISOR_KIND, channel, chunk)
+                    .then((sent) => sent.ok),
+                sendEnd: (channel) =>
+                  supervision
+                    .sendEnd(APPS_SUPERVISOR_KIND, channel)
+                    .then((sent) => sent.ok),
+                sendAbort: (channel) =>
+                  supervision
+                    .sendAbort(APPS_SUPERVISOR_KIND, channel)
+                    .then((sent) => sent.ok),
+              });
+            }
+            appsControl.start();
+          })
+          .catch(() => {
+            if (!closingChildren) appsControl.start();
           });
-        }
+        appsControl.channel.setStarting(starting);
+      } else {
+        appsControl.start();
       }
-      appsControl.start();
       if (write !== undefined) {
         unsubscribePhoneChanged = startPhoneChangedWatch({
           bus: ctx.bus,
@@ -1311,6 +1324,7 @@ export const appsWiring: WiringFactory = () => {
     },
     // 앱 supervisor가 앱 자식을 정지하기 전에 질의 통로를 닫는다.
     closeChildren() {
+      closingChildren = true;
       control?.stop();
     },
     // writer가 닫히기 전에 이 wiring의 ledger 연결을 닫는다.

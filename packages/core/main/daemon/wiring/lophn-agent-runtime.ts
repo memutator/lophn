@@ -98,6 +98,7 @@ const RUNTIME_END_CONTEXT: AuthenticatedContext = {
 export const lophnAgentRuntimeWiring: WiringFactory = () => {
   let agentRuntime: AgentRuntimeChild | undefined;
   let stopWatching: (() => void) | undefined;
+  let closing = false;
   // queue는 core 메모리 하나다. Router의 lophn 입력 transport가 같은 것에 넣는다.
   const queue = createQueue();
   return {
@@ -224,9 +225,9 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
           workspaceOperations(kind, agentTools({ file: FILE_HOOKS })),
         ),
       ),
-    // agent runtime child. API가 열린 뒤에 띄워 hello 직후의 읽기가 닿는다. 띄우지 못해도 core는
-    // 계속 선다: agent는 돌지 않고 사람의 요청은 접수된 채 남는다.
-    async afterReady(ctx) {
+    // agent runtime child. API가 열린 뒤에 띄워 hello 직후의 읽기가 닿는다. control ready를 막지 않고
+    // 배경에서 띄운다(띄우는 사이 접수된 요청은 queue에 쌓이고 child가 뜨면 바로 가져간다). 띄우지 못해도 core는 계속 선다.
+    afterReady(ctx) {
       const { runtime } = ctx;
       const refresher = createProviderRefresher({
         async readProvider(provider) {
@@ -299,7 +300,29 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
         leadMs: OAUTH_REFRESH_LEAD_MS,
       });
       const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
-      const started = await startAgentRuntimeChild({
+      // 사람의 멈춤이나 session 끝남(archive·delete)이 turn 행을 닫으면(TurnEnded) 그 뒤에 child에 알려 진행 중인 model 요청과 tool을 끊게 한다.
+      // child가 다시 뜨는 중이라 못 보내면 버린다: 새 child는 닫힌 turn을 시작하지 않는다.
+      stopWatching = ctx.bus.subscribe([{ types: ["TurnEnded"] }], {
+        send(event) {
+          if (event.type !== "TurnEnded") return;
+          const { outcome } = event.payload;
+          if (outcome.kind !== "interrupted") return;
+          if (
+            outcome.reason !== "user_stopped" &&
+            outcome.reason !== "session_ended"
+          )
+            return;
+          void ctx.io
+            .send(AGENT_RUNTIME_KIND, {
+              type: "turn_stop",
+              turn: event.payload.turn,
+              reason: outcome.reason,
+            } satisfies ParentMessage)
+            .catch(() => {});
+        },
+        close() {},
+      });
+      void startAgentRuntimeChild({
         io: ctx.io,
         operationsFor: (kind) =>
           workspaceOperations(kind, agentTools({ file: FILE_HOOKS })),
@@ -353,39 +376,34 @@ export const lophnAgentRuntimeWiring: WiringFactory = () => {
           mcpOAuth: ctx.mcpAuthControl.prepareToken,
           providerOAuth: refresher.prepareToken,
         }),
-      });
-      if (started.ok) agentRuntime = started.value;
-      else {
-        ctx.telemetry.logger.error({
-          component: "agent-runtime",
-          event: "start_failed",
-          message: started.error.message,
-        });
-      }
-      // 사람의 멈춤이나 session 끝남(archive·delete)이 turn 행을 닫으면(TurnEnded) 그 뒤에 child에 알려 진행 중인 model 요청과 tool을 끊게 한다.
-      // child가 다시 뜨는 중이라 못 보내면 버린다: 새 child는 닫힌 turn을 시작하지 않는다.
-      stopWatching = ctx.bus.subscribe([{ types: ["TurnEnded"] }], {
-        send(event) {
-          if (event.type !== "TurnEnded") return;
-          const { outcome } = event.payload;
-          if (outcome.kind !== "interrupted") return;
-          if (
-            outcome.reason !== "user_stopped" &&
-            outcome.reason !== "session_ended"
-          )
+      }).then(
+        (started) => {
+          if (closing) {
+            if (started.ok) started.value.stop();
             return;
-          void ctx.io
-            .send(AGENT_RUNTIME_KIND, {
-              type: "turn_stop",
-              turn: event.payload.turn,
-              reason: outcome.reason,
-            } satisfies ParentMessage)
-            .catch(() => {});
+          }
+          if (started.ok) agentRuntime = started.value;
+          else {
+            ctx.telemetry.logger.error({
+              component: "agent-runtime",
+              event: "start_failed",
+              message: started.error.message,
+            });
+          }
         },
-        close() {},
-      });
+        (thrown) => {
+          if (closing) return;
+          ctx.telemetry.logger.error({
+            component: "agent-runtime",
+            event: "start_failed",
+            message: String(thrown),
+          });
+        },
+      );
+      return Promise.resolve();
     },
     closeIntake() {
+      closing = true;
       stopWatching?.();
       agentRuntime?.stop();
     },

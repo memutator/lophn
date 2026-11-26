@@ -61,14 +61,16 @@ function readMeVersions(ctx: WiringContext): Result<MeVersion[]> {
 export const sdkInstallWiring: WiringFactory = () => ({
   name: "sdk-install",
   async build(ctx) {
-    const shims = await installNodeShims(ctx.root.path);
+    const [shims, sdk, template] = await Promise.all([
+      installNodeShims(ctx.root.path),
+      installSdkCopies({
+        dataRoot: ctx.root.path,
+        packagesRoot: PACKAGES_ROOT,
+      }),
+      installBuiltinTemplate({ dataRoot: ctx.root.path }),
+    ]);
     if (!shims.ok) return shims;
-    const sdk = await installSdkCopies({
-      dataRoot: ctx.root.path,
-      packagesRoot: PACKAGES_ROOT,
-    });
     if (!sdk.ok) return sdk;
-    const template = await installBuiltinTemplate({ dataRoot: ctx.root.path });
     if (!template.ok) return template;
     return ok({});
   },

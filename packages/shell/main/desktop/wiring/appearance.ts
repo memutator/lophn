@@ -25,9 +25,13 @@ import {
   appearanceCss,
   parseAppearance,
 } from "../../../../design/appearance.ts";
-import { loadThemes } from "../../../../design/themes.ts";
+import { type ColorTheme, loadThemes } from "../../../../design/themes.ts";
 import { ARTIFACT_SCHEME } from "../../artifact/session.ts";
 import { artifactDocumentCss } from "../../artifact/theme-css.ts";
+import {
+  readInitialAppearance,
+  shellBackgroundColor,
+} from "../core/initial-appearance.ts";
 import { checkCaller } from "../ipc-guard.ts";
 import type { Registered, ShellContext } from "./context.ts";
 
@@ -38,7 +42,19 @@ const STAMP_LOCALE = `document.documentElement.setAttribute("data-lophn-locale",
 
 export function register(ctx: ShellContext): Registered {
   const { ipc, overlays, settings } = ctx;
-  let css = "";
+  // core가 아직 뜨는 동안("lophn is getting ready.")에도 마지막 저장 theme·모드를 바로 쓴다.
+  // core가 붙어 `settings/list`를 받으면 refresh()가 같은 경로로 이어받는다.
+  const initial = readInitialAppearance(ctx.dataRoot);
+  let currentAppearance: Appearance = initial.appearance;
+  let currentThemes: readonly ColorTheme[] = initial.themes;
+  let css = initial.css;
+  nativeTheme.themeSource = currentAppearance.mode;
+  ctx.appearanceBackground = () =>
+    shellBackgroundColor(
+      currentAppearance,
+      currentThemes,
+      nativeTheme.shouldUseDarkColors,
+    );
   // contents마다 지금 문서에 넣은 CSS의 key. 넣고 지우는 일은 contents마다 차례로 한다.
   const inserted = new WeakMap<WebContents, string>();
   const queue = new WeakMap<WebContents, Promise<void>>();
@@ -88,6 +104,7 @@ export function register(ctx: ShellContext): Registered {
       ),
     );
     if (appearance === undefined) return;
+    currentAppearance = appearance;
     nativeTheme.themeSource = appearance.mode;
     const themes = loadThemes(
       (settings.folder(THEMES_SETTING_KEY)?.entries ?? []).map((entry) => ({
@@ -95,6 +112,7 @@ export function register(ctx: ShellContext): Registered {
         text: JSON.stringify(entry.value),
       })),
     );
+    currentThemes = themes.list;
     const next = appearanceCss(appearance, themes.list);
     if (next === css) return;
     css = next;

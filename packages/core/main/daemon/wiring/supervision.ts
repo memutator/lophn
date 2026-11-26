@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { err, ok, type Result } from "../../../../base/mod.ts";
@@ -11,6 +12,10 @@ import type { IoListener, Supervisor, WiringFactory } from "./context.ts";
 export const supervisionWiring: WiringFactory = () => ({
   name: "supervision",
   prepare(ctx) {
+    // 신뢰 자식(platform/io, agent-runtime, app-supervisor)도 core와 같은 V8 compile cache를 써서 기동 파싱 비용을 줄인다.
+    const compileCache =
+      process.env["NODE_COMPILE_CACHE"] ||
+      join(ctx.root.path, "cache", "v8-compile");
     ctx.provide(
       "io",
       createSupervisor({
@@ -18,6 +23,7 @@ export const supervisionWiring: WiringFactory = () => ({
         env: (kind) => ({
           LOPHN_WORKER_KIND: kind,
           LOPHN_HOME: ctx.root.path,
+          NODE_COMPILE_CACHE: compileCache,
           // child가 자기 설정과 도구(git 등)를 찾는 데 필요한 둘과 telemetry 설정만 준다. 그 밖 환경은 복사하지 않는다.
           ...(process.env["HOME"] ? { HOME: process.env["HOME"]! } : {}),
           ...(process.env["PATH"] ? { PATH: process.env["PATH"]! } : {}),
@@ -34,6 +40,7 @@ export const supervisionWiring: WiringFactory = () => ({
         env: () => ({
           LOPHN_WORKER_KIND: APPS_SUPERVISOR_KIND,
           LOPHN_HOME: ctx.root.path,
+          NODE_COMPILE_CACHE: compileCache,
           // 앱 자식에게 넘길 HOME·PATH·XDG·임시 폴더 위치뿐이다. 그 밖 환경은 복사하지 않는다.
           ...(process.env["HOME"] ? { HOME: process.env["HOME"]! } : {}),
           ...(process.env["PATH"] ? { PATH: process.env["PATH"]! } : {}),

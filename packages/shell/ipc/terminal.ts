@@ -115,6 +115,12 @@ export interface TerminalApi {
   copy(input: { text: string }): Promise<TerminalCall<null>>;
   /** 사람이 Ctrl+Shift+V를 눌렀다. OS clipboard의 글을 돌려준다. */
   paste(): Promise<TerminalCall<string>>;
+  /** OS clipboard나 drop의 이미지를 core 임시 경로에 쓰고 그 경로를 돌려준다. */
+  pasteImage(input: {
+    terminal: string;
+    media_type: "image/png" | "image/jpeg" | "image/webp";
+    data_base64: string;
+  }): Promise<TerminalCall<{ path: string; bytes: number }>>;
   /** 진단 기록을 보낸다. 기록이 꺼져 있으면 false라 더 보내지 않는다. */
   trace(input: {
     events: TerminalTraceEvent[];
@@ -131,5 +137,12 @@ export const TERMINAL_SHOWN_CHANNEL = "shell:terminal-shown";
 export const TERMINAL_LINK_CHANNEL = "shell:terminal-link";
 export const TERMINAL_COPY_CHANNEL = "shell:terminal-copy";
 export const TERMINAL_PASTE_CHANNEL = "shell:terminal-paste";
+export const TERMINAL_PASTE_IMAGE_CHANNEL = "shell:terminal-paste-image";
 export const TERMINAL_TRACE_CHANNEL = "shell:terminal-trace";
 export const TERMINAL_REVEAL_CHANNEL = "shell:terminal-reveal";
+
+export const terminalPasteImageSchema = z.strictObject({
+  terminal: z.string().min(1),
+  media_type: z.enum(["image/png", "image/jpeg", "image/webp"]),
+  data_base64: z.string().min(1),
+});

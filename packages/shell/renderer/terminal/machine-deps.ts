@@ -3,6 +3,7 @@ import type { TerminalApi, TerminalCall } from "../../ipc/terminal.ts";
 import type { Route } from "../../../protocol/base/route.ts";
 import {
   terminalsInput,
+  terminalsPasteImage,
   terminalsRestart,
 } from "../../../protocol/coding-agent/terminals.ts";
 import type { CoreSource } from "../desktop/connection/connection.ts";
@@ -88,6 +89,20 @@ export function machineTerminalDeps(
       Promise.resolve({ ok: true, value: "none" as const }),
     copy: (input) => local?.copy(input) ?? done(),
     paste: () => local?.paste() ?? Promise.resolve({ ok: true, value: "" }),
+    pasteImage: async (input) => {
+      const reply = await call(terminalsPasteImage as Route, input);
+      if (reply.ok) {
+        for (const listener of accepted) listener(input.terminal);
+        return {
+          ok: true,
+          value: reply.value as { path: string; bytes: number },
+        };
+      }
+      if (reply.code === "forbidden") {
+        for (const listener of refused) listener(input.terminal);
+      }
+      return { ok: false, error: { code: reply.code, message: reply.code } };
+    },
     trace: () => Promise.resolve({ ok: true, value: false }),
     onReveal: () => () => {},
   };

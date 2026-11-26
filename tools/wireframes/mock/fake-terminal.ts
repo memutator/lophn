@@ -272,6 +272,7 @@ export function fakeTerminalBridge(core: FakeTerminalCore): TerminalApi {
     openLink: () => ok("os"),
     copy: () => ok(null),
     paste: () => ok(""),
+    pasteImage: () => ok({ path: "/tmp/paste.png", bytes: 1 }),
     trace: () => ok(false),
     onReveal: () => () => {},
   };

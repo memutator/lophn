@@ -38,6 +38,8 @@ export {
   type RosterStatement,
   type RosterView,
   rosterView,
+  signDetached,
   signRoster,
+  verifyDetached,
   verifyRoster,
 } from "./roster.ts";

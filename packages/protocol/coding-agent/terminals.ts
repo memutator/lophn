@@ -350,12 +350,32 @@ export const terminalsRenameSaved = defineMemory({
   errors,
 });
 
+export const terminalsPasteImage = defineMemory({
+  body_max_bytes: 16 * 1024 * 1024,
+  resource: "terminals",
+  method: "paste_image",
+  name: "TerminalsPasteImage",
+  input: z.strictObject({
+    terminal: terminalRefSchema,
+    media_type: z.enum(["image/png", "image/jpeg", "image/webp"]),
+    data_base64: z.string().min(1),
+    shell_capability: shellCapabilitySchema.optional(),
+  }),
+  output: z.strictObject({
+    path: z.string().min(1),
+    bytes: z.number().int().min(1),
+  }),
+  actors: ["user"],
+  errors,
+});
+
 export const TERMINAL_ROUTES = [
   terminalsList,
   terminalsOpen,
   terminalsClose,
   terminalsRestart,
   terminalsInput,
+  terminalsPasteImage,
   terminalsResize,
   terminalsSnapshot,
   terminalsWatch,

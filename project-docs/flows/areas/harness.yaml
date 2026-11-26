@@ -4243,3 +4243,23 @@ flows:
         observe: [process:cli-gui]
     crosses_process: true
     docs: [architecture/harness-gui.md]
+
+  - id: terminal-paste-image
+    title: "focus가 있는 터미널에 붙여 넣거나 drop한 이미지를 임시 file로 쓰고 경로를 입력한다"
+    actor: person
+    entries: [route:terminals/paste_image]
+    uses: [ipc:shell:terminal-paste-image]
+    boundary: [shell, core-api]
+    code:
+      - packages/shell/ipc/terminal.ts
+      - packages/shell/main/desktop/wiring/terminal.ts
+      - packages/core/main/daemon/wiring/terminals.ts
+    steps:
+      - "Step 0 stub: Wave 1에서 PNG/JPEG/WEBP 이미지를 core 임시 경로에 쓰고 경로를 돌려준다"
+    outcomes:
+      - id: unavailable
+        code: unavailable
+        when: "구현 전 stub 상태다"
+        observe: [response]
+    crosses_process: true
+    risk: [sandbox]

@@ -16,7 +16,7 @@ export const TAKE_IN_CONFLICTS = [
 export type TakeInConflict = (typeof TAKE_IN_CONFLICTS)[number];
 
 export const takeInInputSchema = z.strictObject({
-  app: idSchema("app"),
+  app: z.string().min(1),
   // 없으면 그 앱의 `app.json`이 가장 최근인 기계.
   from: idSchema("mch").optional(),
   // 없으면 그 기계의 활성 release의 code_commit.

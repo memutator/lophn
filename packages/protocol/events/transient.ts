@@ -343,6 +343,18 @@ const projectCommandRunChanged = defineTransientEvent(
   },
 );
 
+// @xterm/headless 위 터미널이 OSC 52로 clipboard 쓰기를 요청해 remote 화면에 toast를 알린다.
+const terminalClipboardWritten = defineTransientEvent(
+  "TerminalClipboardWritten",
+  {
+    subject: terminalSubjectSchema,
+    payload: z.strictObject({
+      terminal: z.string().min(1),
+      bytes: z.number().int().nonnegative(),
+    }),
+  },
+);
+
 export const transientEventSchema = z.discriminatedUnion("type", [
   transientEventEnvelopeSchema(acpUpdated).extend({
     session: idSchema("ses"),
@@ -374,4 +386,5 @@ export const transientEventSchema = z.discriminatedUnion("type", [
   transientEventEnvelopeSchema(hookInstallFinished),
   transientEventEnvelopeSchema(projectCommandsChanged),
   transientEventEnvelopeSchema(projectCommandRunChanged),
+  transientEventEnvelopeSchema(terminalClipboardWritten),
 ]);

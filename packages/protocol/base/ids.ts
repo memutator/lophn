@@ -49,6 +49,9 @@ const ID_PREFIXES = {
   bpf: "BrowserProfile",
   mal: "Mail",
   pcr: "ProjectCommandRun",
+  trf: "Transfer",
+  pcs: "PhoneCustody",
+  stg: "StagedSettings",
 } as const;
 
 export type IdPrefix = keyof typeof ID_PREFIXES;

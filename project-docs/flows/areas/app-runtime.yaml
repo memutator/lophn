@@ -3166,3 +3166,60 @@ flows:
     crosses_process: false
     docs: [architecture/activation.md]
     declared_only: [invalid_input, not_found, conflict, unavailable]
+
+  - id: app-sync-custody
+    title: "폰이 꺼진 컴퓨터로 갈 앱 sync delta를 온라인 hub 컴퓨터에 맡기고, 대상 컴퓨터가 carry로 받아 적용한다"
+    actor: person
+    entries: [route:app_sync/custody_push, route:app_sync/custody_file]
+    boundary: [app-runtime, app-data, folder, remote]
+    code:
+      - packages/protocol/apps/app-sync.ts
+      - packages/core/main/daemon/wiring/folder.ts
+    steps:
+      - "Step 0 stub: Wave 2에서 폰 Ed25519 signing_key 서명 검증, hub carry 보관과 대상 컴퓨터 전달을 붙인다"
+    outcomes:
+      - id: unavailable
+        code: unavailable
+        when: "구현 전 stub 상태다"
+        observe: [response]
+    declared_only: [invalid_input, not_found, forbidden]
+    crosses_process: true
+    risk: [data-loss, secret]
+
+  - id: transfers-send
+    title: "사람이나 agent가 다른 컴퓨터로 file을 보낸다(꺼져 있으면 hub가 맡는다)"
+    actor: agent
+    entries: [route:transfers/send, route:transfers/list, route:transfers/status, route:transfers/clear]
+    boundary: [folder, remote, core-api]
+    code:
+      - packages/protocol/folder/transfers.ts
+      - packages/core/main/daemon/wiring/folder.ts
+    steps:
+      - "Step 0 stub: Wave 2에서 transfers 폴더 Materialize(0644), hub 보관(held_at_hub), 7일 만료 정리를 붙인다"
+    outcomes:
+      - id: unavailable
+        code: unavailable
+        when: "구현 전 stub 상태다"
+        observe: [response]
+    declared_only: [invalid_input, not_found, forbidden, conflict]
+    crosses_process: true
+    risk: [sandbox, data-loss]
+
+  - id: settings-export-send
+    title: "사람이 agent, skill, project command, permission rules, workflow를 다른 컴퓨터로 보내고 받은 쪽에서 검토해 적용한다"
+    actor: person
+    entries: [route:settings_export/send, route:settings_export/staged, route:settings_export/apply, route:settings_export/dismiss]
+    boundary: [folder, remote, core-api]
+    code:
+      - packages/protocol/folder/settings-export.ts
+      - packages/core/main/daemon/wiring/folder.ts
+    steps:
+      - "Step 0 stub: Wave 2에서 5종 설정·workflow 내보내기와 staged 검토, permission_rules 및 locked field 사람 직접 확인 적용을 붙인다"
+    outcomes:
+      - id: unavailable
+        code: unavailable
+        when: "구현 전 stub 상태다"
+        observe: [response]
+    declared_only: [invalid_input, not_found, forbidden, conflict]
+    crosses_process: true
+    risk: [permission, data-loss]

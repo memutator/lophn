@@ -97,6 +97,8 @@ import {
   packagesGuideBody,
 } from "../../protocol/apps/mod.ts";
 import {
+  appSyncCustodyFile,
+  appSyncCustodyPush,
   appSyncPull,
   appSyncPush,
   appSyncSnapshot,
@@ -315,16 +317,22 @@ export function createLedgerRegistration(
       releaseActivate,
       // handler는 wiring/apps.ts가 붙인다(core의 view 표).
       ...APP_VIEW_ROUTES,
-      // 폰 sync. handler는 wiring/apps.ts가 붙인다.
+      // 폰 sync. handler는 wiring/apps.ts가 붙인다(custody는 wiring/folder.ts).
       appSyncPush,
       appSyncSnapshot,
+      appSyncCustodyPush,
       // 앱 file. handler는 wiring/apps.ts가 붙인다.
       ...APP_FILE_ROUTES,
       // 기계 사이 판 차이. handler는 wiring/folder.ts가 붙인다.
       appUpdateState,
     ],
     // 앱 화면의 byte는 core가 UI bundle 사본에서 흘려 준다.
-    files: [appScreenFile, appSyncSnapshotFile, appPhoneFile],
+    files: [
+      appScreenFile,
+      appSyncSnapshotFile,
+      appSyncCustodyFile,
+      appPhoneFile,
+    ],
     blobPurposes: INVOCATION_BLOB_PURPOSES,
     // coding-agent connection의 app scope 검사와 documents의 자리 해석은 같은 Tx의
     // 존재 조회를 쓴다. TargetAuthorization은 tx.ts가 주입하므로 여기 등록하지 않는다.

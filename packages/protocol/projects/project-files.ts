@@ -161,10 +161,64 @@ export const projectFilesRemove = defineMemory({
   ],
 });
 
+export const projectFilesWriteBytes = defineMemory({
+  body_max_bytes: 32 * 1024 * 1024,
+  resource: "project_files",
+  method: "write_bytes",
+  name: "project_files.write_bytes",
+  input: z.strictObject({
+    project: projectIdSchema,
+    folder: absolutePathSchema.optional(),
+    path: relativePathSchema,
+    data_base64: z.string().regex(/^[A-Za-z0-9+/]*={0,2}$/),
+    overwrite: z.boolean().optional(),
+  }),
+  output: z.strictObject({
+    hash: sha256Schema,
+    size: z.number().int().nonnegative(),
+  }),
+  actors: ["user"],
+  errors: [
+    "invalid_input",
+    "unauthorized",
+    "forbidden",
+    "not_found",
+    "conflict",
+    "unavailable",
+  ],
+});
+
+export const projectFilesCopy = defineMemory({
+  resource: "project_files",
+  method: "copy",
+  name: "project_files.copy",
+  input: z.strictObject({
+    project: projectIdSchema,
+    folder: absolutePathSchema.optional(),
+    from: relativePathSchema,
+    to: relativePathSchema,
+    overwrite: z.boolean().optional(),
+  }),
+  output: z.strictObject({
+    copied: z.boolean(),
+  }),
+  actors: ["user"],
+  errors: [
+    "invalid_input",
+    "unauthorized",
+    "forbidden",
+    "not_found",
+    "conflict",
+    "unavailable",
+  ],
+});
+
 export const PROJECT_FILES_MUTATION_ROUTES = [
   projectFilesWrite,
+  projectFilesWriteBytes,
   projectFilesCreate,
   projectFilesRename,
+  projectFilesCopy,
   projectFilesRemove,
 ] as const;
 

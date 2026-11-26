@@ -22,10 +22,12 @@ import {
   artifactsFile,
   artifactsList,
   projectApi,
+  projectFilesCopy,
   projectFilesCreate,
   projectFilesRemove,
   projectFilesRename,
   projectFilesWrite,
+  projectFilesWriteBytes,
   projectIdentityApi,
 } from "../../../../protocol/projects/mod.ts";
 import type { Sql } from "../../../../protocol/server/mod.ts";
@@ -342,12 +344,20 @@ export const projectsWiring: WiringFactory = () => {
             projectFiles.write,
           ],
           [
+            `${projectFilesWriteBytes.resource}/${projectFilesWriteBytes.method}`,
+            projectFiles.writeBytes,
+          ],
+          [
             `${projectFilesCreate.resource}/${projectFilesCreate.method}`,
             projectFiles.create,
           ],
           [
             `${projectFilesRename.resource}/${projectFilesRename.method}`,
             projectFiles.rename,
+          ],
+          [
+            `${projectFilesCopy.resource}/${projectFilesCopy.method}`,
+            projectFiles.copy,
           ],
           [
             `${projectFilesRemove.resource}/${projectFilesRemove.method}`,

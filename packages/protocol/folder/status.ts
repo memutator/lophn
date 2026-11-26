@@ -53,6 +53,7 @@ export const machineEnvironmentSchema = z.object({
       // 이름이 겹친 기계는 `이름 (id 끝 6자)`. id 앞쪽은 만든 시각(ULID)이라 같은 때 만든 두 기계가 겹친다.
       display_name: z.string(),
       always_on: alwaysOnSchema.nullable(),
+      hub: z.boolean().optional(),
       addresses: addressesSchema,
       lophn_version: z.string().nullable(),
       record_at: atSchema.nullable(),
@@ -105,6 +106,8 @@ export const machineEnvironmentSchema = z.object({
         }),
       ),
       release: commitSchema.nullable(),
+      sync_policy: z.enum(["computers", "local", "mixed"]).optional(),
+      sync_override: z.enum(["default", "computers", "local"]).optional(),
       // `apps/update_state`와 같은 값. 폴더로 맞추지 않는 앱은 follow가 null이고 held·machines가 비었다.
       follow: followStateSchema.nullable(),
       held: updateStateSchema.shape.held,

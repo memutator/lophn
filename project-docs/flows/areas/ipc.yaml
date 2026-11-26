@@ -560,6 +560,7 @@ links:
   - {entry: "ipc:shell:terminal-shown", flow: terminal-shown}
   - {entry: "ipc:shell:terminal-copy", flow: terminal-copy}
   - {entry: "ipc:shell:terminal-paste", flow: terminal-paste}
+  - {entry: "ipc:shell:terminal-paste-image", flow: terminal-paste-image}
   - {entry: "ipc:shell:terminal-trace", flow: terminal-trace}
   - {entry: "ipc:shell:terminal-reveal", flow: terminal-agent-notice}
   # thread bookmark (sessions)

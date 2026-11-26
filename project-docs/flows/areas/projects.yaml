@@ -1053,6 +1053,46 @@ flows:
     crosses_process: false
     risk: [sandbox, data-loss]
 
+  - id: project-files-write-bytes
+    title: "project 등록 폴더에 binary bytes(붙여 넣은 file·drop)를 쓴다"
+    actor: person
+    entries: [route:project_files/write_bytes]
+    pre: [project-register:ok]
+    boundary: [projects, core-api]
+    code:
+      - packages/core/projects/files/mod.ts
+      - packages/core/main/daemon/wiring/projects.ts
+    steps:
+      - "Step 0 stub: Wave 1에서 base64 bytes 디코드, 폴더 경계 검사 및 파일 쓰기를 붙인다"
+    outcomes:
+      - id: unavailable
+        code: unavailable
+        when: "구현 전 stub 상태다"
+        observe: [response]
+    declared_only: [invalid_input, unauthorized, forbidden, not_found, conflict]
+    crosses_process: false
+    risk: [sandbox, data-loss]
+
+  - id: project-files-copy
+    title: "project 등록 폴더 안에서 file이나 폴더를 복사한다"
+    actor: person
+    entries: [route:project_files/copy]
+    pre: [project-register:ok]
+    boundary: [projects, core-api]
+    code:
+      - packages/core/projects/files/mod.ts
+      - packages/core/main/daemon/wiring/projects.ts
+    steps:
+      - "Step 0 stub: Wave 1에서 출처·대상 폴더 경계 검사 및 복사를 붙인다"
+    outcomes:
+      - id: unavailable
+        code: unavailable
+        when: "구현 전 stub 상태다"
+        observe: [response]
+    declared_only: [invalid_input, unauthorized, forbidden, not_found, conflict]
+    crosses_process: false
+    risk: [sandbox, data-loss]
+
   - id: artifacts-list
     title: "다른 컴퓨터의 창이 project나 앱의 artifact 목록을 읽는다"
     actor: person

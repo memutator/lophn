@@ -40,6 +40,7 @@ export const remoteRelayStatus = defineMemory({
   output: z.strictObject({
     url: z.string().nullable(),
     state: z.enum(["off", "connecting", "connected"]),
+    hub_listening: z.boolean().optional(),
   }),
   actors: ["user"],
   errors: ["invalid_input", "forbidden"],
@@ -234,6 +235,8 @@ export const rosterJoin = defineMemory({
     text: z.string().min(1).max(16384),
     // 합류하는 컴퓨터가 초대한 컴퓨터에 터미널 입력을 허락하는가(생략하면 켬. 초대장의 기본과 같다).
     terminal_input: z.boolean().optional(),
+    // 폰이 offline 컴퓨터용 custody delta에 서명하는 Ed25519 공개 key.
+    signing_key: keyTextSchema.optional(),
   }),
   output: z.strictObject({
     device: deviceIdSchema,
@@ -396,6 +399,7 @@ export const machinesList = defineMemory({
         update: z.enum(["client", "host"]).nullable(),
         path: z.enum(["direct", "relay"]).nullable(),
         last_seen_at: atSchema.nullable(),
+        hub: z.boolean().optional(),
       }),
     ),
   }),

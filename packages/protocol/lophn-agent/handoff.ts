@@ -2,6 +2,7 @@ import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
 import { defineMemory } from "../base/route.ts";
 import { atSchema } from "../base/values.ts";
+import { transferAttachmentSchema } from "./calls.ts";
 
 // session이 남기는 handoff note다. 글은 agent가 쓰고(언제 쓸지는 지침이 정한다), program은 사실(기계, project의 기계를 건너는 id,
 // branch와 commit, 시각)만 붙인다. note는 `computers` 폴더의 자기 하위 폴더에 session마다 file 하나로 놓여 다른 기계로 간다
@@ -23,6 +24,7 @@ export const handoffFileSchema = z.object({
   text: z.string(),
   branch: z.string().nullable(),
   commit: z.string().nullable(),
+  attachments: z.array(transferAttachmentSchema).max(32).optional(),
   written_at: atSchema,
 });
 export type HandoffFile = z.infer<typeof handoffFileSchema>;
@@ -32,7 +34,10 @@ export const handoffWrite = defineMemory({
   resource: "handoff",
   method: "write",
   name: "handoff.write",
-  input: z.strictObject({ text: z.string().min(1) }),
+  input: z.strictObject({
+    text: z.string().min(1),
+    attachments: z.array(transferAttachmentSchema).max(32).optional(),
+  }),
   output: z.strictObject({
     identity: idSchema("pri"),
     branch: z.string().nullable(),
@@ -53,6 +58,7 @@ export const handoffNoteSchema = z.strictObject({
   text: z.string(),
   branch: z.string().nullable(),
   commit: z.string().nullable(),
+  attachments: z.array(transferAttachmentSchema).max(32).optional(),
   written_at: atSchema,
 });
 export type HandoffNote = z.infer<typeof handoffNoteSchema>;

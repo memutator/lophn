@@ -28,6 +28,10 @@ import type { Id } from "../../../../protocol/base/ids.ts";
 import { encodePk } from "../../../../protocol/apps/sync/changeset.ts";
 import { msOfHlc } from "../../../../protocol/apps/sync/clock.ts";
 import {
+  appSyncCustodyFile,
+  appSyncCustodyPush,
+} from "../../../../protocol/apps/app-sync.ts";
+import {
   appSyncHeld,
   appSyncResume,
   appTakeIn,
@@ -40,7 +44,9 @@ import {
   machineEnvironment,
   machineForget,
   parsePackageEntry,
+  SETTINGS_EXPORT_ROUTES,
   takeInInputSchema,
+  TRANSFER_ROUTES,
 } from "../../../../protocol/folder/mod.ts";
 import { parseActor } from "../../../../protocol/base/mod.ts";
 import { machineComputers } from "../../../../protocol/machine/mod.ts";
@@ -1696,9 +1702,57 @@ export const folderWiring: WiringFactory = () => {
           [key(appSyncHeld), syncHeld],
           [key(appSyncResume), syncResume],
           [key(appUpdateState), updateState],
+          [
+            key(appSyncCustodyPush),
+            () =>
+              Promise.resolve(
+                err({
+                  code: "unavailable" as const,
+                  message: "app_sync/custody_push is not implemented yet",
+                }),
+              ),
+          ],
+          ...TRANSFER_ROUTES.map(
+            (route) =>
+              [
+                key(route),
+                () =>
+                  Promise.resolve(
+                    err({
+                      code: "unavailable" as const,
+                      message: `${route.name} is not implemented yet`,
+                    }),
+                  ),
+              ] as const,
+          ),
+          ...SETTINGS_EXPORT_ROUTES.map(
+            (route) =>
+              [
+                key(route),
+                () =>
+                  Promise.resolve(
+                    err({
+                      code: "unavailable" as const,
+                      message: `${route.name} is not implemented yet`,
+                    }),
+                  ),
+              ] as const,
+          ),
           ...carry.memory,
         ],
-        fileStreams: carry.fileStreams,
+        fileStreams: [
+          ...carry.fileStreams,
+          [
+            key(appSyncCustodyFile),
+            () =>
+              Promise.resolve(
+                err({
+                  code: "unavailable" as const,
+                  message: "app_sync/custody_file is not implemented yet",
+                }),
+              ),
+          ],
+        ],
         reads: (reads) => {
           reads.set(key(machineEnvironment), environment);
           reads.set(

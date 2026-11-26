@@ -52,6 +52,7 @@ export const addressesSchema = z.object({
   lan: z.array(z.string()),
   port: z.number().int().min(1).max(65535).nullable(),
   relay: z.string().nullable(),
+  relays: z.array(z.string()).optional(),
 });
 
 // 이 기계의 active git project 하나. 내 다른 컴퓨터가 같은 저장소(remote key)의 project를 자동으로 같은 id로 맞추는 데
@@ -70,6 +71,7 @@ export const machineRecordSchema = z.object({
   updated_at: atSchema,
   name: z.string().min(1).max(64),
   always_on: alwaysOnSchema.nullable(),
+  hub: z.boolean().optional(),
   addresses: addressesSchema,
   lophn: z.object({
     version: z.string().min(1),

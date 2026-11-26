@@ -481,6 +481,31 @@ export const remoteRelaySetting = declareSetting({
   locked: true,
 });
 
+export const remoteHubSetting = declareSetting({
+  key: "remote.hub",
+  type: z.boolean(),
+  default: false,
+  description:
+    "When true, this computer embeds a relay endpoint on its remote port and holds encrypted/signed carry and custody traffic for offline roster computers and phones.",
+  locked: true,
+});
+
+export const terminalOsc52ClipboardSetting = declareSetting({
+  key: "shell.terminal.osc52_clipboard",
+  type: z.boolean(),
+  default: true,
+  description:
+    "Allow programs running inside a terminal tab to write to the local OS clipboard via OSC 52 escape sequences.",
+});
+
+export const syncAppPoliciesSetting = declareSetting({
+  key: "sync.app_policies",
+  type: z.record(z.string(), z.enum(["default", "computers", "local"])),
+  default: {},
+  description:
+    "Per-app data sync policy override on this computer (`default` follows the app declaration, `computers` syncs between computers, `local` stays on this computer).",
+});
+
 // 폰 알림(push)을 보내는 Expo Push 주소. 비우면 push를 끈다. Expo가 아닌 곳을 가리키면 글(제목과 상태 문장)이
 // 그곳으로 가므로 사람만 바꾼다. 영수증 주소는 끝의 `/send`를 `/getReceipts`로 바꿔 만든다.
 export const remotePushSetting = declareSetting({
@@ -576,7 +601,10 @@ export const shellSettings = [
   remotePortSetting,
   remoteAddressesSetting,
   remoteRelaySetting,
+  remoteHubSetting,
   remotePushSetting,
+  terminalOsc52ClipboardSetting,
+  syncAppPoliciesSetting,
   sidebarPanelsOffSetting,
   trayOffSetting,
   trayOrderSetting,

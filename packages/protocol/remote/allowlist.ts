@@ -30,11 +30,23 @@ import {
 import { annotationSend } from "../apps/annotation.ts";
 import { appFilesPut, appFilesRead } from "../apps/app-files.ts";
 import {
+  appSyncCustodyFile,
+  appSyncCustodyPush,
   appSyncPull,
   appSyncPush,
   appSyncSnapshot,
   appSyncSnapshotFile,
 } from "../apps/app-sync.ts";
+import {
+  settingsExportApply,
+  settingsExportDismiss,
+  settingsExportSend,
+  settingsExportStaged,
+  transfersClear,
+  transfersList,
+  transfersSend,
+  transfersStatus,
+} from "../folder/mod.ts";
 import { appGet, appList } from "../apps/apps.ts";
 import { appInvocation, appInvocations } from "../apps/calls/invocation.ts";
 import { appRemoteCall } from "../apps/calls/remote.ts";
@@ -93,6 +105,7 @@ import {
   terminalsList,
   terminalsName,
   terminalsOpen,
+  terminalsPasteImage,
   terminalsRenameSaved,
   terminalsRestart,
 } from "../coding-agent/terminals.ts";
@@ -237,12 +250,14 @@ import {
   projectCommandsStop,
 } from "../projects/project-commands.ts";
 import {
+  projectFilesCopy,
   projectFilesCreate,
   projectFilesList,
   projectFilesRead,
   projectFilesRemove,
   projectFilesRename,
   projectFilesWrite,
+  projectFilesWriteBytes,
 } from "../projects/project-files.ts";
 import { projectSearch } from "../projects/project-search.ts";
 import { runList, runRead } from "../runs/runs.ts";
@@ -325,10 +340,11 @@ export const REMOTE_ALLOWED_ROUTES = [
   terminalViewSnapshot,
   terminalViewWatch,
   terminalViewResize,
-  // core가 여는 터미널: 목록, 열기와 입력. 입력은 허락받은 기기만 core가 받는다
+  // core가 여는 터미널: 목록, 열기와 입력·이미지 붙여넣기. 입력은 허락받은 기기만 core가 받는다
   terminalsList,
   terminalsOpen,
   terminalsInput,
+  terminalsPasteImage,
   // agent의 browser page를 멀리서 보기: 목록, 그림, lease, 입력·잡기·열기. 다루는 것은 터미널 입력을 허락받은 기기만 core가 받는다
   ...PAGE_VIEW_ROUTES,
   // 대화
@@ -467,11 +483,17 @@ export const REMOTE_ALLOWED_ROUTES = [
   appAgentsList,
   // 폰 홈 화면 위젯의 값: 폰이 위젯을 그리려면 읽어야 한다
   appWidgetsList,
-  // 폰에서 도는 앱: 설치(snapshot)와 맞추기(push, pull)
+  // 폰에서 도는 앱: 설치(snapshot)와 맞추기(push, pull, custody)
   appSyncPush,
   appSyncPull,
   appSyncSnapshot,
   appSyncSnapshotFile,
+  appSyncCustodyPush,
+  appSyncCustodyFile,
+  // file 보내기·상태 조회(정리는 REMOTE_PERSON_ROUTES)
+  transfersSend,
+  transfersList,
+  transfersStatus,
   // 앱 file(사진, 고른 file): 폰이 컴퓨터에서 도는 앱의 file을 조각으로 올리고(put) 컴퓨터가 가진 file을 범위로 받는다(read)
   appFilesPut,
   appFilesRead,
@@ -569,12 +591,20 @@ export const REMOTE_PERSON_ROUTES = [
   projectIdentityApi.match,
   projectAdd,
   projectBrowse,
-  // project 등록 폴더 안 file 쓰기·만들기·이름 바꾸기·지우기(허락받은 기기만. 읽기는 REMOTE_ALLOWED_ROUTES)
+  // project 등록 폴더 안 file 쓰기·만들기·이름 바꾸기·복사·지우기(허락받은 기기만. 읽기는 REMOTE_ALLOWED_ROUTES)
   projectFilesWrite,
+  projectFilesWriteBytes,
   projectFilesCreate,
   projectFilesRename,
+  projectFilesCopy,
   projectFilesRemove,
-  // workflow 정의 폴더 가져오기·기본값 저장(허락받은 기기만)
+  // 받은 transfer 정리는 허락받은 기기만
+  transfersClear,
+  // workflow·설정 정의 넘기기와 적용(허락받은 기기만)
+  settingsExportSend,
+  settingsExportStaged,
+  settingsExportApply,
+  settingsExportDismiss,
   workflowImport,
   workflowSetDefaults,
   // 늘 켜 두기(다른 컴퓨터의 Settings › Remote › Keep running). 화면 없는 기계는 가서 켤 곳이 없다
@@ -614,6 +644,7 @@ export const REMOTE_COMPUTER_CORE_ROUTES = [browserVaultExchange] as const;
 // 같이 막는다. 요청한 쪽이 `screen`이거나 `by`가 없는 폰이면 이 목록을 보지 않는다. `agent`·`app` 요청은 REMOTE_AGENT_ROUTES뿐이다.
 export const REMOTE_TERMINAL_DENIED = [
   terminalsInput,
+  terminalsPasteImage,
   terminalsOpen,
   pageViewInput,
   pageViewControl,
@@ -664,6 +695,7 @@ export const REMOTE_ALLOWED_EVENTS = [
   "TerminalScreenChanged",
   // 터미널이 열리고 끝나고 크기와 이름이 바뀌었다(출력은 싣지 않는다). 다른 컴퓨터의 터미널 탭이 따라간다
   "TerminalRuntimeChanged",
+  "TerminalClipboardWritten",
   // 터미널의 coding agent가 사람에게 알릴 계기(물음, 끝, 실패). 다른 컴퓨터의 창이 toast와 OS 알림을 고른다
   "TerminalAgentSignaled",
   // 보는 browser page의 그림이나 상태가 바뀌었다(내용 없이 seq만. `page_view/snapshot`을 다시 읽는다)

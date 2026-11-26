@@ -46,6 +46,8 @@ const serverHelloSchema = z.object({
     id: machineIdSchema,
     name: machineNameSchema,
     addresses: remoteAddressesSchema.optional(),
+    hub: z.boolean().optional(),
+    relays: z.array(z.string().url()).optional(),
   }),
 });
 
@@ -73,6 +75,7 @@ const clientHelloSchema = z.object({
   ...helloFields,
   name: z.string().trim().min(1).max(64),
   phone: remotePhoneSchema.optional(),
+  signing_key: keyTextSchema.optional(),
 });
 
 // 붙는 쪽의 첫 frame. statements는 붙는 쪽 key에 대한 항목이다(컴퓨터가 서명한 것과, 처음 들어올 때는 초대 서명

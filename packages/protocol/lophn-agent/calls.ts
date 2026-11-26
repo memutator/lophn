@@ -205,12 +205,21 @@ export const callAddressInputSchema = z.union([
 ]);
 export type CallAddressInput = z.infer<typeof callAddressInputSchema>;
 
-// 기계를 건너는 workspace 이름이다. project는 기계 사이에 같은 정체(`pri_`), 앱은 앱 id, home은 그 기계의 home이다.
+// 기계를 건너는 workspace 이름이다. project는 기계 사이에 같은 정체(`pri_`), 앱은 앱 id 또는 slug, home은 그 기계의 home이다.
 export const remoteWorkspaceSchema = z.union([
   z.strictObject({ project: idSchema("pri") }),
-  z.strictObject({ app: idSchema("app") }),
+  z.strictObject({ app: z.string().min(1) }),
   z.strictObject({ home: z.literal(true) }),
 ]);
+
+export const transferAttachmentSchema = z.strictObject({
+  transfer: idSchema("trf"),
+  name: z.string().min(1).max(255),
+  size: z.number().int().min(0),
+  sha256: z.string().regex(/^[0-9a-f]{64}$/),
+  rel_path: z.string().min(1).max(512).optional(),
+});
+export type TransferAttachment = z.infer<typeof transferAttachmentSchema>;
 export type RemoteWorkspace = z.infer<typeof remoteWorkspaceSchema>;
 
 // mail 안의 받는 곳. workspace를 늘 밝힌다(빼는 규칙은 보내는 입구가 푼다).
@@ -324,6 +333,7 @@ export const agentCallSend = defineCommand({
     reply: callReplySchema,
     body: contentBlocksSchema,
     refs: z.array(callRefSchema),
+    attachments: z.array(transferAttachmentSchema).max(32).optional(),
     dedup: z.string().min(1),
   }),
   output: z.object({

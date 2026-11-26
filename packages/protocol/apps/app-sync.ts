@@ -1,6 +1,7 @@
 import { z } from "zod";
+import { idSchema } from "../base/ids.ts";
 import { defineFile, defineMemory, defineRead } from "../base/route.ts";
-import { atSchema } from "../base/values.ts";
+import { atSchema, sha256Schema } from "../base/values.ts";
 import { appIdSchema } from "../projects/values.ts";
 import { releaseIdSchema, toolNameSchema } from "./channel-values.ts";
 
@@ -153,9 +154,61 @@ export const appSyncSnapshotFile = defineFile({
   errors: ["invalid_input", "not_found"],
 });
 
+export const CUSTODY_SIGN_CONTEXT = "lophn-phone-custody-v1";
+const APP_SYNC_CUSTODY_BODY_MAX_BYTES = 16 * MIB;
+
+// 꺼진 컴퓨터로 가는 폰 app sync delta를 온라인 hub 컴퓨터가 대신 맡는다(폰의 Ed25519 signing_key로 서명).
+export const custodyEnvelopeBodySchema = z.strictObject({
+  format: z.literal(1),
+  custody: idSchema("pcs"),
+  app: appIdSchema,
+  target: idSchema("mch"),
+  device: idSchema("dev"),
+  base_seq: seqSchema,
+  written_at: atSchema,
+  payload: base64Schema.min(1),
+  sha256: sha256Schema,
+  size: z.number().int().min(1).max(APP_SYNC_PUSH_MAX_BYTES),
+});
+export type CustodyEnvelopeBody = z.infer<typeof custodyEnvelopeBodySchema>;
+
+export const appSyncCustodyPush = defineMemory({
+  body_max_bytes: APP_SYNC_CUSTODY_BODY_MAX_BYTES,
+  resource: "app_sync",
+  method: "custody_push",
+  name: "app_sync.custody_push",
+  input: z.strictObject({
+    body: custodyEnvelopeBodySchema,
+    signature: z.string().min(1),
+  }),
+  output: z.strictObject({
+    custody: idSchema("pcs"),
+    hub: idSchema("mch"),
+    state: z.enum(["held", "duplicate", "applied"]),
+  }),
+  actors: ["user"],
+  errors: ["invalid_input", "not_found", "forbidden", "unavailable"],
+});
+
+export const appSyncCustodyFile = defineFile({
+  resource: "app_sync",
+  method: "custody_file",
+  name: "app_sync.custody_file",
+  input: z.strictObject({
+    custody: idSchema("pcs"),
+    offset: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+    length: z.number().int().min(1).max(APP_SYNC_FILE_MAX_BYTES),
+  }),
+  contentType: "application/octet-stream",
+  actors: ["user"],
+  errors: ["invalid_input", "not_found", "forbidden"],
+});
+
 export const APP_SYNC_ROUTES = [
   appSyncPush,
   appSyncPull,
   appSyncSnapshot,
   appSyncSnapshotFile,
+  appSyncCustodyPush,
+  appSyncCustodyFile,
 ] as const;

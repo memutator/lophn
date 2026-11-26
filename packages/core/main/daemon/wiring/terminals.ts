@@ -14,6 +14,7 @@ import {
   terminalsList,
   terminalsName,
   terminalsOpen,
+  terminalsPasteImage,
   terminalsResize,
   terminalsRestart,
   terminalsSnapshot,
@@ -216,6 +217,16 @@ export const terminalsWiring: WiringFactory = () => {
               routes.input(
                 who.principal,
                 input as Parameters<typeof routes.input>[1],
+              ),
+          ],
+          [
+            key(terminalsPasteImage),
+            () =>
+              Promise.resolve(
+                err({
+                  code: "unavailable",
+                  message: "terminals/paste_image is not implemented yet",
+                }),
               ),
           ],
           [

@@ -63,6 +63,18 @@ export {
   relayToHostSchema,
 } from "./relay.ts";
 export {
+  createRelay,
+  type Relay,
+  RELAY_BUFFER_MAX_BYTES,
+  RELAY_BURST_BYTES,
+  RELAY_BYTES_PER_SECOND,
+  RELAY_HOSTS_PER_IP,
+  RELAY_SOCKETS_PER_IP,
+  type RelaySocket,
+  type RelayTimers,
+} from "./relay-room.ts";
+export { signDetached, verifyDetached } from "./roster.ts";
+export {
   devicesClearPush,
   devicesConnected,
   devicesList,

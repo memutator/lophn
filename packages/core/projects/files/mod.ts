@@ -560,14 +560,30 @@ export function projectFilesRemoveHandler(
 
 export function projectFilesMutationHandlers(deps: ProjectFilesDeps): {
   write: MemoryHandler;
+  writeBytes: MemoryHandler;
   create: MemoryHandler;
   rename: MemoryHandler;
+  copy: MemoryHandler;
   remove: MemoryHandler;
 } {
   return {
     write: projectFilesWriteHandler(deps),
+    writeBytes: () =>
+      Promise.resolve(
+        err({
+          code: "unavailable",
+          message: "project_files/write_bytes is not implemented yet",
+        }),
+      ),
     create: projectFilesCreateHandler(deps),
     rename: projectFilesRenameHandler(deps),
+    copy: () =>
+      Promise.resolve(
+        err({
+          code: "unavailable",
+          message: "project_files/copy is not implemented yet",
+        }),
+      ),
     remove: projectFilesRemoveHandler(deps),
   };
 }

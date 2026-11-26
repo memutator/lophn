@@ -10,6 +10,7 @@ import {
   callFailReasonSchema,
   callReplySchema,
   remoteAddressSchema,
+  transferAttachmentSchema,
 } from "./calls.ts";
 import { agentAddressSchema } from "./workspaces.ts";
 
@@ -96,6 +97,7 @@ export const mailSchema = z.discriminatedUnion("kind", [
     spawn: z.strictObject({ session: idSchema("ses") }).optional(),
     // 다른 컴퓨터에 연 팀원의 ask(질문, shell 승인)면 그 종류. 연 기계의 부모가 답하고 답의 `decision`이 돌아간다.
     ask: callAskKindSchema.optional(),
+    attachments: z.array(transferAttachmentSchema).max(32).optional(),
   }),
   z.strictObject({
     kind: z.literal("reply"),
@@ -121,6 +123,7 @@ export const mailSchema = z.discriminatedUnion("kind", [
       .optional(),
     // 승인 ask call의 답이면 부모의 결정.
     decision: callDecisionSchema.optional(),
+    attachments: z.array(transferAttachmentSchema).max(32).optional(),
   }),
   // `end`는 `team end`나 사람이 연 기계에서 팀원의 자리를 닫은 것이다: 받는 기계는 그 call이 연 팀원 session을 보관한다.
   z.strictObject({
@@ -178,6 +181,7 @@ export const callSendRemote = defineMemory({
     ]),
     reply: callReplySchema,
     body: contentBlocksSchema,
+    attachments: z.array(transferAttachmentSchema).max(32).optional(),
     dedup: z.string().min(1),
   }),
   output: agentCallSend.output,
@@ -203,6 +207,7 @@ export const teamSpawnRemote = defineMemory({
     machine: z.string().min(1),
     reply: callReplySchema,
     body: contentBlocksSchema,
+    attachments: z.array(transferAttachmentSchema).max(32).optional(),
     dedup: z.string().min(1),
   }),
   output: z.object({ session: idSchema("ses"), call: idSchema("cal") }),

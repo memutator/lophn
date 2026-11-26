@@ -142,6 +142,65 @@ function notePathMachine(path: string): string | null {
     : null;
 }
 
+const CUSTODY_FILE_NAME = /^pcs_[0-9A-HJKMNP-TV-Z]{26}\.json$/;
+const STAGED_SETTINGS_FILE_NAME = /^stg_[0-9A-HJKMNP-TV-Z]{26}\.json$/;
+const TRANSFER_DIR_NAME = /^trf_[0-9A-HJKMNP-TV-Z]{26}$/;
+const TRANSFER_BIN_FILE_NAME = /^[0-9]{4}\.bin$/;
+const ACKS_FILE_NAME = "acks.json";
+
+/** `machines/<mch>/transfers/` 아래 file이면 그 기계. */
+function transferPathMachine(path: string): string | null {
+  const parts = path.split("/");
+  if (
+    parts[0] !== MACHINES_DIR ||
+    !isMachineDirName(parts[1] ?? "") ||
+    parts[2] !== "transfers"
+  ) {
+    return null;
+  }
+  if (parts.length === 4 && parts[3] === ACKS_FILE_NAME) return parts[1]!;
+  if (
+    parts.length === 5 &&
+    TRANSFER_DIR_NAME.test(parts[3] ?? "") &&
+    parts[4] === "meta.json"
+  ) {
+    return parts[1]!;
+  }
+  if (
+    parts.length === 6 &&
+    TRANSFER_DIR_NAME.test(parts[3] ?? "") &&
+    parts[4] === "files" &&
+    TRANSFER_BIN_FILE_NAME.test(parts[5] ?? "")
+  ) {
+    return parts[1]!;
+  }
+  return null;
+}
+
+/** `machines/<mch>/custody/` 아래 file이면 그 기계. */
+function custodyPathMachine(path: string): string | null {
+  const parts = path.split("/");
+  return parts.length === 4 &&
+    parts[0] === MACHINES_DIR &&
+    isMachineDirName(parts[1]!) &&
+    parts[2] === "custody" &&
+    (parts[3] === ACKS_FILE_NAME || CUSTODY_FILE_NAME.test(parts[3]!))
+    ? parts[1]!
+    : null;
+}
+
+/** `machines/<mch>/staged-settings/` 아래 file이면 그 기계. */
+function stagedSettingsPathMachine(path: string): string | null {
+  const parts = path.split("/");
+  return parts.length === 4 &&
+    parts[0] === MACHINES_DIR &&
+    isMachineDirName(parts[1]!) &&
+    parts[2] === "staged-settings" &&
+    (parts[3] === ACKS_FILE_NAME || STAGED_SETTINGS_FILE_NAME.test(parts[3]!))
+    ? parts[1]!
+    : null;
+}
+
 /** `machines/<mch>/manifest.json`이면 그 기계. */
 export function manifestPathMachine(path: string): Id<"mch"> | null {
   const parts = path.split("/");
@@ -184,6 +243,15 @@ export function parseCarryPath(
   }
   if (parts[2] === "notes") {
     return parts.length === 4 && NOTE_FILE_NAME.test(parts[3]!) ? top : null;
+  }
+  if (parts[2] === "transfers") {
+    return transferPathMachine(path) === machine ? top : null;
+  }
+  if (parts[2] === "custody") {
+    return custodyPathMachine(path) === machine ? top : null;
+  }
+  if (parts[2] === "staged-settings") {
+    return stagedSettingsPathMachine(path) === machine ? top : null;
   }
   if (parts[2] !== "apps" || !isAppDirName(parts[3]!) || parts.length < 5) {
     return null;
@@ -237,6 +305,9 @@ export const manifestBodySchema = z
     packages: z.array(fileEntrySchema).optional(),
     mail: z.array(fileEntrySchema).optional(),
     notes: z.array(fileEntrySchema).optional(),
+    transfers: z.array(fileEntrySchema).optional(),
+    custody: z.array(fileEntrySchema).optional(),
+    staged_settings: z.array(fileEntrySchema).optional(),
   })
   .refine(
     (body) =>
@@ -249,7 +320,10 @@ export const manifestBodySchema = z
           parsed.coveredBy === null &&
           parsePackagePath(file.path) === null &&
           mailPathMachine(file.path) === null &&
-          notePathMachine(file.path) === null
+          notePathMachine(file.path) === null &&
+          transferPathMachine(file.path) === null &&
+          custodyPathMachine(file.path) === null &&
+          stagedSettingsPathMachine(file.path) === null
         );
       }) &&
       (body.packages === undefined ||
@@ -266,18 +340,36 @@ export const manifestBodySchema = z
         (distinctPaths(body.notes) &&
           body.notes.every(
             (file) => notePathMachine(file.path) === body.machine,
+          ))) &&
+      (body.transfers === undefined ||
+        (distinctPaths(body.transfers) &&
+          body.transfers.every(
+            (file) => transferPathMachine(file.path) === body.machine,
+          ))) &&
+      (body.custody === undefined ||
+        (distinctPaths(body.custody) &&
+          body.custody.every(
+            (file) => custodyPathMachine(file.path) === body.machine,
+          ))) &&
+      (body.staged_settings === undefined ||
+        (distinctPaths(body.staged_settings) &&
+          body.staged_settings.every(
+            (file) => stagedSettingsPathMachine(file.path) === body.machine,
           ))),
     { message: "manifest files must be distinct top paths of its machine" },
   );
 export type ManifestBody = z.infer<typeof manifestBodySchema>;
 
-/** manifest가 직접 싣는 file 모두(`files`와 선택 칸 `packages`·`mail`·`notes`). */
+/** manifest가 직접 싣는 file 모두(`files`와 선택 칸 `packages`·`mail`·`notes`·`transfers`·`custody`·`staged_settings`). */
 export function manifestEntries(body: ManifestBody): CarryFileEntry[] {
   return [
     ...body.files,
     ...(body.packages ?? []),
     ...(body.mail ?? []),
     ...(body.notes ?? []),
+    ...(body.transfers ?? []),
+    ...(body.custody ?? []),
+    ...(body.staged_settings ?? []),
   ];
 }
 
@@ -739,6 +831,7 @@ export const carryStatus = defineRead({
         revision: z.number().int().min(1),
         received_at: atSchema.nullable(),
         via: carryViaSchema.nullable(),
+        hub: z.boolean().optional(),
       }),
     ),
     apps: z.array(

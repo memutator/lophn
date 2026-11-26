@@ -12,6 +12,7 @@ import {
   TERMINAL_INPUT_CHANNEL,
   TERMINAL_LINK_CHANNEL,
   TERMINAL_PASTE_CHANNEL,
+  TERMINAL_PASTE_IMAGE_CHANNEL,
   TERMINAL_RESPONSE_CHANNEL,
   TERMINAL_RESTART_CHANNEL,
   TERMINAL_SHOWN_CHANNEL,
@@ -21,6 +22,7 @@ import {
   terminalFocusSchema,
   terminalInputSchema,
   terminalLinkSchema,
+  terminalPasteImageSchema,
   terminalRestartSchema,
   terminalShownSchema,
   terminalTraceSchema,
@@ -251,6 +253,14 @@ export function register(
     TERMINAL_PASTE_CHANNEL,
     async () => await pasteTerminalText(clipboard, ctx.headless.headless),
   );
+  handle(TERMINAL_PASTE_IMAGE_CHANNEL, async (event, input) => {
+    const parsed = checkInput(terminalPasteImageSchema, input);
+    if (!parsed.ok) return parsed;
+    if (!mayCall(focus, "input", event.sender.id, parsed.value)) {
+      return NOT_FOCUSED;
+    }
+    return reply(await ctx.core.terminalCall("paste_image", parsed.value));
+  });
   handle(TERMINAL_TRACE_CHANNEL, async (event, input) => {
     const parsed = checkInput(terminalTraceSchema, input);
     if (!parsed.ok) return parsed;
@@ -274,6 +284,7 @@ export function register(
     TERMINAL_LINK_CHANNEL,
     TERMINAL_COPY_CHANNEL,
     TERMINAL_PASTE_CHANNEL,
+    TERMINAL_PASTE_IMAGE_CHANNEL,
     TERMINAL_TRACE_CHANNEL,
   ];
   return {

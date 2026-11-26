@@ -79,9 +79,7 @@ export const rosterEntryBodySchema = z
         ? body.signing_key !== null &&
           body.machine !== null &&
           COMPUTER_OS.includes(body.os)
-        : body.signing_key === null &&
-          body.machine === null &&
-          PHONE_OS.includes(body.os),
+        : body.machine === null && PHONE_OS.includes(body.os),
     { message: "computer and phone fields do not match the kind" },
   );
 export type RosterEntryBody = z.infer<typeof rosterEntryBodySchema>;
@@ -150,6 +148,8 @@ export const rosterReachSchema = z.strictObject({
   addresses: remoteAddressesSchema,
   port: z.number().int().min(1).max(65535),
   relay: z.string().url().nullable(),
+  hub: z.boolean().optional(),
+  relays: z.array(z.string().url()).optional(),
 });
 export type RosterReach = z.infer<typeof rosterReachSchema>;
 
@@ -203,6 +203,35 @@ export function generateSigningKey(random: RandomSource): KeyPair {
 
 export function signRoster(body: SignedBody, secretKey: Uint8Array): string {
   return remoteKeyText(ed25519.sign(message(canonicalize(body)), secretKey));
+}
+
+export function signDetached(
+  context: string,
+  bodyText: string,
+  secretKey: Uint8Array,
+): string {
+  return remoteKeyText(
+    ed25519.sign(encoder.encode(`${context}\n${bodyText}`), secretKey),
+  );
+}
+
+export function verifyDetached(
+  context: string,
+  bodyText: string,
+  signature: string,
+  signingKey: string,
+): boolean {
+  if (!signatureTextSchema.safeParse(signature).success) return false;
+  if (!keyTextSchema.safeParse(signingKey).success) return false;
+  try {
+    return ed25519.verify(
+      bytesOf(signature),
+      encoder.encode(`${context}\n${bodyText}`),
+      bytesOf(signingKey),
+    );
+  } catch {
+    return false;
+  }
 }
 
 function verifyText(
@@ -338,7 +367,11 @@ function trust(
     accepted.add(item);
     signedWith.set(item, signingKey);
     const { body } = item.statement;
-    if (body.type === "entry" && body.signing_key !== null) {
+    if (
+      body.type === "entry" &&
+      body.kind === "computer" &&
+      body.signing_key !== null
+    ) {
       signers.set(body.id, [...(signers.get(body.id) ?? []), body.signing_key]);
     }
   };

@@ -142,7 +142,7 @@ export interface CoreConnection {
    * 가졌는지는 부르는 쪽(터미널 wiring)이 먼저 본다.
    */
   terminalCall(
-    method: "input" | "restart",
+    method: "input" | "restart" | "paste_image",
     body: Record<string, unknown>,
   ): Promise<
     | { ok: true; value: unknown }

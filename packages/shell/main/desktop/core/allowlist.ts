@@ -127,6 +127,17 @@ const RENDERER_MEMORY_ROUTES: readonly string[] = [
   "memory:providers/sign-in",
   "memory:providers/sign-in-state",
   "memory:providers/sign-in-callback",
+  "memory:terminals/paste_image",
+  "memory:project_files/write_bytes",
+  "memory:project_files/copy",
+  "memory:transfers/send",
+  "memory:transfers/list",
+  "memory:transfers/status",
+  "memory:transfers/clear",
+  "memory:settings_export/send",
+  "memory:settings_export/staged",
+  "memory:settings_export/apply",
+  "memory:settings_export/dismiss",
 ];
 
 // renderer가 byte를 주고받는 route. 사람이 고른 agent의 프로필 이미지와 메시지에 붙인 이미지, 터미널 탭 GUI에 붙인 이미지를 올리고 읽는다.

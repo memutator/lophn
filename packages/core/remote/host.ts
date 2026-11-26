@@ -59,9 +59,12 @@ export type RemoteRoster = {
   join(
     key: string,
     statements: readonly RosterStatement[],
+    signingKey?: string,
   ): Promise<Result<RosterJoined>>;
   // 붙은 연결이 보낸 명단을 받고 이 컴퓨터의 명단을 낸다.
   receive(roster: RosterSnapshot): Promise<Result<RosterSnapshot>>;
+  // Noise 인증을 통과한 폰이 clientHello로 알린 Ed25519 공개 signing_key를 명단 항목에 등록한다.
+  setPhoneSigningKey?(id: string, signingKey: string): Promise<Result<void>>;
 };
 
 // 이 컴퓨터만의 기기 행. production은 ledger의 devices command다.
@@ -72,8 +75,14 @@ export type RemoteDevices = {
 
 export type RemoteHostDeps = {
   staticKey: KeyPair;
-  // hello로 알리는 이 기계와 지금 주소 후보. 연결마다 읽어 이름이나 주소가 바뀌면 다음 연결부터 새 것이다.
-  machine(): { id: Id<"mch">; name: string; addresses: string[] };
+  // hello로 알리는 이 기계와 지금 주소·hub·relay 후보. 연결마다 읽어 이름·주소·hub가 바뀌면 다음 연결부터 새 것이다.
+  machine(): {
+    id: Id<"mch">;
+    name: string;
+    addresses: string[];
+    hub?: boolean;
+    relays?: string[];
+  };
   random: RandomSource;
   timers: RemoteTimers;
   bus: Bus;
@@ -215,6 +224,11 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
           ? {}
           : { phone: channel.peer.phone }),
       });
+      if (channel.peer.signing_key !== undefined) {
+        void deps.roster
+          .setPhoneSigningKey?.(device, channel.peer.signing_key)
+          .catch(() => undefined);
+      }
       const phone: PhoneConnection = {
         device,
         capabilities: connection.capabilities,
@@ -315,7 +329,11 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
         channel.close();
         return undefined;
       }
-      const joined = await deps.roster.join(publicKey, frame.statements);
+      const joined = await deps.roster.join(
+        publicKey,
+        frame.statements,
+        channel.peer.signing_key,
+      );
       if (!joined.ok) {
         tries += 1;
         channel.send({

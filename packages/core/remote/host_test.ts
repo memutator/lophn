@@ -73,6 +73,7 @@ import {
   devicesPushTargets,
   devicesSetPrimary,
   generateKeyPair,
+  generateSigningKey,
   type KeyPair,
   machinesCall,
   REMOTE_ALLOWED_ROUTES,
@@ -148,7 +149,7 @@ import {
   loadRemoteKeys,
   stampHostKeyMachine,
 } from "./host-key.ts";
-import { createLinks } from "./links.ts";
+import { createLinks, hubRelayUrls } from "./links.ts";
 import { createMachineRoutes } from "./machine-routes.ts";
 import { createRoster, type Roster, type RosterChange } from "./roster.ts";
 import { CORE_APP_EVENTS, sharesAppEvent } from "./subscriptions.ts";
@@ -244,7 +245,12 @@ const viewRelease = `rel_0${"1".repeat(25)}`;
 
 // 명단(기본은 key → id 표), 앱 process·release 선언, 앱 호출 경로만 가짜다. 자격, scope, route dispatch, view 표, Gateway 구독은
 // production code다. 진짜 명단을 쓰는 test는 `roster`와 그 host key를 넘긴다.
-function setup(real?: { roster: RemoteRoster; hostKey: KeyPair }) {
+function setup(real?: {
+  roster: RemoteRoster;
+  hostKey: KeyPair;
+  hub?: boolean;
+  relays?: string[];
+}) {
   const random = seededRandom(11);
   const clock = manualClock(1_000_000);
   const coreKey = real?.hostKey ?? generateKeyPair(random);
@@ -425,6 +431,8 @@ function setup(real?: { roster: RemoteRoster; hostKey: KeyPair }) {
       id: HOST_MACHINE,
       name: "studio",
       addresses: ["192.168.0.2"],
+      ...(real?.hub === undefined ? {} : { hub: real.hub }),
+      ...(real?.relays === undefined ? {} : { relays: real.relays }),
     }),
     random,
     timers: {
@@ -535,7 +543,7 @@ function setup(real?: { roster: RemoteRoster; hostKey: KeyPair }) {
     phoneLink: { attached() {}, received() {}, closed() {} },
   });
 
-  function open(phoneKey: KeyPair) {
+  function open(phoneKey: KeyPair, options?: { signingKey?: string }) {
     const w = wire();
     void host.accept(w.core as RemoteSocket);
     return connectRemote({
@@ -544,12 +552,15 @@ function setup(real?: { roster: RemoteRoster; hostKey: KeyPair }) {
       remoteStatic: coreKey.publicKey,
       capabilities: [],
       name: "Pixel",
+      ...(options?.signingKey === undefined
+        ? {}
+        : { signing_key: options.signingKey }),
       random,
     }).then((opened) => ({ opened, delivered: w.delivered }));
   }
 
-  async function connect(phoneKey: KeyPair) {
-    const { opened, delivered } = await open(phoneKey);
+  async function connect(phoneKey: KeyPair, options?: { signingKey?: string }) {
+    const { opened, delivered } = await open(phoneKey, options);
     assert.ok(opened.ok);
     const phone: RemoteClientChannel = opened.value;
     const frames: RemoteServerFrame[] = [];
@@ -1900,4 +1911,223 @@ test("첫 ready 직전에 watch가 겹쳐도 다음 창 watch의 ready가 그 wa
     return payload.frame.type === "ready" ? [payload.watcher] : [];
   });
   assert.deepEqual(readyWatchers, ["w2"]);
+});
+
+// 깨지면 기존 폰이 업그레이드 후 재pairing 없이 Ed25519 custody signing_key를 등록하지 못하거나 충돌로 명단에서 빠지고,
+// 또는 폰 signing_key가 컴퓨터처럼 명단 서명 권한을 얻는 보안 경계 위반이 생긴다.
+test("폰은 clientHello.signing_key로 재pairing 없이 명단에 signing_key를 등록하고, 폰 signing_key는 명단 서명 권한을 얻지 못한다", async () => {
+  const m = await migrated();
+  const phoneSigning = generateSigningKey(m.s.random);
+  const phoneSigningText = remoteKeyText(phoneSigning.publicKey);
+  const computerSigningText = remoteKeyText(m.keys.signing.publicKey);
+
+  // 1. 컴퓨터의 signing_key를 사칭하려는 폰 시도는 무시되고 충돌을 일으키지 않는다.
+  const spoof = await m.s.connect(m.phoneKey, {
+    signingKey: computerSigningText,
+  });
+  spoof.phone.send({ type: "join", id: "j0", statements: [] });
+  await settle();
+  const afterSpoof = m.roster
+    .view()
+    .devices.find((each) => each.body.id === m.phoneId)?.body;
+  assert.equal(afterSpoof?.signing_key, null);
+  assert.deepEqual(m.roster.view().conflicts, []);
+  spoof.phone.close();
+  await settle();
+
+  // 2. 자기 Ed25519 signing_key로 접속하면 rev + 1로 서명되어 명단에 반영된다(충돌 없음).
+  const upgraded = await m.s.connect(m.phoneKey, {
+    signingKey: phoneSigningText,
+  });
+  upgraded.phone.send({ type: "join", id: "j1", statements: [] });
+  await settle();
+  const [joinedFrame] = results(upgraded.frames);
+  assert.ok(joinedFrame?.ok);
+  const entry = m.roster
+    .view()
+    .devices.find((each) => each.body.id === m.phoneId)?.body;
+  assert.equal(entry?.signing_key, phoneSigningText);
+  assert.equal(entry?.rev, 2);
+  assert.deepEqual(m.roster.view().conflicts, []);
+
+  // 3. 보안 경계: 폰의 signing_key로 다른 기기 항목이나 빼기에 서명해도 trust()는 컴퓨터만 신뢰하므로 받아들이지 않는다.
+  const rogueKey = remoteKeyText(generateKeyPair(m.s.random).publicKey);
+  const rogueEntry: RosterEntryBody = {
+    type: "entry",
+    id: deviceId(88) as RosterEntryBody["id"],
+    kind: "phone",
+    key: rogueKey,
+    signing_key: null,
+    machine: null,
+    name: "Rogue",
+    os: "android",
+    rev: 1,
+    invite: null,
+  };
+  const forgedByPhone = {
+    body: rogueEntry,
+    by: m.phoneId as RosterEntryBody["id"],
+    signature: signRoster(rogueEntry, phoneSigning.secretKey),
+  };
+  const checked = rosterView(
+    [...m.roster.snapshot().statements, forgedByPhone],
+    [computerSigningText],
+    computerSigningText,
+  );
+  assert.equal(
+    checked.devices.some((each) => each.body.key === rogueKey),
+    false,
+  );
+  assert.equal(
+    checked.devices.find((each) => each.body.id === m.phoneId)?.body
+      .signing_key,
+    phoneSigningText,
+  );
+  upgraded.phone.close();
+});
+
+test("hubRelayUrls와 serverHello·links는 Hub 여부와 정렬된 relay 목록을 전파하고 연결된 Hub를 우선한다", async (t) => {
+  assert.deepEqual(
+    hubRelayUrls(
+      ["203.0.113.10", "2001:db8::1", "wss://hub.example/", "203.0.113.10"],
+      7432,
+    ),
+    ["ws://203.0.113.10:7432", "ws://[2001:db8::1]:7432", "wss://hub.example"],
+  );
+
+  // B(Hub)가 serverHello.machine에 hub: true와 relays를 실어 보내면 A의 links가 reach에 학습하고 hubRelays/list에 반영한다.
+  const random = seededRandom(29);
+  const hostKey = generateKeyPair(random);
+  const bRelays = ["ws://203.0.113.10:7432", "wss://lophn-relay.fly.dev"];
+  const s = setup({
+    roster: {
+      find: () => deviceId(60),
+      join: async () =>
+        ok({
+          device: deviceId(60),
+          computer: { id: deviceId(50), signing_key: FAKE_SIGNING_KEY },
+          roster: { statements: [], reach: [] },
+        }),
+      receive: async () => ok({ statements: [], reach: [] }),
+    },
+    hostKey,
+    hub: true,
+    relays: bRelays,
+  });
+  const aKey = generateKeyPair(s.random);
+  const b: RosterEntryBody = {
+    type: "entry",
+    id: deviceId(50) as RosterEntryBody["id"],
+    kind: "computer",
+    key: remoteKeyText(hostKey.publicKey),
+    signing_key: FAKE_SIGNING_KEY,
+    machine: HOST_MACHINE,
+    name: "vm-hub",
+    os: "linux",
+    rev: 1,
+    invite: null,
+  };
+  const cKey = generateKeyPair(s.random);
+  const c: RosterEntryBody = {
+    type: "entry",
+    id: deviceId(51) as RosterEntryBody["id"],
+    kind: "computer",
+    key: remoteKeyText(cKey.publicKey),
+    signing_key: remoteKeyText(new Uint8Array(32).fill(8)),
+    machine: `mch_0${"2".repeat(25)}` as RosterEntryBody["machine"],
+    name: "offline-hub",
+    os: "linux",
+    rev: 1,
+    invite: null,
+  };
+  let reach = [
+    {
+      device: b.id,
+      addresses: ["203.0.113.10"],
+      port: 7432,
+      relay: null as string | null,
+      hub: false as boolean | undefined,
+      relays: [] as string[] | undefined,
+    },
+    {
+      device: c.id,
+      addresses: ["198.51.100.20"],
+      port: 7432,
+      relay: null as string | null,
+      hub: true as boolean | undefined,
+      relays: ["ws://198.51.100.20:7432"] as string[] | undefined,
+    },
+  ];
+  const roster = {
+    view: () => ({
+      devices: [
+        { body: b, signed_by: [], pending: false },
+        { body: c, signed_by: [], pending: false },
+      ],
+      removed: [],
+      folded: [],
+      conflicts: [],
+      invites: [],
+      keep: [],
+    }),
+    self: () => ({
+      id: deviceId(60),
+      hostKey: remoteKeyText(aKey.publicKey),
+      signingKey: "a-signing-key",
+    }),
+    snapshot: () => ({ statements: [], reach }),
+    receive: async (incoming: { reach: typeof reach }) => {
+      for (const item of incoming.reach) {
+        reach = reach.map((each) =>
+          each.device === item.device ? item : each,
+        );
+      }
+      return ok({ statements: [], reach });
+    },
+  } as unknown as Roster;
+  const links = createLinks({
+    roster,
+    name: () => "laptop",
+    dial: (url) => {
+      if (url.includes("198.51.100.20")) {
+        return Promise.reject(new Error("offline"));
+      }
+      const w = wire();
+      void s.host.accept(w.core as RemoteSocket);
+      return Promise.resolve(w.phone);
+    },
+    random: s.random,
+    clock: s.clock,
+    wait(ms, fn) {
+      const timer = setTimeout(fn, ms);
+      return () => clearTimeout(timer);
+    },
+    publish: () => undefined,
+    logger: { error() {}, warn() {} } as never,
+    onPeerReady: () => undefined,
+    onPeerCarry: () => undefined,
+    onPeerVault: () => undefined,
+    onPeerEvent: () => undefined,
+  });
+  links.sync(aKey);
+  t.after(() => links.sync(undefined));
+  for (
+    let i = 0;
+    i < 50 &&
+    links.list().find((each) => each.device === b.id)?.status !== "connected";
+    i++
+  ) {
+    await settle();
+  }
+  await settle();
+  const learnedB = reach.find((each) => each.device === b.id);
+  assert.equal(learnedB?.hub, true);
+  assert.deepEqual(learnedB?.relays, bRelays);
+  assert.equal(links.list().find((each) => each.device === b.id)?.hub, true);
+  // 온라인 Hub(b)의 relay URL이 오프라인 Hub(c)보다 앞에 온다.
+  assert.deepEqual(links.hubRelays(), [
+    "ws://203.0.113.10:7432",
+    "ws://192.168.0.2:7432",
+    "ws://198.51.100.20:7432",
+  ]);
 });

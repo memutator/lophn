@@ -56,6 +56,7 @@ export async function publishRecords(
         updated_at: now,
         name: me.name,
         always_on: facts.alwaysOn,
+        ...(facts.hub === undefined ? {} : { hub: facts.hub }),
         addresses: facts.addresses,
         lophn: {
           version: facts.lophn.version,

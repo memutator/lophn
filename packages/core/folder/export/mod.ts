@@ -43,7 +43,13 @@ export type ExportLog = FolderLog & {
 
 export type ExportFacts = {
   // remote가 꺼져 있으면 빈 목록과 null이다.
-  addresses: { lan: string[]; port: number | null; relay: string | null };
+  addresses: {
+    lan: string[];
+    port: number | null;
+    relay: string | null;
+    relays?: string[];
+  };
+  hub?: boolean;
   alwaysOn: {
     keep_running: boolean;
     starts_at_login: boolean;

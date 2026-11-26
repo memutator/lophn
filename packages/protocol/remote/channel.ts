@@ -45,11 +45,21 @@ type PeerBase = {
 
 // 붙는 쪽(폰, desktop)이 handshake와 hello로 안 core: 공개 key와 그 기계의 id와 이름, 지금 주소 후보(이 칸 전의 core는 없다).
 export type RemotePeer = PeerBase & {
-  machine: { id: Id<"mch">; name: string; addresses?: string[] };
+  machine: {
+    id: Id<"mch">;
+    name: string;
+    addresses?: string[];
+    hub?: boolean;
+    relays?: string[];
+  };
 };
 
 // core가 안 기기. publicKey가 기기 신원이고 누구인지는 부르는 쪽이 정한다. name은 기기가 알린 자기 이름이고 phone은 폰이 알린 화면이다.
-export type RemoteDevicePeer = PeerBase & { name: string; phone?: RemotePhone };
+export type RemoteDevicePeer = PeerBase & {
+  name: string;
+  phone?: RemotePhone;
+  signing_key?: string;
+};
 
 // frame 하나는 JSON 하나다. 받는 쪽은 onFrame을 걸 때까지 frame을 모아 둔다.
 // 바뀌거나 빠지거나 순서가 바뀐 record, schema 밖 frame을 받으면 연결을 끊는다.
@@ -125,6 +135,7 @@ export function connectRemote(
     remoteStatic: Uint8Array;
     name: string;
     phone?: RemotePhone;
+    signing_key?: string;
     machine?: Id<"mch">;
   },
 ): Promise<Result<RemoteClientChannel>> {
@@ -139,6 +150,9 @@ export function connectRemote(
       capabilities: options.capabilities,
       name: options.name,
       ...(options.phone === undefined ? {} : { phone: options.phone }),
+      ...(options.signing_key === undefined
+        ? {}
+        : { signing_key: options.signing_key }),
     },
     meet(publicKey, frame) {
       const theirs = frame as RemoteServerHello;
@@ -159,7 +173,7 @@ export function connectRemote(
           message: "a different computer answered",
         });
       }
-      const { id, name, addresses } = theirs.machine;
+      const { id, name, addresses, hub, relays } = theirs.machine;
       return ok({
         publicKey,
         version: theirs.version,
@@ -169,6 +183,8 @@ export function connectRemote(
           id: id as Id<"mch">,
           name,
           ...(addresses === undefined ? {} : { addresses }),
+          ...(hub === undefined ? {} : { hub }),
+          ...(relays === undefined ? {} : { relays }),
         },
       });
     },
@@ -205,6 +221,9 @@ export function acceptRemote(
         capabilities: theirs.capabilities,
         name: theirs.name,
         ...(theirs.phone === undefined ? {} : { phone: theirs.phone }),
+        ...(theirs.signing_key === undefined
+          ? {}
+          : { signing_key: theirs.signing_key }),
       });
     },
   });

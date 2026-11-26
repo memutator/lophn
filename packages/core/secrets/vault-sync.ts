@@ -20,10 +20,6 @@ import {
 } from "../../base/mod.ts";
 import type { Id } from "../../protocol/base/ids.ts";
 import {
-  BACKOFF_FIRST_MS,
-  BACKOFF_MAX_MS,
-} from "../../protocol/folder/limits.ts";
-import {
   browserVaultExchange,
   LOGIN_SECRET_PREFIX,
   LOGIN_VALUE_FIELDS,
@@ -31,6 +27,7 @@ import {
   type VaultFile,
 } from "../../protocol/secrets/mod.ts";
 import type { MemoryHandler } from "../server/mod.ts";
+import { createReceiveScheduler } from "../folder/receive-scheduler.ts";
 import type { BrowserVault } from "./browser-vault.ts";
 import type { SecretStore } from "./secret-store.ts";
 import { type LoginValues, planMerge, stateOf } from "./vault-merge.ts";
@@ -179,109 +176,16 @@ export type VaultSyncDeps = {
   logger: Logger;
 };
 
-type Lane = {
-  running: boolean;
-  again: boolean;
-  attempts: number;
-  notBefore: number;
-  // 물러나는 동안 온 계기. `notBefore`가 지나면 받기 한 번을 한다(줄을 세우지 않는다). 취소 함수다.
-  deferred: (() => void) | undefined;
-};
-
 export type VaultSync = ReturnType<typeof createVaultSync>;
 
 /** remote가 켜질 때 `start`, 꺼질 때 `stop`. 계기를 컴퓨터마다 한 번에 하나인 받기로 바꾼다. */
 export function createVaultSync(deps: VaultSyncDeps) {
-  const lanes = new Map<string, Lane>();
-  const debounces = new Map<string, () => void>();
+  const scheduler = createReceiveScheduler({
+    nowMs: () => deps.clock.nowMs(),
+    wait: deps.wait,
+    started: false,
+  });
   let cancelTimer: (() => void) | undefined;
-  let active = false;
-
-  // 물러나는 동안 온 계기를 버리지 않고 `notBefore`가 지난 뒤 한 번 받는다. 이미 잡혀 있으면 더하지 않는다.
-  function defer(lane: Lane, machine: Id<"mch">) {
-    if (lane.deferred !== undefined) return;
-    lane.deferred = deps.wait(lane.notBefore - deps.clock.nowMs(), () => {
-      lane.deferred = undefined;
-      kick(machine);
-    });
-  }
-
-  function resetBackoff(lane: Lane) {
-    lane.deferred?.();
-    lane.deferred = undefined;
-    lane.attempts = 0;
-    lane.notBefore = 0;
-  }
-
-  function kick(machine: Id<"mch">) {
-    if (!active || !deps.sharing()) return;
-    let lane = lanes.get(machine);
-    if (lane === undefined) {
-      lane = {
-        running: false,
-        again: false,
-        attempts: 0,
-        notBefore: 0,
-        deferred: undefined,
-      };
-      lanes.set(machine, lane);
-    }
-    const one = lane;
-    if (one.running) {
-      one.again = true;
-      return;
-    }
-    if (deps.clock.nowMs() < one.notBefore) {
-      defer(one, machine);
-      return;
-    }
-    one.running = true;
-    void (async () => {
-      try {
-        for (;;) {
-          one.again = false;
-          const done = await pullFrom(machine).catch(
-            (thrown: unknown): Result<boolean> =>
-              err({
-                code: "internal",
-                message:
-                  thrown instanceof Error ? thrown.message : String(thrown),
-              }),
-          );
-          if (!done.ok) {
-            // 나누기를 끈 컴퓨터와 이 route를 모르는 옛 판은 실패가 아니다.
-            if (
-              done.error.code === "forbidden" ||
-              done.error.code === "not_found"
-            ) {
-              return;
-            }
-            deps.logger.warn({
-              component: "secrets",
-              event: "browser_vault_sync_failed",
-              fields: { machine, code: done.error.code },
-            });
-            one.notBefore =
-              deps.clock.nowMs() +
-              Math.min(
-                BACKOFF_FIRST_MS * 2 ** Math.min(one.attempts, 20),
-                BACKOFF_MAX_MS,
-              );
-            one.attempts += 1;
-            // 받는 사이 온 계기도 물러난 뒤 한 번 받는다.
-            if (one.again) defer(one, machine);
-            return;
-          }
-          one.attempts = 0;
-          one.notBefore = 0;
-          if (done.value) deps.changed();
-          if (!active || !one.again) return;
-        }
-      } finally {
-        one.running = false;
-      }
-    })();
-  }
 
   async function pullFrom(machine: Id<"mch">): Promise<Result<boolean>> {
     const answer = await deps.exchange(machine);
@@ -289,6 +193,37 @@ export function createVaultSync(deps: VaultSyncDeps) {
     // 받는 사이 나누기를 껐거나 그 컴퓨터가 명단에서 빠졌으면 합치지 않는다.
     if (!deps.sharing() || !deps.inRoster(machine)) return ok(false);
     return await deps.merge(answer.value);
+  }
+
+  function kick(machine: Id<"mch">) {
+    if (!scheduler.active() || !deps.sharing()) return;
+    scheduler.kick(machine, async () => {
+      if (!deps.sharing()) return { ok: true, more: false };
+      const done = await pullFrom(machine).catch(
+        (thrown: unknown): Result<boolean> =>
+          err({
+            code: "internal",
+            message: thrown instanceof Error ? thrown.message : String(thrown),
+          }),
+      );
+      if (!done.ok) {
+        // 나누기를 끈 컴퓨터와 이 route를 모르는 옛 판은 실패가 아니다.
+        if (
+          done.error.code === "forbidden" ||
+          done.error.code === "not_found"
+        ) {
+          return { ok: false, backoff: false };
+        }
+        deps.logger.warn({
+          component: "secrets",
+          event: "browser_vault_sync_failed",
+          fields: { machine, code: done.error.code },
+        });
+        return { ok: false, more: false };
+      }
+      if (done.value) deps.changed();
+      return { ok: true, more: false };
+    });
   }
 
   function all() {
@@ -304,38 +239,23 @@ export function createVaultSync(deps: VaultSyncDeps) {
 
   return {
     start() {
-      if (active) return;
-      active = true;
-      for (const lane of lanes.values()) resetBackoff(lane);
+      if (scheduler.active()) return;
+      scheduler.start();
       tick();
     },
     stop() {
-      active = false;
+      scheduler.stop();
       cancelTimer?.();
       cancelTimer = undefined;
-      for (const cancel of debounces.values()) cancel();
-      debounces.clear();
-      for (const lane of lanes.values()) {
-        lane.deferred?.();
-        lane.deferred = undefined;
-      }
     },
     // link가 붙었다. 상대가 다시 떴거나 길이 돌아왔으니 물러나기를 풀고 바로 받는다.
     ready(machine: Id<"mch">) {
-      const lane = lanes.get(machine);
-      if (lane !== undefined) resetBackoff(lane);
+      scheduler.reset(machine);
       kick(machine);
     },
     // 상대의 profile이나 login이 바뀌었다.
     peerChanged(machine: Id<"mch">) {
-      debounces.get(machine)?.();
-      debounces.set(
-        machine,
-        deps.wait(PEER_DEBOUNCE_MS, () => {
-          debounces.delete(machine);
-          kick(machine);
-        }),
-      );
+      scheduler.debounce(machine, PEER_DEBOUNCE_MS, () => kick(machine));
     },
     // 이 컴퓨터가 나누기를 켰다.
     sharingChanged: all,

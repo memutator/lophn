@@ -16,6 +16,7 @@ import {
 import {
   checkInvited,
   generateSigningKey,
+  keyTextSchema,
   mergeRoster,
   ROSTER_INVITE_LONG_MS,
   ROSTER_INVITE_SHORT_MS,
@@ -307,6 +308,36 @@ export function createRoster(deps: RosterDeps) {
     });
   }
 
+  // 폰 항목이 아직 signing_key가 없을 때만, 다른 기기·빠진 기기와 겹치지 않는 유효한 공개 key인지 확인한다.
+  function canAssignPhoneSigningKey(
+    v: RosterView,
+    id: string,
+    signingKey: string,
+  ): RosterEntryBody | undefined {
+    if (!keyTextSchema.safeParse(signingKey).success) return undefined;
+    const found = v.devices.find((d) => d.body.id === id)?.body;
+    if (
+      found === undefined ||
+      found.kind !== "phone" ||
+      found.signing_key !== null
+    ) {
+      return undefined;
+    }
+    if (v.devices.some((d) => d.body.signing_key === signingKey)) {
+      return undefined;
+    }
+    if (
+      v.removed.some(
+        (r) =>
+          r.body.signing_key === signingKey ||
+          r.entry?.signing_key === signingKey,
+      )
+    ) {
+      return undefined;
+    }
+    return found;
+  }
+
   return {
     view: () => view,
     self: () => selfOf(view),
@@ -418,6 +449,7 @@ export function createRoster(deps: RosterDeps) {
     join(
       key: string,
       offered: readonly RosterStatement[],
+      signingKey?: string,
     ): Promise<Result<RosterJoined>> {
       return run(async (): Promise<Result<RosterJoined>> => {
         const self = selfOf(view);
@@ -429,9 +461,27 @@ export function createRoster(deps: RosterDeps) {
           });
         }
         const now = deps.clock.nowMs();
-        const trial = settle(mergeRoster(statements, offered), now, self.id);
+        let trial = settle(mergeRoster(statements, offered), now, self.id);
         const joined = trial.view.devices.find((d) => d.body.key === key);
         if (joined === undefined) return err(refusal(key, offered, now));
+        if (signingKey !== undefined) {
+          const phone = canAssignPhoneSigningKey(
+            trial.view,
+            joined.body.id,
+            signingKey,
+          );
+          if (phone !== undefined) {
+            const updated = signed(
+              { ...bare(phone), signing_key: signingKey, rev: phone.rev + 1 },
+              self.id,
+            );
+            trial = settle(
+              mergeRoster(trial.statements, [updated]),
+              now,
+              self.id,
+            );
+          }
+        }
         const done = await commit(trial);
         if (!done.ok) return done;
         return ok({
@@ -439,6 +489,23 @@ export function createRoster(deps: RosterDeps) {
           computer: { id: self.id, signing_key: self.signingKey },
           roster: snapshot(),
         });
+      });
+    },
+
+    // Noise 인증을 통과한 폰이 clientHello로 알린 Ed25519 공개 signing_key를 명단 항목(rev + 1)으로 서명해 반영한다.
+    // 이미 등록됐거나 컴퓨터 항목이거나 다른 기기 key와 겹치면 아무것도 바꾸지 않는다.
+    setPhoneSigningKey(id: string, signingKey: string): Promise<Result<void>> {
+      return run(async () => {
+        const self = selfOf(view);
+        if (self === undefined) return unavailable();
+        const phone = canAssignPhoneSigningKey(view, id, signingKey);
+        if (phone === undefined) return ok(undefined);
+        return add([
+          signed(
+            { ...bare(phone), signing_key: signingKey, rev: phone.rev + 1 },
+            self.id,
+          ),
+        ]);
       });
     },
 

@@ -6,6 +6,7 @@ import { test } from "node:test";
 
 import { err, manualClock, ok } from "../../base/mod.ts";
 import { createBrowserVault } from "./browser-vault.ts";
+import { createReceiveScheduler } from "../folder/receive-scheduler.ts";
 import { BACKOFF_FIRST_MS } from "../../protocol/folder/limits.ts";
 import {
   applyRemoteVault,
@@ -287,4 +288,69 @@ test("물러나는 동안 온 계기는 notBefore가 지난 뒤 한 번 받고, 
   await advance(BACKOFF_FIRST_MS);
   assert.equal(pulls, 4);
   sync.stop();
+});
+
+// 깨지면 backoff 대기 중이나 실패로 끝난 실행 도중 들어온 trigger가 유실되어 다음 주기까지 동기화가 멈춘다.
+test("createReceiveScheduler는 backoff 대기 중과 실패 실행 도중 온 kick을 유실하지 않고 notBefore 뒤 한 번 실행한다", async () => {
+  const clock = manualClock(0);
+  const timers: { at: number; fn: () => void; live: boolean }[] = [];
+  const settle = () => new Promise((resolve) => setImmediate(resolve));
+  const advance = async (ms: number) => {
+    clock.advance(ms);
+    for (const one of [...timers]) {
+      if (one.live && one.at <= clock.nowMs()) {
+        one.live = false;
+        one.fn();
+      }
+    }
+    await settle();
+  };
+  const scheduler = createReceiveScheduler({
+    nowMs: () => clock.nowMs(),
+    wait(ms, fn) {
+      const one = { at: clock.nowMs() + ms, fn, live: true };
+      timers.push(one);
+      return () => {
+        one.live = false;
+      };
+    },
+  });
+
+  let runs = 0;
+  let releaseFirst!: () => void;
+  const firstPending = new Promise<void>((resolve) => {
+    releaseFirst = resolve;
+  });
+  let shouldFail = true;
+  const job = async () => {
+    runs += 1;
+    if (runs === 1) await firstPending;
+    return { ok: !shouldFail, more: false };
+  };
+
+  // 실행 도중 들어온 kick이 실패 뒤 backoff에 들어가도 버려지지 않고 1분 뒤 한 번 더 돈다.
+  scheduler.kick("carry", job);
+  assert.equal(runs, 1);
+  scheduler.kick("carry", job);
+  releaseFirst();
+  await settle();
+  assert.equal(runs, 1);
+
+  // 1분 backoff 만료 -> 2번째 실행(역시 실패, 이번엔 2분 backoff 진입).
+  await advance(BACKOFF_FIRST_MS);
+  assert.equal(runs, 2);
+
+  // 2분 backoff 대기 중 여러 번 kick이 와도 유실되지 않고 2분 뒤 정확히 1회만 더 돈다.
+  shouldFail = false;
+  scheduler.kick("carry", job);
+  scheduler.kick("carry", job);
+  await advance(BACKOFF_FIRST_MS);
+  assert.equal(runs, 2);
+  await advance(BACKOFF_FIRST_MS);
+  assert.equal(runs, 3);
+
+  // 성공 뒤에는 예약이 남지 않는다.
+  await advance(BACKOFF_FIRST_MS * 2);
+  assert.equal(runs, 3);
+  scheduler.stop();
 });

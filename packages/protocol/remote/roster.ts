@@ -449,10 +449,12 @@ function conflictsOf(t: Trust): Map<string, RosterConflict> {
       body.key,
       (shapes.get(body.key) ?? new Set()).add(`${body.kind} ${body.machine}`),
     );
-    signings.set(
-      body.key,
-      (signings.get(body.key) ?? new Set()).add(String(body.signing_key)),
-    );
+    if (body.signing_key !== null) {
+      signings.set(
+        body.key,
+        (signings.get(body.key) ?? new Set()).add(body.signing_key),
+      );
+    }
   }
   for (const [key, set] of signings) if (set.size > 1) flag(key, "signing_key");
   for (const keys of groups((body) => body.signing_key)) {
@@ -1020,7 +1022,8 @@ export function checkInvited(
     (same !== undefined &&
       (same.body === undefined ||
         same.body.kind !== body.kind ||
-        same.body.signing_key !== body.signing_key ||
+        (same.body.signing_key !== null &&
+          same.body.signing_key !== body.signing_key) ||
         same.body.machine !== body.machine)) ||
     (body.signing_key !== null &&
       held.some(

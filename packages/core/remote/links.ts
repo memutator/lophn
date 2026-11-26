@@ -135,7 +135,37 @@ export type LinkedMachine = {
   update: "client" | "host" | null;
   path: "direct" | "relay" | null;
   last_seen_at: string | null;
+  hub?: boolean;
 };
+
+// 주소 후보와 port로 hub relay URL 목록을 만든다(`ws://<addr>:<port>` 또는 설정된 `ws://`/`wss://` URL).
+export function hubRelayUrls(
+  addresses: readonly string[],
+  port: number,
+): string[] {
+  const out: string[] = [];
+  for (const raw of addresses) {
+    const addr = raw.trim();
+    if (!addr) continue;
+    let candidate: string;
+    if (/^wss?:\/\//i.test(addr)) {
+      candidate = addr.replace(/\/+$/, "");
+    } else if (port > 0) {
+      const host =
+        addr.includes(":") && !addr.startsWith("[") ? `[${addr}]` : addr;
+      candidate = `ws://${host}:${port}`;
+    } else {
+      continue;
+    }
+    try {
+      new URL(candidate);
+    } catch {
+      continue;
+    }
+    if (!out.includes(candidate)) out.push(candidate);
+  }
+  return out;
+}
 
 // 한 기계를 보는 구독자. shell main의 것은 그 shell의 capability에 묶여 shell이 끝나면 함께 빠진다. core 안의 구독자는
 // capability가 없다. `watcher`는 그 구독자가 바꾼 합에 답한 `ready`가 다는 이름이다.
@@ -282,29 +312,103 @@ export function createLinks(deps: LinksDeps) {
     });
   }
 
-  // hello의 주소를 그 컴퓨터의 reach로 둔다. port와 relay는 명단의 것 그대로다.
-  function learn(device: string, addresses: string[]) {
+  // hello의 주소·hub·relay 목록을 그 컴퓨터의 reach로 둔다.
+  function learn(
+    device: string,
+    peer: { addresses?: string[]; hub?: boolean; relays?: string[] },
+  ) {
     const known = deps.roster
       .snapshot()
       .reach.find((each) => each.device === device);
-    if (
-      known === undefined ||
-      canonicalize(known.addresses) === canonicalize(addresses)
-    ) {
-      return;
+    if (known === undefined) return;
+    const next = {
+      ...known,
+      ...(peer.addresses === undefined ? {} : { addresses: peer.addresses }),
+      ...(peer.hub === undefined ? {} : { hub: peer.hub }),
+      ...(peer.relays === undefined ? {} : { relays: peer.relays }),
+    };
+    if (canonicalize(known) === canonicalize(next)) return;
+    receive({ statements: [], reach: [next] });
+  }
+
+  // 명단에 있는 다른 Hub 컴퓨터들의 relay URL을 정렬해 돌려준다(현재 연결된 Hub 먼저, 최근 접속 순).
+  function hubRelays(): string[] {
+    const self = deps.roster.self()?.id;
+    const snapshot = deps.roster.snapshot();
+    const reachByDevice = new Map(snapshot.reach.map((r) => [r.device, r]));
+    const hubs = deps.roster
+      .view()
+      .devices.filter(
+        (each) =>
+          each.body.kind === "computer" &&
+          each.body.id !== self &&
+          reachByDevice.get(each.body.id)?.hub === true,
+      )
+      .map((each) => {
+        const link = links.get(each.body.id);
+        const connected =
+          link !== undefined &&
+          !link.refused &&
+          link.connection.current().state === "ready";
+        return {
+          id: each.body.id,
+          connected,
+          lastSeen: seen.get(each.body.id) ?? "",
+          reach: reachByDevice.get(each.body.id)!,
+        };
+      })
+      .sort((a, b) => {
+        if (a.connected !== b.connected) return a.connected ? -1 : 1;
+        if (a.lastSeen !== b.lastSeen) return a.lastSeen > b.lastSeen ? -1 : 1;
+        return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+      });
+    const urls: string[] = [];
+    for (const hub of hubs) {
+      for (const url of hubRelayUrls(hub.reach.addresses, hub.reach.port)) {
+        if (!urls.includes(url)) urls.push(url);
+      }
     }
-    receive({ statements: [], reach: [{ ...known, addresses }] });
+    return urls;
   }
 
   function endpointOf(body: RosterEntryBody): Endpoint {
-    const reach = deps.roster
-      .snapshot()
-      .reach.find((each) => each.device === body.id);
+    const snapshot = deps.roster.snapshot();
+    const reach = snapshot.reach.find((each) => each.device === body.id);
+    const ownHubUrls = new Set(
+      reach?.hub === true ? hubRelayUrls(reach.addresses, reach.port) : [],
+    );
+    const candidates: string[] = [];
+    for (const url of [
+      ...(reach?.relays ?? []),
+      ...(reach?.relay ? [reach.relay] : []),
+    ]) {
+      if (ownHubUrls.has(url) || candidates.includes(url)) continue;
+      candidates.push(url);
+    }
+    // 다른 Hub 컴퓨터가 지금 offline이면 그 Hub relay보다 온라인 Hub나 fallback relay를 먼저 고른다.
+    const offlineHubUrls = new Set<string>();
+    const onlineHubUrls = new Set<string>();
+    for (const each of snapshot.reach) {
+      if (each.hub !== true || each.device === body.id) continue;
+      const link = links.get(each.device);
+      const connected =
+        link !== undefined &&
+        !link.refused &&
+        link.connection.current().state === "ready";
+      const target = connected ? onlineHubUrls : offlineHubUrls;
+      for (const url of hubRelayUrls(each.addresses, each.port)) {
+        target.add(url);
+      }
+    }
+    const relay =
+      candidates.find((url) => onlineHubUrls.has(url)) ??
+      candidates.find((url) => !offlineHubUrls.has(url)) ??
+      candidates[0];
     return {
       addresses: reach?.addresses ?? [],
       port: reach?.port ?? 0,
       key: body.key,
-      ...(reach?.relay ? { relay: reach.relay } : {}),
+      ...(relay ? { relay } : {}),
       machine: body.machine as Id<"mch">,
     };
   }
@@ -354,7 +458,13 @@ export function createLinks(deps: LinksDeps) {
           receive({ statements: [removal], reach: [] });
       },
       onPeer(peer) {
-        if (peer.addresses !== undefined) learn(body.id, peer.addresses);
+        if (
+          peer.addresses !== undefined ||
+          peer.hub !== undefined ||
+          peer.relays !== undefined
+        ) {
+          learn(body.id, peer);
+        }
       },
     });
     const link: Link = {
@@ -608,8 +718,13 @@ export function createLinks(deps: LinksDeps) {
       for (const link of links.values()) link.connection.sendRoster(snapshot);
     },
 
+    hubRelays,
+
     list(): LinkedMachine[] {
       const self = deps.roster.self()?.id;
+      const reachByDevice = new Map(
+        deps.roster.snapshot().reach.map((each) => [each.device, each]),
+      );
       return deps.roster
         .view()
         .devices.filter(
@@ -627,6 +742,7 @@ export function createLinks(deps: LinksDeps) {
             name: body.name,
             ...state,
             last_seen_at: seen.get(body.id) ?? null,
+            hub: reachByDevice.get(body.id)?.hub === true,
           };
         });
     },

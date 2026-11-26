@@ -35,8 +35,6 @@ import {
   appSyncHeld,
   appSyncResume,
   appTakeIn,
-  BACKOFF_FIRST_MS,
-  BACKOFF_MAX_MS,
   EXPORT_DEBOUNCE_MS,
   EXPORT_TIMER_MS,
   IMPORT_DEBOUNCE_MS,
@@ -90,7 +88,9 @@ import {
   isPrivate,
 } from "../../../../protocol/lophn-agent/call-policy.ts";
 import {
+  remoteAddressesSetting,
   remoteEnabledSetting,
+  remoteHubSetting,
   remotePortSetting,
   remoteRelaySetting,
 } from "../../../config/shell-settings.ts";
@@ -114,7 +114,11 @@ import {
   updateStream,
 } from "../../../folder/export/status.ts";
 import { peerProjects } from "../../../folder/import/peer-projects.ts";
-import { createFolderLanes, type RunOutcome } from "./folder-lanes.ts";
+import {
+  createReceiveScheduler,
+  type ReceiveOutcome as RunOutcome,
+  type ReceiveScheduler,
+} from "../../../folder/receive-scheduler.ts";
 import {
   createFolderImport,
   latestAppRecords,
@@ -239,9 +243,9 @@ type LocalApp = {
 export const folderWiring: WiringFactory = () => {
   let link: WriteLink | undefined;
   let stopped = false;
+  let scheduler: ReceiveScheduler | undefined;
   const work = new Set<Promise<void>>();
   const timers = new Set<ReturnType<typeof setTimeout>>();
-  const debounces = new Map<string, ReturnType<typeof setTimeout>>();
   const watchers = new Map<string, FSWatcher>();
   const sections = createFolderSections();
   let unsubscribe: (() => void) | undefined;
@@ -295,15 +299,21 @@ export const folderWiring: WiringFactory = () => {
               message instanceof Error ? message.message : String(message),
           },
         });
-      const lanes = createFolderLanes({
+      const wait = (ms: number, fn: () => void) => {
+        const timer = setTimeout(fn, ms);
+        timer.unref?.();
+        return () => clearTimeout(timer);
+      };
+      const lanes = createReceiveScheduler({
         nowMs: () => ctx.clock.nowMs(),
-        stopped: () => stopped,
+        wait,
         log,
         track(done) {
           work.add(done);
           void done.finally(() => work.delete(done));
         },
       });
+      scheduler = lanes;
 
       ctx.productStartListeners.push((start) => {
         version = start.version;
@@ -539,14 +549,18 @@ export const folderWiring: WiringFactory = () => {
 
       const facts = () => {
         const remote = ctx.settings.get(remoteEnabledSetting) === true;
+        const hub = remote && ctx.settings.get(remoteHubSetting) === true;
+        const relays = remote ? (ctx.peek.remoteRelays?.() ?? []) : [];
         return {
+          hub,
           addresses: remote
             ? {
                 lan: lanAddresses(),
                 port: ctx.settings.get(remotePortSetting) ?? null,
                 relay: ctx.settings.get(remoteRelaySetting) || null,
+                relays,
               }
-            : { lan: [], port: null, relay: null },
+            : { lan: [], port: null, relay: null, relays: [] },
           alwaysOn: alwaysOn(ctx),
           projects: ctx.peek.projectMatching?.shared() ?? [],
           lophn: {
@@ -822,14 +836,7 @@ export const folderWiring: WiringFactory = () => {
         timers.add(timer);
       }
       function debounce(name: string, ms: number, fn: () => void) {
-        const was = debounces.get(name);
-        if (was !== undefined) clearTimeout(was);
-        const timer = setTimeout(() => {
-          debounces.delete(name);
-          fn();
-        }, ms);
-        timer.unref?.();
-        debounces.set(name, timer);
+        lanes.debounce(name, ms, fn);
       }
 
       async function publishRecords(): Promise<RunOutcome> {
@@ -1637,6 +1644,20 @@ export const folderWiring: WiringFactory = () => {
                     (change) =>
                       change.name === "settings" &&
                       (change.id === null ||
+                        change.id === remoteEnabledSetting.key ||
+                        change.id === remotePortSetting.key ||
+                        change.id === remoteRelaySetting.key ||
+                        change.id === remoteHubSetting.key ||
+                        change.id === remoteAddressesSetting.key),
+                  )
+                ) {
+                  kick("records", () => publishRecords());
+                }
+                if (
+                  changes.some(
+                    (change) =>
+                      change.name === "settings" &&
+                      (change.id === null ||
                         change.id === DESTINATIONS_KEY ||
                         change.id === SHARED_FOLDER_KEY ||
                         change.id === callPolicySetting.key),
@@ -1810,11 +1831,10 @@ export const folderWiring: WiringFactory = () => {
     },
     closeIntake() {
       stopped = true;
+      scheduler?.stop();
       unsubscribe?.();
       for (const timer of timers) clearTimeout(timer);
       timers.clear();
-      for (const timer of debounces.values()) clearTimeout(timer);
-      debounces.clear();
       for (const watcher of watchers.values()) watcher.close();
       watchers.clear();
     },

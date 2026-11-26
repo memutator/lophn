@@ -24,6 +24,7 @@ import {
   type Result,
 } from "../../../../base/mod.ts";
 import {
+  createRelay,
   devicesClearPush,
   devicesConnected,
   devicesList,
@@ -32,6 +33,7 @@ import {
   machinesCall,
   machinesList,
   machinesWatch,
+  type Relay,
   type RemoteDevice,
   type RosterEntryBody,
   type RosterView,
@@ -92,6 +94,7 @@ import {
   devicesSetting,
   remoteAddressesSetting,
   remoteEnabledSetting,
+  remoteHubSetting,
   remotePortSetting,
   remotePushSetting,
   remoteRelaySetting,
@@ -199,6 +202,7 @@ import {
   screensRevoked,
   stampHostKeyMachine,
 } from "../../../remote/mod.ts";
+import { hubRelayUrls } from "../../../remote/links.ts";
 import {
   openRelayWebSocket,
   type RelayClient,
@@ -445,7 +449,9 @@ export function remoteWiring(
   let listener: RemoteListener | undefined;
   // remote가 켜진 상태에서 listener를 열지 못한 까닭(예: EADDRINUSE). 꺼지거나 다시 열리면 비운다.
   let listenerFailure: string | undefined;
-  let relay: RelayClient | undefined;
+  let hubRelay: Relay | undefined;
+  // Hub relay들과 fallback remote.relay로 열어 둔 control socket들.
+  const relays = new Map<string, RelayClient>();
   let host: RemoteHost | undefined;
   // 이 컴퓨터의 key 둘. remote를 켤 때 만들고, 있으면 기동 때 읽는다. 명단을 버릴 때 지운다.
   let keys: RemoteKeys | undefined;
@@ -529,12 +535,97 @@ export function remoteWiring(
       : listed;
   }
 
+  const MAX_RELAY_CLIENTS = 8;
+
+  function selfHubEnabled(ctx: WiringContext): boolean {
+    return (
+      ctx.settings.get(remoteEnabledSetting) === true &&
+      ctx.settings.get(remoteHubSetting) === true
+    );
+  }
+
+  function selfHubRelayUrls(ctx: WiringContext): string[] {
+    if (!selfHubEnabled(ctx)) return [];
+    const port = listener?.port ?? ctx.settings.get(remotePortSetting) ?? 7432;
+    return hubRelayUrls(directAddresses(ctx), port);
+  }
+
+  // 이 컴퓨터가 control socket으로 붙을 relay 목록: 명단의 다른 Hub 컴퓨터 먼저, 설정 remote.relay 마지막.
+  function outboundRelayUrls(ctx: WiringContext): string[] {
+    if (ctx.settings.get(remoteEnabledSetting) !== true) return [];
+    const ownUrls = new Set(selfHubRelayUrls(ctx));
+    const configured = ctx.settings.get(remoteRelaySetting) || undefined;
+    const candidates = [
+      ...links.hubRelays(),
+      ...(configured ? [configured] : []),
+    ];
+    const unique: string[] = [];
+    for (const url of candidates) {
+      if (ownUrls.has(url) || unique.includes(url)) continue;
+      unique.push(url);
+      if (unique.length >= MAX_RELAY_CLIENTS) break;
+    }
+    return unique;
+  }
+
+  // hello·rosterReach·record.json에 실을 정렬된 relay 목록(자신이 Hub면 자기 hub URL을 맨 앞에).
+  function advertisedRelayUrls(ctx: WiringContext): string[] {
+    if (ctx.settings.get(remoteEnabledSetting) !== true) return [];
+    return [
+      ...new Set([...selfHubRelayUrls(ctx), ...outboundRelayUrls(ctx)]),
+    ].slice(0, MAX_RELAY_CLIENTS);
+  }
+
+  function closeRelays() {
+    for (const client of relays.values()) client.close();
+    relays.clear();
+  }
+
+  function syncRelays(ctx: WiringContext) {
+    if (
+      ctx.settings.get(remoteEnabledSetting) !== true ||
+      keys === undefined ||
+      host === undefined
+    ) {
+      closeRelays();
+      return;
+    }
+    const wanted = outboundRelayUrls(ctx);
+    const wantedSet = new Set(wanted);
+    for (const [url, client] of [...relays]) {
+      if (!wantedSet.has(url)) {
+        client.close();
+        relays.delete(url);
+      }
+    }
+    const staticKey = keys.host;
+    const accept = host.accept;
+    for (const url of wanted) {
+      if (relays.has(url)) continue;
+      relays.set(
+        url,
+        startRelayClient({
+          url,
+          staticKey,
+          open: openRelayWebSocket,
+          timers: systemTimers,
+          accept: (socket) => void accept(socket),
+        }),
+      );
+    }
+  }
+
   // QR·초대장과 명단의 자기 주소. listener가 열려 있으면 그 port다.
   function ownReach(ctx: WiringContext) {
+    const hub = selfHubEnabled(ctx);
+    const outbound = outboundRelayUrls(ctx);
+    const advertised = advertisedRelayUrls(ctx);
     return {
       addresses: directAddresses(ctx),
       port: listener?.port ?? ctx.settings.get(remotePortSetting) ?? 7432,
-      relay: relay?.url ?? null,
+      relay: outbound[0] ?? null,
+      hub,
+      relays: advertised,
     };
   }
 
@@ -611,8 +702,8 @@ export function remoteWiring(
     await listener?.close();
     listener = undefined;
     listenerFailure = undefined;
-    relay?.close();
-    relay = undefined;
+    hubRelay = undefined;
+    closeRelays();
     const forgot = await command(ctx, rosterForgetAll.name, {});
     if (!forgot.ok) return forgot;
     grants.clear();
@@ -704,6 +795,25 @@ export function remoteWiring(
     host?.pushRoster(change.snapshot);
     carry.rosterChanged();
     links.sync(hostText === undefined ? undefined : keys?.host);
+    syncRelays(ctx);
+    if (self !== undefined && ctx.settings.get(remoteEnabledSetting) === true) {
+      const nextOwn = { ...ownReach(ctx), device: self.id };
+      const curOwn = change.snapshot.reach.find(
+        (each) => each.device === self.id,
+      );
+      if (
+        curOwn !== undefined &&
+        canonicalize(curOwn) !== canonicalize(nextOwn)
+      ) {
+        queueMicrotask(() => {
+          void identify(ctx, ownReach(ctx)).then((done) => {
+            if (!done.ok)
+              logError(ctx, "roster_not_signed", done.error.message);
+          });
+        });
+      }
+    }
+    ctx.peek.machineRecords?.publish();
     links.pushRoster(change.snapshot);
     const kept = new Set(change.after.devices.map((each) => each.body.id));
     host?.revoked(
@@ -753,9 +863,7 @@ export function remoteWiring(
   async function reconcile(ctx: WiringContext): Promise<void> {
     const enabled = ctx.settings.get(remoteEnabledSetting) === true;
     const port = enabled ? ctx.settings.get(remotePortSetting) : undefined;
-    const relayUrl = enabled
-      ? ctx.settings.get(remoteRelaySetting) || undefined
-      : undefined;
+    const hub = enabled && ctx.settings.get(remoteHubSetting) === true;
     // 꺼질 때는 붙은 연결에 closed(shutdown)을 보내고 닫는다.
     if (!enabled) host?.shutdown();
     if (listener !== undefined && listener.port !== port) {
@@ -763,19 +871,26 @@ export function remoteWiring(
       listener = undefined;
       listenerFailure = undefined;
     }
-    if (relay !== undefined && relay.url !== relayUrl) {
-      relay.close();
-      relay = undefined;
-    }
     if (!enabled) {
       // 끈 뒤에는 push도 멈춘다. bindPush의 기기 목록이 hostText로 갈린다. 다시 켜면 key를 풀어 다시 선다.
       listenerFailure = undefined;
+      hubRelay = undefined;
+      closeRelays();
       hostText = undefined;
       carry.stop();
       vaultSync.stop();
       links.sync(undefined);
+      ctx.peek.machineRecords?.publish();
       return;
     }
+    hubRelay = hub
+      ? (hubRelay ??
+        createRelay({
+          random: ctx.random,
+          timers: systemTimers,
+          now: () => ctx.clock.nowMs(),
+        }))
+      : undefined;
     if (keys === undefined) {
       try {
         keys = await loadRemoteKeys(
@@ -809,6 +924,8 @@ export function remoteWiring(
         id: ctx.machine.id,
         name: ctx.machine.status().name,
         addresses: directAddresses(ctx),
+        hub: selfHubEnabled(ctx),
+        relays: advertisedRelayUrls(ctx),
       }),
       random: ctx.random,
       timers: systemTimers,
@@ -819,8 +936,11 @@ export function remoteWiring(
       ),
       roster: {
         find: (each) => roster.find(each),
-        join: (each, statements) => roster.join(each, statements),
+        join: (each, statements, signingKey) =>
+          roster.join(each, statements, signingKey),
         receive: (snapshot) => roster.receive(snapshot),
+        setPhoneSigningKey: (id, signingKey) =>
+          roster.setPhoneSigningKey(id, signingKey),
       },
       devices: devicesOf(ctx),
       credentials: createDeviceCredentials({
@@ -867,15 +987,6 @@ export function remoteWiring(
       logger: ctx.telemetry.logger,
     });
     const accept = host.accept;
-    if (relayUrl !== undefined && relay === undefined) {
-      relay = startRelayClient({
-        url: relayUrl,
-        staticKey,
-        open: openRelayWebSocket,
-        timers: systemTimers,
-        accept: (socket) => void accept(socket),
-      });
-    }
     if (port === undefined) {
       listenerFailure = undefined;
     } else if (listener === undefined) {
@@ -883,16 +994,21 @@ export function remoteWiring(
         listener = await openListener({
           port,
           accept: (socket) => void accept(socket),
+          ...(hubRelay === undefined ? {} : { relay: hubRelay }),
         });
         listenerFailure = undefined;
       } catch (thrown) {
         listenerFailure = describeRemoteListenerError(port, thrown);
         logError(ctx, "listener_failed", thrown);
       }
+    } else {
+      listener.setRelay?.(hubRelay);
     }
-    // 명단의 자기 주소를 지금 listener·relay로 맞춘다. 다른 컴퓨터와 폰이 명단으로 이 컴퓨터에 닿는다.
+    syncRelays(ctx);
+    // 명단의 자기 주소를 지금 listener·hub·relay로 맞춘다. 다른 컴퓨터와 폰이 명단으로 이 컴퓨터에 닿는다.
     const reached = await identify(ctx, ownReach(ctx));
     if (!reached.ok) logError(ctx, "roster_not_signed", reached.error.message);
+    ctx.peek.machineRecords?.publish();
     carry.start();
     vaultSync.start();
     links.sync(keys.host);
@@ -1222,6 +1338,7 @@ export function remoteWiring(
         resolve: (ref) => resolveMachine(ref, links.computers()),
         call: (device, call, by) => links.callDevice(device, { ...call, by }),
       });
+      ctx.provide("remoteRelays", () => advertisedRelayUrls(ctx));
       ctx.provide("phoneLink", {
         call: phoneLink.call,
         async primary() {
@@ -1231,11 +1348,20 @@ export function remoteWiring(
             : devices;
         },
       });
-      const relayStatus = () =>
-        ok({
-          url: ctx.settings.get(remoteRelaySetting) || null,
-          state: relay?.state() ?? ("off" as const),
+      const relayStatus = () => {
+        const active = [...relays.values()];
+        const connected = active.find((each) => each.state() === "connected");
+        const primary = connected ?? active[0];
+        return ok({
+          url: primary?.url ?? (ctx.settings.get(remoteRelaySetting) || null),
+          state: connected
+            ? ("connected" as const)
+            : active.length > 0
+              ? ("connecting" as const)
+              : ("off" as const),
+          hub_listening: listener !== undefined && hubRelay !== undefined,
         });
+      };
       const list = async () => {
         // 기계 이름이 바뀌었으면(machine/rename) 자기 항목을 다시 서명한다. 이름을 고친 화면이 다시 읽는 곳이 여기다.
         if (keys !== undefined) {
@@ -1291,10 +1417,7 @@ export function remoteWiring(
         });
       };
       const invite = (_who: unknown, input: unknown) => {
-        if (
-          keys === undefined ||
-          (listener === undefined && relay === undefined)
-        )
+        if (keys === undefined || (listener === undefined && relays.size === 0))
           return err({
             code: "unavailable" as const,
             message: listenerFailure ?? "remote is off",
@@ -1379,7 +1502,7 @@ export function remoteWiring(
           keys === undefined ||
           hostText === undefined ||
           (listener === undefined &&
-            relay === undefined &&
+            relays.size === 0 &&
             listenerFailure !== undefined)
         ) {
           return err({
@@ -1595,7 +1718,9 @@ export function remoteWiring(
                 (change.id === null ||
                   change.id === remoteEnabledSetting.key ||
                   change.id === remotePortSetting.key ||
-                  change.id === remoteRelaySetting.key),
+                  change.id === remoteRelaySetting.key ||
+                  change.id === remoteHubSetting.key ||
+                  change.id === remoteAddressesSetting.key),
             )
           ) {
             reconciling = reconciling.then(() => reconcile(ctx));
@@ -1603,6 +1728,7 @@ export function remoteWiring(
           if (changes.some((change) => change.name === "remote_devices")) {
             refreshPushDevices(ctx);
             resignSelf(ctx);
+            syncRelays(ctx);
           }
           if (changesSubscriptions(changes, callPolicySetting.key)) {
             refreshSubscriptions(ctx);
@@ -1639,8 +1765,8 @@ export function remoteWiring(
       await listener?.close();
       listener = undefined;
       listenerFailure = undefined;
-      relay?.close();
-      relay = undefined;
+      hubRelay = undefined;
+      closeRelays();
     },
   };
 }

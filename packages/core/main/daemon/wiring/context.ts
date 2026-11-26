@@ -398,6 +398,8 @@ type Late = {
   appMachineSubscriptions: () => { app: Id<"app">; machines: string[] }[];
   // remote가 낸다. 명단의 다른 컴퓨터를 부른다: 이름 풀기와 그 기계로 route 하나 넘기기(`by`는 부른 자격에서 정한 요청한 쪽이다).
   machineLinks: RemoteMachines;
+  // remote가 낸다. 이 기계의 정렬된 relay URL 목록(Hub 먼저, remote.relay 마지막). 기계 기록 `record.json`이 싣는다.
+  remoteRelays: () => string[];
   // projects가 낸다. 기계 기록에 싣는 이 기계의 git project 목록과, 다른 컴퓨터의 목록이 바뀌었을 때 자동 match를 다시 돌리기.
   projectMatching: { shared(): SharedProject[]; peersChanged(): void };
   // folder가 낸다. 기계 기록을 다시 쓰기와, 폴더로 받은 다른 기계의 기록에 실린 git project 목록.
@@ -504,6 +506,7 @@ const LATE_KEYS: Record<keyof Late, true> = {
   eventArrived: true,
   appMachineSubscriptions: true,
   machineLinks: true,
+  remoteRelays: true,
   projectMatching: true,
   machineRecords: true,
   mailInbox: true,

@@ -13,6 +13,7 @@ import {
   useMachinesView,
   useScopeMachineItem,
 } from "../../machines/context.tsx";
+import { NamedControl } from "../general/named-control.tsx";
 import styles from "../settings.module.css";
 import type { SyncSettingsSource, SyncStatus } from "../sync/source.ts";
 import { duplicateMachineIds, SyncSections } from "../sync/sync-panel.tsx";
@@ -261,73 +262,95 @@ function ThisComputerMyComputers({
                     />
                   </div>
                 </li>
-                <li className={styles.line} data-remote-row="port">
-                  <div className={styles.lineMain}>
-                    <span className={styles.lineName}>
-                      {t("settings.label.remote-port")}
-                    </span>
-                    <span className={styles.lineHelp}>
-                      {t("settings.note.remote-port")}
-                    </span>
-                  </div>
-                  <div className={styles.lineControl}>
-                    <Input
-                      type="number"
-                      aria-label={t("settings.label.remote-port")}
-                      min={1024}
-                      max={65535}
-                      step={1}
-                      value={portText}
-                      data-remote-port-input=""
-                      onChange={(event) => setPortText(event.target.value)}
-                      onBlur={() => void commitPort()}
-                      onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
-                        if (event.key === "Enter") event.currentTarget.blur();
-                      }}
-                    />
-                  </div>
-                </li>
-                <li className={styles.line} data-remote-row="relay-url">
-                  <div className={styles.lineMain}>
-                    <span className={styles.lineName}>
-                      {t("settings.label.remote-relay")}
-                    </span>
-                    <span className={styles.lineHelp}>
-                      {t("settings.note.remote-relay")}
-                    </span>
-                    {enabled && relay !== null && relay.url !== null ? (
-                      <span
-                        className={styles.lineHelp}
-                        data-remote-relay={relay.state}
-                      >
-                        <StatusMark
-                          tone={
-                            relay.state === "connected" ? "good" : "warning"
-                          }
-                          label={t(
-                            relay.state === "connected"
-                              ? "settings.label.remote-relay-connected"
-                              : "settings.label.remote-relay-unreachable",
-                          )}
-                        />
-                      </span>
-                    ) : null}
-                  </div>
-                  <div className={styles.lineControl}>
-                    <Input
-                      aria-label={t("settings.label.remote-relay")}
-                      placeholder={t("settings.placeholder.remote-relay")}
-                      value={relayText}
-                      spellCheck={false}
-                      data-remote-relay-input=""
-                      onChange={(event) => setRelayText(event.target.value)}
-                      onBlur={() => void commitRelay()}
-                      onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
-                        if (event.key === "Enter") event.currentTarget.blur();
-                      }}
-                    />
-                  </div>
-                </li>
+                <NamedControl
+                  name={t("settings.label.remote-port")}
+                  labelClass={styles.lineName}
+                >
+                  {({ label, provide }) => (
+                    <li className={styles.line} data-remote-row="port">
+                      <div className={styles.lineMain}>
+                        {label}
+                        <span className={styles.lineHelp}>
+                          {t("settings.note.remote-port")}
+                        </span>
+                      </div>
+                      <div className={styles.lineControl}>
+                        {provide(
+                          <Input
+                            type="number"
+                            min={1024}
+                            max={65535}
+                            step={1}
+                            value={portText}
+                            data-remote-port-input=""
+                            onChange={(event) =>
+                              setPortText(event.target.value)
+                            }
+                            onBlur={() => void commitPort()}
+                            onKeyDown={(
+                              event: KeyboardEvent<HTMLInputElement>,
+                            ) => {
+                              if (event.key === "Enter")
+                                event.currentTarget.blur();
+                            }}
+                          />,
+                        )}
+                      </div>
+                    </li>
+                  )}
+                </NamedControl>
+                <NamedControl
+                  name={t("settings.label.remote-relay")}
+                  labelClass={styles.lineName}
+                >
+                  {({ label, provide }) => (
+                    <li className={styles.line} data-remote-row="relay-url">
+                      <div className={styles.lineMain}>
+                        {label}
+                        <span className={styles.lineHelp}>
+                          {t("settings.note.remote-relay")}
+                        </span>
+                        {enabled && relay !== null && relay.url !== null ? (
+                          <span
+                            className={styles.lineHelp}
+                            data-remote-relay={relay.state}
+                          >
+                            <StatusMark
+                              tone={
+                                relay.state === "connected" ? "good" : "warning"
+                              }
+                              label={t(
+                                relay.state === "connected"
+                                  ? "settings.label.remote-relay-connected"
+                                  : "settings.label.remote-relay-unreachable",
+                              )}
+                            />
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className={styles.lineControl}>
+                        {provide(
+                          <Input
+                            placeholder={t("settings.placeholder.remote-relay")}
+                            value={relayText}
+                            spellCheck={false}
+                            data-remote-relay-input=""
+                            onChange={(event) =>
+                              setRelayText(event.target.value)
+                            }
+                            onBlur={() => void commitRelay()}
+                            onKeyDown={(
+                              event: KeyboardEvent<HTMLInputElement>,
+                            ) => {
+                              if (event.key === "Enter")
+                                event.currentTarget.blur();
+                            }}
+                          />,
+                        )}
+                      </div>
+                    </li>
+                  )}
+                </NamedControl>
                 <li className={styles.line} data-remote-row="osc52-clipboard">
                   <div className={styles.lineMain}>
                     <span className={styles.lineName}>

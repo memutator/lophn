@@ -126,6 +126,8 @@ async function setup(
     };
     /** get_usage(구독 사용 한도) 응답. */
     usageReport?: () => Promise<unknown>;
+    /** SDK가 spawnClaudeCodeProcess에 넘길 env. */
+    spawnEnv?: () => Record<string, string | undefined>;
   } = {},
 ) {
   const sdkMessages: unknown[] = [];
@@ -164,7 +166,7 @@ async function setup(
       params.options.spawnClaudeCodeProcess?.({
         command: "claude",
         args: [],
-        env: {},
+        env: options.spawnEnv?.() ?? {},
         signal: new AbortController().signal,
       });
       return {
@@ -1724,4 +1726,111 @@ test("claudeDenyTools는 lophn(<cmd>)만 Bash disallow 목록으로 옮기고 �
     "Bash(lophn notes remove *)",
   ]);
   assert.equal(claudeDenyTools(["Bash(rm *)"]), null);
+});
+
+test("SDK가 process.env.CLAUDE_AGENT_SDK_VERSION을 먼저 덮어써도 자식 CLI env에 SDK 표지를 그대로 넘긴다", async () => {
+  const prevSdkVer = process.env.CLAUDE_AGENT_SDK_VERSION;
+  const prevHostMarker = process.env.LOPHN_TEST_HOST_ONLY_VAR;
+  process.env.CLAUDE_AGENT_SDK_VERSION = "0.3.318";
+  process.env.LOPHN_TEST_HOST_ONLY_VAR = "from-host";
+  try {
+    const t = await setup({
+      spawnEnv: () => ({
+        CLAUDE_AGENT_SDK_VERSION: "0.3.318",
+        CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING: "true",
+        CLAUDE_CODE_SDK_READS_SESSION_STATE: "1",
+        LOPHN_TEST_HOST_ONLY_VAR: "from-host",
+      }),
+    });
+    assert.deepEqual(t.queries[0]?.options.env, {});
+    const env = t.processes[0]?.env;
+    assert.equal(env?.CLAUDE_AGENT_SDK_VERSION, "0.3.318");
+    assert.equal(env?.CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING, "true");
+    assert.equal(env?.CLAUDE_CODE_SDK_READS_SESSION_STATE, "1");
+    assert.equal(env?.CLAUDE_CODE_ENABLE_TODO_TOOLS, "1");
+    assert.equal(env?.LOPHN_TEST_HOST_ONLY_VAR, undefined);
+  } finally {
+    if (prevSdkVer === undefined) delete process.env.CLAUDE_AGENT_SDK_VERSION;
+    else process.env.CLAUDE_AGENT_SDK_VERSION = prevSdkVer;
+    if (prevHostMarker === undefined)
+      delete process.env.LOPHN_TEST_HOST_ONLY_VAR;
+    else process.env.LOPHN_TEST_HOST_ONLY_VAR = prevHostMarker;
+  }
+});
+
+test("첫 turn 직후 AI 제목이 아직 없으면 긴 firstPrompt를 60자로 자르고 비동기 ai-title이 쓰이면 다음 turn 없이 갱신한다", async () => {
+  mock.timers.enable({ apis: ["setTimeout"] });
+  try {
+    const longPrompt =
+      "antigravity를 home에다 막 .agy 이런 거 분리해서 설치해서 여러 credential을 등록해둘 수 있나? cli에서는 하나 계정 밖에 등록이 안 되더라고";
+    let info: { customTitle?: string; firstPrompt?: string; summary: string } =
+      {
+        firstPrompt: longPrompt,
+        summary: longPrompt,
+      };
+    let infoCalls = 0;
+    const t = await setup({
+      sessionInfo: () => {
+        infoCalls += 1;
+        return info;
+      },
+    });
+    await t.input(t.send("1", longPrompt));
+    await t.feed({ type: "result", subtype: "success", is_error: false });
+    await flush();
+    const fallback = t.state.session?.title ?? "";
+    assert.equal(fallback.endsWith("…"), true);
+    assert.equal(fallback.length <= 61, true);
+    assert.notEqual(fallback, longPrompt);
+
+    // turn이 끝난 뒤 Claude CLI가 비동기로 ai-title을 기록한다.
+    info = {
+      customTitle: "Antigravity 다중 계정 설정",
+      firstPrompt: longPrompt,
+      summary: "Antigravity 다중 계정 설정",
+    };
+    mock.timers.tick(1500);
+    await flush();
+    assert.equal(t.state.session?.title, "Antigravity 다중 계정 설정");
+
+    // customTitle을 얻었으면 더 이상 poll하지 않는다.
+    const afterResolved = infoCalls;
+    mock.timers.tick(10_000);
+    await flush();
+    assert.equal(infoCalls, afterResolved);
+  } finally {
+    mock.timers.reset();
+  }
+});
+
+test("system session_title_changed는 즉시 제목을 갱신하고 대기 중이던 제목 poll을 멈춘다", async () => {
+  mock.timers.enable({ apis: ["setTimeout"] });
+  try {
+    let infoCalls = 0;
+    const t = await setup({
+      sessionInfo: () => {
+        infoCalls += 1;
+        return { firstPrompt: "Initial prompt", summary: "Initial prompt" };
+      },
+    });
+    await t.input(t.send("1", "Initial prompt"));
+    await t.feed({ type: "result", subtype: "success", is_error: false });
+    await flush();
+    assert.equal(t.state.session?.title, "Initial prompt");
+
+    await t.feed({
+      type: "system",
+      subtype: "session_title_changed",
+      title: "Renamed via /rename",
+    });
+    assert.equal(t.state.session?.title, "Renamed via /rename");
+
+    const afterEvent = infoCalls;
+    mock.timers.tick(10_000);
+    await flush();
+    assert.equal(infoCalls, afterEvent);
+    assert.equal(t.state.session?.title, "Renamed via /rename");
+  } finally {
+    mock.timers.reset();
+  }
 });

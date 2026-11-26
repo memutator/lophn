@@ -77,6 +77,7 @@ import {
   IMAGE_NOTE,
 } from "../../protocol/lophn-agent/content-block.ts";
 import { INPUT_TAGS } from "../../protocol/lophn-agent/input-tags.ts";
+import { SESSION_AUTO_TITLE_MAX } from "../../protocol/lophn-agent/sessions.ts";
 import type { HarnessGuiAdapter } from "./adapter.ts";
 import { replayImages } from "./images.ts";
 import { swapQueued } from "./queue.ts";
@@ -180,6 +181,7 @@ type SdkMessage = {
   command_uuid?: string;
   state?: string;
   // system
+  title?: string;
   model?: string;
   permissionMode?: string;
   terminal_slash_commands?: string[];
@@ -478,11 +480,21 @@ async function contentOf(
   return images.length === 0 ? text : [...images, { type: "text", text }];
 }
 
-// SDK는 host process의 env 전체를 준다. 그대로 넘기면 extension spawner가 login shell env 위에 합치며 그것을 덮으므로 바뀐 값만 넘긴다.
+// SDK는 `options.env`가 비어 있으면 host `process.env` 전체를 복사하고 `process.env.CLAUDE_AGENT_SDK_VERSION`도
+// 직접 덮어쓴다. `options.env: {}`로 넘겨 SDK가 채운 값만 받되, 혹시 host env가 섞여 와도 SDK 표지
+// (`CLAUDE_AGENT_SDK_*`, `CLAUDE_CODE_SDK_*`, `CLAUDE_CODE_ENABLE_SDK_*`)는 `process.env`와 같더라도 잃지 않는다.
+// `CLAUDE_AGENT_SDK_VERSION`이 빠지면 Claude CLI 2.1.328+가 `sdk-cli`의 AI 자동 제목 생성을 꺼 버린다.
+const SDK_ENV_PREFIX =
+  /^(?:CLAUDE_AGENT_SDK_|CLAUDE_CODE_SDK_|CLAUDE_CODE_ENABLE_SDK_)/;
 function childEnv(spawnOptions: SpawnOptions): Record<string, string> {
   const env: Record<string, string> = {};
   for (const [key, value] of Object.entries(spawnOptions.env)) {
-    if (value !== undefined && process.env[key] !== value) env[key] = value;
+    if (
+      value !== undefined &&
+      (process.env[key] !== value || SDK_ENV_PREFIX.test(key))
+    ) {
+      env[key] = value;
+    }
   }
   // CLI는 SDK mode에서 todo tool(TaskCreate 등)을 이 flag가 있어야 내놓는다. TUI와 같은 tool을 쓴다.
   env.CLAUDE_CODE_ENABLE_TODO_TOOLS = "1";
@@ -535,10 +547,27 @@ const relative = (cwd: string, path: string) =>
   path.startsWith(`${cwd}/`) ? path.slice(cwd.length + 1) : path;
 
 // `lophn team spawn`·workflow step으로 열린 session의 첫 prompt는 `<lophn-call …>`·`<lophn-step …>` 봉투로 싸여 있어 그대로 제목에 쓰면 탭마다 같은 tag만
-// 보인다. 봉투를 벗긴 본문의 첫 줄을 제목 후보로 쓴다(SDK의 `firstPrompt`는 잘려 닫는 tag가 없을 수 있다).
+// 보인다. 봉투를 벗긴 본문의 첫 줄을 제목 후보로 쓰고, AI 제목이 아직 없는 동안에도 긴 raw prompt가 그대로 탭을 채우지 않게 60자로 자른다
+// (SDK의 `firstPrompt`는 최대 200자로 잘려 닫는 tag가 없을 수 있다).
 const ENVELOPE_OPEN = new RegExp(
   `^<(?:${Object.values(INPUT_TAGS).join("|")})(?: [a-z_]+="[^"]*")*>`,
 );
+const GRAPHEMES = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+function capAutoTitle(text: string): string {
+  let out = "";
+  let count = 0;
+  for (const { segment } of GRAPHEMES.segment(text)) {
+    if (count === SESSION_AUTO_TITLE_MAX) return `${out.trimEnd()}…`;
+    out += segment;
+    count += 1;
+  }
+  return out;
+}
+function cleanCustomTitle(text: string | undefined): string | null {
+  if (text === undefined) return null;
+  const trimmed = text.trim();
+  return trimmed === "" ? null : trimmed;
+}
 function titleLine(text: string | undefined): string | null {
   if (text === undefined) return null;
   let body = text.trim();
@@ -549,7 +578,7 @@ function titleLine(text: string | undefined): string | null {
     .split(/\r?\n/)
     .map((one) => one.trim())
     .find((one) => one !== "" && !/^<\/lophn-[a-z]+>$/.test(one));
-  return line ?? null;
+  return line === undefined ? null : capAutoTitle(line);
 }
 function sessionTitleOf(info: {
   customTitle?: string;
@@ -557,7 +586,9 @@ function sessionTitleOf(info: {
   summary: string;
 }): string | null {
   return (
-    info.customTitle ?? titleLine(info.firstPrompt) ?? titleLine(info.summary)
+    cleanCustomTitle(info.customTitle) ??
+    titleLine(info.firstPrompt) ??
+    titleLine(info.summary)
   );
 }
 
@@ -2125,16 +2156,45 @@ const start: (sdk: ClaudeSdk) => HarnessGuiAdapter["start"] =
       publish({ type: "origin_set", message: message.id, origin: uuid });
     }
 
+    // Claude CLI의 AI 제목(`ai-title`)은 첫 turn과 병렬로 생성돼 `result` 직후에는 아직 transcript에 안 쓰였을 수 있다.
+    // `customTitle`(SDK가 `aiTitle` 포함)이 아직 없으면 짧은 간격으로 몇 번만 다시 읽어 두 번째 turn을 기다리지 않고 반영한다.
+    const TITLE_POLL_DELAYS_MS = [1500, 3000, 5000] as const;
     let titled: string | null = null;
-    async function refreshTitle() {
+    let titleEpoch = 0;
+    let titleTimer: ReturnType<typeof setTimeout> | null = null;
+    function cancelTitlePoll() {
+      titleEpoch += 1;
+      if (titleTimer !== null) {
+        clearTimeout(titleTimer);
+        titleTimer = null;
+      }
+    }
+    async function refreshTitle(pollStep?: number) {
+      const target = cliSession;
+      if (pollStep === undefined || pollStep === 0) cancelTitlePoll();
+      const epoch = titleEpoch;
       try {
-        const found = await sdk.getSessionInfo(cliSession, { dir: cwd });
+        const found = await sdk.getSessionInfo(target, { dir: cwd });
+        if (closed || cliSession !== target || epoch !== titleEpoch) return;
         // SDK의 `summary`는 `customTitle`/`aiTitle`이 없으면 `lastPrompt`를 먼저 넣어 매 turn마다 제목이 마지막 프롬프트로 바뀐다.
         // `customTitle`(SDK가 `aiTitle` 포함) → `firstPrompt` → `summary` 순으로 읽는다.
+        const customTitle = cleanCustomTitle(found?.customTitle);
         const title = found === undefined ? null : sessionTitleOf(found);
         if (title !== null && title !== titled) {
           titled = title;
           changed({ title });
+        }
+        if (customTitle === null && pollStep !== undefined) {
+          const delay = TITLE_POLL_DELAYS_MS[pollStep];
+          if (delay !== undefined) {
+            titleTimer = setTimeout(() => {
+              titleTimer = null;
+              if (!closed && cliSession === target && epoch === titleEpoch) {
+                void refreshTitle(pollStep + 1);
+              }
+            }, delay);
+            titleTimer.unref?.();
+          }
         }
       } catch {
         // 제목을 못 읽어도 대화는 이어진다.
@@ -2180,7 +2240,7 @@ const start: (sdk: ClaudeSdk) => HarnessGuiAdapter["start"] =
       }
       void refreshContext();
       void refreshUsage();
-      void refreshTitle();
+      void refreshTitle(0);
     }
 
     // --- subagent, background task ------------------------------------------------------------
@@ -2559,6 +2619,15 @@ const start: (sdk: ClaudeSdk) => HarnessGuiAdapter["start"] =
         case "background_tasks_changed":
           onTasksChanged(message);
           return;
+        case "session_title_changed": {
+          const title = cleanCustomTitle(message.title);
+          if (title !== null && title !== titled) {
+            titled = title;
+            cancelTitlePoll();
+            changed({ title });
+          }
+          return;
+        }
         case "task_started":
         case "task_progress":
         case "task_updated":
@@ -2859,6 +2928,8 @@ const start: (sdk: ClaudeSdk) => HarnessGuiAdapter["start"] =
       const hasExtraArgs = Object.keys(parsedArgs.extraArgs).length > 0;
       const options: Options = {
         cwd,
+        // SDK가 host `process.env`를 복사해 login shell env를 덮지 않도록 빈 객체로 시작해 SDK 주입 env만 받는다.
+        env: {},
         // 사람 PATH의 `claude`. 번들 사본은 받지 않는다(root overrides).
         pathToClaudeCodeExecutable: "claude",
         settingSources: ["user", "project", "local"],
@@ -3620,6 +3691,7 @@ const start: (sdk: ClaudeSdk) => HarnessGuiAdapter["start"] =
       cost = { base: 0, last: 0 };
       contextUsage = null;
       titled = null;
+      cancelTitlePoll();
       taskList.clear();
       publishTasks();
       root.todos.clear();
@@ -3837,6 +3909,8 @@ const start: (sdk: ClaudeSdk) => HarnessGuiAdapter["start"] =
           return;
         case "rename":
           await sdk.renameSession(cliSession, message.title, { dir: cwd });
+          titled = message.title;
+          cancelTitlePoll();
           changed({ title: message.title });
           return;
         case "refresh_usage":
@@ -3883,6 +3957,7 @@ const start: (sdk: ClaudeSdk) => HarnessGuiAdapter["start"] =
               ).catch(() => undefined);
             }
             closed = true;
+            cancelTitlePoll();
             for (const wait of approvals.values())
               wait.resolve({ behavior: "deny", message: DENIED });
             for (const wait of questions.values())
@@ -3992,6 +4067,7 @@ function fetchCatalog(sdk: ClaudeSdk): ClaudeAdapter["fetchCatalog"] {
     try {
       const options: Options = {
         cwd: where,
+        env: {},
         pathToClaudeCodeExecutable: "claude",
         settingSources: ["user", "project", "local"],
         persistSession: false,

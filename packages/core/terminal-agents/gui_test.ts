@@ -225,12 +225,14 @@ test("CLI env에서 상위 session 표지는 빠지고 provider key와 탭의 ho
     dataRoot: "/data",
     given: {
       ANTHROPIC_API_KEY: "sk-test",
+      CLAUDE_AGENT_SDK_VERSION: "0.3.318",
       LPN_TERMINAL_HOOK: '{"socket":"/s","key":"k"}',
       CLAUDECODE: "1", // login shell이 물려받은 것
       CLAUDE_CODE_SESSION_ID: "s",
     },
   });
   assert.equal(env.ANTHROPIC_API_KEY, "sk-test");
+  assert.equal(env.CLAUDE_AGENT_SDK_VERSION, "0.3.318");
   assert.equal(env.LPN_TERMINAL_HOOK, '{"socket":"/s","key":"k"}');
   assert.equal(env.PATH, "/usr/bin");
   assert.equal(env.LOPHN_HOME, "/data");

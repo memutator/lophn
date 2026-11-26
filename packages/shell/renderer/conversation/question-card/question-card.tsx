@@ -1,6 +1,10 @@
 // composer 위 질문 카드와 답한 뒤 대화에 남는 접힌 요약. 질문은 한 번에 하나만 보이고 ‹ 1 of N ›로 넘긴다.
 // 기한, 추천, Skip은 없고 Other는 늘 붙는다. 답을 기다리는 동안 agent는 멈춰 있고, 사람이 그냥 메시지를
 // 보내도 묶음은 끝난다.
+
+import { t } from "@lophn/i18n";
+import { Button, Icon, Kbd } from "@lophn/ui/primitives";
+import { iconPixels } from "@lophn/ui/shared";
 import {
   type KeyboardEvent,
   type ReactElement,
@@ -8,9 +12,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { Button, Icon, Kbd } from "@lophn/ui/primitives";
-import { iconPixels } from "@lophn/ui/shared";
-import { t } from "@lophn/i18n";
 import { actionIcons, commonIcons } from "../../icons/mod.ts";
 import type {
   AnsweredLine,
@@ -23,6 +24,7 @@ import {
   answersOf,
   NO_PICK,
   OTHER_MAX,
+  optionDescription,
   type Pick,
   togglePick,
   typeOther,
@@ -167,18 +169,23 @@ export function QuestionCard({
             ) : null}
           </p>
           <p className={styles.text}>{question.question}</p>
-          {question.options.map((option, position) => (
-            <Choice
-              key={option.label}
-              multi={question.multiSelect}
-              checked={pick.labels.includes(option.label)}
-              number={position + 1}
-              onClick={() => toggle(option.label)}
-            >
-              <span className={styles.choiceLabel}>{option.label}</span>
-              <span className={styles.choiceDesc}>{option.description}</span>
-            </Choice>
-          ))}
+          {question.options.map((option, position) => {
+            const description = optionDescription(option);
+            return (
+              <Choice
+                key={option.label}
+                multi={question.multiSelect}
+                checked={pick.labels.includes(option.label)}
+                number={position + 1}
+                onClick={() => toggle(option.label)}
+              >
+                <span className={styles.choiceLabel}>{option.label}</span>
+                {description === null ? null : (
+                  <span className={styles.choiceDesc}>{description}</span>
+                )}
+              </Choice>
+            );
+          })}
           <Choice
             multi={question.multiSelect}
             checked={pick.other}

@@ -1,6 +1,7 @@
 /* composer 위 dock. card마다 접힌 요약 한 줄이고 펼치면 최대 높이 안에서 scroll한다. */
 .dock {
   display: flex;
+  flex: none;
   flex-direction: column;
   gap: var(--space-2);
   padding-bottom: var(--space-3);

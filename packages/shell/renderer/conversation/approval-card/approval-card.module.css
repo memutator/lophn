@@ -5,6 +5,7 @@
   flex-direction: column;
   max-height: calc(var(--space-12) * 8);
   min-width: var(--space-0);
+  min-height: var(--space-0);
   border: var(--border-width) solid var(--color-border-base);
   border-radius: var(--radius-lg);
   background: var(--color-surface-subtle);
@@ -16,6 +17,8 @@
 }
 
 .approval {
+  flex: 1 1 auto;
+  min-height: var(--space-0);
   padding: var(--space-5) var(--space-5) var(--space-3);
   overflow: auto;
 }

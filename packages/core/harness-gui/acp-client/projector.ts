@@ -160,11 +160,10 @@ const str = (value: unknown): string =>
 const plain = (text: string): string => text.replace(ANSI, "");
 const reason = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
+const singleLine = (text: string): string =>
+  text.replace(/\s*\r?\n\s*/g, " ").trim();
 const oneLine = (text: string, max: number): string =>
-  text
-    .replace(/\s*\n\s*/g, " ")
-    .trim()
-    .slice(0, max);
+  singleLine(text).slice(0, max);
 const cut = (text: string | null): string | null =>
   text !== null && text.length > ACP_TOOL_BODY_LIMIT
     ? text.slice(0, ACP_TOOL_BODY_LIMIT)
@@ -1022,10 +1021,13 @@ export function createAcpSessionProjector(
   const toCard = (one: Json): Card => ({
     question: str(one.question) || "Question",
     header: oneLine(str(one.question) || "Question", 24),
-    options: arr(one.options).map((option) => ({
-      label: str(option),
-      description: str(option),
-    })),
+    options: arr(one.options).map((option) => {
+      const label = str(option);
+      return {
+        label,
+        description: singleLine(label) || label,
+      };
+    }),
     multiSelect: one.is_multi_select === true,
   });
 
@@ -1123,7 +1125,10 @@ export function createAcpSessionProjector(
 
     if (action.kind === "question") {
       const cardOptions = action.options
-        .map((one) => ({ label: one.label, description: one.label }))
+        .map((one) => ({
+          label: one.label,
+          description: singleLine(one.label) || one.label,
+        }))
         .slice(0, 4);
       while (cardOptions.length < 2) {
         cardOptions.push({ label: "Cancel", description: "Cancel" });
@@ -1191,7 +1196,7 @@ export function createAcpSessionProjector(
       const label = str(field.title) || str(params.message) || "Question";
       const shown = options.map((one) => ({
         label: one.label,
-        description: one.label,
+        description: singleLine(one.label) || one.label,
       }));
       while (shown.length < 2) {
         shown.push({ label: "Other", description: "Other" });

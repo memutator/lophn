@@ -24,8 +24,8 @@ import {
 import { EMPTY_ACP_STATE, reduceAcp } from "../../protocol/acp/reduce.ts";
 import {
   type AcpState,
-  acpStateSchema,
   type AcpUpdate,
+  acpStateSchema,
 } from "../../protocol/acp/state.ts";
 import { type AntigravityIo, createAntigravityAdapter } from "./antigravity.ts";
 
@@ -362,6 +362,62 @@ test("a question card goes back under its form property names, free text under t
     });
     assert.equal(agy.state.pending.question, null);
   }
+});
+
+test("long and multiline elicitation options satisfy acpStateSchema and answer by exact label", async () => {
+  const agy = await setup("text");
+  const sid = agy.run.sessionId();
+  await agy.input(send("msg_1", "Ask me a design question."));
+  const longOption =
+    "(Recommended) 대화 승인 카드로 한 번 확인 후 바로 시작 — 요약(단계·참가자·변경점)을 보고 승인 한 번으로 즉시 실행·전용 desk 열림";
+  const multilineOption = "첫 줄 선택지\n둘째 줄 부연 설명";
+  agy.emit({
+    id: "q-long",
+    method: "elicitation/create",
+    params: {
+      sessionId: sid,
+      toolCallId: "call_ask_1",
+      mode: "form",
+      message: "The agent has a question.",
+      requestedSchema: {
+        type: "object",
+        properties: {
+          q1: {
+            type: "string",
+            title: "어떤 방식으로 시작하는 게 좋을까요?",
+            oneOf: [
+              { const: "1", title: longOption },
+              { const: "2", title: multilineOption },
+            ],
+          },
+          q1_other: { type: "string", title: "Other" },
+        },
+      },
+    },
+  });
+  await flush();
+
+  const parsed = acpStateSchema.parse(agy.state);
+  const options = parsed.pending.question?.questions?.[0]?.options ?? [];
+  assert.equal(options[0]?.label, longOption);
+  assert.equal(options[1]?.label, multilineOption);
+  assert.equal(options[1]?.description, "첫 줄 선택지 둘째 줄 부연 설명");
+
+  await agy.input({
+    type: "answer",
+    tool_call: parsed.pending.question?.tool_call,
+    answers: [
+      {
+        question: parsed.pending.question?.questions?.[0]?.question,
+        status: "answered",
+        answer: [multilineOption],
+      },
+    ],
+  });
+  assert.deepEqual(answered(agy.written, "q-long")[0]?.result, {
+    action: "accept",
+    content: { q1: "2" },
+  });
 });
 
 // --- Steer & echo-independence tests (Spec 3.1) ---

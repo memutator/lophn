@@ -62,6 +62,21 @@ export function answerOf(
   return { question: question.question, status: "answered", answer };
 }
 
+const collapseSpace = (text: string): string =>
+  text.replace(/\s+/g, " ").trim();
+
+/** 선택지 설명이 비었거나 label과 같으면 중복해서 보이지 않는다. */
+export function optionDescription(option: {
+  readonly label: string;
+  readonly description: string;
+}): string | null {
+  const desc = option.description.trim();
+  if (desc === "" || collapseSpace(desc) === collapseSpace(option.label)) {
+    return null;
+  }
+  return desc;
+}
+
 /** 질문 순서대로 답 전부. 하나라도 비면 null이다. */
 export function answersOf(
   questions: readonly AskedQuestion[],

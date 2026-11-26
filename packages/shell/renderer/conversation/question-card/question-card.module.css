@@ -5,6 +5,7 @@
   flex-direction: column;
   max-height: calc(var(--space-12) * 8);
   min-width: var(--space-0);
+  min-height: var(--space-0);
   border: var(--border-width) solid var(--color-border-base);
   border-radius: var(--radius-lg);
   background: var(--color-surface-subtle);
@@ -44,11 +45,13 @@
 
 .body {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: var(--space-6);
   min-height: var(--space-0);
   padding: var(--space-0) var(--space-5) var(--space-4);
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .foot {
@@ -77,16 +80,19 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  min-width: var(--space-0);
 }
 
 .askHead {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
   margin: var(--space-0);
 }
 
 .tag {
+  min-width: var(--space-0);
   padding: var(--space-0) var(--space-3);
   border-radius: var(--radius-sm);
   background: var(--color-surface-muted);
@@ -94,6 +100,7 @@
   font-size: var(--type-caption-size);
   line-height: var(--type-caption-line);
   font-weight: var(--font-weight-medium);
+  overflow-wrap: anywhere;
 }
 
 .multi {
@@ -113,12 +120,17 @@
   align-items: center;
   gap: var(--space-4);
   width: 100%;
+  min-width: var(--space-0);
   padding: var(--space-2) var(--space-5);
   border: var(--border-width) solid transparent;
   border-radius: var(--radius-sm);
   background: var(--color-surface-muted);
   color: var(--color-text-primary);
   cursor: pointer;
+}
+
+.choice > :last-child {
+  flex: none;
 }
 
 .choice[aria-checked="true"] {
@@ -173,21 +185,28 @@
 .choiceText {
   display: flex;
   flex: 1;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-5);
+  gap: var(--space-1) var(--space-5);
   min-width: var(--space-0);
 }
 
 .choiceLabel {
-  flex: none;
+  flex: 0 1 auto;
+  min-width: var(--space-0);
+  max-width: 100%;
   font-weight: var(--font-weight-medium);
+  overflow-wrap: anywhere;
 }
 
 .choiceDesc {
+  flex: 0 1 auto;
   min-width: var(--space-0);
+  max-width: 100%;
   color: var(--color-text-muted);
   font-size: var(--type-caption-size);
   line-height: var(--type-caption-line);
+  overflow-wrap: anywhere;
 }
 
 .otherInput {
@@ -243,6 +262,7 @@
   margin: var(--space-0);
   padding: var(--space-0) var(--space-0) var(--space-0) var(--space-6);
   list-style: none;
+  overflow-wrap: anywhere;
 }
 
 .summaryKey {

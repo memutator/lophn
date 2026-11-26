@@ -13,6 +13,7 @@ import { useStateChanged } from "../../connection/core-read.ts";
 import { useMachinesView } from "../../machines/context.tsx";
 import type { MachinesView } from "../../machines/source.ts";
 import type { RemoteDevice } from "../remote/source.ts";
+import { NamedControl } from "../general/named-control.tsx";
 import styles from "../settings.module.css";
 import { FolderForm } from "./folder-form.tsx";
 import {
@@ -317,106 +318,118 @@ export function SyncSections({
               const override: AppSyncOverride = app.syncOverride ?? "default";
               const heldCount = app.heldCount ?? 0;
               return (
-                <li
+                <NamedControl
                   key={app.app}
-                  className={styles.line}
-                  data-sync-app={app.app}
+                  name={app.name}
+                  labelClass={styles.productName}
                 >
-                  <div className={styles.lineMain}>
-                    <span className={styles.productName}>
-                      {app.name}
-                      <span
-                        className={syncStyles.badge}
-                        data-sync-policy={policy}
-                      >
-                        {t(POLICY_LABEL[policy])}
-                      </span>
-                    </span>
-                    <span className={styles.lineHelp}>
-                      {app.destinations.length > 0 ? (
-                        <>
-                          {t("settings-sync.note.syncs-to", {
-                            folder: app.destinations
-                              .map((name) =>
-                                name === "computers"
-                                  ? t(
-                                      "settings-sync.label.destination-computers",
-                                    )
-                                  : name,
-                              )
-                              .join(", "),
-                          })}
-                          {" · "}
-                          {t("settings-sync.note.conflict-keep-both")}
-                          {" · "}
-                        </>
-                      ) : null}
-                      {app.readAt === null
-                        ? t("settings-sync.note.never-synced")
-                        : t("settings-sync.note.synced", {
-                            time: ago(app.readAt),
-                          })}
-                    </span>
-                    {heldCount > 0 ? (
-                      <div
-                        className={syncStyles.metaRow}
-                        data-sync-held={heldCount}
-                      >
-                        <StatusMark
-                          tone="warning"
-                          label={t("settings-sync.warning.held-changes", {
-                            count: heldCount,
-                          })}
-                        />
-                        <Button
-                          size="sm"
-                          data-sync-held-apply=""
-                          onClick={() => void resolveHeld(app.app, "apply")}
-                        >
-                          {t("settings-sync.button.apply-held")}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          data-sync-held-discard=""
-                          onClick={() => void resolveHeld(app.app, "discard")}
-                        >
-                          {t("settings-sync.button.discard-held")}
-                        </Button>
+                  {({ label, provide }) => (
+                    <li className={styles.line} data-sync-app={app.app}>
+                      <div className={styles.lineMain}>
+                        <span className={styles.productName}>
+                          {label}
+                          <span
+                            className={syncStyles.badge}
+                            data-sync-policy={policy}
+                          >
+                            {t(POLICY_LABEL[policy])}
+                          </span>
+                        </span>
+                        <span className={styles.lineHelp}>
+                          {app.destinations.length > 0 ? (
+                            <>
+                              {t("settings-sync.note.syncs-to", {
+                                folder: app.destinations
+                                  .map((name) =>
+                                    name === "computers"
+                                      ? t(
+                                          "settings-sync.label.destination-computers",
+                                        )
+                                      : name,
+                                  )
+                                  .join(", "),
+                              })}
+                              {" · "}
+                              {t("settings-sync.note.conflict-keep-both")}
+                              {" · "}
+                            </>
+                          ) : null}
+                          {app.readAt === null
+                            ? t("settings-sync.note.never-synced")
+                            : t("settings-sync.note.synced", {
+                                time: ago(app.readAt),
+                              })}
+                        </span>
+                        {heldCount > 0 ? (
+                          <div
+                            className={syncStyles.metaRow}
+                            data-sync-held={heldCount}
+                          >
+                            <StatusMark
+                              tone="warning"
+                              label={t("settings-sync.warning.held-changes", {
+                                count: heldCount,
+                              })}
+                            />
+                            <Button
+                              size="sm"
+                              data-sync-held-apply=""
+                              onClick={() => void resolveHeld(app.app, "apply")}
+                            >
+                              {t("settings-sync.button.apply-held")}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              data-sync-held-discard=""
+                              onClick={() =>
+                                void resolveHeld(app.app, "discard")
+                              }
+                            >
+                              {t("settings-sync.button.discard-held")}
+                            </Button>
+                          </div>
+                        ) : null}
+                        {heldFailed === app.app ? (
+                          <span className={styles.rejected} role="alert">
+                            {t("settings-sync.error.held-failed")}
+                          </span>
+                        ) : null}
                       </div>
-                    ) : null}
-                    {heldFailed === app.app ? (
-                      <span className={styles.rejected} role="alert">
-                        {t("settings-sync.error.held-failed")}
-                      </span>
-                    ) : null}
-                  </div>
-                  <div className={styles.lineControl}>
-                    <Select
-                      aria-label={t("settings-sync.label.override-label", {
-                        app: app.name,
-                      })}
-                      value={override}
-                      options={[
-                        {
-                          value: "default",
-                          label: t("settings-sync.label.override-default"),
-                        },
-                        {
-                          value: "computers",
-                          label: t("settings-sync.label.override-computers"),
-                        },
-                        {
-                          value: "local",
-                          label: t("settings-sync.label.override-local"),
-                        },
-                      ]}
-                      onValueChange={(next) =>
-                        void changePolicy(app.app, next as AppSyncOverride)
-                      }
-                    />
-                  </div>
-                </li>
+                      <div className={styles.lineControl}>
+                        {provide(
+                          <Select
+                            value={override}
+                            options={[
+                              {
+                                value: "default",
+                                label: t(
+                                  "settings-sync.label.override-default",
+                                ),
+                              },
+                              {
+                                value: "computers",
+                                label: t(
+                                  "settings-sync.label.override-computers",
+                                ),
+                              },
+                              {
+                                value: "local",
+                                label: t("settings-sync.label.override-local"),
+                              },
+                            ]}
+                            onValueChange={(next) =>
+                              void changePolicy(
+                                app.app,
+                                next as AppSyncOverride,
+                              )
+                            }
+                          />,
+                        )}
+                      </div>
+                    </li>
+                  )}
+                </NamedControl>
               );
             })}
           </ul>

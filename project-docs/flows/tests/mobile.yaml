@@ -90,6 +90,10 @@ files:
     covers: []
     note: "위젯 cache 규칙(buildCache). 제거된 컴퓨터의 위젯은 기존 row를 비우고 다른 컴퓨터 값으로 채우지 않으며, offline에서는 stale 표시로 유지한다"
 
+  - path: packages/mobile/src/screens/session/diff.test.ts
+    covers: []
+    note: "폰·desktop 공통 editDiffOf·loadEditDiff의 Antigravity·Claude·Codex·OpenCode·OMP·Lophn 입력/unified output fallback 파싱"
+
   - path: packages/mobile/src/screens/session/permissions-model.test.ts
     covers: []
     note: "폰 권한 단계 picker의 하향 전용(상향·full 불가), 승인 카드 helper(file_read·file_write·local_tool, session 선택지, reason, outside_rewind, always_patterns), 거부 카드와 job mode_escalated 표시 포맷(순수 함수)"

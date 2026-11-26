@@ -372,6 +372,8 @@ function reduceChild(
         (item) => ({ ...item, detail: update.detail }),
       );
     case "approval_opened":
+      // snapshot 이전의 approval_opened가 이미 닫힌 승인 위에 늦게 접히면 죽은 카드가 되살아난다.
+      if (known(state, update.approval.id)) return state;
       return settle({
         ...state,
         pending: { ...state.pending, approval: update.approval },
@@ -403,6 +405,17 @@ function reduceChild(
     }
     case "question_asked": {
       if (state.pending.question?.group === update.group) return state;
+      if (
+        state.items.some(
+          (item) =>
+            item.kind === "tool" &&
+            item.detail.kind === "question" &&
+            item.detail.group === update.group &&
+            item.detail.outcome !== null,
+        )
+      ) {
+        return state;
+      }
       const asked = {
         group: update.group,
         tool_call: update.tool_call,

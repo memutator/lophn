@@ -12,7 +12,11 @@ import type {
 import { HARNESS_ADAPTERS } from "../../../protocol/coding-agent/harness-adapter.ts";
 import { lophnIdOf } from "../../../protocol/lophn-agent/workspaces.ts";
 import { harnessVendorOf } from "../parts/vendor-icon/vendors.ts";
-import type { AgentFace, AgentTabSource } from "./agent-tab-source.ts";
+import type {
+  AgentFace,
+  AgentTabSource,
+  SourceResult,
+} from "./agent-tab-source.ts";
 import { rewindPointsOf } from "./agent-view-model.ts";
 
 interface GuiSourceDeps {
@@ -33,8 +37,8 @@ interface GuiSourceDeps {
   };
   /** tool 하나의 본문 한 쪽을 core의 `acp/tool_body`로 읽는다. */
   readonly toolBody: AgentTabSource["toolCallBody"];
-  /** 조작을 handle에 준다. 받았으면 true다. */
-  readonly input: (input: AcpInput) => Promise<boolean>;
+  /** 조작을 handle에 준다. 받았으면 true(또는 ok 결과)다. */
+  readonly input: (input: AcpInput) => Promise<boolean | SourceResult<void>>;
   /** 그 CLI가 이 폴더에서 가진 지난 session. 못 읽으면 빈 배열이다. */
   readonly sessions: () => Promise<readonly AcpCliSession[]>;
   /** 그 사람 메시지로 rewind하면 되돌아갈 file. adapter가 못 주면 null이다. */
@@ -85,10 +89,13 @@ export function guiAgentTabSource(deps: GuiSourceDeps): AgentTabSource {
     }
     return url;
   };
-  const send = async (input: AcpInput) =>
-    (await deps.input(input))
-      ? ({ ok: true, value: undefined } as const)
-      : UNAVAILABLE;
+  const send = async (input: AcpInput): Promise<SourceResult<void>> => {
+    const result = await deps.input(input);
+    if (typeof result === "boolean") {
+      return result ? { ok: true, value: undefined } : UNAVAILABLE;
+    }
+    return result;
+  };
 
   return {
     agent: () => Promise.resolve({ ok: true, value: face }),
@@ -156,8 +163,10 @@ export function guiAgentTabSource(deps: GuiSourceDeps): AgentTabSource {
         })),
       }),
 
-    act: async (_session, input) =>
-      (await deps.input(input)) ? { ok: true, value: {} } : UNAVAILABLE,
+    act: async (_session, input) => {
+      const result = await send(input);
+      return result.ok ? { ok: true, value: {} } : result;
+    },
     // CLI는 file 경로로 이미지를 읽는다. 메시지에는 그 file의 링크를 싣는다.
     uploadImage: async (image) => {
       const path = await deps.writeImage?.(image);

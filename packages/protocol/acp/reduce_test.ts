@@ -577,3 +577,36 @@ test("session_reset은 대화를 비우고 session과 seq만 남기며 이어지
   assert.equal(next.reread, false);
   acpStateSchema.parse(next);
 });
+
+test("이미 닫힌 승인의 늦은 approval_opened는 죽은 승인 카드를 되살리지 않는다", () => {
+  const approval = {
+    id: "apr_01",
+    subject: { kind: "shell" as const, command: "ls" },
+    choices: ["once" as const, "reject" as const],
+    always_patterns: [],
+  };
+  const opened = reduceAcp(EMPTY_ACP_STATE, {
+    type: "approval_opened",
+    approval,
+  });
+  const closed = reduceAcp(opened, {
+    type: "approval_closed",
+    request: "apr_01",
+    outcome: "allowed",
+    choice: "once",
+    reason: null,
+    mode: null,
+    seq: 1,
+    at: AT,
+  });
+  assert.equal(closed.pending.approval, null);
+
+  // snapshot 이전에 떠 있던 approval_opened가 닫힌 snapshot 위에 뒤늦게 접혀도 무시한다.
+  const late = reduceAcp(closed, {
+    type: "approval_opened",
+    approval,
+  });
+  assert.equal(late.pending.approval, null);
+  assert.equal(late.reread, false);
+  acpStateSchema.parse(late);
+});

@@ -268,7 +268,18 @@ export function createCodingSessions(deps: CodingSessionsDeps) {
     // 화면의 입력을 handle에 그대로 넘긴다. 같은 key의 입력은 한 번만 넘긴다.
     send(input: AcpInput): Result<Record<string, never>> {
       const terminal = terminalOf(input.session);
-      if (gui.current(terminal) === null) return gone();
+      const current = gui.current(terminal);
+      if (current === null) return gone();
+      // 이미 닫혔거나 다른 요청으로 바뀐 승인에 대한 decide를 ok로 삼키면 원격 카드가 깜빡이며 굳는다.
+      if (input.type === "decide") {
+        const pending = current.handle.state().pending.approval;
+        if (pending?.id !== input.request) {
+          return err({
+            code: "conflict",
+            message: "That approval request is no longer pending.",
+          });
+        }
+      }
       const key = inputKey(input);
       if (key !== null) {
         let seen = inputKeys.get(input.session);

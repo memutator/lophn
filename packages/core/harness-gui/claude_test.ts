@@ -1834,3 +1834,73 @@ test("system session_title_changed는 즉시 제목을 갱신하고 대기 중�
     mock.timers.reset();
   }
 });
+
+test("병렬 canUseTool 승인 요청은 차례로 열리고, 대기 중 취소된 요청은 현재 카드를 깨뜨리지 않는다", async () => {
+  const t = await setup();
+  const canUseTool = t.queryOptions?.canUseTool;
+  assert.ok(canUseTool);
+
+  const ac1 = new AbortController();
+  const ac2 = new AbortController();
+  const ac3 = new AbortController();
+  const p1 = canUseTool(
+    "Bash",
+    { command: "echo one" },
+    { signal: ac1.signal, toolUseID: "tu_1", requestId: "req_1" },
+  );
+  const p2 = canUseTool(
+    "Bash",
+    { command: "echo two" },
+    { signal: ac2.signal, toolUseID: "tu_2", requestId: "req_2" },
+  );
+  const p3 = canUseTool(
+    "Bash",
+    { command: "echo three" },
+    { signal: ac3.signal, toolUseID: "tu_3", requestId: "req_3" },
+  );
+  await flush();
+
+  // 첫 요청만 카드로 열리고 뒤 요청이 덮어쓰지 않는다.
+  const first = t.state.pending.approval;
+  assert.ok(first);
+  assert.deepEqual(first.subject, { kind: "shell", command: "echo one" });
+
+  // 대기 중인 두 번째 요청이 취소되어도 현재 카드는 그대로이고 reread도 서지 않는다.
+  ac2.abort();
+  await flush();
+  assert.equal((await p2)?.behavior, "deny");
+  assert.equal(t.state.pending.approval?.id, first.id);
+  assert.equal(t.state.reread, false);
+
+  // 첫 요청을 승인하면 세 번째 요청이 바로 다음 카드로 열린다.
+  await t.input({
+    type: "decide",
+    request: first.id,
+    choice: { kind: "once" },
+  });
+  assert.equal((await p1)?.behavior, "allow");
+  const third = t.state.pending.approval;
+  assert.ok(third);
+  assert.deepEqual(third.subject, { kind: "shell", command: "echo three" });
+  assert.equal(t.state.reread, false);
+
+  await t.input({
+    type: "decide",
+    request: third.id,
+    choice: { kind: "once" },
+  });
+  assert.equal((await p3)?.behavior, "allow");
+  assert.equal(t.state.pending.approval, null);
+  assert.equal(t.state.reread, false);
+});
+
+test("초기 --permission-mode는 시작 meta에 그대로 실리고 set_mode로 다른 mode와 왕복할 수 있다", async () => {
+  const t = await setup({ args: ["--permission-mode", "acceptEdits"] });
+  assert.equal(t.state.session?.mode, "acceptEdits");
+
+  await t.input({ type: "set_mode", mode: "plan" });
+  assert.equal(t.state.session?.mode, "plan");
+
+  await t.input({ type: "set_mode", mode: "acceptEdits" });
+  assert.equal(t.state.session?.mode, "acceptEdits");
+});

@@ -700,7 +700,8 @@ function patternsOf(suggestions: PermissionUpdate[]): string[] {
             ? one.directories.map((dir) => `dir ${dir}`)
             : [],
     )
-    .map((pattern) => oneLine(pattern, 500));
+    .map((pattern) => oneLine(pattern, 500))
+    .filter((pattern) => pattern !== "");
 }
 
 function subjectOf(
@@ -724,7 +725,7 @@ function subjectOf(
       kind: "file_change",
       changes: [
         {
-          path: relative(cwd, edit.path),
+          path: relative(cwd, edit.path) || edit.path,
           change: name === "Write" ? "create" : "update",
           added: edit.added,
           removed: edit.removed,
@@ -912,11 +913,13 @@ type ApprovalWait = {
   suggestions: PermissionUpdate[];
   plan: boolean;
   call: Call;
+  card: NonNullable<AcpState["pending"]["approval"]>;
   resolve(result: PermissionResult): void;
 };
 type QuestionWait = {
   input: Record<string, unknown>;
   call: Call;
+  card: { group: string; tool_call: string; questions: Question[] };
   resolve(result: PermissionResult): void;
 };
 /** `priority`는 CLI에 보낼 때 단 값이다. 가져갈 때 steer인지 가르고, 줄을 다시 세울 때 그대로 쓴다. */
@@ -1124,7 +1127,10 @@ const start: (sdk: ClaudeSdk) => HarnessGuiAdapter["start"] =
     // subagent 안에서 띄운 task의 id. task_notification에는 부모 단서가 없어 started 때 적어 둔다.
     const childTasks = new Set<string>();
     const approvals = new Map<string, ApprovalWait>();
+    // ACP pending.approval은 한 번에 하나다. 병렬 canUseTool 요청은 차례로 열어 앞 요청이 덮어쓰여 막히지 않게 한다.
+    let shownApproval: string | null = null;
     const questions = new Map<string, QuestionWait>();
+    let shownQuestion: string | null = null;
     // CLI 줄에 있는 사람 메시지(uuid → 메시지). Map의 순서가 줄 순서다.
     const queued = new Map<string, Queued>();
     // `/effort`처럼 사람에게 보이지 않는 명령의 uuid. 그 result는 turn을 닫지 않는다.
@@ -1796,6 +1802,29 @@ const start: (sdk: ClaudeSdk) => HarnessGuiAdapter["start"] =
       }
     }
 
+    function pumpApproval() {
+      if (shownApproval !== null) return;
+      const next = approvals.entries().next().value;
+      if (next === undefined) return;
+      const [id, wait] = next;
+      shownApproval = id;
+      publish({ type: "approval_opened", approval: wait.card });
+    }
+
+    function pumpQuestion() {
+      if (shownQuestion !== null) return;
+      const next = questions.entries().next().value;
+      if (next === undefined) return;
+      const [toolCall, wait] = next;
+      shownQuestion = toolCall;
+      publish({
+        type: "question_asked",
+        group: wait.card.group,
+        tool_call: wait.card.tool_call,
+        questions: wait.card.questions,
+      });
+    }
+
     function closeApproval(
       id: string,
       decision: "once" | "session" | "always" | "mode" | "reject" | "cancelled",
@@ -1832,6 +1861,8 @@ const start: (sdk: ClaudeSdk) => HarnessGuiAdapter["start"] =
         wait.call.denied = decision === "reject";
         wait.resolve({ behavior: "deny", message: reason ?? DENIED });
       }
+      if (shownApproval !== id) return;
+      shownApproval = null;
       publish({
         type: "approval_closed",
         request: id,
@@ -1846,6 +1877,7 @@ const start: (sdk: ClaudeSdk) => HarnessGuiAdapter["start"] =
         seq: ++root.seq,
         at: now(),
       });
+      pumpApproval();
     }
 
     function closeQuestion(
@@ -1868,11 +1900,14 @@ const start: (sdk: ClaudeSdk) => HarnessGuiAdapter["start"] =
           updatedInput: { ...wait.input, answers },
         });
       }
+      if (shownQuestion !== toolCall) return;
+      shownQuestion = null;
       publish({
         type: "question_resolved",
         group: asked.group,
         outcome: answers === null ? "cancelled" : "submitted",
       });
+      pumpQuestion();
     }
 
     const canUseTool: CanUseTool = (name, toolInput, options) =>
@@ -1898,28 +1933,46 @@ const start: (sdk: ClaudeSdk) => HarnessGuiAdapter["start"] =
           }));
           const group = ids.newId("qgr");
           call.question = { group, asked, answers: {} };
-          questions.set(call.id, { input: toolInput, call, resolve });
+          questions.set(call.id, {
+            input: toolInput,
+            call,
+            card: { group, tool_call: call.id, questions: asked },
+            resolve,
+          });
           options.signal.addEventListener(
             "abort",
             () => closeQuestion(call.id, null),
             { once: true },
           );
-          publish({
-            type: "question_asked",
-            group,
-            tool_call: call.id,
-            questions: asked,
-          });
+          pumpQuestion();
           return;
         }
         const request = ids.newId("apr");
         const plan = name === "ExitPlanMode";
         const suggestions = plan ? [] : (options.suggestions ?? []);
+        const patterns = patternsOf(suggestions);
+        // 영구로 남는 선택(always)은 SDK 제안이 session 밖(localSettings 등)을 가리킬 때만 따로 있다.
+        const permanent = suggestions.some(
+          (one) => one.destination !== "session",
+        );
+        const card: NonNullable<AcpState["pending"]["approval"]> = {
+          id: request,
+          subject: subjectOf(cwd, name, toolInput, options.description),
+          choices: plan
+            ? ["reject"]
+            : patterns.length === 0
+              ? ["once", "reject"]
+              : permanent
+                ? ["once", "session", "always", "reject"]
+                : ["once", "session", "reject"],
+          always_patterns: patterns,
+        };
         approvals.set(request, {
           input: toolInput,
           suggestions,
           plan,
           call,
+          card,
           resolve,
         });
         options.signal.addEventListener(
@@ -1927,26 +1980,7 @@ const start: (sdk: ClaudeSdk) => HarnessGuiAdapter["start"] =
           () => closeApproval(request, "cancelled"),
           { once: true },
         );
-        const patterns = patternsOf(suggestions);
-        // 영구로 남는 선택(always)은 SDK 제안이 session 밖(localSettings 등)을 가리킬 때만 따로 있다.
-        const permanent = suggestions.some(
-          (one) => one.destination !== "session",
-        );
-        publish({
-          type: "approval_opened",
-          approval: {
-            id: request,
-            subject: subjectOf(cwd, name, toolInput, options.description),
-            choices: plan
-              ? ["reject"]
-              : patterns.length === 0
-                ? ["once", "reject"]
-                : permanent
-                  ? ["once", "session", "always", "reject"]
-                  : ["once", "session", "reject"],
-            always_patterns: patterns,
-          },
-        });
+        pumpApproval();
       });
 
     // --- turn 끝, SDK 메시지 ------------------------------------------------------------------
@@ -1978,10 +2012,14 @@ const start: (sdk: ClaudeSdk) => HarnessGuiAdapter["start"] =
       outcome: "completed" | "stopped" | "failed",
       error?: { code: string; message: string },
     ) {
-      for (const request of [...approvals.keys()])
-        closeApproval(request, "cancelled");
-      for (const toolCall of [...questions.keys()])
-        closeQuestion(toolCall, null);
+      for (const request of [...approvals.keys()]) {
+        if (request !== shownApproval) closeApproval(request, "cancelled");
+      }
+      if (shownApproval !== null) closeApproval(shownApproval, "cancelled");
+      for (const toolCall of [...questions.keys()]) {
+        if (toolCall !== shownQuestion) closeQuestion(toolCall, null);
+      }
+      if (shownQuestion !== null) closeQuestion(shownQuestion, null);
       // 앞에서 도는 subagent의 대화는 부모 turn과 함께 닫힌다. background는 task 알림이 닫는다.
       for (const call of agentCalls.values()) {
         const agent = call.agent;
@@ -3134,7 +3172,7 @@ const start: (sdk: ClaudeSdk) => HarnessGuiAdapter["start"] =
         models: [],
         model: null,
         modes: MODES.map(([id, label]) => ({ id, label, description: null })),
-        mode: defaults.mode,
+        mode: carry.mode ?? defaults.mode,
         commands: [],
         usage: null,
         toggles: [],

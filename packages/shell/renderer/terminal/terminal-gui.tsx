@@ -168,7 +168,11 @@ function createGuiFeed(session: string, now: () => number): GuiFeed {
       if (snapshot !== undefined) state = snapshot;
       for (const update of updates) state = reduceAcp(state, update);
       for (const watcher of [...watchers]) watcher();
-      if (snapshot !== undefined) for (const reset of [...resets]) reset();
+      if (snapshot !== undefined) {
+        // snapshot 적용 뒤 reset이 화면의 readAcp를 부르며, feed.state()에 updates가 이미 접혀 있어 중복 방출하지 않는다.
+        for (const reset of [...resets]) reset();
+        return;
+      }
       // 한 batch는 한 task 안에서 모두 내보내 React가 한 번만 그린다.
       for (const update of updates) {
         const event = {
@@ -255,6 +259,8 @@ export function followGui(
     const updates = pending;
     pending = [];
     feed.apply({ updates });
+    // 순번 빈틈·놓친 approval_closed 등으로 reread가 서면 core에서 snapshot을 다시 읽어 맞춘다.
+    if (feed.state().reread) void load();
   };
 
   const enqueue = (update: AcpUpdate) => {
@@ -340,7 +346,8 @@ async function callRoute<T>(
   route: Route,
   body: unknown,
 ): Promise<
-  { ok: true; value: T } | { ok: false; reason: string | null; message: string }
+  | { ok: true; value: T }
+  | { ok: false; code: string; reason: string | null; message: string }
 > {
   try {
     const reply = await core.call({
@@ -353,11 +360,12 @@ async function callRoute<T>(
     const reason = reply.error?.details?.reason;
     return {
       ok: false,
+      code: reply.error?.code ?? "unavailable",
       reason: typeof reason === "string" ? reason : null,
       message: reply.error?.message ?? "",
     };
   } catch {
-    return { ok: false, reason: null, message: "" };
+    return { ok: false, code: "unavailable", reason: null, message: "" };
   }
 }
 
@@ -616,8 +624,15 @@ export function TerminalGui({
         ...(agentName === undefined ? {} : { agentName }),
       },
       feed,
-      input: async (input: AcpInput) =>
-        (await callRoute(api, acpSend as Route, input)).ok,
+      input: async (input: AcpInput) => {
+        const reply = await callRoute(api, acpSend as Route, input);
+        if (reply.ok) return { ok: true as const, value: undefined };
+        // 낡은 승인 카드에 decide를 보냈을 때(conflict) 즉시 snapshot을 다시 읽어 카드를 정리한다.
+        if (input.type === "decide" && reply.code === "conflict") {
+          followRef.current?.reload();
+        }
+        return { ok: false as const, code: reply.code };
+      },
       toolBody: async (toolCall, part) => {
         const body = await readRoute(api, acpToolBodyRead, {
           session,

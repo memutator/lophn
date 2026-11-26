@@ -62,14 +62,18 @@ export function ApprovalCard({
 
   useEffect(() => {
     mountedAt.current = Date.now();
+    setBusy(false);
+    setFailed(false);
   }, [request.id]);
 
   async function decide(choice: Choice, why?: string) {
     setBusy(true);
     setFailed(false);
     const done = await onDecide(choice, why);
+    // 접수되었으면 카드가 닫힐 때까지 잠가 원격 왕복 사이 깜빡임과 중복 클릭을 막는다.
+    if (done) return;
     setBusy(false);
-    setFailed(!done);
+    setFailed(true);
   }
 
   const { choices } = request;

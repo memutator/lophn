@@ -1347,6 +1347,31 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
   const harnessMenu = caps.resume && !caps.sessions;
   const accepted = (call: Promise<SourceResult<unknown>>) =>
     call.then((result) => result.ok);
+  // 이미 다른 기기나 CLI 쪽에서 닫힌 승인(conflict)이면 오류를 띄우지 않고 snapshot을 다시 읽어 낡은 카드를 치운다.
+  const decideApproval = async (
+    requestId: string,
+    choice: Parameters<typeof decideChoiceOf>[0],
+    reason?: string,
+  ): Promise<boolean> => {
+    if (session === null) return false;
+    const result = await source.act(session, {
+      type: "decide",
+      session,
+      request: requestId,
+      choice: decideChoiceOf(choice, reason),
+    });
+    if (result.ok) {
+      setProblem(null);
+      return true;
+    }
+    if (result.code === "conflict") {
+      setProblem(null);
+      void data.reload();
+      return true;
+    }
+    setProblem("action-failed");
+    return false;
+  };
 
   const view = (
     // 입력칸 밖(대화 글)을 누르면 focus가 body로 빠져 key context와 이 화면의 command(Escape의 멈추기 등)가 사라진다.
@@ -1601,14 +1626,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             subject={approval.subject}
             artifacts={host.artifacts}
             onDecide={(choice, reason) =>
-              accepted(
-                act(session, {
-                  type: "decide",
-                  session,
-                  request: approval.id,
-                  choice: decideChoiceOf(choice, reason),
-                }),
-              )
+              decideApproval(approval.id, choice, reason)
             }
           />
         ) : (
@@ -1618,14 +1636,7 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
             request={approval}
             focusOnMount={draft.text === "" && draft.attachments.length === 0}
             onDecide={(choice, reason) =>
-              accepted(
-                act(session, {
-                  type: "decide",
-                  session,
-                  request: approval.id,
-                  choice: decideChoiceOf(choice, reason),
-                }),
-              )
+              decideApproval(approval.id, choice, reason)
             }
           />
         )}

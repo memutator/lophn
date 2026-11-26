@@ -804,6 +804,26 @@ test("machines/call의 요청한 쪽: 살아 있는 capability만 screen, capabi
   assert.equal(!mine.ok && mine.error.code, "invalid_input");
   assert.deepEqual(sent, []);
 
+  // acp/send는 terminals/input처럼 interactive lane으로 보내 느린 읽기에 막히지 않는다.
+  const acpSent = await machines.call(cli, {
+    machine: "mac",
+    resource: "acp",
+    method: "send",
+    body: { type: "set_mode", session: "ses_1", key: "k", mode: "plan" },
+    shell_capability: "live",
+  });
+  assert.ok(acpSent.ok);
+  assert.deepEqual(sent.splice(0), [
+    {
+      device: computers[0].device,
+      resource: "acp",
+      method: "send",
+      body: { type: "set_mode", session: "ses_1", key: "k", mode: "plan" },
+      by: { kind: "screen" },
+      lane: "interactive",
+    },
+  ]);
+
   assert.ok(
     machines.watch(cli, {
       machine: computers[0].machine,

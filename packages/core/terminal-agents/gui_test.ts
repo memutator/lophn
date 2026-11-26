@@ -14,6 +14,7 @@ import { test } from "node:test";
 import { manualClock } from "../../base/clock.ts";
 import type { AcpTabRequest } from "../../protocol/acp/mod.ts";
 import {
+  type AcpInput,
   type AcpState,
   type AcpToolItem,
   type AcpUpdate,
@@ -1309,4 +1310,94 @@ test("savedSessions filters historical antigravity subagents and live agy GUI ho
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+});
+
+test("coding.send rejects stale decide with conflict and forwards matching decide and set_mode", () => {
+  const ulid = "01BBBBBBBBBBBBBBBBBBBBBBBB";
+  const terminalRef = `trm_${ulid}`;
+  const sessionId = `ses_${ulid}`;
+  const received: AcpInput[] = [];
+  let state: AcpState = {
+    ...EMPTY_ACP_STATE,
+    pending: {
+      approval: {
+        id: "apr_01BBBBBBBBBBBBBBBBBBBBBBBB",
+        subject: { kind: "shell", command: "ls" },
+        choices: ["once", "reject"],
+        always_patterns: [],
+      },
+      question: null,
+    },
+  };
+  const handle = fakeHandle(terminalRef, () => state);
+  const coding = createCodingSessions({
+    clock: manualClock(0),
+    terminals: { list: () => [] },
+    gui: {
+      request: async () => null,
+      opened: () => {},
+      onHandle: () => () => {},
+      running: () => null,
+      toggle: async () => ({ ok: true }),
+      sessions: async () => [],
+      rewindPreview: async () => null,
+      current: () => ({ handle, view: "gui" }),
+      tabSessions: () => [],
+      input: (_ref, input) => {
+        received.push(input);
+        return true;
+      },
+      toolBody: () => null,
+      uploadImage: async () => null,
+      readImage: async () => null,
+      terminalChanged: () => {},
+      stop: () => {},
+    },
+    after: () => () => {},
+    publish: () => {},
+    redact: (value) => value,
+    platform: "linux",
+  });
+
+  // 낡은 승인 id는 ok로 삼키지 않고 conflict로 거절해 화면이 snapshot을 다시 읽게 한다.
+  const stale = coding.send({
+    type: "decide",
+    session: sessionId,
+    request: "apr_01CCCCCCCCCCCCCCCCCCCCCCCC",
+    choice: { kind: "once" },
+  });
+  assert.equal(stale.ok, false);
+  assert.equal(!stale.ok && stale.error.code, "conflict");
+  assert.equal(received.length, 0);
+
+  // 현재 pending 승인 id와 set_mode는 정상 전달된다.
+  const matched = coding.send({
+    type: "decide",
+    session: sessionId,
+    request: "apr_01BBBBBBBBBBBBBBBBBBBBBBBB",
+    choice: { kind: "once" },
+  });
+  assert.equal(matched.ok, true);
+  const mode = coding.send({
+    type: "set_mode",
+    session: sessionId,
+    key: "mode_1",
+    mode: "acceptEdits",
+  });
+  assert.equal(mode.ok, true);
+  assert.deepEqual(
+    received.map((one) => one.type),
+    ["decide", "set_mode"],
+  );
+
+  // 승인이 닫힌 뒤 같은 id로 다시 보내면 conflict다.
+  state = EMPTY_ACP_STATE;
+  const afterClose = coding.send({
+    type: "decide",
+    session: sessionId,
+    request: "apr_01BBBBBBBBBBBBBBBBBBBBBBBB",
+    choice: { kind: "once" },
+  });
+  assert.equal(afterClose.ok, false);
+  assert.equal(!afterClose.ok && afterClose.error.code, "conflict");
 });

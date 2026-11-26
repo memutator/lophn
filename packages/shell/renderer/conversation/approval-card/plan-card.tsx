@@ -1,6 +1,12 @@
 // harness가 plan을 내고 승인을 기다리는 카드. 본문은 plan markdown이고 12줄에서 접는다. 주 단추는 harness가 주는 다음
 // mode마다 하나이고(맨 오른쪽이 첫 mode) [Keep planning]은 거절이다. 이유 칸은 승인 카드의 것을 쓴다.
-import { type KeyboardEvent, type ReactElement, useRef, useState } from "react";
+import {
+  type KeyboardEvent,
+  type ReactElement,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { Button, Icon } from "@lophn/ui/primitives";
 import { iconPixels } from "@lophn/ui/shared";
 import { t } from "@lophn/i18n";
@@ -43,6 +49,11 @@ export function PlanCard({
   const [failed, setFailed] = useState(false);
   const reasonInput = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    setBusy(false);
+    setFailed(false);
+  }, [id]);
+
   async function decide(choice: { readonly mode: string } | "reject") {
     setBusy(true);
     setFailed(false);
@@ -50,8 +61,9 @@ export function PlanCard({
       choice,
       choice === "reject" ? reason.trim() || undefined : undefined,
     );
+    if (done) return;
     setBusy(false);
-    setFailed(!done);
+    setFailed(true);
   }
 
   const keyDown = (event: KeyboardEvent<HTMLElement>) => {

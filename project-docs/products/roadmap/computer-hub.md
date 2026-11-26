@@ -1,7 +1,7 @@
 # computer-hub: 늘 켜 둔 컴퓨터가 중계하고 맡아 두고, 무엇이 어디로 가는지는 lophn이 정한다
 
-상태: 로드맵. 2026-11-26 사람이 방향을 내고 planner가 이번 조사(아래 "지금")로 정리했다. 사람이 정할 것은 모두 정했다(아래 "사람이 정한 것"). 다음은 "순서" 1부터 계획으로 연다.
-배경 문서: `project-docs/architecture/{remote,machine,folder-sync,app-sync,machine-a2a,browser-tab,workflow,platform}.md`, `project-docs/products/roadmap/{multi-device,multi-machine,a2a-multi-device}.md`. 조사한 session: `ses_01m88y4k9q8m6jd6bc1y2a15js`(VM을 서버로), `ses_01m86gfqsdh2awcay4qg64nd3w`(VM으로 file 보내기).
+상태: 로드맵. 2026-11-26 사람이 방향을 내고 planner가 이번 조사(아래 "지금")로 정리했다. 사람이 정할 것은 모두 정했다(아래 "사람이 정한 것" 1~8). 다음은 "순서" 1부터 계획으로 연다.
+배경 문서: `project-docs/architecture/{remote,machine,folder-sync,app-sync,machine-a2a,browser-tab,workflow,platform}.md`, `project-docs/products/roadmap/{multi-device,multi-machine,a2a-multi-device}.md`. 조사한 session: `ses_01m88y4k9q8m6jd6bc1y2a15js`(VM을 서버로), `ses_01m86gfqsdh2awcay4qg64nd3w`(VM으로 file 보내기), `ses_01m8b43kpc1057f4h7ktvkq2b7`(Window에서 꺼진 MainHome으로 mail, 저장소 root에 export). 조사 메모: 저장소 root `CLIPBOARD-REMOTE.md`(화면 없는 VM의 clipboard, `061d19966` 기준).
 
 ## 사람의 말 (원문)
 
@@ -18,6 +18,8 @@
 > 예를 들어서 handoff 할 때도 프롬프트만 전달되는 게 아니라 파일 업로드 같은거나
 > handoff가 아닌 상황에서도 […] 머신끼리 필요한 데이터 공유할려고 하는데 잘 안 되더라고
 
+> (mail 실패 session을 보고) 그 세션 파일에서 걔가 제대로 mail 기능을 못 쓰더라고
+
 > (평가 중) 기술적 완성도 이외에도 사용자가 얼마나 쓰기 쉽게 ux적으로 추상화가 잘 되어 있는 지도 핵심 포인트야
 
 ## 지금 (2026-11-26 조사)
@@ -33,6 +35,16 @@
 - **VM이 연결을 중계하지 못한다.** 밖(LTE)의 폰→MainHome은 늘 lophn relay(Fly)다. core는 받은 call을 다시 넘기지 않는다(`remote.md`, 권한이 "직접 붙은 기기"로 정해지기 때문). relay 프로그램(`packages/relay`)을 VM에 띄우고 각 컴퓨터의 `remote.relay`를 사람이 바꾸면 되지만, 설정은 기계마다 하나뿐이고(`core/config/shell-settings.ts` `remoteRelaySetting`, 문자열 하나) 폰은 relay 주소를 초대장으로만 배워 다시 pairing해야 한다(hello에 relay가 없다).
 - **폰이 쓴 변경은 hub에 맡겨지지 않는다.** 폰 앱 사본은 `app_sync/push`로 그 앱을 돌리는 컴퓨터에만 가고(받는 컴퓨터가 invocation으로 적용), 폰 앱이 앞에 있는 동안만 돈다. calendar는 `runs_on: ["computer","phone"]`이고 `sync`가 없어 컴퓨터 사이로 안 가며 VM에는 설치되어 있지 않다. 그래서 MainHome이 꺼진 동안 폰에서 고친 일정은 폰에만 있다. 폰은 서명 key가 없어 폴더 file을 쓰지 못한다.
 - **사용자 file을 보낼 길이 없다.** mail과 handoff는 설계상 글만이다(`machine-a2a.md` 비목표). `ses_01m86gfq…`에서 MainHome과 VM이 둘 다 켜져 직접 이어져 있었는데도 agent는 Google Drive(평문), lophn 폴더의 내부 자리 `machines/<MainHome>/files/`(lophn이 읽지 않는 자리), GitHub(VM 로그인에 기댐)를 차례로 돌았고 VM에 닿았는지 확인할 길이 없었다. 그 file(약 480 MB tar 등)은 아직 `~/GoogleDrive/lophn/machines/<MainHome>/files/harness-lab/`에 있다.
+- **꺼진 컴퓨터로 mail은 되는데 agent가 쓰지 못했다**(`ses_01m8b43k…`, Window의 home agent). 차례:
+  1. MainHome의 masup·memo를 Window로 들이려다 SDK가 낡아 거절됨. 사람이 "그쪽에 handoff 보내 봐".
+  2. `call send --on MainHome --to {"agent":"lophn","workspace":{"app":"masup"}}` 두 번이 `not_found`, tool 결과는 "tool target is not available" 한 줄.
+  3. agent는 "MainHome이 offline이라 못 보낸다"로 읽고, `session list --on MainHome`(실시간 연결이 필요한 읽기)도 `unavailable`이자 "꺼진 컴퓨터에 보내 두는 길은 없다"고 사람에게 답함. 사람이 "메일 보내는 기능 없어?"라고 묻자 메일 앱을 만들자고 함.
+  4. 사람이 설계 문서를 붙여 넣은 뒤 `--on mch_…`(id)로 다시 보내 `accepted`. agent는 "이름 대신 id를 써야 했다"고 결론 내림.
+  - **실제 원인은 이름이 아니다.** 보내는 쪽이 app slug를 **자기 기계의 앱 목록으로** 앱 id로 바꾼다(`core/router/remote-reach.ts` `remoteWorkspaceOf` → `appIdOf`). 05:09에는 Window에 masup·memo가 없어(들이기 실패) slug를 풀지 못해 `not_found`였고, 05:22에 memo를 들인 뒤라 05:25에는 풀렸다. 이름 `MainHome`은 처음부터 맞게 풀렸다.
+  - 내장 agent 지침은 "app slug로 다른 컴퓨터의 앱을 가리킨다"(`coding-agent/skills/lophn-agent.ts` 88행)고 하는데 code는 이 컴퓨터에도 같은 앱이 있을 때만 된다. 문서와 code가 어긋난다.
+  - `call.send`의 `not_found`는 공통 문장으로 가려진다(`core/lophn-agent/tools/work.ts` `FAILURE_SUMMARIES`, `carriesReason`에 `call.send`가 없다). agent는 원인을 볼 수 없어 두 번 틀리게 짚었고, 틀린 교훈("이름 대신 id")을 사람에게 남겼다.
+  - 지침에는 "꺼진 컴퓨터로 가는 call은 돌아오면 간다"(90행)가 있었다. 실패한 이유는 지침이 없어서가 아니라 오류가 원인을 가렸고, 실시간 읽기(`session list --on`)의 실패를 보내기에도 일반화했기 때문이다.
+- **화면 없는 VM의 clipboard는 lophn의 일이다**(`CLIPBOARD-REMOTE.md`). VM에는 OS clipboard가 없어 사람 쪽 clipboard와 VM 안 program을 이을 수 있는 것은 양쪽 끝(shell 창과 core)을 가진 lophn뿐이다. 지금: 터미널 글 복사·붙여넣기는 된다. TUI가 키로 시작한 OSC 52 복사(Claude Code `/copy`, vim `"+y`, tmux)는 버린다(사람이 누르는 pointer 뒤 한 번만 받는 정책, `terminal-agent.md` 13). 터미널의 coding agent에 그림을 붙일 길이 없다(Claude Code는 자기 기계의 `xclip`을 읽는다). 다른 기계의 Explorer는 OS clipboard 붙여넣기를 숨긴다. 다른 기계의 page는 붙여넣기만 되고 복사는 안 된다. VM 안 agent가 `xclip`으로 "복사했다"고 해도 어디에도 가지 않는다.
 - **무엇이 맞춰지는지 대상마다 다르다.** memo data는 간다(선언 `sync: {memo: "computers"}`), calendar data는 컴퓨터 사이로 안 간다, 저장 login은 두 기계가 같이 켜져야 간다, workflow 정의는 손으로 Export(대상이 켜져 있고 터미널 입력 허락이 있어야, file 200개·8 MiB, `protocol/workflows/routes.ts`), agent·skill·설정은 안 간다(`multi-machine.md` 정할 것 1, planner 정책 13).
 - **맞추는 장치가 대상마다 따로다.** merge 모델 넷(앱 data 칸 단위 HLC LWW `protocol/apps/sync/`, vault 칸 stamp `core/secrets/vault-merge.ts`, 명단 합집합, mail 멱등), 운반 길 셋. 받기 scheduler는 `core/remote/carry.ts`와 `core/secrets/vault-sync.ts`에 복사되어 있고 이미 갈라졌다(vault-sync는 물러나는 동안 온 계기를 `deferred`로 두고, carry는 버린다).
 - **사람도 내장 agent도 모델을 틀렸다**(`ses_01m88y4k…`): VM 주소를 MainHome의 Addresses에 넣음, `locked`를 "아무도 못 바꾼다"로 읽고 "relay를 끌 수 없다"고 답함(`locked`는 "사람만 바꾼다"이고 빈 값이면 relay가 꺼진다), "MainHome이 꺼지면 calendar 변경은 VM에 맡겨진다"고 답함(틀림).
@@ -101,6 +113,28 @@ lophn이 뜻을 모르는 file·폴더를 내 다른 컴퓨터로 보낸다. 새
 - "Allow typing in this computer's terminals"를 "이 컴퓨터를 다루게 허락"의 뜻으로 바꾼다(아래 정한 것 6).
 - 개요 문서 한 장(`architecture/`의 첫 장)과 내장 agent의 skill(`lophn-agent`, `connect-computers`)을 같은 그림으로 고친다. 같은 실수가 두 번 나왔으므로 skill에 "약속 두 가지"와 "hub가 하지 않는 것"을 적는다.
 
+### E. 기계 사이 clipboard
+
+C의 "지금 바로" 쪽 작은 경우다. 사람 쪽 clipboard의 bytes를 그 기계에 올리고, 그 기계 program이 쓴 clipboard를 사람 쪽에 내린다. 항목과 근거는 `CLIPBOARD-REMOTE.md`이고 이 roadmap으로 옮긴 뒤 그 file은 지운다.
+
+| 무엇 | 만들 것 |
+|---|---|
+| 터미널 coding agent에 그림 붙이기(가장 자주 막힘) | 붙여넣기에 그림이 있거나 그림 file을 끌어 놓으면 shell이 bytes를 그 터미널의 기계에 올리고(C의 받는 쪽 임시 자리) **그 path를 글로 붙인다**. 이 컴퓨터의 터미널도 같은 길이다 |
+| TUI가 쓰는 clipboard(OSC 52) | 쓰기는 받고 탭에 "복사됨"을 잠깐 보인다. 읽기는 막는다. Settings에 끄는 스위치(정한 것 8) |
+| 다른 기계의 Explorer 붙여넣기 | 붙여넣은 그림·file bytes를 그 기계의 `project_files/write|create`로 보낸다(다루게 허락받은 기기). path 복사는 글이라 막지 않는다 |
+| VM 안 `pbcopy`·`xclip` | 화면 없는 기계에서 lophn shell-init이 OSC 52를 내는 shim을 둔다(OSC 52 정책 뒤에) |
+| 다른 기계 page의 글 복사 | 우선순위 낮음 |
+| 터미널 Ctrl+V 안내 | 터미널에서 Ctrl+V를 누르면 Ctrl+Shift+V를 한 줄로 알린다 |
+
+### F. 다른 컴퓨터로 보내기 바로잡기
+
+`ses_01m8b43k…`에서 드러난 것. 정할 것이 없어 순서 1에 넣는다.
+
+- app slug는 **받는 쪽 기준으로** 푼다. 이 컴퓨터에 그 앱이 없으면 그 컴퓨터가 낸 앱 기록(`computers/machines/<그 기계>/apps/*/app.json`의 slug와 id)으로 풀고, 그래도 없으면 slug 그대로 보내 받는 쪽이 푼다(받는 쪽이 없으면 실패 mail). 지침의 "app slug가 된다"와 code를 맞춘다.
+- `call.send`·`team.spawn --on`·`session list --on`·`agent list|card --on`의 실패는 원인을 고정 문장으로 싣는다: "이 컴퓨터에 `memo` 앱이 없어 그 컴퓨터의 앱으로 풀지 못했다", "MainHome에 지금 닿지 않는다. 목록 읽기는 켜져 있을 때만 된다. `call send --on`은 꺼져 있어도 맡겨진다"처럼 무엇이 틀렸고 무엇은 되는지를 말한다.
+- 지침에 실시간 읽기(`session list|agent list|agent card --on`)와 맡겨 두는 보내기(`call send|team spawn --on`)를 표 하나로 갈라 적는다. 원칙의 "약속 두 가지"와 같은 말로 쓴다.
+- CLI `lophn app take-in <app>`이 slug를 받는다(지금은 `app_` id만 받아 agent가 두 번 틀렸다).
+
 ## 옛 결정과 부딪히는 것
 
 | 옛 결정 | 어디 | 이번 요구 |
@@ -126,6 +160,7 @@ planner가 선택지와 추천을 보이고 사람이 골랐다.
 5. **글 칸의 충돌.** 앱 선언에 "둘 다 남김"을 두고 앱 agent가 글 칸에 고른다. 충돌하면 사본 하나를 더 남기고 앱 화면이 보인다. 지금은 memo 본문을 두 기계에서 고치면 나중 것만 남고, 지우기와 고치기가 엇갈리면 지우기가 이긴다(`protocol/apps/sync/apply.ts`).
 6. **"터미널 입력" 허락.** 이름만 "이 컴퓨터를 다루게 허락"으로 바꾼다. 스위치는 하나 그대로다. 버린 안: 둘로 나누기.
 7. **받은 file을 어디에 두나.** 받는 컴퓨터의 inbox 폴더. 받는 쪽 폴더를 덮지 않고 사람이나 agent가 옮긴다. 버린 안: 같은 project 안에 바로.
+8. **TUI가 쓰는 clipboard(OSC 52).** 터미널 정석을 따른다: 프로그램이 clipboard에 **쓰는 것은 받고**, 받을 때마다 탭에 "clipboard에 복사됨(프로그램)"을 잠깐 보여 몰래 바뀌지 않게 한다. **읽기는 계속 막는다.** Settings에 끄는 스위치를 둔다. 근거: kitty·Ghostty는 쓰기를 기본 허용하고 읽기를 묻고, Windows Terminal은 쓰기만 지원하며 읽기는 넣지 않았다. 사람이 마우스로 누른 직후 한 번만 받는 지금 규칙은 조사한 다른 터미널에 없다. 버린 안: 키를 누른 뒤 몇 초 안의 쓰기만 받고 나머지는 [복사]로 묻기(planner의 처음 추천, lophn에만 있는 규칙이라 사람이 예측하기 어렵다), 모든 쓰기를 [복사]로 묻기, 지금 그대로. 같은 변경에서 `terminal-agent.md` 13과 그 결정을 고친다.
 
 ## planner가 정한 것
 
@@ -147,8 +182,9 @@ planner가 선택지와 추천을 보이고 사람이 골랐다.
 
 ## 순서
 
-1. **검증과 지침 바로잡기**: 지금 세 기계와 폰으로 늘 켜 둔 VM의 보관(mail, note, memo data)을 실제로 돌려 본다. 내장 agent의 지침(`lophn-agent`, `connect-computers`)을 정한 것 2대로 보강한다. scheduler를 합친다.
-2. **C 사용자 file 보내기**(정한 것 7): inbox, `lophn send`, 상태, handoff·mail에 단 file. 가장 크게 막혔던 일이다.
+1. **검증과 바로잡기**: 지금 세 기계와 폰으로 늘 켜 둔 VM의 보관(mail, note, memo data)을 실제로 돌려 본다. F(app slug를 받는 쪽 기준으로, 실패 원인 싣기, 지침의 두 약속 표, `app take-in` slug). 내장 agent의 지침(`lophn-agent`, `connect-computers`)을 정한 것 2대로 보강한다. scheduler를 합친다.
+2. **C 사용자 file 보내기**(정한 것 7): inbox, `lophn send`, 상태, handoff·mail에 단 file. 가장 크게 막혔던 일이다. E의 터미널 그림 붙이기와 Explorer 붙여넣기는 같은 "그 기계에 bytes 올리기"라 여기서 같이 한다.
+2a. **E의 나머지**(정한 것 8): OSC 52 정책, 화면 없는 기계의 `pbcopy`·`xclip` shim, Ctrl+V 안내. C와 기대지 않아 나란히 돌 수 있다.
 3. **A hub**(정한 것 2·3·4): hub 설정(사람 승인), hub core의 relay endpoint, relay 목록(hub 먼저, Fly fallback)과 hello, 상태 보이기, 폰 서명 key와 폰 변경 맡기기.
 4. **B 정책**(정한 것 1·5): 앱 data 기본 범위(적지 않으면 내 컴퓨터들)와 그 data migration, 글 칸 "둘 다 남김", 설정 종류 모두의 export(2의 보내기 위), 정책 보이는 곳.
 5. **D**(정한 것 6): 허락 이름, Settings "내 컴퓨터들", 개요 문서. 각 단계의 화면은 그 단계에서 같이 고치고 여기서는 묶음과 이름만 한다.
@@ -156,4 +192,5 @@ planner가 선택지와 추천을 보이고 사람이 골랐다.
 ## 같이 정리할 것
 
 - `~/GoogleDrive/lophn/machines/<MainHome>/files/harness-lab/`의 평문 file(약 480 MB tar 등). 사람의 Drive라 사람이 정한다.
-- 이슈 후보: scheduler 갈라짐(carry가 물러나는 동안 온 계기를 버림), 내장 agent가 lophn 폴더의 내부 자리(`machines/<id>/`)에 사용자 file을 씀.
+- 이슈 후보: scheduler 갈라짐(carry가 물러나는 동안 온 계기를 버림), 내장 agent가 lophn 폴더의 내부 자리(`machines/<id>/`)에 사용자 file을 씀, `call send --on`의 app slug를 보내는 쪽 앱 목록으로 풀어 꺼진 컴퓨터의 앱에 보내지 못함(지침과 어긋남), `call.send` 실패 원인이 공통 문장에 가려짐.
+- 저장소 root의 `CLIPBOARD-REMOTE.md`(E로 옮김, 지운다)와 `ses_01m8b43kpc1057f4h7ktvkq2b7.json`(분석 자료. 사람이 올린 file이라 사람이 정한다).

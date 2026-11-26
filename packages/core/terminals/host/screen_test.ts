@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import headless from "@xterm/headless";
-import { Screen } from "./screen.ts";
+import { OSC52_MAX_BYTES, parseOsc52WriteBytes, Screen } from "./screen.ts";
 
 // omp처럼 history를 한 번 쓰고 그 뒤로는 맨 아래 줄만 절대 위치로 고쳐 그리는 출력이다. raw ring buffer는
 // 이런 frame 10,000개에서 history를 버려 다시 붙은 화면이 비었다.
@@ -113,4 +113,31 @@ test("폰에 주는 화면은 서식이 같은 칸을 run으로 묶고 폭 2 글
 
   screen.dispose();
   assert.equal(await screen.screen(0), null);
+});
+
+test("Screen은 OSC 52 쓰기(1 MiB 이하)만 감지하고 읽기(?)·1 MiB 초과는 무시한다", async () => {
+  const seen: number[] = [];
+  const screen = new Screen(80, 24, {
+    onClipboard: (bytes) => seen.push(bytes),
+  });
+  screen.push("\x1b]52;c;?\x07");
+  screen.push(`\x1b]52;c;${Buffer.from("copied!").toString("base64")}\x07`);
+  screen.push("\x1b]52;c;not-valid!!!\x07");
+  await screen.snapshot();
+  assert.deepEqual(seen, [7]);
+
+  assert.equal(
+    parseOsc52WriteBytes(
+      `c;${Buffer.alloc(OSC52_MAX_BYTES).toString("base64")}`,
+    ),
+    OSC52_MAX_BYTES,
+  );
+  assert.equal(
+    parseOsc52WriteBytes(
+      `c;${Buffer.alloc(OSC52_MAX_BYTES + 1).toString("base64")}`,
+    ),
+    null,
+  );
+  assert.equal(parseOsc52WriteBytes("c;?"), null);
+  screen.dispose();
 });

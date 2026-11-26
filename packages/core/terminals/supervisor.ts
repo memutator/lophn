@@ -11,6 +11,7 @@ import type {
   TerminalRuntime,
 } from "../../protocol/coding-agent/terminals.ts";
 import type {
+  ClipboardWrite,
   ForegroundChange,
   HostLine,
   HostReply,
@@ -56,6 +57,7 @@ type SupervisorListener = {
   runtime?(runtime: TerminalRuntime): void;
   output?(output: readonly TerminalOutput[]): void;
   foreground?(change: ForegroundChange): void;
+  clipboard?(write: ClipboardWrite): void;
   hostLost?(exit?: HostExit): void;
 };
 
@@ -160,6 +162,11 @@ export function createSupervisor(options: {
     if (parsed.foreground) {
       for (const listener of listeners) {
         listener.foreground?.(parsed.foreground);
+      }
+    }
+    if (parsed.clipboard) {
+      for (const listener of listeners) {
+        listener.clipboard?.(parsed.clipboard);
       }
     }
     if (parsed.output) {

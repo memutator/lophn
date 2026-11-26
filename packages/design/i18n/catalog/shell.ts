@@ -92,4 +92,10 @@ export const shell = {
   "shell.label.tray-item": "{title}: {text}",
   "shell.text.tab-hand-none": "No running session on this computer",
   "shell.toast.tab-hand-failed": "Couldn't hand this tab over. Try again.",
+  "shell.toast.terminal-clipboard-written":
+    "Copied to clipboard ({bytes} bytes)",
+  "shell.toast.terminal-ctrl-v-hint":
+    "Use Ctrl+Shift+V to paste in the terminal.",
+  "shell.toast.terminal-image-paste-failed":
+    "Couldn't paste image into the terminal.",
 } as const;

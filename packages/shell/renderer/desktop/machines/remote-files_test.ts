@@ -324,3 +324,88 @@ test("remote-files: 파일 읽기 cache, 변이 시 영향 폴더만 무효화, 
   assert.ok(!deniedWrite.ok && deniedWrite.code === "forbidden");
   time += 1;
 });
+
+test("remote-files: writeBytes와 copy는 base64·상대 경로를 넘기고 대상 폴더 cache를 무효화하며 오류를 전파한다", async () => {
+  let mode: "ok" | "conflict" | "forbidden" = "ok";
+  const { core, calls } = makeCore(async (req) => {
+    const key = `${req.resource}/${req.method}`;
+    if (key === "project_files/list") {
+      return { ok: true, value: { entries: [] } };
+    }
+    if (key === "project_files/write_bytes") {
+      if (mode !== "ok")
+        return { ok: false, error: { code: mode, message: mode } };
+      return { ok: true, value: { hash: "d".repeat(64), size: 4 } };
+    }
+    if (key === "project_files/copy") {
+      if (mode !== "ok")
+        return { ok: false, error: { code: mode, message: mode } };
+      return { ok: true, value: { copied: true } };
+    }
+    return { ok: false, error: { code: "not_found", message: "unknown" } };
+  });
+
+  const remote = createRemoteFiles(MACHINE, core);
+  remote.registerProject(PROJECT, [{ path: ROOT }]);
+  await remote.workspaceFiles.list(`${ROOT}/src`);
+  await remote.workspaceFiles.list(`${ROOT}/other`);
+  assert.ok(remote.workspaceFiles.listCached?.(`${ROOT}/src`) !== undefined);
+
+  const bytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+  const wrote = await remote.workspaceFiles.writeBytes(
+    `${ROOT}/src/shot.png`,
+    bytes,
+  );
+  assert.ok(wrote.ok);
+  assert.equal(remote.workspaceFiles.listCached?.(`${ROOT}/src`), undefined);
+  assert.ok(remote.workspaceFiles.listCached?.(`${ROOT}/other`) !== undefined);
+  const writeCall = calls.find((c) => c.method === "write_bytes");
+  assert.deepEqual(writeCall?.body, {
+    project: PROJECT,
+    folder: ROOT,
+    path: "src/shot.png",
+    data_base64: Buffer.from(bytes).toString("base64"),
+    overwrite: false,
+  });
+
+  const edWrite = await remote.editorFiles.writeBytes({
+    path: `${ROOT}/src/ed.bin`,
+    bytes,
+  });
+  assert.ok(edWrite.ok && edWrite.value.hash === "d".repeat(64));
+
+  await remote.workspaceFiles.list(`${ROOT}/src`);
+  const copied = await remote.workspaceFiles.copy(
+    `${ROOT}/src/shot.png`,
+    `${ROOT}/src/shot copy.png`,
+  );
+  assert.ok(copied.ok);
+  assert.equal(remote.workspaceFiles.listCached?.(`${ROOT}/src`), undefined);
+  const copyCall = calls.find((c) => c.method === "copy");
+  assert.deepEqual(copyCall?.body, {
+    project: PROJECT,
+    folder: ROOT,
+    from: "src/shot.png",
+    to: "src/shot copy.png",
+    overwrite: false,
+  });
+
+  mode = "conflict";
+  const dup = await remote.workspaceFiles.writeBytes(
+    `${ROOT}/src/shot.png`,
+    bytes,
+  );
+  assert.ok(!dup.ok && dup.code === "conflict");
+  const dupCopy = await remote.workspaceFiles.copy(
+    `${ROOT}/src/shot.png`,
+    `${ROOT}/src/shot copy.png`,
+  );
+  assert.ok(!dupCopy.ok && dupCopy.code === "conflict");
+
+  mode = "forbidden";
+  const denied = await remote.workspaceFiles.copy(
+    `${ROOT}/src/shot.png`,
+    `${ROOT}/src/x.png`,
+  );
+  assert.ok(!denied.ok && denied.code === "forbidden");
+});

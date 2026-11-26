@@ -3,7 +3,8 @@
 // 바뀌면 lease와 상관없이 낸다. core가 끝나면(closeWork) host stdin을 닫아 host가 모든 PTY를 끝낸다. 앱(shell)의 Quit은 이 수명과 상관없다.
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
+import { join } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { err, ok } from "../../../../base/mod.ts";
@@ -21,7 +22,7 @@ import {
   terminalsWatch,
 } from "../../../../protocol/coding-agent/terminals.ts";
 import type { BusEvent } from "../../../../protocol/events/bus.ts";
-import { codingAgentsSetting } from "../../../config/mod.ts";
+import { codingAgentsSetting, shellSettings } from "../../../config/mod.ts";
 import {
   projectExists,
   projectFolderPaths,
@@ -98,6 +99,10 @@ export const terminalsWiring: WiringFactory = () => {
           platform: process.platform,
           exists: existsSync,
         }),
+        clipboardShimDir:
+          ctx.root === undefined
+            ? undefined
+            : join(ctx.root.path, "run", "clipboard-shim"),
       });
       ctx.provide("personEnv", personEnv);
       const made = createTerminals({
@@ -164,7 +169,14 @@ export const terminalsWiring: WiringFactory = () => {
             source: null,
           });
         },
+        pasteImageDir:
+          ctx.root === undefined
+            ? join(tmpdir(), "lophn-terminal-paste")
+            : join(ctx.root.path, "tmp", "terminal-paste"),
       });
+      const osc52Setting = shellSettings.find(
+        (one) => one.key === "shell.terminal.osc52_clipboard",
+      );
       const publish = (event: BusEvent) => ctx.bus.publish(event);
       terminals.onRuntime((runtime) => {
         publish({
@@ -172,6 +184,21 @@ export const terminalsWiring: WiringFactory = () => {
           subject: `terminal:${runtime.terminal_ref}`,
           at: ctx.clock.now(),
           payload: { runtime },
+        } as BusEvent);
+      });
+      // @xterm/headless가 감지한 OSC 52 쓰기는 remote 화면에 toast를 알린다. 설정으로 끈 경우는 발행하지 않는다.
+      terminals.onClipboard?.((write) => {
+        if (
+          osc52Setting !== undefined &&
+          ctx.peek.settings?.get(osc52Setting as never) === false
+        ) {
+          return;
+        }
+        publish({
+          type: "TerminalClipboardWritten",
+          subject: `terminal:${write.terminal_ref}`,
+          at: ctx.clock.now(),
+          payload: { terminal: write.terminal_ref, bytes: write.bytes },
         } as BusEvent);
       });
       // host가 16ms·64Ki로 묶은 chunk 하나가 event 하나다. lease가 없는 터미널은 host의 화면만 이어진다.
@@ -221,12 +248,10 @@ export const terminalsWiring: WiringFactory = () => {
           ],
           [
             key(terminalsPasteImage),
-            () =>
-              Promise.resolve(
-                err({
-                  code: "unavailable",
-                  message: "terminals/paste_image is not implemented yet",
-                }),
+            (who, input) =>
+              routes.pasteImage(
+                who.principal,
+                input as Parameters<typeof routes.pasteImage>[1],
               ),
           ],
           [

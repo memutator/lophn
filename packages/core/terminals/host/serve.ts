@@ -56,7 +56,9 @@ function batchOutput(send: (output: readonly TerminalOutput[]) => void) {
 }
 
 export function serveHost(options: {
-  deps: Omit<HostDeps, "onRuntime" | "onOutput" | "pty"> & { pty?: PtyAdapter };
+  deps: Omit<HostDeps, "onRuntime" | "onOutput" | "onClipboard" | "pty"> & {
+    pty?: PtyAdapter;
+  };
   input: Readable;
   write(line: HostLine): void;
   // PTY를 다 정리한 뒤 부른다. process를 끝내는 것은 부르는 쪽이다.
@@ -72,6 +74,7 @@ export function serveHost(options: {
       send({ runtime });
     },
     onOutput: (chunk) => output.write(chunk),
+    onClipboard: (clipboard) => send({ clipboard }),
   });
 
   let polling = false;

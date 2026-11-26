@@ -57,6 +57,13 @@ export type TerminalForeground = {
   argv: string[] | null;
 };
 
+// @xterm/headless가 감지한 OSC 52 clipboard 쓰기 요청.
+export type TerminalClipboardWrite = {
+  terminal_ref: string;
+  generation: number;
+  bytes: number;
+};
+
 // 실패는 오류 code와 `details.reason`(TerminalFailure)이다.
 export type Terminals = {
   open(input: TerminalOpen): Promise<Result<TerminalRuntime>>;
@@ -103,6 +110,7 @@ export type Terminals = {
   onRuntime(listener: (runtime: TerminalRuntime) => void): () => void;
   onOutput(listener: (output: readonly TerminalOutput[]) => void): () => void;
   onForeground(listener: (change: TerminalForeground) => void): () => void;
+  onClipboard?(listener: (write: TerminalClipboardWrite) => void): () => void;
   onHumanInput(listener: (terminal: string, text: string) => void): () => void;
   useEnv(hook: TerminalEnvHook): () => void;
   // 살아 있는 터미널이 있다. 있는 동안 core는 스스로 끝나지 않는다.

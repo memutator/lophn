@@ -201,7 +201,13 @@ export function createScreenCopyCore(
       ),
     subscribe: (listener) =>
       events.subscribe(
-        { types: ["TerminalScreenChanged", "TerminalRuntimeChanged"] },
+        {
+          types: [
+            "TerminalScreenChanged",
+            "TerminalRuntimeChanged",
+            "TerminalClipboardWritten",
+          ],
+        },
         (message) => {
           if (
             message.kind === "event" &&

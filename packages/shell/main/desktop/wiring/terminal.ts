@@ -18,7 +18,6 @@ import {
   TERMINAL_SHOWN_CHANNEL,
   TERMINAL_TRACE_CHANNEL,
   type TerminalLinkWhere,
-  terminalCopySchema,
   terminalFocusSchema,
   terminalInputSchema,
   terminalLinkSchema,
@@ -30,7 +29,11 @@ import {
 import { checkExternalUrl } from "../../app-frame/external-link.ts";
 import { excerpt } from "../../notice/excerpt.ts";
 import { checkCaller, checkInput, type IpcEvent } from "../ipc-guard.ts";
-import { copyTerminalText, pasteTerminalText } from "../terminal-clipboard.ts";
+import {
+  copyTerminalText,
+  pasteTerminalText,
+  terminalClipboardTextSchema,
+} from "../terminal-clipboard.ts";
 import { mayCall, TerminalFocusTable } from "../terminal-focus.ts";
 import { LINK_SETTING_KEY_LIST, linkWhere } from "../terminal-link.ts";
 import { createTraceFile } from "../terminal-trace.ts";
@@ -241,7 +244,7 @@ export function register(
   });
   // headless 확인은 사람 장치의 clipboard를 건드리지 않는다.
   handle(TERMINAL_COPY_CHANNEL, async (_event, input) => {
-    const parsed = checkInput(terminalCopySchema, input);
+    const parsed = checkInput(terminalClipboardTextSchema, input);
     if (!parsed.ok) return parsed;
     return await copyTerminalText(
       clipboard,
@@ -259,7 +262,7 @@ export function register(
     if (!mayCall(focus, "input", event.sender.id, parsed.value)) {
       return NOT_FOCUSED;
     }
-    return reply(await ctx.core.terminalCall("paste_image", parsed.value));
+    return await ctx.core.terminalCall("paste_image", parsed.value);
   });
   handle(TERMINAL_TRACE_CHANNEL, async (event, input) => {
     const parsed = checkInput(terminalTraceSchema, input);

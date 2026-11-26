@@ -539,10 +539,11 @@ export function Explorer({
   const transfer = async (
     pairs: readonly { readonly from: string; readonly toDir: string }[],
     mode: "copy" | "cut",
-  ): Promise<{ made: string[]; failed: boolean }> => {
+  ): Promise<{ made: string[]; failed: boolean; forbidden: boolean }> => {
     const taken = new Map<string, Set<string>>();
     const made: string[] = [];
     let failed = false;
+    let forbidden = false;
     for (const { from, toDir } of pairs) {
       let names = taken.get(toDir);
       if (names === undefined) {
@@ -557,9 +558,13 @@ export function Explorer({
       const result =
         mode === "cut" ? await onMove(from, to) : await source.copy(from, to);
       if (result.ok) made.push(to);
-      else if (result.code !== "cancelled") failed = true;
+      else if (result.code === "forbidden") {
+        forbidden = true;
+        setWriteForbidden(true);
+        break;
+      } else if (result.code !== "cancelled") failed = true;
     }
-    return { made, failed };
+    return { made, failed, forbidden };
   };
 
   /** 만든 경로를 펼쳐 고르고 붙여넣은 개수(또는 실패)를 알린다. */
@@ -567,6 +572,7 @@ export function Explorer({
     made: readonly string[],
     toDir: string,
     failed: boolean,
+    forbidden = false,
   ) => {
     if (made.length > 0) {
       if (toDir !== root.path) tree.expand(toDir);
@@ -575,7 +581,9 @@ export function Explorer({
       const last = made.at(-1);
       if (last !== undefined) show(last, false);
     }
-    if (failed) {
+    if (forbidden) {
+      setNotice({ text: t("document.error.forbidden"), error: true });
+    } else if (failed) {
       setNotice({
         text: t("project-workspace.error.explorer-paste-failed"),
         error: true,
@@ -590,39 +598,19 @@ export function Explorer({
     }
   };
 
-  /** 앱 clipboard으로 붙여넣기. 대상은 지금 줄의 폴더다. */
-  const pasteClipboard = async (clip: Clipboard) => {
-    const toDir = targetFolder(activeRow);
-    const { made, failed } = await transfer(
-      clip.paths.map((from) => ({ from, toDir })),
-      clip.mode,
-    );
-    // 잘라낸 것은 한 번 붙여넣으면 끝난다. 복사는 남겨 두어 여러 곳에 붙여넣게 한다.
-    if (clip.mode === "cut") setClipboard(null);
-    finishPaste(made, toDir, failed);
-  };
-
-  /** paste 이벤트의 이미지·경로를 대상 폴더에 붙여넣는다. */
-  const pasteData = async (
-    images: readonly File[],
-    paths: readonly string[],
-  ) => {
-    const toDir = targetFolder(activeRow);
-    if (images.length === 0) {
-      const { made, failed } = await transfer(
-        paths.map((from) => ({ from, toDir })),
-        "copy",
-      );
-      finishPaste(made, toDir, failed);
-      return;
-    }
+  /** 붙여넣기·드롭으로 들어온 파일(이미지·바이너리·텍스트)을 대상 폴더에 쓴다. */
+  const writeFilesToDir = async (files: readonly File[], toDir: string) => {
     const names = new Set(
       (tree.entriesOf(toDir) ?? []).map((entry) => entry.name),
     );
     const made: string[] = [];
     let failed = false;
-    for (const file of images) {
-      const name = freeName(imageNameOf(file), names, "number");
+    let forbidden = false;
+    for (const file of files) {
+      const base = file.type.startsWith("image/")
+        ? imageNameOf(file)
+        : file.name.trim().replace(/^.*[/\\]/, "") || "file";
+      const name = freeName(base, names, "number");
       names.add(name);
       const path = joinPath(toDir, name);
       const result = await source.writeBytes(
@@ -630,9 +618,42 @@ export function Explorer({
         new Uint8Array(await file.arrayBuffer()),
       );
       if (result.ok) made.push(path);
-      else failed = true;
+      else if (result.code === "forbidden") {
+        forbidden = true;
+        setWriteForbidden(true);
+        break;
+      } else failed = true;
     }
-    finishPaste(made, toDir, failed);
+    finishPaste(made, toDir, failed, forbidden);
+  };
+
+  /** 앱 clipboard으로 붙여넣기. 대상은 지금 줄의 폴더다. */
+  const pasteClipboard = async (clip: Clipboard) => {
+    const toDir = targetFolder(activeRow);
+    const { made, failed, forbidden } = await transfer(
+      clip.paths.map((from) => ({ from, toDir })),
+      clip.mode,
+    );
+    // 잘라낸 것은 한 번 붙여넣으면 끝난다. 복사는 남겨 두어 여러 곳에 붙여넣게 한다.
+    if (clip.mode === "cut") setClipboard(null);
+    finishPaste(made, toDir, failed, forbidden);
+  };
+
+  /** paste 이벤트의 파일(이미지·바이너리·텍스트)·경로를 대상 폴더에 붙여넣는다. */
+  const pasteData = async (
+    files: readonly File[],
+    paths: readonly string[],
+  ) => {
+    const toDir = targetFolder(activeRow);
+    if (files.length === 0) {
+      const { made, failed, forbidden } = await transfer(
+        paths.map((from) => ({ from, toDir })),
+        "copy",
+      );
+      finishPaste(made, toDir, failed, forbidden);
+      return;
+    }
+    await writeFilesToDir(files, toDir);
   };
 
   /** 붙일 것이 있으면 그 자리에서 preventDefault·stopPropagation 하고 붙여넣는다. */
@@ -642,7 +663,7 @@ export function Explorer({
     preventDefault: () => void;
     stopPropagation: () => void;
   }) => {
-    if (!isLocal) return;
+    if (readOnly) return;
     const data = event.clipboardData;
     // tree 안 이름 입력에 붙여넣을 때는 가로채지 않는다.
     const target = event.target;
@@ -655,11 +676,9 @@ export function Explorer({
     ) {
       return;
     }
-    const images = [...data.files].filter((file) =>
-      file.type.startsWith("image/"),
-    );
+    const files = [...data.files];
     const paths = pathsFromText(data.getData("text/plain"));
-    if (images.length === 0 && paths.length === 0) {
+    if (files.length === 0 && paths.length === 0) {
       setNotice({
         text: t("project-workspace.error.explorer-paste-unsupported"),
         error: true,
@@ -668,7 +687,7 @@ export function Explorer({
     }
     event.preventDefault();
     event.stopPropagation();
-    void pasteData(images, paths);
+    void pasteData(files, paths);
   };
 
   pasteListener.current = receivePaste;
@@ -677,7 +696,7 @@ export function Explorer({
   const duplicateRows = async (row: FileRow | null) => {
     const paths = clipPaths(row);
     if (paths.length === 0) return;
-    const { made, failed } = await transfer(
+    const { made, failed, forbidden } = await transfer(
       paths.map((from) => ({ from, toDir: parentOf(from) })),
       "copy",
     );
@@ -688,7 +707,9 @@ export function Explorer({
       const last = made.at(-1);
       if (last !== undefined) show(last, false);
     }
-    if (failed) {
+    if (forbidden) {
+      setNotice({ text: t("document.error.forbidden"), error: true });
+    } else if (failed) {
       setNotice({
         text: t("project-workspace.error.explorer-paste-failed"),
         error: true,
@@ -1007,7 +1028,14 @@ export function Explorer({
     if (row !== null) event.stopPropagation();
     const paths = dragging.current;
     const toDir = dropDirOf(row);
-    if (paths === null || !paths.some((path) => movable(path, toDir))) return;
+    if (paths === null) {
+      if (!event.dataTransfer.types.includes("Files")) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "copy";
+      setDropTarget(toDir);
+      return;
+    }
+    if (!paths.some((path) => movable(path, toDir))) return;
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
     setDropTarget(toDir);
@@ -1019,7 +1047,13 @@ export function Explorer({
     const toDir = dropDirOf(row);
     dragging.current = null;
     setDropTarget(null);
-    if (all === null) return;
+    if (all === null) {
+      const files = [...event.dataTransfer.files];
+      if (files.length === 0) return;
+      event.preventDefault();
+      void writeFilesToDir(files, toDir);
+      return;
+    }
     // 이미 같은 자리에 있는 줄은 옮기지 않고, 다른 것 안에 든 줄은 위 폴더와 함께 간다.
     const paths = outermost(all.filter((path) => movable(path, toDir)));
     if (paths.length === 0) return;
@@ -1123,8 +1157,9 @@ export function Explorer({
             leading: <MenuIcon icon={workspaceIcons.newFolder} />,
           },
         ]),
-    ...(isLocal
-      ? [
+    ...(readOnly
+      ? []
+      : [
           {
             id: "cut",
             label: t("project-workspace.button.explorer-cut"),
@@ -1149,6 +1184,9 @@ export function Explorer({
             leading: <MenuIcon icon={CopyPlus} />,
             disabled: !canAct(target),
           },
+        ]),
+    ...(isLocal
+      ? [
           {
             id: "reveal",
             label: t("project-workspace.button.explorer-reveal"),
@@ -1249,15 +1287,15 @@ export function Explorer({
         anchor: tree.rows[0].id,
       });
     } else if (mod && key.toLowerCase() === "c") {
-      if (!isLocal || !copyToClipboard(row ?? null)) return;
+      if (readOnly || !copyToClipboard(row ?? null)) return;
     } else if (mod && key.toLowerCase() === "x") {
-      if (!isLocal || !cutToClipboard(row ?? null)) return;
+      if (readOnly || !cutToClipboard(row ?? null)) return;
     } else if (mod && key.toLowerCase() === "v") {
       // 앱 clipboard이 비었으면 paste 이벤트가 OS clipboard의 경로·이미지를 맡는다. 둘이 같은 일을 하지 않는다.
-      if (!isLocal || clipboard === null) return;
+      if (readOnly || clipboard === null) return;
       void pasteClipboard(clipboard);
     } else if (mod && key.toLowerCase() === "d") {
-      if (!isLocal || clipPaths(row ?? null).length === 0) return;
+      if (readOnly || clipPaths(row ?? null).length === 0) return;
       void duplicateRows(row ?? null);
     } else if (
       (key === "Delete" && !event.ctrlKey) ||

@@ -109,6 +109,12 @@ export type ForegroundChange = {
   argv: string[] | null;
 };
 
+export type ClipboardWrite = {
+  terminal_ref: string;
+  generation: number;
+  bytes: number;
+};
+
 /** host가 stdout에 쓰는 줄 하나. 요청의 답은 id와 reply(와 runtime)를 싣는다. */
 export type HostLine = {
   id?: string;
@@ -116,4 +122,5 @@ export type HostLine = {
   runtime?: TerminalRuntime;
   output?: TerminalOutput[];
   foreground?: ForegroundChange;
+  clipboard?: ClipboardWrite;
 };

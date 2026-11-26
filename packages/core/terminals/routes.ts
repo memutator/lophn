@@ -6,6 +6,10 @@ import type {
   TerminalRuntime,
 } from "../../protocol/coding-agent/terminals.ts";
 import type { TabRelation } from "../../protocol/lophn-agent/host-queue.ts";
+import {
+  saveTerminalPasteImage,
+  type TerminalPasteMediaType,
+} from "./paste-image.ts";
 import type { Terminals } from "./ports.ts";
 
 // 화면이 10초마다 갱신하고 core는 30초 안에 갱신이 없으면 lease를 거둔다.
@@ -62,6 +66,8 @@ export function createTerminalRoutes(deps: {
     terminal: string,
     relation: TabRelation | null,
   ): void;
+  // 터미널에 붙여 넣은 이미지를 저장할 임시 폴더.
+  pasteImageDir?: string;
 }) {
   const { terminals } = deps;
   const leases = new Map<string, { terminal: string; expiresAt: number }>();
@@ -164,6 +170,32 @@ export function createTerminalRoutes(deps: {
         });
         return done.ok ? ok({}) : done;
       });
+    },
+
+    // 이미지 붙여넣기·drop: 입력과 같은 자격(`allowed`)으로 검증하고 임시 파일에 저장한 뒤 경로를 돌려준다.
+    async pasteImage(
+      principal: string,
+      input: {
+        terminal: string;
+        media_type: TerminalPasteMediaType;
+        data_base64: string;
+        shell_capability?: string;
+      },
+    ): Promise<Result<{ path: string; bytes: number }>> {
+      if (!allowed(principal, input.shell_capability)) {
+        return forbidden("this caller may not paste images into the terminal");
+      }
+      if (terminals.runtime(input.terminal) === null) return gone();
+      if (deps.pasteImageDir === undefined) {
+        return err({
+          code: "unavailable",
+          message: "temporary image directory is not configured",
+        });
+      }
+      return await saveTerminalPasteImage(
+        { dir: deps.pasteImageDir, clock: deps.clock },
+        { media_type: input.media_type, data_base64: input.data_base64 },
+      );
     },
 
     async resize(input: {

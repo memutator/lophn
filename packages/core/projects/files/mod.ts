@@ -15,12 +15,14 @@ import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   PROJECT_FILE_MAX_BYTES,
   type ProjectFileEntry,
+  projectFilesCopy,
   projectFilesCreate,
   projectFilesList,
   projectFilesRead,
   projectFilesRemove,
   projectFilesRename,
   projectFilesWrite,
+  projectFilesWriteBytes,
 } from "../../../protocol/projects/mod.ts";
 import type { ApiReadDefinition, Sql } from "../../../protocol/server/mod.ts";
 import type { MemoryHandler } from "../../server/mod.ts";
@@ -558,6 +560,309 @@ export function projectFilesRemoveHandler(
   };
 }
 
+/** `project_files/write_bytes` 디코드 후 최대 크기(24 MiB, base64 32 MiB 요청 한도 안). */
+const MAX_WRITE_BYTES = 24 * 1024 * 1024;
+
+async function writeFileBytesSafe(
+  parentReal: string,
+  leaf: string,
+  targetPath: string,
+  bytes: Uint8Array,
+  overwrite: boolean,
+): Promise<Result<void>> {
+  let existingInfo;
+  try {
+    existingInfo = await lstat(targetPath);
+  } catch (error) {
+    if (errnoOf(error) !== "ENOENT") {
+      return mapFsError(error, "failed to inspect target file");
+    }
+    existingInfo = null;
+  }
+
+  let mode = 0o644;
+  if (existingInfo !== null) {
+    if (existingInfo.isSymbolicLink()) {
+      return invalid("cannot write through a symbolic link");
+    }
+    if (!overwrite) return conflict("target already exists");
+    if (!existingInfo.isFile()) return invalid("not a file");
+    mode = existingInfo.mode & 0o777;
+  }
+
+  if (!overwrite) {
+    try {
+      const handle = await open(
+        targetPath,
+        constants.O_WRONLY |
+          constants.O_CREAT |
+          constants.O_EXCL |
+          constants.O_NOFOLLOW,
+        mode,
+      );
+      try {
+        await handle.writeFile(bytes);
+        await handle.sync();
+      } finally {
+        await handle.close();
+      }
+      return ok(undefined);
+    } catch (error) {
+      return mapFsError(error, "failed to write file");
+    }
+  }
+
+  const temp = join(
+    parentReal,
+    `.${leaf}.lophn-${randomBytes(6).toString("hex")}.tmp`,
+  );
+  try {
+    const handle = await open(
+      temp,
+      constants.O_WRONLY |
+        constants.O_CREAT |
+        constants.O_EXCL |
+        constants.O_NOFOLLOW,
+      mode,
+    );
+    try {
+      await handle.writeFile(bytes);
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
+    const beforeRename = await lstat(targetPath).catch(() => null);
+    if (beforeRename?.isSymbolicLink()) {
+      await rm(temp, { force: true }).catch(() => {});
+      return invalid("cannot write through a symbolic link");
+    }
+    await rename(temp, targetPath);
+    return ok(undefined);
+  } catch (error) {
+    await rm(temp, { force: true }).catch(() => {});
+    return mapFsError(error, "failed to write file");
+  }
+}
+
+export function projectFilesWriteBytesHandler(
+  deps: ProjectFilesDeps,
+): MemoryHandler {
+  return async (_ctx, input) => {
+    const parsed = projectFilesWriteBytes.input.safeParse(input);
+    if (!parsed.success) return invalid("invalid write_bytes input");
+    const raw = parsed.data.data_base64;
+    if (raw.length % 4 !== 0) return invalid("invalid base64 payload");
+    const padding = raw.endsWith("==") ? 2 : raw.endsWith("=") ? 1 : 0;
+    const expected = raw.length === 0 ? 0 : (raw.length / 4) * 3 - padding;
+    if (expected > MAX_WRITE_BYTES) {
+      return invalid("file exceeds the 24 MiB limit");
+    }
+    const bytes = Buffer.from(raw, "base64");
+    if (bytes.byteLength > MAX_WRITE_BYTES) {
+      return invalid("file exceeds the 24 MiB limit");
+    }
+    const found = await rootOf(deps, parsed.data);
+    if (!found.ok) return found;
+    const { root } = found.value;
+    const resolved = await resolveParent(root, parsed.data.path, true);
+    if (!resolved.ok) return resolved;
+    const { parentReal, leaf, targetPath } = resolved.value;
+
+    return await serialWrite(targetPath, async () => {
+      const wrote = await writeFileBytesSafe(
+        parentReal,
+        leaf,
+        targetPath,
+        bytes,
+        parsed.data.overwrite === true,
+      );
+      if (!wrote.ok) return wrote;
+      return ok({ hash: sha256(bytes), size: bytes.byteLength });
+    });
+  };
+}
+
+async function copyEntrySafe(
+  root: string,
+  srcPath: string,
+  dstParentReal: string,
+  dstLeaf: string,
+  dstPath: string,
+  overwrite: boolean,
+  visitedDirs: Set<string>,
+): Promise<Result<void>> {
+  let srcLstat;
+  try {
+    srcLstat = await lstat(srcPath);
+  } catch (error) {
+    return mapFsError(error, "source path not found");
+  }
+  let realSrc = srcPath;
+  let srcStat = srcLstat;
+  if (srcLstat.isSymbolicLink()) {
+    try {
+      realSrc = await realpath(srcPath);
+    } catch {
+      return invalid("path is outside the connected folder");
+    }
+    const escapes = symlinkEscapesRoot(root, realSrc);
+    if (!escapes.ok) return escapes;
+    if (escapes.value) return invalid("path is outside the connected folder");
+    try {
+      srcStat = await stat(realSrc);
+    } catch (error) {
+      return mapFsError(error, "source path not found");
+    }
+  }
+
+  if (srcStat.isFile()) {
+    let handle;
+    try {
+      handle = await open(realSrc, constants.O_RDONLY | constants.O_NOFOLLOW);
+    } catch (error) {
+      return mapFsError(error, "cannot open source file");
+    }
+    let bytes: Buffer;
+    try {
+      const info = await handle.stat();
+      if (!info.isFile()) return invalid("not a file");
+      bytes = await handle.readFile();
+    } finally {
+      await handle.close();
+    }
+    return await writeFileBytesSafe(
+      dstParentReal,
+      dstLeaf,
+      dstPath,
+      bytes,
+      overwrite,
+    );
+  }
+
+  if (!srcStat.isDirectory()) {
+    return invalid("unsupported source file type");
+  }
+
+  const realDir = await realpath(realSrc).catch(() => null);
+  if (realDir === null) return invalid("path is outside the connected folder");
+  if (visitedDirs.has(realDir)) {
+    return invalid("cannot copy a cyclic symbolic link");
+  }
+  visitedDirs.add(realDir);
+
+  let dstInfo;
+  try {
+    dstInfo = await lstat(dstPath);
+  } catch (error) {
+    if (errnoOf(error) !== "ENOENT") {
+      return mapFsError(error, "failed to inspect target folder");
+    }
+    dstInfo = null;
+  }
+  if (dstInfo !== null) {
+    if (dstInfo.isSymbolicLink()) {
+      return invalid("cannot write through a symbolic link");
+    }
+    if (!overwrite) return conflict("target already exists");
+    if (!dstInfo.isDirectory()) return invalid("target is not a folder");
+  } else {
+    try {
+      await mkdir(dstPath, { mode: 0o755 });
+    } catch (error) {
+      return mapFsError(error, "failed to create target folder");
+    }
+  }
+
+  const dstReal = await realpath(dstPath).catch(() => null);
+  if (dstReal === null) return unavailable("failed to resolve target folder");
+  const escapesDst = symlinkEscapesRoot(root, dstReal);
+  if (!escapesDst.ok) return escapesDst;
+  if (escapesDst.value) return invalid("path is outside the connected folder");
+
+  let names: string[];
+  try {
+    names = await readdir(realDir);
+  } catch (error) {
+    return mapFsError(error, "failed to read source folder");
+  }
+  for (const name of names) {
+    const child = await copyEntrySafe(
+      root,
+      join(realDir, name),
+      dstReal,
+      name,
+      join(dstReal, name),
+      overwrite,
+      visitedDirs,
+    );
+    if (!child.ok) return child;
+  }
+  visitedDirs.delete(realDir);
+  return ok(undefined);
+}
+
+export function projectFilesCopyHandler(deps: ProjectFilesDeps): MemoryHandler {
+  return async (_ctx, input) => {
+    const parsed = projectFilesCopy.input.safeParse(input);
+    if (!parsed.success) return invalid("invalid copy input");
+    const found = await rootOf(deps, parsed.data);
+    if (!found.ok) return found;
+    const { root } = found.value;
+    const fromResolved = await resolveParent(root, parsed.data.from, false);
+    if (!fromResolved.ok) return fromResolved;
+    const toResolved = await resolveParent(root, parsed.data.to, true);
+    if (!toResolved.ok) return toResolved;
+
+    const fromPath = fromResolved.value.targetPath;
+    const toPath = toResolved.value.targetPath;
+
+    let fromInfo;
+    try {
+      fromInfo = await lstat(fromPath);
+    } catch (error) {
+      return mapFsError(error, "source path not found");
+    }
+    let fromReal = fromPath;
+    if (fromInfo.isSymbolicLink()) {
+      try {
+        fromReal = await realpath(fromPath);
+      } catch {
+        return invalid("path is outside the connected folder");
+      }
+      const escapes = symlinkEscapesRoot(root, fromReal);
+      if (!escapes.ok) return escapes;
+      if (escapes.value) return invalid("path is outside the connected folder");
+    }
+
+    const overwrite = parsed.data.overwrite === true;
+    if (fromPath === toPath || fromReal === toPath) {
+      return overwrite
+        ? invalid("cannot copy a path onto itself")
+        : conflict("target already exists");
+    }
+
+    for (const src of [fromPath, fromReal]) {
+      const relation = rootRelation(src, toPath);
+      if (!relation.ok) return relation;
+      if (relation.value === "equal" || relation.value === "ancestor") {
+        return invalid("cannot copy a folder into itself");
+      }
+    }
+
+    const copied = await copyEntrySafe(
+      root,
+      fromPath,
+      toResolved.value.parentReal,
+      toResolved.value.leaf,
+      toPath,
+      overwrite,
+      new Set(),
+    );
+    if (!copied.ok) return copied;
+    return ok({ copied: true });
+  };
+}
+
 export function projectFilesMutationHandlers(deps: ProjectFilesDeps): {
   write: MemoryHandler;
   writeBytes: MemoryHandler;
@@ -568,22 +873,10 @@ export function projectFilesMutationHandlers(deps: ProjectFilesDeps): {
 } {
   return {
     write: projectFilesWriteHandler(deps),
-    writeBytes: () =>
-      Promise.resolve(
-        err({
-          code: "unavailable",
-          message: "project_files/write_bytes is not implemented yet",
-        }),
-      ),
+    writeBytes: projectFilesWriteBytesHandler(deps),
     create: projectFilesCreateHandler(deps),
     rename: projectFilesRenameHandler(deps),
-    copy: () =>
-      Promise.resolve(
-        err({
-          code: "unavailable",
-          message: "project_files/copy is not implemented yet",
-        }),
-      ),
+    copy: projectFilesCopyHandler(deps),
     remove: projectFilesRemoveHandler(deps),
   };
 }

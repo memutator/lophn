@@ -4,12 +4,14 @@
 import {
   PROJECT_FILE_MAX_BYTES,
   type ProjectFileEntry,
+  projectFilesCopy,
   projectFilesCreate,
   projectFilesList,
   projectFilesRead,
   projectFilesRemove,
   projectFilesRename,
   projectFilesWrite,
+  projectFilesWriteBytes,
 } from "../../../../protocol/projects/project-files.ts";
 import type {
   FileFailure,
@@ -80,6 +82,8 @@ export interface RemoteFilesAdapter {
     | "onDirectoryUpdated"
     | "create"
     | "rename"
+    | "copy"
+    | "writeBytes"
     | "trash"
   >;
   /** `otherMachineData.editor`의 `EditorSessions`에 넣을 파일 통로. */
@@ -123,6 +127,18 @@ function mapCoreFailure(code: string | undefined): FileFailure {
       return "unavailable";
   }
 }
+
+function bytesToBase64(bytes: Uint8Array): string {
+  const CHUNK = 0x8000;
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(binary);
+}
+
+/** `project_files/write_bytes` 디코드 전 바이트 상한(24 MiB). */
+const REMOTE_WRITE_BYTES_MAX = 24 * 1024 * 1024;
 
 async function sha256Hex(text: string): Promise<string> {
   const bytes = new TextEncoder().encode(text);
@@ -473,6 +489,80 @@ export function createRemoteFiles(
     return { ok: true };
   }
 
+  async function copy(from: string, to: string): Promise<FileOpResult> {
+    const fromLoc = await locate(from);
+    const toLoc = await locate(to);
+    if (
+      fromLoc === null ||
+      toLoc === null ||
+      fromLoc.relPath === undefined ||
+      toLoc.relPath === undefined ||
+      fromLoc.project !== toLoc.project ||
+      fromLoc.folder !== toLoc.folder
+    ) {
+      return { ok: false, code: "invalid_input" };
+    }
+    const reply = await core.call({
+      kind: projectFilesCopy.kind,
+      resource: projectFilesCopy.resource,
+      method: projectFilesCopy.method,
+      body: {
+        project: fromLoc.project,
+        folder: fromLoc.folder,
+        from: fromLoc.relPath,
+        to: toLoc.relPath,
+        overwrite: false,
+      },
+    });
+    if (!reply.ok) {
+      return { ok: false, code: mapCoreFailure(reply.error?.code) };
+    }
+    invalidateSubtree(toLoc);
+    invalidateDirAndAncestors(parentPathOf(to), toLoc.folder);
+    return { ok: true };
+  }
+
+  async function writeBytesFile(
+    absPath: string,
+    bytes: Uint8Array,
+    overwrite = false,
+  ): Promise<FileReply<{ hash: string }>> {
+    const loc = await locate(absPath);
+    if (loc === null || loc.relPath === undefined) {
+      return { ok: false, code: "invalid_input" };
+    }
+    if (bytes.byteLength > REMOTE_WRITE_BYTES_MAX) {
+      return { ok: false, code: "too_large" };
+    }
+    const reply = await core.call({
+      kind: projectFilesWriteBytes.kind,
+      resource: projectFilesWriteBytes.resource,
+      method: projectFilesWriteBytes.method,
+      body: {
+        project: loc.project,
+        folder: loc.folder,
+        path: loc.relPath,
+        data_base64: bytesToBase64(bytes),
+        overwrite,
+      },
+    });
+    if (!reply.ok) {
+      return { ok: false, code: mapCoreFailure(reply.error?.code) };
+    }
+    fileCache.delete(fileCacheKey(machine, loc));
+    invalidateDirAndAncestors(parentPathOf(absPath), loc.folder);
+    const { hash } = reply.value as { hash: string };
+    return { ok: true, value: { hash } };
+  }
+
+  async function writeBytes(
+    absPath: string,
+    bytes: Uint8Array,
+  ): Promise<FileOpResult> {
+    const res = await writeBytesFile(absPath, bytes, false);
+    return res.ok ? { ok: true } : { ok: false, code: res.code };
+  }
+
   async function remove(absPath: string): Promise<FileOpResult> {
     const loc = await locate(absPath);
     if (loc === null || loc.relPath === undefined) {
@@ -651,7 +741,7 @@ export function createRemoteFiles(
       return { ok: false, code: "unsupported" };
     },
     write: (input) => writeFile(input),
-    writeBytes: () => Promise.resolve({ ok: false, code: "unavailable" }),
+    writeBytes: ({ path, bytes }) => writeBytesFile(path, bytes, false),
     async delete({ path }) {
       const res = await remove(path);
       return res.ok ? { ok: true, value: {} } : res;
@@ -675,6 +765,8 @@ export function createRemoteFiles(
       },
       create,
       rename,
+      copy,
+      writeBytes,
       trash: remove,
     },
     editorFiles,

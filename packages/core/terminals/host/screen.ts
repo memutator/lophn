@@ -13,6 +13,22 @@ import type { TerminalScreen } from "../ports.ts";
 
 /** renderer xterm의 scrollback과 같다. 그보다 오래된 줄은 보이는 화면에도 없다. */
 const SCROLLBACK = 10_000;
+/** OSC 52 clipboard 쓰기 최대 크기(디코드 후 1 MiB). */
+export const OSC52_MAX_BYTES = 1024 * 1024;
+const BASE64_PATTERN = /^[A-Za-z0-9+/]+={0,2}$/;
+
+/** OSC 52 데이터(`Pc;Pd`)에서 유효한 쓰기 payload의 바이트 길이를 잰다. 읽기(`?`)·빈 값·잘못된 base64·1 MiB 초과는 null이다. */
+export function parseOsc52WriteBytes(data: string): number | null {
+  const semi = data.indexOf(";");
+  if (semi < 0) return null;
+  const payload = data.slice(semi + 1).replace(/\s+/g, "");
+  if (payload === "" || payload === "?") return null;
+  if (payload.length % 4 !== 0 || !BASE64_PATTERN.test(payload)) return null;
+  const padding = payload.endsWith("==") ? 2 : payload.endsWith("=") ? 1 : 0;
+  const bytes = (payload.length / 4) * 3 - padding;
+  if (bytes <= 0 || bytes > OSC52_MAX_BYTES) return null;
+  return bytes;
+}
 
 // serialize는 mouse tracking(?1000·1002·1003)은 되살리지만 report 인코딩은 빠뜨린다. 그러면 다시 붙은 xterm이
 // 기본 X10으로 보내고, X10 report는 onData가 아닌 onBinary로 나가 TUI(Claude Code, OpenCode)가 mouse를 하나도
@@ -46,7 +62,11 @@ export class Screen {
   constructor(
     columns: number,
     rows: number,
-    options: { windowsPty?: ScreenWindowsPty } = {},
+    options: {
+      windowsPty?: ScreenWindowsPty;
+      /** 프로그램이 OSC 52로 clipboard 쓰기를 요청했다(읽기 `?` 제외, 1 MiB 이하). */
+      onClipboard?: (bytes: number) => void;
+    } = {},
   ) {
     this.#cols = columns;
     this.#rows = rows;
@@ -96,6 +116,12 @@ export class Screen {
       this.#cursorHidden = false;
       this.#scrollSeq += 1;
       return false;
+    });
+    // OSC 52 쓰기(1 MiB 이하)를 감시해 remote 화면에 toast를 알린다. 읽기(`?`)는 차단한다.
+    this.#term.parser.registerOscHandler(52, (data) => {
+      const bytes = parseOsc52WriteBytes(data);
+      if (bytes !== null) options.onClipboard?.(bytes);
+      return true;
     });
   }
 

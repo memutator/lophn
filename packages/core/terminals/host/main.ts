@@ -30,6 +30,7 @@ import { Screen } from "./screen.ts";
 import { integrateShell } from "./shell-integration.ts";
 import type { WinForegroundReader } from "./win-foreground.ts";
 import type {
+  ClipboardWrite,
   ForegroundChange,
   HostReply,
   HostRequest,
@@ -61,6 +62,8 @@ export type HostDeps = {
   /** process가 끝나 runtime이 바뀌었다. 요청의 답이 아니라 host가 먼저 알린다. */
   onRuntime?: (runtime: TerminalRuntime) => void;
   onOutput?: (output: TerminalOutput) => void;
+  /** @xterm/headless가 OSC 52 clipboard 쓰기를 감지했다. */
+  onClipboard?: (write: ClipboardWrite) => void;
   /** Windows shell pid 아래 자손 process에서 foreground coding agent argv를 읽는다. */
   winForeground?: WinForegroundReader;
 };
@@ -172,11 +175,11 @@ function createHost(deps: HostDeps): Host {
         : undefined;
     const session: Session = {
       runtime,
-      screen: new Screen(
-        request.columns,
-        request.rows,
-        windowsPty === undefined ? {} : { windowsPty },
-      ),
+      screen: new Screen(request.columns, request.rows, {
+        ...(windowsPty === undefined ? {} : { windowsPty }),
+        onClipboard: (bytes) =>
+          deps.onClipboard?.({ terminal_ref: terminalRef, generation, bytes }),
+      }),
       handle: null,
       group: null,
       conptyBuffer: null,

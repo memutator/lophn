@@ -4,7 +4,11 @@ import { dirname, join } from "node:path";
 import { LINUX_LAUNCHERS } from "../../base/install/linux-install.ts";
 import { MAC_CLI_LAUNCHER } from "../../base/install/mac-install.ts";
 import { WIN_CLI_LAUNCHER } from "../../base/install/win-install.ts";
+import { prependPath } from "../../base/os/mod.ts";
+import { ensureClipboardShims, isHeadlessLinux } from "./clipboard-shim.ts";
 import type { PersonEnv } from "./ports.ts";
+
+export { ensureClipboardShims, isHeadlessLinux };
 
 const BEGIN = "<<lophn-env-begin>>";
 const END = "<<lophn-env-end>>";
@@ -67,6 +71,8 @@ export function createPersonEnv(deps: {
   env: Readonly<Record<string, string | undefined>>;
   run: RunLoginShell;
   cli: string | null;
+  // Linux headless 세션(DISPLAY·WAYLAND_DISPLAY 없음)일 때 PATH 앞에 놓을 clipboard shim 폴더.
+  clipboardShimDir?: string;
 }): PersonEnv {
   const base: Record<string, string> = {};
   for (const [name, value] of Object.entries(deps.env)) {
@@ -75,6 +81,29 @@ export function createPersonEnv(deps: {
   // 읽은 값만 지닌다. 못 읽으면 다음에 env가 필요할 때 다시 읽는다. 읽는 중이면 그 하나를 같이 기다린다.
   let login: Record<string, string> | undefined;
   let reading: Promise<Record<string, string> | undefined> | undefined;
+  let shimsReady = false;
+
+  function withClipboardShim(
+    env: Record<string, string>,
+  ): Record<string, string> {
+    if (
+      deps.clipboardShimDir === undefined ||
+      !isHeadlessLinux(deps.platform, env)
+    ) {
+      return env;
+    }
+    if (!shimsReady) {
+      try {
+        ensureClipboardShims(deps.clipboardShimDir);
+        shimsReady = true;
+      } catch {
+        return env;
+      }
+    }
+    const nextPath = prependPath(env, deps.clipboardShimDir, deps.platform);
+    if (nextPath === undefined) return env;
+    return { ...env, [nextPath.name]: nextPath.value };
+  }
 
   async function read(): Promise<Record<string, string> | undefined> {
     const out = await deps.run(
@@ -100,12 +129,12 @@ export function createPersonEnv(deps: {
     async env() {
       // Windows는 login shell이 없다.
       if (deps.platform === "win32") return { ...base };
-      if (login !== undefined) return { ...login };
+      if (login !== undefined) return withClipboardShim({ ...login });
       reading ??= read().finally(() => {
         reading = undefined;
       });
       login = await reading;
-      return { ...(login ?? base) };
+      return withClipboardShim({ ...(login ?? base) });
     },
   };
 }

@@ -21,6 +21,7 @@ import type {
 } from "./host/wire.ts";
 import type {
   PersonEnv,
+  TerminalClipboardWrite,
   TerminalEnvHook,
   TerminalForeground,
   Terminals,
@@ -134,6 +135,7 @@ export function createTerminals(deps: {
     (output: readonly TerminalOutput[]) => void
   >();
   const foregroundListeners = new Set<(change: TerminalForeground) => void>();
+  const clipboardListeners = new Set<(write: TerminalClipboardWrite) => void>();
   const humanListeners = new Set<(terminal: string, text: string) => void>();
   const envHooks = new Set<TerminalEnvHook>();
 
@@ -166,6 +168,9 @@ export function createTerminals(deps: {
     },
     foreground(change) {
       for (const listener of foregroundListeners) listener(change);
+    },
+    clipboard(write) {
+      for (const listener of clipboardListeners) listener(write);
     },
     hostLost(exit) {
       scrollbacks.clear();
@@ -474,6 +479,10 @@ export function createTerminals(deps: {
     onForeground(listener) {
       foregroundListeners.add(listener);
       return () => foregroundListeners.delete(listener);
+    },
+    onClipboard(listener) {
+      clipboardListeners.add(listener);
+      return () => clipboardListeners.delete(listener);
     },
     onHumanInput(listener) {
       humanListeners.add(listener);

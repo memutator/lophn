@@ -2,6 +2,9 @@ import { MenuIcon, Toast } from "@lophn/ui/overlay";
 import { useObservedSize } from "@lophn/ui/shared";
 import { t } from "@lophn/i18n";
 import {
+  type ClipboardEvent,
+  type DragEvent,
+  type KeyboardEvent,
   useCallback,
   useEffect,
   useRef,
@@ -69,6 +72,44 @@ interface TerminalTabProps {
 }
 
 const IDLE: Phase = { kind: "idle" };
+const PASTE_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
+let ctrlVHintShown = false;
+
+type ImageMediaType = "image/png" | "image/jpeg" | "image/webp";
+
+function imageMediaTypeOf(file: File): ImageMediaType | null {
+  if (
+    file.type === "image/png" ||
+    file.type === "image/jpeg" ||
+    file.type === "image/webp"
+  ) {
+    return file.type;
+  }
+  const lower = file.name.toLowerCase();
+  if (lower.endsWith(".png")) return "image/png";
+  if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+  if (lower.endsWith(".webp")) return "image/webp";
+  return null;
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  const CHUNK = 0x8000;
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(binary);
+}
+
+function shellQuotePath(path: string): string {
+  if (/^[A-Za-z0-9._/@:+-]+$/.test(path)) return path;
+  return `'${path.replaceAll("'", "'\\''")}'`;
+}
+
+function isMacPlatform(): boolean {
+  if (typeof navigator !== "object") return false;
+  return /Mac/i.test(navigator.platform || navigator.userAgent);
+}
 
 // 프로젝트 작업대의 터미널 탭. PTY는 core가 갖고 이 화면은 보이고 입력을 넘길
 // 뿐이다. 탭을 숨기거나 옮겨도, 앱을 꺼도 shell은 그대로이고 다시 그리면 같은 터미널에
@@ -170,6 +211,19 @@ export function TerminalTab({
   latestPaths.current = paths;
   const latestLinkTab = useRef(openLinkTab);
   latestLinkTab.current = openLinkTab;
+  const [infoToast, setInfoToast] = useState<{
+    id: number;
+    text: string;
+    duration: "brief" | "default";
+  } | null>(null);
+  const toastSerial = useRef(0);
+  const showToast = useCallback(
+    (text: string, duration: "brief" | "default" = "brief") => {
+      toastSerial.current += 1;
+      setInfoToast({ id: toastSerial.current, text, duration });
+    },
+    [],
+  );
 
   // 복사·붙여 넣기는 창 하나의 command(`terminal.copy`·`terminal.paste`)가 부르고, 그 command는 마지막으로
   // focus를 받은 터미널로 간다. 화면 안에 focus가 들어올 때 이 탭이 그 자리를 맡는다(탭이 여럿이어도 하나).
@@ -313,9 +367,16 @@ export function TerminalTab({
       },
       open: (path, line) => latestPaths.current?.open(path, line),
     });
+    const offOsc52 = view.onOsc52Copy?.((bytes) => {
+      showToast(
+        t("shell.toast.terminal-clipboard-written", { bytes }),
+        "brief",
+      );
+    });
     return () => {
       offLink();
       offPath();
+      offOsc52?.();
       display.host.remove();
       display.edge.remove();
       viewRef.current = null;
@@ -503,6 +564,126 @@ export function TerminalTab({
     };
   }, [deps]);
 
+  // 원격 터미널(@xterm/headless)이 OSC 52 쓰기를 감지해 보낸 알림을 탭 toast로 보인다.
+  useEffect(() => {
+    if (!copy || !core) return;
+    return core.subscribe((message) => {
+      if (
+        message.kind === "event" &&
+        message.event.type === "TerminalClipboardWritten" &&
+        message.event.payload.terminal === latestRef.current
+      ) {
+        showToast(
+          t("shell.toast.terminal-clipboard-written", {
+            bytes: message.event.payload.bytes,
+          }),
+          "brief",
+        );
+      }
+    });
+  }, [copy, core, showToast]);
+
+  const uploadImages = useCallback(
+    async (files: readonly File[]) => {
+      const terminal = latestRef.current;
+      if (!bridge || terminal === null) return;
+      const paths: string[] = [];
+      let failed = false;
+      for (const file of files) {
+        const mediaType = imageMediaTypeOf(file);
+        if (mediaType === null) continue;
+        if (file.size === 0 || file.size > PASTE_IMAGE_MAX_BYTES) {
+          failed = true;
+          continue;
+        }
+        try {
+          const bytes = new Uint8Array(await file.arrayBuffer());
+          const reply = await bridge.pasteImage({
+            terminal,
+            media_type: mediaType,
+            data_base64: bytesToBase64(bytes),
+          });
+          if (reply.ok) {
+            paths.push(reply.value.path);
+          } else if (reply.error.code !== "forbidden") {
+            failed = true;
+          }
+        } catch {
+          failed = true;
+        }
+      }
+      if (paths.length > 0) {
+        viewRef.current?.pasteText?.(paths.map(shellQuotePath).join(" "));
+      }
+      if (failed) {
+        showToast(t("shell.toast.terminal-image-paste-failed"), "default");
+      }
+    },
+    [bridge, showToast],
+  );
+
+  const onPasteCapture = (event: ClipboardEvent<HTMLDivElement>) => {
+    const data = event.clipboardData;
+    if (!data || !bridge || latestRef.current === null) return;
+    const fromFiles = [...data.files];
+    const fromItems =
+      fromFiles.length > 0
+        ? fromFiles
+        : [...data.items]
+            .filter((item) => item.kind === "file")
+            .map((item) => item.getAsFile())
+            .filter((file): file is File => file !== null);
+    const images = fromItems.filter((file) => imageMediaTypeOf(file) !== null);
+    if (images.length === 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    void uploadImages(images);
+  };
+
+  const onDragOver = (event: DragEvent<HTMLDivElement>) => {
+    if (!event.dataTransfer.types.includes("Files")) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+  };
+
+  const onDrop = (event: DragEvent<HTMLDivElement>) => {
+    const images = [...event.dataTransfer.files].filter(
+      (file) => imageMediaTypeOf(file) !== null,
+    );
+    if (images.length === 0 || !bridge || latestRef.current === null) return;
+    event.preventDefault();
+    event.stopPropagation();
+    viewRef.current?.focus();
+    void uploadImages(images);
+  };
+
+  const onScreenKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    reclaim(true);
+    if (
+      ctrlVHintShown ||
+      isMacPlatform() ||
+      !event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey ||
+      event.metaKey ||
+      (event.code !== "KeyV" && event.key.toLowerCase() !== "v")
+    ) {
+      return;
+    }
+    // 단축키 설정이 기본(Ctrl+Shift+V)일 때만 안내한다. 사람이 Ctrl+V로 바꿨으면 띄우지 않는다.
+    const pasteChords = commands?.overrides()["terminal.paste"] ??
+      commands?.keymap().find((entry) => entry.command === "terminal.paste")
+        ?.other ?? ["Ctrl+Shift+KeyV"];
+    if (
+      pasteChords.some((chord) => chord.toLowerCase() === "ctrl+keyv") ||
+      !pasteChords.some((chord) => chord.toLowerCase() === "ctrl+shift+keyv")
+    ) {
+      return;
+    }
+    ctrlVHintShown = true;
+    showToast(t("shell.toast.terminal-ctrl-v-hint"), "default");
+  };
+
   // 보일 출력이 있으면 그 아래 한 줄, 없으면 탭 가운데 자리표시다.
   const variant = showScreen ? "bar" : "center";
   let banner = null;
@@ -554,7 +735,10 @@ export function TerminalTab({
         data-key-context="terminal"
         onFocus={bindFocus}
         onPointerDown={() => reclaim()}
-        onKeyDown={() => reclaim(true)}
+        onKeyDown={onScreenKeyDown}
+        onPasteCapture={onPasteCapture}
+        onDragOver={onDragOver}
+        onDrop={onDrop}
       >
         <div ref={hostRef} className={styles.screenHost} />
         {(copy ? elsewhere : remote) && showScreen ? (
@@ -571,6 +755,15 @@ export function TerminalTab({
             title={t("terminal.toast.view-only", { name: machine.name })}
             onClose={() => setRefused(false)}
             timer={STAY}
+          />
+        </div>
+      ) : infoToast !== null ? (
+        <div className={styles.toast}>
+          <Toast
+            key={infoToast.id}
+            title={infoToast.text}
+            duration={infoToast.duration}
+            onClose={() => setInfoToast(null)}
           />
         </div>
       ) : null}

@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { PassThrough } from "node:stream";
 import { test } from "node:test";
 import {
@@ -16,6 +18,7 @@ import {
   type TerminalOutput,
   terminalsInput,
   terminalsOpen,
+  terminalsPasteImage,
   terminalsRestart,
   terminalsSnapshot,
   terminalsWatch,
@@ -135,8 +138,10 @@ async function setup() {
     terminalInputGrant: (principal: string) => principal === "device:dev_b",
     shellCapabilities: { has: (value: string) => value === CAPABILITY },
   };
+  const dataRoot = mkdtempSync(join(tmpdir(), "lophn-terminals-test-"));
   const ctx = {
     clock,
+    root: { path: dataRoot },
     peek: slots,
     terminals,
     bus: { publish: (event: BusEvent) => published.push(event) },
@@ -192,7 +197,16 @@ async function setup() {
       json: { error?: { code: string } } & Record<string, unknown>;
     };
   };
-  return { fake, clock, published, terminals, terminal, wiring, call };
+  return {
+    fake,
+    clock,
+    published,
+    terminals,
+    terminal,
+    wiring,
+    call,
+    cleanup: () => rmSync(dataRoot, { recursive: true, force: true }),
+  };
 }
 
 test("agent 자격과 터미널 입력 허락이 없는 기기는 터미널에 치거나 다시 띄우지 못한다", async () => {
@@ -348,4 +362,78 @@ test("화면이 다시 붙어도 터미널의 출력을 잃거나 두 번 받지
   assert.match(missed.map((chunk) => chunk.chunk).join(""), /de/);
   assert.equal(missed.at(-1)!.seq, 5);
   await wiring.closeWork!();
+});
+
+test("terminals/paste_image는 입력 자격을 검사하고 임시 폴더에 안전하게 저장하며 OSC 52 쓰기는 TerminalClipboardWritten을 발행한다", async () => {
+  const { fake, published, terminal, wiring, call, cleanup } = await setup();
+  try {
+    const pngBytes = Buffer.from([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+    ]);
+    const b64 = pngBytes.toString("base64");
+
+    // 권한 없는 호출자는 거절한다.
+    for (const [actor, principal, extra] of [
+      ["agent:ses_x", "agent:ses_x", { shell_capability: CAPABILITY }],
+      ["user", "device:dev_a", {}],
+      ["user", "user", {}],
+    ] as const) {
+      const denied = await call(terminalsPasteImage, actor, principal, {
+        terminal,
+        media_type: "image/png",
+        data_base64: b64,
+        ...extra,
+      });
+      assert.equal(denied.json.error?.code, "forbidden", principal);
+    }
+
+    // 허락받은 컴퓨터·폰·shell capability는 임시 파일로 저장하고 경로·바이트 수를 돌려준다.
+    const saved = await call(terminalsPasteImage, "user", "device:dev_b", {
+      terminal,
+      media_type: "image/png",
+      data_base64: b64,
+    });
+    assert.equal(saved.status, 200);
+    const savedPath = saved.json.path as string;
+    assert.ok(savedPath.endsWith(".png"));
+    assert.equal(saved.json.bytes, pngBytes.byteLength);
+    assert.deepEqual(readFileSync(savedPath), pngBytes);
+
+    // 잘못된 base64와 없는 터미널은 거절한다.
+    const badB64 = await call(terminalsPasteImage, "user", "user", {
+      terminal,
+      media_type: "image/jpeg",
+      data_base64: "not valid base64!!!",
+      shell_capability: CAPABILITY,
+    });
+    assert.equal(badB64.json.error?.code, "invalid_input");
+
+    const missing = await call(terminalsPasteImage, "user", "user", {
+      terminal: "trm_missing",
+      media_type: "image/webp",
+      data_base64: b64,
+      shell_capability: CAPABILITY,
+    });
+    assert.equal(missing.json.error?.code, "not_found");
+
+    // OSC 52 읽기(`?`)는 발행하지 않고, 쓰기는 바이트 수와 함께 TerminalClipboardWritten을 발행한다.
+    fake.emit("\x1b]52;c;?\x07");
+    fake.emit(
+      `\x1b]52;c;${Buffer.from("hello remote").toString("base64")}\x07`,
+    );
+    await until(() =>
+      published.some((event) => event.type === "TerminalClipboardWritten"),
+    );
+    const clipEvents = published.filter(
+      (event) => event.type === "TerminalClipboardWritten",
+    );
+    assert.equal(clipEvents.length, 1);
+    assert.deepEqual(clipEvents[0]!.payload, {
+      terminal,
+      bytes: Buffer.byteLength("hello remote"),
+    });
+  } finally {
+    await wiring.closeWork!();
+    cleanup();
+  }
 });

@@ -13,7 +13,21 @@ import { createTerminalCore, terminalCaller } from "./core.ts";
 import { type TerminalDeps, windowTerminalDeps } from "./deps.ts";
 import { createScreenCopyCore } from "./screen-copy.ts";
 import { TerminalStore } from "./store.ts";
-import { createXtermView, type TerminalClipboard } from "./xterm-view.ts";
+import {
+  createXtermView,
+  OSC52_MAX_BYTES,
+  type TerminalClipboard,
+} from "./xterm-view.ts";
+
+const OSC52_SETTING_KEY = "shell.terminal.osc52_clipboard";
+
+function sliceUtf8(text: string, maxBytes: number): string {
+  const encoded = new TextEncoder().encode(text);
+  if (encoded.byteLength <= maxBytes) return text;
+  let cut = maxBytes;
+  while (cut > 0 && (encoded[cut]! & 0xc0) === 0x80) cut -= 1;
+  return new TextDecoder().decode(encoded.subarray(0, cut));
+}
 
 const done = (): Promise<TerminalCall<null>> =>
   Promise.resolve({ ok: true, value: null });
@@ -36,19 +50,62 @@ export function machineTerminalDeps(
       ? null
       : {
           copy: async (text) => {
-            await local.copy({ text: text.slice(0, 60_000) });
+            const clipped = sliceUtf8(text, OSC52_MAX_BYTES);
+            if (clipped !== "") await local.copy({ text: clipped });
           },
           paste: async () => {
             const reply = await local.paste();
             return reply.ok ? reply.value : "";
           },
         };
+  // `shell.terminal.osc52_clipboard` 설정을 따라간다(기본 true). 설정이 바뀌면 다시 읽는다.
+  let osc52Enabled = true;
+  const loadOsc52Setting = () => {
+    void core
+      .call({
+        kind: "memory",
+        resource: "settings",
+        method: "list",
+        body: { keys: [OSC52_SETTING_KEY] },
+      })
+      .then((reply) => {
+        if (!reply.ok) return;
+        const entry = (
+          reply.value as {
+            settings?: { key: string; default?: unknown; chosen?: unknown }[];
+          }
+        ).settings?.find((item) => item.key === OSC52_SETTING_KEY);
+        if (entry === undefined) return;
+        const value = "chosen" in entry ? entry.chosen : entry.default;
+        if (typeof value === "boolean") osc52Enabled = value;
+      })
+      .catch(() => {});
+  };
+  loadOsc52Setting();
+  events.subscribe({ types: ["StateChanged"] }, (message) => {
+    if (message.kind === "ready") {
+      loadOsc52Setting();
+    } else if (
+      message.kind === "event" &&
+      message.event.type === "StateChanged" &&
+      message.event.payload.changes.some(
+        (change) =>
+          change.name === "settings" &&
+          (change.id === null || change.id === OSC52_SETTING_KEY),
+      )
+    ) {
+      loadOsc52Setting();
+    }
+  });
   const windowsConpty =
     machine === null &&
     typeof navigator === "object" &&
     /Windows/i.test(navigator.userAgent);
   const createView: TerminalDeps["createView"] = (host, edge) =>
-    createXtermView(host, edge, undefined, clipboard, { windowsConpty });
+    createXtermView(host, edge, undefined, clipboard, {
+      windowsConpty,
+      osc52Enabled: () => osc52Enabled,
+    });
   if (machine === null) {
     const terminalCore = createTerminalCore(core, events);
     return windowTerminalDeps(

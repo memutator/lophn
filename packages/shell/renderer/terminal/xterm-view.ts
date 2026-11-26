@@ -1,8 +1,8 @@
 // xterm.js 표시. 출력은 제목·색·커서 같은 표시로만 해석한다. 자동 링크(OSC 8)·파일·앱·플랫폼 동작 handler는
 // 등록하지 않고, 그 escape는 parser에서 먹어 xterm 기본 동작(링크 열기 확인 창)도 생기지 않게 한다. 화면에 보이는
 // http/https 글자와 파일 경로만 Ctrl/Cmd-click 하면 `onLink`·`onPathLink`로 알리고, 여는 것은 듣는 쪽이 한다.
-// clipboard는 사람이 부른 command(`terminal.copy`·`terminal.paste`)와, 사람이 이 터미널에서 mouse를 뗀 뒤 TUI가
-// 보낸 OSC 52 쓰기 한 번으로만 쓴다. OSC 52 읽기는 답하지 않는다.
+// clipboard는 사람이 부른 command(`terminal.copy`·`terminal.paste`)와, 설정(`shell.terminal.osc52_clipboard`)이 켜진 동안
+// 프로그램이 보낸 OSC 52 쓰기(최대 1 MiB)로 쓴다. OSC 52 읽기는 답하지 않는다.
 import type { TerminalTraceEvent } from "../../ipc/terminal.ts";
 import { pathMatches } from "./path-links.ts";
 import { FitAddon } from "@xterm/addon-fit";
@@ -57,7 +57,42 @@ export interface TerminalView {
   copySelection(): void;
   /** OS clipboard 글을 terminal에 붙여 넣는다. xterm이 bracketed paste로 감싸 줄마다 실행되지 않는다. */
   paste(): void;
+  /** 준비된 글(붙여 넣거나 drop한 이미지 경로 등)을 terminal에 붙여 넣는다. */
+  pasteText?(text: string): void;
+  /** 프로그램이 OSC 52로 OS clipboard에 썼다(byte 수). 탭이 짧은 toast를 띄운다. */
+  onOsc52Copy?(listener: (bytes: number) => void): () => void;
   dispose(): void;
+}
+
+/** OSC 52 clipboard 쓰기 최대 크기(디코드 후 1 MiB). */
+export const OSC52_MAX_BYTES = 1024 * 1024;
+const OSC52_BASE64_PATTERN = /^[A-Za-z0-9+/]+={0,2}$/;
+
+/** OSC 52 데이터(`Pc;Pd`)를 디코드한다. 읽기(`?`)·빈 값·잘못된 base64·1 MiB 초과는 null이다. */
+export function decodeOsc52Write(
+  data: string,
+): { text: string; bytes: number } | null {
+  const semi = data.indexOf(";");
+  if (semi < 0) return null;
+  const payload = data.slice(semi + 1).replace(/\s+/g, "");
+  if (payload === "" || payload === "?") return null;
+  if (payload.length % 4 !== 0 || !OSC52_BASE64_PATTERN.test(payload)) {
+    return null;
+  }
+  const padding = payload.endsWith("==") ? 2 : payload.endsWith("=") ? 1 : 0;
+  const expected = (payload.length / 4) * 3 - padding;
+  if (expected <= 0 || expected > OSC52_MAX_BYTES) return null;
+  try {
+    const raw = atob(payload);
+    const bytes = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i += 1) bytes[i] = raw.charCodeAt(i);
+    if (bytes.byteLength === 0 || bytes.byteLength > OSC52_MAX_BYTES) {
+      return null;
+    }
+    return { text: new TextDecoder().decode(bytes), bytes: bytes.byteLength };
+  } catch {
+    return null;
+  }
 }
 
 /** OS clipboard. main이 쓰고 읽는다. 실패하면 copy는 조용히 끝나고 paste는 빈 글이다. */
@@ -440,7 +475,7 @@ export function createXtermView(
   edge: HTMLCanvasElement,
   parts: XtermParts = REAL,
   clipboard: TerminalClipboard | null = null,
-  options: { windowsConpty?: boolean } = {},
+  options: { windowsConpty?: boolean; osc52Enabled?: () => boolean } = {},
 ): TerminalView {
   let theme = themeOf(host);
   const term = new parts.Terminal({
@@ -506,18 +541,7 @@ export function createXtermView(
       return false;
     }),
   ];
-  // TUI(Claude Code, OpenCode)는 mouse를 받아 스스로 글을 고르고, 뗄 때 OSC 52로 clipboard에 쓴다. 출력은 인터넷에서
-  // 온 글일 수 있어(cat한 file) 아무 때나 쓰게 두지 않는다. 사람이 이 터미널에서 mouse를 뗀 뒤 첫 쓰기 하나만 받고, 키를
-  // 누르면 거둔다.
-  let armed = false;
-  const arm = () => {
-    armed = true;
-  };
-  const disarm = () => {
-    armed = false;
-  };
-  host.addEventListener("pointerup", arm, true);
-  host.addEventListener("keydown", disarm, true);
+  const osc52Listeners = new Set<(bytes: number) => void>();
   // 진단 기록: 누른 자리 맨 위 요소(덮은 것이 있는지), 그때 xterm이 mouse를 TUI에 넘기는 중이었는지, 뗀 곳이 터미널
   // 밖인지, 뗀 뒤 xterm 선택이 생겼는지.
   const tuiMouse = () =>
@@ -565,16 +589,16 @@ export function createXtermView(
   host.addEventListener("focusout", blurred, true);
   swallowed.push(
     term.parser.registerOscHandler(52, (data) => {
-      const payload = data.slice(data.indexOf(";") + 1);
-      trace({ e: "osc52", armed, read: payload === "?" });
-      if (!armed || clipboard === null || payload === "?") return true;
-      armed = false;
-      try {
-        const bytes = Uint8Array.from(atob(payload), (c) => c.charCodeAt(0));
-        void clipboard.copy(new TextDecoder().decode(bytes));
-      } catch {
-        // base64가 아니면 쓰지 않는다.
-      }
+      const semi = data.indexOf(";");
+      const payload = semi < 0 ? "" : data.slice(semi + 1).trim();
+      const read = payload === "?";
+      const enabled = options.osc52Enabled?.() ?? true;
+      trace({ e: "osc52", enabled, read });
+      if (!enabled || clipboard === null || read) return true;
+      const decoded = decodeOsc52Write(data);
+      if (decoded === null) return true;
+      void clipboard.copy(decoded.text);
+      for (const listener of osc52Listeners) listener(decoded.bytes);
       return true;
     }),
   );
@@ -783,9 +807,14 @@ export function createXtermView(
         if (text !== "") term.paste(text);
       });
     },
+    pasteText(text) {
+      if (text !== "") term.paste(text);
+    },
+    onOsc52Copy(listener) {
+      osc52Listeners.add(listener);
+      return () => osc52Listeners.delete(listener);
+    },
     dispose() {
-      host.removeEventListener("pointerup", arm, true);
-      host.removeEventListener("keydown", disarm, true);
       host.removeEventListener("pointerdown", pressed, true);
       host.removeEventListener("pointerup", released, true);
       host.removeEventListener("wheel", wheeled, true);
@@ -798,6 +827,7 @@ export function createXtermView(
       );
       for (const handler of parsing) handler.dispose();
       traceListeners.clear();
+      osc52Listeners.clear();
       for (const handler of swallowed) handler.dispose();
       rendered.dispose();
       pathProvider.dispose();

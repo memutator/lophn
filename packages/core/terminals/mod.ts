@@ -1,4 +1,15 @@
 export {
+  CLIPBOARD_SHIM_MAX_BYTES,
+  CLIPBOARD_SHIM_NAMES,
+  ensureClipboardShims,
+  isHeadlessLinux,
+} from "./clipboard-shim.ts";
+export {
+  saveTerminalPasteImage,
+  TERMINAL_PASTE_IMAGE_MAX_BYTES,
+  type TerminalPasteMediaType,
+} from "./paste-image.ts";
+export {
   createPersonEnv,
   lophnCliPath,
   type RunLoginShell,

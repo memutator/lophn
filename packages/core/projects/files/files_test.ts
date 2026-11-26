@@ -76,10 +76,17 @@ async function setup() {
       }),
     write: (input: { path: string; text: string; base_hash?: string | null }) =>
       mutations.write(ctx as never, { project: PROJECT, ...input }),
+    writeBytes: (input: {
+      path: string;
+      data_base64: string;
+      overwrite?: boolean;
+    }) => mutations.writeBytes(ctx as never, { project: PROJECT, ...input }),
     create: (input: { path: string; kind: "file" | "folder" }) =>
       mutations.create(ctx as never, { project: PROJECT, ...input }),
     rename: (input: { from: string; to: string }) =>
       mutations.rename(ctx as never, { project: PROJECT, ...input }),
+    copy: (input: { from: string; to: string; overwrite?: boolean }) =>
+      mutations.copy(ctx as never, { project: PROJECT, ...input }),
     remove: (path: string) =>
       mutations.remove(ctx as never, { project: PROJECT, path }),
   };
@@ -226,4 +233,89 @@ test("write의 base_hash 낙관적 잠금과 create·rename·remove 기본 동�
   await assert.rejects(stat(join(root, "notes")));
   const missing = await remove("notes");
   assert.ok(!missing.ok && missing.error.code === "not_found");
+});
+
+test("writeBytes와 copy는 폴더 경계·symlink 탈출·자기 안 복사를 거절하고 바이너리 쓰기와 재귀 복사를 처리한다", async () => {
+  const { root, outside, writeBytes, copy } = await setup();
+  const payload = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a]);
+  const b64 = Buffer.from(payload).toString("base64");
+
+  // 경계 밖·symlink 경로 쓰기 거절.
+  for (const bad of [
+    "../outside/pwn.png",
+    "/etc/pwn.png",
+    "linkdir/pwn.png",
+    "link.txt",
+    "inside-link.txt",
+  ]) {
+    const res = await writeBytes({
+      path: bad,
+      data_base64: b64,
+      overwrite: true,
+    });
+    assert.ok(
+      !res.ok && res.error.code === "invalid_input",
+      `writeBytes ${bad}`,
+    );
+  }
+
+  // 새 파일 쓰기 + conflict + overwrite.
+  const created = await writeBytes({
+    path: "assets/shot.png",
+    data_base64: b64,
+  });
+  assert.ok(created.ok);
+  assert.equal((created.value as { size: number }).size, payload.byteLength);
+  assert.deepEqual(
+    await readFile(join(root, "assets/shot.png")),
+    Buffer.from(payload),
+  );
+
+  const dup = await writeBytes({ path: "assets/shot.png", data_base64: b64 });
+  assert.ok(!dup.ok && dup.error.code === "conflict");
+
+  const nextPayload = Buffer.from("updated-bytes");
+  const replaced = await writeBytes({
+    path: "assets/shot.png",
+    data_base64: nextPayload.toString("base64"),
+    overwrite: true,
+  });
+  assert.ok(replaced.ok);
+  assert.deepEqual(await readFile(join(root, "assets/shot.png")), nextPayload);
+
+  // copy 탈출·자기 안 복사·symlink 쓰기 거절.
+  await mkdir(join(root, "poison"));
+  await symlink(
+    join(outside, "secret.txt"),
+    join(root, "poison", "escape.txt"),
+  );
+  for (const [from, to] of [
+    ["link.txt", "stolen.txt"],
+    ["linkdir/secret.txt", "stolen2.txt"],
+    ["z.txt", "linkdir/out.txt"],
+    ["z.txt", "../outside/out.txt"],
+    ["z.txt", "inside-link.txt"],
+    ["docs", "docs/sub"],
+    ["poison", "poison-copy"],
+  ] as const) {
+    const res = await copy({ from, to, overwrite: true });
+    assert.ok(
+      !res.ok && res.error.code === "invalid_input",
+      `copy ${from} -> ${to}`,
+    );
+  }
+
+  // 정상 파일·폴더 재귀 복사와 conflict.
+  const fileCopy = await copy({ from: "z.txt", to: "z-copy.txt" });
+  assert.ok(fileCopy.ok);
+  assert.equal(await readFile(join(root, "z-copy.txt"), "utf8"), "z");
+  const clash = await copy({ from: "z.txt", to: "z-copy.txt" });
+  assert.ok(!clash.ok && clash.error.code === "conflict");
+
+  const dirCopy = await copy({ from: "docs", to: "docs-copy" });
+  assert.ok(dirCopy.ok);
+  assert.equal(await readFile(join(root, "docs-copy", "a.md"), "utf8"), "# a");
+
+  // 밖 폴더 파일은 그대로 남아 있다.
+  assert.equal(await readFile(join(outside, "secret.txt"), "utf8"), "secret");
 });

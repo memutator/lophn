@@ -928,18 +928,14 @@
                 "keep_awake": true
               },
               "addresses": {
-                "lan": [
-                  "192.168.0.3"
-                ],
+                "lan": ["192.168.0.3"],
                 "port": 7432,
                 "relay": "wss://lophn-relay.fly.dev"
               },
               "lophn_version": "0.23.179",
               "record_at": null,
               "exchange": "ok",
-              "destinations": [
-                "computers"
-              ],
+              "destinations": ["computers"],
               "sections": {}
             },
             {
@@ -952,18 +948,14 @@
                 "keep_awake": true
               },
               "addresses": {
-                "lan": [
-                  "192.168.0.3"
-                ],
+                "lan": ["192.168.0.3"],
                 "port": 7432,
                 "relay": "wss://lophn-relay.fly.dev"
               },
               "lophn_version": "0.23.179",
               "record_at": "2026-11-26T04:52:04.841Z",
               "exchange": "ok",
-              "destinations": [
-                "computers"
-              ],
+              "destinations": ["computers"],
               "sections": {}
             },
             {
@@ -976,19 +968,14 @@
                 "keep_awake": false
               },
               "addresses": {
-                "lan": [
-                  "46.250.248.85",
-                  "2400:d320:2376:8829::1"
-                ],
+                "lan": ["46.250.248.85", "2400:d320:2376:8829::1"],
                 "port": 7432,
                 "relay": "wss://lophn-relay.fly.dev"
               },
               "lophn_version": "0.23.175",
               "record_at": "2026-11-25T08:53:29.346Z",
               "exchange": "ok",
-              "destinations": [
-                "computers"
-              ],
+              "destinations": ["computers"],
               "sections": {}
             }
           ],
@@ -1228,9 +1215,7 @@
           "machines": [
             {
               "addresses": {
-                "lan": [
-                  "192.168.0.3"
-                ],
+                "lan": ["192.168.0.3"],
                 "port": 7432,
                 "relay": "wss://lophn-relay.fly.dev"
               },
@@ -1239,9 +1224,7 @@
                 "keep_running": true,
                 "starts_at_login": true
               },
-              "destinations": [
-                "computers"
-              ],
+              "destinations": ["computers"],
               "display_name": "Window",
               "exchange": "ok",
               "id": "mch_01m7sy2vv710117q9m4wz3ma24",
@@ -1252,9 +1235,7 @@
             },
             {
               "addresses": {
-                "lan": [
-                  "192.168.0.3"
-                ],
+                "lan": ["192.168.0.3"],
                 "port": 7432,
                 "relay": "wss://lophn-relay.fly.dev"
               },
@@ -1263,9 +1244,7 @@
                 "keep_running": true,
                 "starts_at_login": true
               },
-              "destinations": [
-                "computers"
-              ],
+              "destinations": ["computers"],
               "display_name": "MainHome",
               "exchange": "ok",
               "id": "mch_01m7kt682h4tm5sbddy57afgha",
@@ -1276,10 +1255,7 @@
             },
             {
               "addresses": {
-                "lan": [
-                  "46.250.248.85",
-                  "2400:d320:2376:8829::1"
-                ],
+                "lan": ["46.250.248.85", "2400:d320:2376:8829::1"],
                 "port": 7432,
                 "relay": "wss://lophn-relay.fly.dev"
               },
@@ -1288,9 +1264,7 @@
                 "keep_running": true,
                 "starts_at_login": false
               },
-              "destinations": [
-                "computers"
-              ],
+              "destinations": ["computers"],
               "display_name": "vmi3768829",
               "exchange": "ok",
               "id": "mch_01m7s1mhn6v0jgdgg386v3n81w",
@@ -1355,11 +1329,7 @@
         "pending": []
       },
       "input_resolved": {
-        "args": [
-          "app",
-          "take-in",
-          "memo"
-        ]
+        "args": ["app", "take-in", "memo"]
       },
       "output_resolved": null
     },
@@ -1405,11 +1375,7 @@
         "pending": []
       },
       "input_resolved": {
-        "args": [
-          "app",
-          "take-in",
-          "masup"
-        ]
+        "args": ["app", "take-in", "masup"]
       },
       "output_resolved": null
     },
@@ -1889,11 +1855,7 @@
         "pending": []
       },
       "input_resolved": {
-        "args": [
-          "call",
-          "send",
-          "--help"
-        ]
+        "args": ["call", "send", "--help"]
       },
       "output_resolved": {
         "complete": true,

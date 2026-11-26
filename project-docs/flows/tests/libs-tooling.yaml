@@ -65,6 +65,10 @@ files:
     covers: [package-guide-read:ok]
     note: package.read의 guide 창 나누기와 이어 읽기(builtin과 사용자 package). 창 계산은 CLI 쪽
 
+  - path: packages/cli/commands/send_test.ts
+    covers: []
+    note: "variadic positional 파싱, lophn send, handoff.write --attach, settings export/staged/apply/dismiss(requires_person_confirmation 경고 포함), remote.status·control 문구를 가짜 core로 본다"
+
   - path: packages/cli/main_test.ts
     covers:
       - terminal-hook-forward:skipped

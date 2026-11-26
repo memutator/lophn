@@ -47,6 +47,7 @@ import { openConnection, stopCore } from "./connection/mod.ts";
 import { helpJson, helpText } from "./help.ts";
 import { CLI_EXITS, createOutput, exitOf } from "./output.ts";
 import {
+  fieldsOf,
   parseCommandLine,
   splitOn,
   unknownCommandError,
@@ -139,11 +140,20 @@ function saveImage(
   return ok({ ...result, content: { ...rest, image_path: path }, text: path });
 }
 
-// `on` 칸을 가진 명령(다른 컴퓨터의 agent에게 보내기와 그 컴퓨터의 목록·명함 읽기). agent 자격의 `--on`은 이 명령에만 붙는다.
+// `on` 칸을 가진 명령이다. `workspaces`가 있는 명령은 agent 자격의 `--on`을 허용한다.
+// `on`이 필수인 명령(`send`, `settings.export`)은 사람·agent 모두 로컬 core에서 돌려 대상 컴퓨터로 보낸다(machines/call이 아니다).
 const ON_COMMANDS: readonly Command[] = COMMANDS.filter((command) => {
   const shape = (command.input as { shape?: Record<string, unknown> }).shape;
   return shape !== undefined && "on" in shape;
 });
+const AGENT_ON_COMMANDS: readonly Command[] = ON_COMMANDS.filter(
+  (command) => command.workspaces.length > 0,
+);
+const LOCAL_ON_COMMANDS: readonly Command[] = ON_COMMANDS.filter((command) =>
+  fieldsOf(command.input).some(
+    (field) => field.name === "on" && field.required,
+  ),
+);
 
 function coreCommandsOnly(): LophnError {
   return {
@@ -199,19 +209,25 @@ export async function cliMain(
   }
   // agent 자격(harness가 띄운 shell)은 machines/call(사람 자격만)을 쓰지 못한다. `on` 칸을 가진 명령이면 `--on`을 그 칸으로 두고
   // 그 명령의 route로 보낸다(agent의 lophn tool과 같은 길). 그 밖의 명령에 붙은 `--on`은 거절한다.
-  if (on !== null && agentCredential(env) !== undefined) {
+  // 사람 자격이라도 `send`, `settings export`처럼 `on`이 필수인 명령은 이 컴퓨터의 core에서 실행해 대상으로 보낸다.
+  if (on !== null) {
     const command = COMMANDS.filter((item) =>
       wordsOf(item.name).every((word, at) => argv[at] === word),
     ).sort((a, b) => wordsOf(b.name).length - wordsOf(a.name).length)[0];
-    if (command === undefined || !ON_COMMANDS.includes(command)) {
-      return await fail({
-        code: "forbidden",
-        message: `an agent uses --on only with ${ON_COMMANDS.map((item) => wordsOf(item.name).join(" ")).join(", ")}`,
-      });
+    if (agentCredential(env) !== undefined) {
+      if (command === undefined || !AGENT_ON_COMMANDS.includes(command)) {
+        return await fail({
+          code: "forbidden",
+          message: `an agent uses --on only with ${AGENT_ON_COMMANDS.map((item) => wordsOf(item.name).join(" ")).join(", ")}`,
+        });
+      }
+      // 명령 낱말 앞에 쓴 `--on`도 칸이 되게 끝에 다시 붙인다.
+      argv = [...argv, "--on", on];
+      on = null;
+    } else if (command !== undefined && LOCAL_ON_COMMANDS.includes(command)) {
+      argv = [...argv, "--on", on];
+      on = null;
     }
-    // 명령 낱말 앞에 쓴 `--on`도 칸이 되게 끝에 다시 붙인다.
-    argv = [...argv, "--on", on];
-    on = null;
   }
   if (argv[0] === "version") {
     if (on !== null) return await fail(coreCommandsOnly());

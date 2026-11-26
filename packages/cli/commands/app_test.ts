@@ -69,3 +69,33 @@ test("app.link_source는 상대 path를 context의 기준 폴더로 풀어 core�
     [resolve("/work/src/a"), resolve("/abs/b")],
   );
 });
+
+test("app.take_in은 app_ id와 slug 둘 다 받는다", async () => {
+  const sent: unknown[] = [];
+  const ctx = {
+    key: "k",
+    core: {
+      command: (_route: unknown, input: unknown) => {
+        sent.push(input);
+        return Promise.resolve(
+          ok({
+            app: APP,
+            release: "rel_01hzzzzzzzzzzzzzzzzzzzzzza",
+            source_path: null,
+            installed: "app_and_release",
+          }),
+        );
+      },
+    },
+  } as unknown as CommandContext;
+  const takeIn = find("app.take_in");
+  for (const app of ["masup", APP]) {
+    const parsed = takeIn.input.parse({ app }) as Record<string, unknown>;
+    const ran = await takeIn.run(parsed, ctx);
+    assert.ok(ran.ok);
+  }
+  assert.deepStrictEqual(
+    sent.map((i) => (i as { app: string }).app),
+    ["masup", APP],
+  );
+});

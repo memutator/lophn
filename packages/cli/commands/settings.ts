@@ -12,6 +12,14 @@ import {
   settingsList,
   settingsUpdate,
 } from "../../protocol/config/mod.ts";
+import {
+  type StagedSettingsBatch,
+  settingsExportApply,
+  settingsExportDismiss,
+  settingsExportKindSchema,
+  settingsExportSend,
+  settingsExportStaged,
+} from "../../protocol/folder/settings-export.ts";
 import { WORKSPACE_KINDS } from "../../protocol/lophn-agent/workspaces.ts";
 import { type CommandContext, defineCommand } from "./types.ts";
 
@@ -333,4 +341,164 @@ const unset = defineCommand({
   },
 });
 
-export const SETTINGS_COMMANDS = [get, set, unset];
+function formatDelivery(state: "queued" | "held_at_hub" | "delivered"): string {
+  return state === "held_at_hub" ? "held_at_hub via @Hub" : state;
+}
+
+function formatStagedBatch(batch: StagedSettingsBatch): string {
+  const lines = [
+    `${batch.id}  from ${batch.from_name} (${batch.from_machine})  state=${batch.state}  delivery=${formatDelivery(batch.delivery_state)}`,
+  ];
+  if (batch.note !== null) lines.push(`  note: ${batch.note}`);
+  for (const item of batch.items) {
+    const flags: string[] = [];
+    if (item.kind === "permission_rules") flags.push("permission_rules");
+    if (item.locked_fields !== undefined && item.locked_fields.length > 0) {
+      flags.push(`locked: ${item.locked_fields.join(", ")}`);
+    }
+    const suffix = flags.length === 0 ? "" : ` [${flags.join("; ")}]`;
+    lines.push(`  - ${item.kind}:${item.id} (${item.title})${suffix}`);
+  }
+  return lines.join("\n");
+}
+
+const exportSettings = defineCommand({
+  name: "settings.export",
+  summary: "Export settings or workflow definitions to another computer",
+  description:
+    "Export one or more items of <kind> (`agent`, `skill`, `project_command`, `permission_rules`, `workflow`) to another computer (`--on <computer>`). " +
+    "If the target computer is offline, a Hub computer holds the batch until it wakes up. " +
+    "On the receiving computer, exported items land staged (`lophn settings staged`) and are not applied until reviewed (`lophn settings apply <stg_...>`).",
+  input: z.strictObject({
+    kind: settingsExportKindSchema,
+    ids: z.array(z.string().min(1).max(256)).min(1).max(64),
+    on: z.string().min(1).max(128),
+    project: z.string().min(1).optional(),
+    note: z.string().max(4000).optional(),
+  }),
+  positional: ["kind", "ids"],
+  effect: "write",
+  routes: [settingsExportSend],
+  workspaces: [],
+  run: async (input, ctx) => {
+    const sent = await ctx.core.read(settingsExportSend, {
+      to: input.on,
+      items: input.ids.map((id) => ({ kind: input.kind, id })),
+      ...(input.project === undefined ? {} : { project: input.project }),
+      ...(input.note === undefined ? {} : { note: input.note }),
+    });
+    if (!sent.ok) return sent;
+    const { batch, to_machine, delivery_state, item_count } = sent.value;
+    const delivery = formatDelivery(delivery_state);
+    return ok({
+      summary: `exported ${item_count} ${item_count === 1 ? "item" : "items"} as ${batch} to ${to_machine} (${delivery})`,
+      content: sent.value,
+      text: [
+        `batch: ${batch}`,
+        `to: ${to_machine}`,
+        `items: ${item_count}`,
+        `delivery: ${delivery}`,
+      ].join("\n"),
+    });
+  },
+});
+
+const staged = defineCommand({
+  name: "settings.staged",
+  summary: "List staged settings batches received from other computers",
+  description:
+    "List staged settings batches (`stg_...`) waiting to be reviewed and applied (`lophn settings apply <stg_...>`) or dismissed (`lophn settings dismiss <stg_...>`). Use `--state all` to include applied and dismissed batches.",
+  input: settingsExportStaged.input,
+  effect: "read",
+  routes: [settingsExportStaged],
+  workspaces: [],
+  run: async (input, ctx) => {
+    const read = await ctx.core.read(settingsExportStaged, input);
+    if (!read.ok) return read;
+    const { batches } = read.value;
+    return ok({
+      summary: `${batches.length} staged ${batches.length === 1 ? "batch" : "batches"}`,
+      content: { batches },
+      arrayKeys: ["batches"],
+      text:
+        batches.length === 0
+          ? "no staged settings batches"
+          : batches.map(formatStagedBatch).join("\n\n"),
+    });
+  },
+});
+
+const apply = defineCommand({
+  name: "settings.apply",
+  summary: "Apply a staged settings batch from another computer",
+  description:
+    "Apply a staged settings batch (`stg_...` from `lophn settings staged`). " +
+    "Existing items with conflicting names are skipped unless `--overwrite` is given. " +
+    "Items containing `permission_rules` or locked fields are withheld until explicitly confirmed by the person via `--confirm-permissions` or in Settings › My computers.",
+  input: settingsExportApply.input,
+  positional: ["batch"],
+  effect: "write",
+  routes: [settingsExportApply],
+  workspaces: [],
+  run: async (input, ctx) => {
+    const done = await ctx.core.read(settingsExportApply, input);
+    if (!done.ok) return done;
+    const { applied, requires_permission_confirmation } = done.value;
+    const appliedCount = applied.filter(
+      (item) => item.status === "applied",
+    ).length;
+    const needsConfirm = applied.filter(
+      (item) => item.status === "requires_person_confirmation",
+    );
+    const warnConfirm =
+      requires_permission_confirmation || needsConfirm.length > 0;
+    const warning = warnConfirm
+      ? `WARNING: ${needsConfirm.length > 0 ? `${needsConfirm.length} item(s)` : "this batch"} contain permission_rules or locked fields and require person confirmation. Re-run with \`lophn settings apply ${input.batch} --confirm-permissions\` or confirm in Settings › My computers.`
+      : undefined;
+    const lines = applied.map(
+      (item) => `  ${item.kind}:${item.id} -> ${item.status}`,
+    );
+    if (warning !== undefined) lines.push("", warning);
+    return ok({
+      summary: `applied ${appliedCount}/${applied.length} items from ${input.batch}${warnConfirm ? " (requires person confirmation)" : ""}`,
+      content: done.value,
+      text:
+        lines.length === 0
+          ? `no items applied from ${input.batch}`
+          : lines.join("\n"),
+      ...(warning === undefined ? {} : { note: warning }),
+    });
+  },
+});
+
+const dismiss = defineCommand({
+  name: "settings.dismiss",
+  summary: "Dismiss a staged settings batch without applying it",
+  description:
+    "Dismiss a staged settings batch (`stg_...`) so it no longer appears in the pending list.",
+  input: settingsExportDismiss.input,
+  positional: ["batch"],
+  effect: "write",
+  routes: [settingsExportDismiss],
+  workspaces: [],
+  run: async (input, ctx) => {
+    const done = await ctx.core.read(settingsExportDismiss, input);
+    if (!done.ok) return done;
+    return ok({
+      summary: done.value.dismissed
+        ? `dismissed staged batch ${input.batch}`
+        : `staged batch ${input.batch} was not dismissed`,
+      content: done.value,
+    });
+  },
+});
+
+export const SETTINGS_COMMANDS = [
+  get,
+  set,
+  unset,
+  exportSettings,
+  staged,
+  apply,
+  dismiss,
+];

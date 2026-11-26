@@ -21,6 +21,7 @@ import { PROJECT_COMMANDS } from "./project.ts";
 import { RELEASE_COMMANDS } from "./release.ts";
 import { REMOTE_COMMANDS } from "./remote.ts";
 import { RUN_COMMANDS } from "./run.ts";
+import { SEND_COMMANDS } from "./send.ts";
 import { SESSION_COMMANDS } from "./session.ts";
 import { SETTINGS_COMMANDS } from "./settings.ts";
 import { SKILL_COMMANDS } from "./skill.ts";
@@ -61,6 +62,7 @@ export const COMMANDS: readonly Command[] = [
   ...RELEASE_COMMANDS,
   ...REMOTE_COMMANDS,
   ...RUN_COMMANDS,
+  ...SEND_COMMANDS,
   ...SESSION_COMMANDS,
   ...SETTINGS_COMMANDS,
   ...SKILL_COMMANDS,

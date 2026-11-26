@@ -16,12 +16,14 @@ import {
   type ContentBlock,
   textBlocks,
 } from "../../protocol/lophn-agent/content-block.ts";
+import { transfersSend } from "../../protocol/folder/transfers.ts";
 import { callSendRemote } from "../../protocol/lophn-agent/mail.ts";
 import {
   MESSAGE_IMAGE_CALL_MAX_BYTES,
   messageImagePrepare,
 } from "../../protocol/lophn-agent/message-images.ts";
 import { WORKSPACE_KINDS } from "../../protocol/lophn-agent/workspaces.ts";
+import { uploadAttachments } from "./send.ts";
 import { defineCommand, type CommandContext } from "./types.ts";
 
 // 본문은 글 하나다. `--image <path>`는 file을 image block으로 더한다: 받는 쪽에 읽기 허락을 주지 않고 값을 싣는다.
@@ -94,30 +96,47 @@ const send = defineCommand({
     "reply: none requires no answer; result asks the receiver to reply; conversation lets both sides continue via call reply. " +
     "body is text. Repeat --image <path> to attach an image file (png, jpeg, gif or webp, under 180 KB) from a folder this session can read; the receiver gets the image itself and no read access to the file. " +
     "To hand work to a coding agent the person will continue in a terminal, open its TUI with `lophn tab open --coding <harness> --handoff <text>` instead. " +
-    "--on <computer> sends it to an agent on another computer of the person (machine computers): to.session is a session listed by session list --on, to.workspace a project by its cross-computer id (pri_…, from lophn project identity on that computer or agent list --on; a project name works only when the project is also on this computer), an app slug or home there. Only text goes; no image, file or refs.",
+    "--on <computer> sends it to an agent on another computer of the person (machine computers): to.session is a session listed by session list --on, to.workspace a project by its cross-computer id (pri_…, from lophn project identity on that computer or agent list --on; a project name works only when the project is also on this computer), an app slug or home there. Repeat --attach <path> with --on <computer> to upload local files via `transfers/send` and attach them to the remote call; images and refs are local-only.",
   input: agentCallSend.input.omit({ dedup: true, body: true }).extend({
     ...bodyFields,
     refs: z.array(callRefSchema).default([]),
+    attach: z.array(z.string().min(1)).max(32).default([]),
     on: z.string().min(1).optional(),
   }),
   effect: "read",
-  routes: [agentCallSend, callSendRemote, messageImagePrepare],
+  routes: [agentCallSend, callSendRemote, messageImagePrepare, transfersSend],
   workspaces: WORKSPACE_KINDS,
   run: async (input, ctx) => {
-    const { image: _image, on, ...rest } = input;
+    const { image: _image, attach, on, ...rest } = input;
     // 같은 tool call을 다시 보내도 같은 dedup이라 call과 session이 하나만 생긴다.
     let sent;
     if (on !== undefined) {
       if (input.image.length > 0 || input.refs.length > 0) {
-        return fail("invalid_input", "only text goes to another computer");
+        return fail(
+          "invalid_input",
+          "only text and --attach files go to another computer (no --image or --refs)",
+        );
+      }
+      const attachments = [...(rest.attachments ?? [])];
+      if (attach.length > 0) {
+        const uploaded = await uploadAttachments(on, attach, ctx);
+        if (!uploaded.ok) return uploaded;
+        attachments.push(...uploaded.value);
       }
       sent = await ctx.core.read(callSendRemote, {
         to: { ...rest.to, machine: on },
         reply: rest.reply,
         body: textBlocks(rest.body),
+        ...(attachments.length > 0 ? { attachments } : {}),
         dedup: ctx.key,
       });
     } else {
+      if (attach.length > 0) {
+        return fail(
+          "invalid_input",
+          "--attach uploads files to another computer and requires --on <computer>; on this computer pass file paths via --refs or --image",
+        );
+      }
       const body = await bodyOf(input, ctx);
       if (!body.ok) return body;
       sent = await ctx.core.command(

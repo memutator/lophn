@@ -655,3 +655,73 @@ test("agent 자격의 call send --on은 calls/send_remote로 가고, 다른 명�
     [["/machines/call", "laptop", "calls", "send"]],
   );
 });
+
+test("lophn send와 lophn settings export의 --on은 machines/call이 아니라 이 컴퓨터 core의 route로 간다", async () => {
+  const TRF = "trf_01hzzzzzzzzzzzzzzzzzzzzzza";
+  const STG = "stg_01hzzzzzzzzzzzzzzzzzzzzzza";
+  const MCH = "mch_01hzzzzzzzzzzzzzzzzzzzzzzb";
+  const SHA = "c".repeat(64);
+
+  const sendFetch = machineFetch({
+    "undefined/undefined": {
+      transfer: TRF,
+      to_machine: MCH,
+      to_name: "VM",
+      state: "held_at_hub",
+      files: [{ name: "a.txt", rel_path: "a.txt", size: 4, sha256: SHA }],
+      created_at: "2026-11-26T00:00:00.000Z",
+      expires_at: "2026-12-03T00:00:00.000Z",
+    },
+  });
+  const humanSend = await runOn(
+    ["send", "a.txt", "b.txt", "--on", "VM"],
+    sendFetch.fetch,
+  );
+  assert.deepStrictEqual(humanSend.code, 0, humanSend.printed);
+  assert.deepStrictEqual(
+    sendFetch.sent.map((c) => [c.path, c.body.to]),
+    [["/transfers/send", "VM"]],
+  );
+
+  const agentSendFetch = machineFetch({
+    "undefined/undefined": {
+      transfer: TRF,
+      to_machine: MCH,
+      to_name: "VM",
+      state: "delivered",
+      files: [{ name: "a.txt", rel_path: "a.txt", size: 4, sha256: SHA }],
+      created_at: "2026-11-26T00:00:00.000Z",
+      expires_at: "2026-12-03T00:00:00.000Z",
+    },
+  });
+  const agentSend = await runOn(
+    ["send", "a.txt", "--on", "VM"],
+    agentSendFetch.fetch,
+    {
+      LOPHN_AGENT_CREDENTIAL_FILE: AGENT_CREDENTIAL_FILE,
+    },
+  );
+  assert.deepStrictEqual(agentSend.code, 0, agentSend.printed);
+  assert.deepStrictEqual(
+    agentSendFetch.sent.map((c) => [c.path, c.body.to]),
+    [["/transfers/send", "VM"]],
+  );
+
+  const exportFetch = machineFetch({
+    "undefined/undefined": {
+      batch: STG,
+      to_machine: MCH,
+      delivery_state: "held_at_hub",
+      item_count: 1,
+    },
+  });
+  const humanExport = await runOn(
+    ["settings", "export", "agent", "reviewer", "--on", "VM"],
+    exportFetch.fetch,
+  );
+  assert.deepStrictEqual(humanExport.code, 0, humanExport.printed);
+  assert.deepStrictEqual(
+    exportFetch.sent.map((c) => [c.path, c.body.to, c.body.items]),
+    [["/settings_export/send", "VM", [{ kind: "agent", id: "reviewer" }]]],
+  );
+});

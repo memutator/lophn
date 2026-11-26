@@ -48,7 +48,9 @@ function commandHelp(command: CommandDoc, takesOn: TakesOn): string {
   const listed = [
     ...slots
       .flatMap((slot) => fields.filter((field) => field.name === slot))
-      .map((field) => fieldLine(`<${kebab(field.name)}>`, field)),
+      .map((field) =>
+        fieldLine(`<${kebab(field.name)}${field.array ? "..." : ""}>`, field),
+      ),
     ...fields
       .filter((field) => !slots.includes(field.name))
       .map((field) =>
@@ -90,10 +92,10 @@ export function helpText(
 ): string | undefined {
   if (topic.length === 0) {
     const rows = [...groupsOf(commands)].map(([group, members]) => {
-      const names = members.map((command) =>
-        wordsOf(command.name).slice(1).join(" "),
-      );
-      return names.every((name) => name === "")
+      const names = members
+        .map((command) => wordsOf(command.name).slice(1).join(" "))
+        .filter((name) => name !== "");
+      return names.length === 0
         ? `  ${group}`
         : `  ${group}  ${names.join(", ")}`;
     });

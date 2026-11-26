@@ -97,9 +97,13 @@ export function placeholder(field: Field): string {
 // 한 줄 usage다. 필수 칸은 그대로, 선택 칸은 대괄호로 둔다.
 export function usageOf(command: CommandDoc): string {
   const slots = command.positional ?? [];
+  const fields = fieldsOf(command.input);
   const parts = [`lophn ${wordsOf(command.name).join(" ")}`];
-  for (const slot of slots) parts.push(`<${kebab(slot)}>`);
-  for (const field of fieldsOf(command.input)) {
+  for (const slot of slots) {
+    const field = fields.find((item) => item.name === slot);
+    parts.push(`<${kebab(slot)}${field?.array ? "..." : ""}>`);
+  }
+  for (const field of fields) {
     if (slots.includes(field.name)) continue;
     const flag =
       field.kind === "boolean"
@@ -340,12 +344,28 @@ export function parseCommandLine<C extends CommandDoc>(
   if (help) return ok({ kind: "help", topic: wordsOf(command.name) });
 
   const slots = command.positional ?? [];
-  if (positional.length > slots.length) {
+  const lastSlot = slots.at(-1);
+  const lastField =
+    lastSlot === undefined
+      ? undefined
+      : fields.find((item) => item.name === lastSlot);
+  const variadic = lastField?.array === true;
+  if (!variadic && positional.length > slots.length) {
     return err(
       invalid(`unexpected argument: ${positional[slots.length]}`, command),
     );
   }
   for (const [at, raw] of positional.entries()) {
+    if (variadic && at >= slots.length - 1) {
+      const field = lastField!;
+      if (at === slots.length - 1 && field.name in given) {
+        return err(invalid(`${field.name} is given twice`, command));
+      }
+      const converted = convert(field, raw);
+      if (!converted.ok) return err(invalid(converted.error, command));
+      ((given[field.name] ??= []) as unknown[]).push(converted.value);
+      continue;
+    }
     const field = fields.find((item) => item.name === slots[at]);
     if (field === undefined) {
       return err(invalid(`unexpected argument: ${raw}`, command));

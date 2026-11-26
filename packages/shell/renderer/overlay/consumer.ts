@@ -30,7 +30,8 @@ export function centerAnchor(): {
 }
 
 const TOP_BAR_HEIGHT = 36;
-const TOAST_WIDTH = 440;
+// toast 폭(360px) 양옆에 --shadow-dialog(blur 48px)가 잘리지 않게 60px씩 둔다.
+const TOAST_WIDTH = 480;
 const TOAST_HEIGHT = 320;
 
 /**

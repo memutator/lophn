@@ -70,7 +70,7 @@
 
 .title {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--space-3);
   margin: var(--space-0);
   font-weight: var(--font-weight-medium);
@@ -79,11 +79,32 @@
 .lead {
   display: inline-flex;
   flex: none;
+  align-items: center;
+  min-height: var(--type-body-line);
 }
 
+/* 긴 제목이나 공백 없는 경로·식별자도 toast 폭과 높이 안에 머물게 줄임표로 자른다. */
+.titleText {
+  display: -webkit-box;
+  flex: 1;
+  min-width: var(--space-0);
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+/* 긴 응답 본문이 overlay toast 높이를 넘어 잘리지 않게 3줄로 묶고 긴 토큰도 줄바꿈한다. */
 .body {
+  display: -webkit-box;
   margin: var(--space-0);
   color: var(--color-text-secondary);
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
 }
 
 /* text 밖 마지막 줄에 두어 닫기 단추와 같은 오른쪽 끝에 맞춘다. */

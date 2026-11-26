@@ -105,7 +105,7 @@ export function Toast({
       <div className={styles.text}>
         <p className={styles.title}>
           {lead !== undefined && <span className={styles.lead}>{lead}</span>}
-          <span>{title}</span>
+          <span className={styles.titleText}>{title}</span>
         </p>
         {body !== undefined && <p className={styles.body}>{body}</p>}
       </div>

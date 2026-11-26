@@ -70,7 +70,7 @@ export type A2aListsDeps = {
     id: string,
   ): { identity: string; name: string; archived: boolean } | null;
   projectByIdentity(identity: string): string | null;
-  app(id: string): { name: string; archived: boolean } | null;
+  app(id: string): { id?: Id<"app">; name: string; archived: boolean } | null;
   // 명함은 `withoutApps`(slug)의 앱을 싣지 않고 만든다.
   cards(
     workspace: Workspace | null,
@@ -84,8 +84,9 @@ export type A2aListsDeps = {
   remoteWorkspace(
     name: AgentAddress["workspace"],
     caller: Workspace | null,
+    targetMachine?: Id<"mch">,
   ): Result<RemoteWorkspace>;
-  // 그 컴퓨터가 이만큼 답하지 않으면 "not reachable now"다(link의 120초를 기다리지 않는다).
+  // 그 컴퓨터가 이만큼 답하지 않으면 offline/unreachable이다(link의 120초를 기다리지 않는다).
   deadlineMs?: number;
 };
 
@@ -215,7 +216,7 @@ export function createA2aLists(deps: A2aListsDeps) {
     else if ("app" in name) {
       const app = deps.app(name.app);
       if (app === null || app.archived) return null;
-      workspace = { kind: "app", id: name.app };
+      workspace = { kind: "app", id: app.id ?? (name.app as Id<"app">) };
     } else {
       const id = deps.projectByIdentity(name.project);
       const project = id === null ? null : deps.project(id);
@@ -342,7 +343,7 @@ export function createA2aLists(deps: A2aListsDeps) {
       if (answer.error.code === "unavailable") {
         return err({
           code: "unavailable",
-          message: `${computer.name} is not reachable now`,
+          message: `${computer.name} is offline or unreachable right now; live listing needs it online, while call send --on and team spawn --on queue and deliver when it comes back`,
         });
       }
       // 그 밖의 오류도 그 컴퓨터의 글이다. 정해진 꼴로 다시 쓰고 details는 싣지 않는다.
@@ -388,6 +389,7 @@ export function createA2aLists(deps: A2aListsDeps) {
     const workspace = deps.remoteWorkspace(
       input.workspace,
       found.value.workspace,
+      computer.machine as Id<"mch">,
     );
     if (!workspace.ok) return workspace;
     const read = await ask(

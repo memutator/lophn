@@ -1,14 +1,46 @@
 ---
 name: connect-computers
-description: Keep apps, table sync data, across_machines events, and files in step across the person's computers (always-on computer relay, installing shared apps with app take-in, shared folder folder.shared, and Tailscale direct remote.addresses). Check machine environment before suggesting setup.
+description: Keep apps, data, files, and settings connected across the person's computers (Two Promises, Hub computer remote.hub, app take-in by slug, lophn send, shared folder folder.shared, and direct remote.addresses). Check machine environment before suggesting setup.
 ---
 
 # Connect computers
 
 Use this when the person wants what they have on one computer on another too,
 or says things like "my work computer doesn't see my notes", "I dual boot", "I
-want to reach my desktop from anywhere". Do not start by installing anything:
-first find out what already works.
+want to reach my desktop from anywhere", "send this file to my VM". Do not start
+by installing anything: first find out what already works.
+
+## Two Promises
+
+Everything across the person's computers follows one of two promises:
+
+| Promise | Target computer | What uses it |
+| --- | --- | --- |
+| **Right now** | Must be online | Live reads (`session list --on`, `agent list --on`, `agent card --on`), live watching of `call` / `team` sessions, app commands & `preview`, remote terminals, remote explorer |
+| **Arrives when online** | Can be offline (held by a Hub computer, delivered when it turns on) | File transfers (`lophn send <path...> --on <computer>`), exported settings & workflows, app data sync & phone changes, `call send --on` / `team spawn --on` mail, `handoff write` |
+
+If a live read (`session list --on`, `agent list --on`) fails because a computer
+is offline, do not tell the person that sending is impossible: queued deliveries
+(`call send --on`, `team spawn --on`, `lophn send`, `handoff write`) still queue
+and arrive when that computer comes back.
+
+## Hub computer and `locked` settings
+
+- **Hub (`remote.hub`)**: An always-on computer in the person's device list (such
+  as a home desktop or VPS) can act as a Hub: it relays connections and holds
+  queued deliveries (files, mail, handoff notes, exported settings/workflows, app
+  data and phone changes) for computers that are offline. A Hub does **not**
+  forward live calls on another computer's behalf and does **not** need apps
+  installed to relay or hold their data.
+- **Turning on `remote.hub` or changing any `locked` setting**: `locked` means
+  *only the person can change it directly in the GUI* — never tell the person a
+  locked setting "cannot be changed" or "cannot be turned off". Guide them to
+  change it in **Settings › My computers** (or **Settings › Remote** on that
+  computer).
+- **Sending files between computers**: Use `lophn send <path...> --on <computer> [--note "..."]`.
+  Files arrive in the target computer's inbox (never auto-extracted or executed);
+  if the target is offline, a Hub computer holds them until it wakes up. Do not
+  drop user files into internal sync folder paths (`machines/<id>/…`).
 
 ## What lophn does by itself
 
@@ -74,12 +106,12 @@ it:
    may be private on that computer or its files have not arrived yet: say which.
    Do not ask for data sync (`sync`) just to install the app unless they also
    want its data synced.
-2. `lophn app take-in <app>` (`--from <machine>` when more than one computer
-   offers it). It installs the app and prepares its release here; nothing runs
-   yet. `conflict` says why in `details.reason`: `sdk_missing` (the person
-   updates lophn here), `slug_in_use`, `dependency_missing`. `invalid_input`
-   with `source_incomplete` means the files have not fully arrived; try again
-   later.
+2. `lophn app take-in <slug>` (accepts either the app's slug or `app_` id; add
+   `--from <machine>` when more than one computer offers it). It installs the app
+   and prepares its release here; nothing runs yet. `conflict` says why in
+   `details.reason`: `sdk_missing` (the person updates lophn here), `slug_in_use`,
+   `dependency_missing`. `invalid_input` with `source_incomplete` means the files
+   have not fully arrived; try again later.
 3. Activation is done by lophn at the app, and that is where the person is
    asked. Send it with `lophn call send` (`to: {agent: "lophn", workspace: {app:
    "<the app's slug>"}}`, `--reply none`), asking it to run `lophn release
@@ -171,7 +203,9 @@ it from any network, and lophn uses such a name when it is told.
 2. Read the computer's name with `tailscale status` (a MagicDNS name such as
    `studio.tail1234.ts.net`, or its 100.x address).
 3. The name goes in the setting `remote.addresses`, one list per computer
-   (without a port). The person can type it in Settings › Remote ›
+   (without a port). Put each computer's **own** reachable addresses in **that**
+   computer's `remote.addresses` — never put another computer's address in this
+   computer's list. The person can type it in Settings › Remote ›
    Addresses, which saves at once. Or set it yourself in the home
    conversation, after saying in plain words what it is (the addresses other
    devices try to reach this computer at). Read `lophn settings get

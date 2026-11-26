@@ -42,15 +42,15 @@ const conflict = (
   details: Record<string, unknown>,
 ): Result<never> => err({ code: "conflict", message, details });
 
-/** 앱마다 기록이 가장 최근인 기계의 것. `from`이 있으면 그 기계의 것. */
+/** 앱마다 기록이 가장 최근인 기계의 것. `from`이 있으면 그 기계의 것. `app`은 `app_` id 또는 slug다. */
 export function pickRecord(
   copies: readonly FolderAppRecordCopy[],
-  app: Id<"app">,
+  app: string,
   from?: Id<"mch">,
 ): FolderAppRecordCopy | null {
   let best: FolderAppRecordCopy | null = null;
   for (const copy of copies) {
-    if (copy.record.app !== app) continue;
+    if (copy.record.app !== app && copy.record.slug !== app) continue;
     if (from !== undefined && copy.origin !== from) continue;
     if (best === null || copy.record.updated_at > best.record.updated_at) {
       best = copy;
@@ -174,9 +174,28 @@ export async function takeIn(
   input: TakeInInput,
 ): Promise<Result<TakeInOutput>> {
   const me = deps.machine();
-  const app = input.app as Id<"app">;
+  const from = input.from as Id<"mch"> | undefined;
   const copies = deps.records().filter((copy) => copy.origin !== me);
-  const found = pickRecord(copies, app, input.from as Id<"mch"> | undefined);
+  if (!input.app.startsWith("app_")) {
+    const matchingIds = [
+      ...new Set(
+        copies
+          .filter(
+            (copy) =>
+              copy.record.slug === input.app &&
+              (from === undefined || copy.origin === from),
+          )
+          .map((copy) => copy.record.app),
+      ),
+    ].sort();
+    if (matchingIds.length > 1) {
+      return err({
+        code: "invalid_input",
+        message: `several apps from other computers have slug ${input.app} (${matchingIds.join(", ")}); pass the app id or --from <machine>`,
+      });
+    }
+  }
+  const found = pickRecord(copies, input.app, from);
   if (found === null) {
     return err({
       code: "not_found",
@@ -184,6 +203,7 @@ export async function takeIn(
     });
   }
   const { record } = found;
+  const app = record.app as Id<"app">;
   const commit = input.release ?? record.active_release?.code_commit;
   if (commit === undefined) {
     return err({

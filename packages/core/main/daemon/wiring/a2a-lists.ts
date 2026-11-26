@@ -86,9 +86,18 @@ export function a2aListsReads(
       return { name, identity, archived: status === "archived" };
     },
     projectByIdentity: (identity) => projectByIdentity(sql, identity),
-    app(id) {
-      const app = workspaces.apps.app(id as Id<"app">);
-      return app === null ? null : { name: app.name, archived: app.archived };
+    app(ref) {
+      const byId = workspaces.apps.app(ref as Id<"app">);
+      if (byId !== null) {
+        return { id: byId.id, name: byId.name, archived: byId.archived };
+      }
+      const byName = workspaces.apps.appByName(ref);
+      if (!byName.ok || byName.value.name !== ref) return null;
+      return {
+        id: byName.value.id,
+        name: byName.value.name,
+        archived: byName.value.archived,
+      };
     },
   };
 }
@@ -130,8 +139,15 @@ export const a2aListsWiring: WiringFactory = () => {
           return ok({ ...reach.value, name });
         },
         // 이름이 없으면 부른 session의 workspace다(handle `lophn`의 규칙).
-        remoteWorkspace: (name, caller) =>
-          remoteWorkspaceOf(sql, name, LOPHN_AGENT_HANDLE, caller),
+        remoteWorkspace: (name, caller, targetMachine) =>
+          remoteWorkspaceOf(
+            sql,
+            name,
+            LOPHN_AGENT_HANDLE,
+            caller,
+            false,
+            targetMachine,
+          ),
       });
       return ok({
         memory: [

@@ -1,7 +1,9 @@
-import { textBlocks } from "../../protocol/lophn-agent/content-block.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { err, ok } from "../../base/mod.ts";
+import { z } from "zod";
+import { type ErrorCode, err, ok } from "../../base/mod.ts";
+import type { Id } from "../../protocol/base/ids.ts";
+import type { AgentCard } from "../../protocol/lophn-agent/agent-definitions.ts";
 import {
   type AgentCallRow,
   callReply,
@@ -10,11 +12,28 @@ import {
   type CallPolicy,
   DEFAULT_CALL_POLICY,
 } from "../../protocol/lophn-agent/call-policy.ts";
+import { textBlocks } from "../../protocol/lophn-agent/content-block.ts";
 import {
   type AgentAtWorkspace,
   lophnIdOf,
 } from "../../protocol/lophn-agent/workspaces.ts";
-import type { Tx } from "../../protocol/server/mod.ts";
+import type {
+  AuthenticatedContext,
+  Sql,
+  Tx,
+} from "../../protocol/server/mod.ts";
+import { pickRecord, takeIn } from "../folder/apps/take-in.ts";
+import type {
+  FolderAppRecordCopy,
+  FolderAppsDeps,
+  FolderAppsHost,
+} from "../folder/apps/deps.ts";
+import { defineTool } from "../lophn-agent/tools/define.ts";
+import type { ToolContext } from "../lophn-agent/tools/tool-context.ts";
+import { carriesReason, executeToolCall } from "../lophn-agent/tools/work.ts";
+import { createA2aLists } from "../remote/a2a-lists.ts";
+import { mailHandler, type MailEntryDeps } from "../remote/mail-entry.ts";
+import { installRouterEnvironment } from "./environment.ts";
 import {
   AGENT_CALL_SETTLED_TOPIC,
   APP_CALL_SETTLED_TOPIC,
@@ -22,6 +41,7 @@ import {
   ASK_ENDED_TOPIC,
   CALL_SESSION_OPENED_TOPIC,
 } from "./model.ts";
+import { remoteWorkspaceOf } from "./remote-reach.ts";
 import { createRouter } from "./router.ts";
 import type {
   CallStore,
@@ -880,4 +900,424 @@ test("an agent's outgoing non-ask call announces AGENT_CALL_SETTLED_TOPIC on rep
       },
     },
   ]);
+});
+
+test("remoteWorkspaceOf resolves a missing local app slug from target folder_records or passes the raw slug through", () => {
+  const SELF = "mch_00000000000000000000000001" as Id<"mch">;
+  const TARGET = "mch_00000000000000000000000002" as Id<"mch">;
+  const OTHER = "mch_00000000000000000000000003" as Id<"mch">;
+  const APP_MASUP = "app_00000000000000000000000001" as Id<"app">;
+  const APP_OTHER = "app_00000000000000000000000002" as Id<"app">;
+
+  installRouterEnvironment({
+    deps: () =>
+      ({
+        self: () => SELF,
+        directory: {
+          appIdOf: (ref: string) =>
+            ref === "local-only"
+              ? ok("app_00000000000000000000000099" as Id<"app">)
+              : err({ code: "not_found", message: "app not found" }),
+        } as SessionDirectory,
+      }) as never,
+    unattendedTurn: () => false,
+  });
+
+  const sqlWithRecords: Pick<Sql, "get" | "all"> = {
+    get: () => undefined,
+    all: () => [
+      {
+        origin: TARGET,
+        kind: "app",
+        key: APP_MASUP,
+        record: JSON.stringify({
+          app: APP_MASUP,
+          slug: "masup",
+          updated_at: "2026-11-26T00:00:00.000Z",
+        }),
+        destination: "computers",
+        read_at: "2026-11-26T00:00:00.000Z",
+        forgotten_at: null,
+      },
+      {
+        origin: OTHER,
+        kind: "app",
+        key: APP_OTHER,
+        record: JSON.stringify({
+          app: APP_OTHER,
+          slug: "only-on-other",
+          updated_at: "2026-11-26T00:00:00.000Z",
+        }),
+        destination: "computers",
+        read_at: "2026-11-26T00:00:00.000Z",
+        forgotten_at: null,
+      },
+    ],
+  };
+
+  // 로컬에 있는 앱은 기존처럼 app_ ID로 푼다.
+  assert.deepStrictEqual(
+    remoteWorkspaceOf(
+      sqlWithRecords,
+      { app: "local-only" },
+      "lophn",
+      null,
+      false,
+      TARGET,
+    ),
+    ok({ app: "app_00000000000000000000000099" }),
+  );
+  // 로컬에 없어도 대상 기계의 folder_records에 있으면 그 app_ ID로 푼다.
+  assert.deepStrictEqual(
+    remoteWorkspaceOf(
+      sqlWithRecords,
+      { app: "masup" },
+      "lophn",
+      null,
+      false,
+      TARGET,
+    ),
+    ok({ app: APP_MASUP }),
+  );
+  // 다른 기계의 기록은 대상 기계와 다르면 섞어 쓰지 않고 원문 slug를 그대로 실어 보낸다.
+  assert.deepStrictEqual(
+    remoteWorkspaceOf(
+      sqlWithRecords,
+      { app: "only-on-other" },
+      "lophn",
+      null,
+      false,
+      TARGET,
+    ),
+    ok({ app: "only-on-other" }),
+  );
+  // folder_records에 아예 없거나 표가 없어도 not_found로 죽지 않고 원문 slug를 보낸다.
+  assert.deepStrictEqual(
+    remoteWorkspaceOf(
+      {
+        get: () => undefined,
+        all: () => {
+          throw new Error("no such table: folder_records");
+        },
+      },
+      { app: "brand-new" },
+      "lophn",
+      null,
+      false,
+      TARGET,
+    ),
+    ok({ app: "brand-new" }),
+  );
+});
+
+test("receiving a2a/agents and a2a/mail resolve app slugs and offline a2a listing reports offline clearly", async () => {
+  const ORIGIN = "mch_00000000000000000000000010" as Id<"mch">;
+  const SELF = "mch_00000000000000000000000011" as Id<"mch">;
+  const APP_NOTES = "app_00000000000000000000000010" as Id<"app">;
+  const APP_PRIVATE = "app_00000000000000000000000011" as Id<"app">;
+
+  const card: AgentCard = {
+    handle: "lophn",
+    name: "Lophn",
+    workspace: null,
+    runtime: "lophn",
+    modality: { input: ["text"], output: ["text"] },
+    replies: ["result"],
+    diff: { plus: [], minus: [] },
+    notes: [],
+    callable: { home: true, here: true },
+  };
+  const seenWorkspaces: unknown[] = [];
+  const lists = createA2aLists({
+    policy: () => ({
+      ...DEFAULT_CALL_POLICY,
+      private: [{ kind: "app", id: APP_PRIVATE }],
+    }),
+    computers: () => [
+      { machine: ORIGIN, device: "dev_pc", name: "MainHome", self: false },
+      { machine: SELF, device: "dev_self", name: "Window", self: true },
+    ],
+    resolve: () =>
+      ok({ machine: ORIGIN, device: "dev_pc", name: "MainHome", self: false }),
+    call: async () =>
+      err({ code: "unavailable", message: "peer disconnected" }),
+    openSessions: () => [],
+    project: () => null,
+    projectByIdentity: () => null,
+    app: (ref) => {
+      if (ref === APP_NOTES || ref === "notes") {
+        return { id: APP_NOTES, name: "notes", archived: false };
+      }
+      if (ref === APP_PRIVATE || ref === "secret") {
+        return { id: APP_PRIVATE, name: "secret", archived: false };
+      }
+      return null;
+    },
+    cards: async (workspace) => {
+      seenWorkspaces.push(workspace);
+      return ok([card]);
+    },
+    sender: () =>
+      ok({ workspace: null, agent: lophnIdOf(null), name: "Lophn" }),
+    remoteWorkspace: () => ok({ app: "notes" }),
+  });
+
+  const peerCtx = {
+    principal: "device:dev_pc",
+    actor: "user",
+    scope: { operations: [], targets: {} },
+    conditions: { process: "remote" },
+    credential_ref: "cred_pc",
+  } as AuthenticatedContext;
+
+  const bySlug = await lists.agents(peerCtx, { workspace: { app: "notes" } });
+  assert.ok(bySlug.ok && bySlug.value.found);
+  assert.deepStrictEqual(seenWorkspaces, [{ kind: "app", id: APP_NOTES }]);
+
+  // private 앱은 slug로 물어도 없는 것과 똑같이 숨긴다.
+  const privBySlug = await lists.agents(peerCtx, {
+    workspace: { app: "secret" },
+  });
+  assert.deepStrictEqual(privBySlug, ok({ found: false, cards: [] }));
+
+  // 대상 컴퓨터가 offline이면 unavailable 코드와 함께 offline/unreachable 원인을 분명히 알린다.
+  const agentCtx = {
+    principal: "agent",
+    actor: "agent:ses_00000000000000000000000001",
+    scope: { operations: [], targets: {} },
+    conditions: { session: "ses_00000000000000000000000001" },
+    credential_ref: "cred_agent",
+  } as AuthenticatedContext;
+  const offline = await lists.machineSessions(agentCtx, {
+    machine: "MainHome",
+  });
+  assert.ok(!offline.ok);
+  assert.equal(offline.error.code, "unavailable");
+  assert.match(offline.error.message, /is offline or unreachable/i);
+
+  // a2a/mail 받는 쪽도 `{ app: slug }`를 로컬 앱 id로 풀어 callsMailApply에 넘긴다.
+  installRouterEnvironment({
+    deps: () =>
+      ({
+        self: () => SELF,
+        directory: {
+          appIdOf: (ref: string) =>
+            ref === "notes"
+              ? ok(APP_NOTES)
+              : err({ code: "not_found", message: "app not found" }),
+        } as SessionDirectory,
+      }) as never,
+    unattendedTurn: () => false,
+  });
+  const appliedMails: unknown[] = [];
+  const handleMail = mailHandler({
+    command: async (_route, input) => {
+      appliedMails.push(input);
+      return ok({ delivery: "running", reason: null, session: null });
+    },
+    sql: { get: () => undefined, all: () => [] },
+    policy: () => DEFAULT_CALL_POLICY,
+    computers: () => [
+      { machine: ORIGIN, device: "dev_pc", name: "MainHome", self: false },
+    ],
+    resolve: () =>
+      ok({ machine: ORIGIN, device: "dev_pc", name: "MainHome", self: false }),
+    self: () => SELF,
+    redact: (blocks) => [...blocks],
+    projectName: () => null,
+    kind: () => "computer",
+    granted: () => false,
+    requesterOf: () => ({
+      kind: "agent",
+      agent: "lophn_home",
+      session: null,
+      name: "Lophn",
+    }),
+    prepare: async () => ok(undefined),
+    now: () => "2026-11-26T00:00:00.000Z",
+    stepReport: async () => ok(null),
+  } satisfies MailEntryDeps);
+
+  const mailRes = await handleMail(peerCtx, {
+    mail: {
+      kind: "call",
+      id: "mal_00000000000000000000000001",
+      call: "cal_00000000000000000000000001",
+      from: {
+        machine: ORIGIN,
+        agent: "lophn_home",
+        session: null,
+        name: "Lophn",
+      },
+      to_machine: SELF,
+      seq: 1,
+      sent_at: "2026-11-26T00:00:00.000Z",
+      expires_at: "2026-12-03T00:00:00.000Z",
+      address: { agent: "lophn", workspace: { app: "notes" } },
+      reply: "none",
+      body: textBlocks("hi"),
+      unattended: false,
+    },
+  });
+  assert.ok(mailRes.ok, JSON.stringify(mailRes));
+  assert.equal(appliedMails.length, 1);
+  assert.deepStrictEqual(
+    (appliedMails[0] as { mail: { address: { workspace: unknown } } }).mail
+      .address.workspace,
+    { app: APP_NOTES },
+  );
+});
+
+test("takeIn matches remote app.json by slug and rejects ambiguous slugs across distinct remote apps", async () => {
+  const SELF = "mch_00000000000000000000000020" as Id<"mch">;
+  const PEER_A = "mch_00000000000000000000000021" as Id<"mch">;
+  const PEER_B = "mch_00000000000000000000000022" as Id<"mch">;
+  const APP_A = "app_00000000000000000000000021" as Id<"app">;
+  const APP_B = "app_00000000000000000000000022" as Id<"app">;
+  const COMMIT = "a".repeat(40);
+
+  const makeCopy = (
+    origin: Id<"mch">,
+    app: Id<"app">,
+    slug: string,
+  ): FolderAppRecordCopy => ({
+    origin,
+    destination: "computers",
+    record: {
+      format: 1,
+      machine: origin,
+      app,
+      slug,
+      name: slug,
+      description: "",
+      sync_to: null,
+      active_release: {
+        code_commit: COMMIT,
+        data_schema: 1,
+        created_at: "2026-11-26T00:00:00.000Z",
+      },
+      data: { head: 0, snapshot: null },
+      source: { head: 1 },
+      read: {},
+      settled: null,
+      horizon: null,
+      revision: 1,
+      updated_at: "2026-11-26T00:00:00.000Z",
+    },
+  });
+
+  const single = [makeCopy(PEER_A, APP_A, "masup")];
+  assert.equal(pickRecord(single, "masup")?.record.app, APP_A);
+
+  const host = {
+    app: (id: Id<"app">) =>
+      ok(
+        id === APP_A
+          ? {
+              slug: "masup",
+              source_path: "/tmp/masup",
+              revision: "1",
+              code_commit: COMMIT,
+            }
+          : null,
+      ),
+    releaseWithCommit: () => ok("rel_00000000000000000000000001" as Id<"rel">),
+  } as unknown as FolderAppsHost;
+
+  const taken = await takeIn(
+    {
+      machine: () => SELF,
+      records: () => single,
+    } as unknown as FolderAppsDeps,
+    host,
+    { app: "masup" },
+  );
+  assert.ok(taken.ok, JSON.stringify(taken));
+  assert.equal(taken.value.app, APP_A);
+  assert.equal(taken.value.installed, "existing");
+
+  // 서로 다른 앱 둘이 같은 slug를 쓰면 id나 --from을 요구한다.
+  const ambiguous = await takeIn(
+    {
+      machine: () => SELF,
+      records: () => [
+        makeCopy(PEER_A, APP_A, "shared"),
+        makeCopy(PEER_B, APP_B, "shared"),
+      ],
+    } as unknown as FolderAppsDeps,
+    host,
+    { app: "shared" },
+  );
+  assert.ok(!ambiguous.ok);
+  assert.equal(ambiguous.error.code, "invalid_input");
+  assert.match(ambiguous.error.message, /--from/);
+});
+
+test("carriesReason keeps detailed reasons for cross-computer/a2a commands while keeping file.read masked", async () => {
+  for (const name of [
+    "call.send",
+    "team.spawn",
+    "session.list",
+    "agent.list",
+    "send",
+  ]) {
+    for (const code of ["not_found", "unavailable", "conflict"]) {
+      assert.equal(carriesReason(name, code), true, `${name} ${code}`);
+    }
+  }
+  assert.equal(carriesReason("file.read", "not_found"), false);
+  assert.equal(carriesReason("file.read", "unavailable"), false);
+
+  const failing = (name: string, code: ErrorCode, message: string) =>
+    defineTool({
+      name,
+      description: "fail",
+      effect: "read",
+      input: z.strictObject({}),
+      routes: [],
+      handler: () => Promise.resolve(err({ code, message })),
+    });
+  const ctx = {
+    listed: [
+      failing("call.send", "not_found", "no project demo on this computer"),
+      failing(
+        "session.list",
+        "unavailable",
+        "MainHome is offline or unreachable right now",
+      ),
+      failing("team.spawn", "not_found", "agent not found"),
+      failing(
+        "agent.list",
+        "unavailable",
+        "MainHome is offline or unreachable",
+      ),
+      failing("send", "not_found", "no such computer"),
+      failing("file.read", "not_found", "secret path"),
+    ],
+  } as unknown as ToolContext;
+
+  const summaryOf = async (wireName: string) =>
+    (await executeToolCall(ctx, wireName, {})).result.summary;
+
+  assert.equal(
+    await summaryOf("call_send"),
+    "tool target is not available: no project demo on this computer",
+  );
+  assert.equal(
+    await summaryOf("session_list"),
+    "tool is unavailable: MainHome is offline or unreachable right now",
+  );
+  assert.equal(
+    await summaryOf("team_spawn"),
+    "tool target is not available: agent not found",
+  );
+  assert.equal(
+    await summaryOf("agent_list"),
+    "tool is unavailable: MainHome is offline or unreachable",
+  );
+  assert.equal(
+    await summaryOf("send"),
+    "tool target is not available: no such computer",
+  );
+  assert.equal(await summaryOf("file_read"), "tool target is not available");
 });

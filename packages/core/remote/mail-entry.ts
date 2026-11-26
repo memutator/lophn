@@ -37,6 +37,7 @@ import {
   remoteStepBody,
   remoteWorkspaceOf,
 } from "../router/mod.ts";
+import { localAppIdOf } from "../router/remote-reach.ts";
 import type { MemoryHandler } from "../server/mod.ts";
 
 // 폴더 길(mail-carry)도 link와 같은 입구로 적용한다. origin은 mail을 실어 온 컴퓨터의 기계다.
@@ -134,6 +135,7 @@ async function sendRemote(
     input.to,
     reach.value.workspace,
     input.spawn,
+    resolved.value.machine as Id<"mch">,
   );
   if (!address.ok) return address;
   if (input.body.some((block) => block.type !== "text")) {
@@ -224,6 +226,7 @@ function remoteAddressOf(
   to: z.infer<typeof callSendRemote.input>["to"],
   callerWorkspace: Parameters<typeof remoteWorkspaceOf>[3],
   spawn: boolean,
+  targetMachine: Id<"mch">,
 ): Result<RemoteAddress> {
   if (!("agent" in to)) return ok({ session: to.session });
   const workspace = remoteWorkspaceOf(
@@ -232,6 +235,7 @@ function remoteAddressOf(
     to.agent,
     callerWorkspace,
     spawn,
+    targetMachine,
   );
   if (!workspace.ok) return workspace;
   return ok(
@@ -313,14 +317,40 @@ async function applyFrom(
     }
     if (!reported.ok) return await refuse(deps, mail, origin, reported);
   }
+  const resolvedMail = resolveIncomingAppSlug(deps.sql, mail);
   const applied = await deps.command(callsMailApply, {
-    mail,
+    mail: resolvedMail,
     origin,
     skip_allowed: deps.granted(computer.machine),
     via,
   });
   if (applied.ok) return ok(applied.value as MailApplied);
-  return await refuse(deps, mail, origin, applied);
+  return await refuse(deps, resolvedMail, origin, applied);
+}
+
+// 받는 call mail의 workspace `{ app }`이 `app_` id 대신 slug면 이 기계의 apps 표에서 id로 푼다.
+// 못 찾으면 그대로 넘겨 Router가 `delivery: "failed", reason: "not_found"`로 닫게 한다(이 route는 not_found를 내지 않는다).
+function resolveIncomingAppSlug(
+  sql: Pick<Sql, "get" | "all">,
+  mail: Mail,
+): Mail {
+  if (
+    mail.kind !== "call" ||
+    !("agent" in mail.address) ||
+    !("app" in mail.address.workspace) ||
+    mail.address.workspace.app.startsWith("app_")
+  ) {
+    return mail;
+  }
+  const appId = localAppIdOf(sql, mail.address.workspace.app);
+  if (appId === null) return mail;
+  return {
+    ...mail,
+    address: {
+      ...mail.address,
+      workspace: { app: appId },
+    },
+  };
 }
 
 async function refuse(

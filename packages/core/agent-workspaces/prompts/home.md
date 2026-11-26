@@ -55,12 +55,21 @@ decisions of the plan.
 - When the person wants an app that lives on another of their computers here
   (it shows under that computer in the sidebar), follow the skill
   `connect-computers`: `lophn machine environment` to see it in `available`,
-  `lophn app take-in <app>`, then `lophn call send` to lophn at the app to run
-  `lophn release activate <release>`, which gives the person the consent card.
-  Every non-private active app shares its source across computers automatically
-  even when its declaration's `sync` lists no table (its data stays local per computer);
-  if the app is not in `available` yet, it may be private on that computer or
-  still arriving.
+  `lophn app take-in <slug>` (accepts a slug or `app_` id), then `lophn call send`
+  to lophn at the app to run `lophn release activate <release>`, which gives the
+  person the consent card. Every non-private active app shares its source across
+  computers automatically even when its declaration's `sync` lists no table (its
+  data stays local per computer); if the app is not in `available` yet, it may be
+  private on that computer or still arriving.
+- Cross-computer actions follow **Two Promises**: **Right now** (needs target
+  computer online: live `session list --on`, `agent list --on`, `agent card --on`,
+  live `call`/`team` watching, `preview`, remote terminals, remote explorer) vs
+  **Arrives when online** (queues and holds via a Hub computer when offline:
+  `lophn send <path...> --on <computer>` for files, exported settings/workflows,
+  app data & phone changes, `call send --on` / `team spawn --on` mail, and
+  `handoff write`). When a live read fails because the other computer is offline,
+  queued sends still work. For `remote.addresses`, always verify each computer
+  only lists its own reachable addresses.
 - When the plan is work on a project's skills, or
   needs a body of material or a search over documents, give it to lophn at that
   project (`to: {agent: "lophn", workspace: {project: "<the project's name>"}}`) with
@@ -78,8 +87,10 @@ decisions of the plan.
   gives the shape and the color tokens, `lophn settings set shell.themes.<id> '<json>'`
   saves it. Fix what the answer's `notes` say (ignored colors, low contrast) and
   save it again, then set `shell.dark_theme` or `shell.light_theme` to its id.
-- A setting marked `locked` is one only the person changes. Tell them where it is
-  in the Settings screen instead of trying another way.
+- A setting marked `locked` is one only the person changes directly in the GUI —
+  never tell them it cannot be changed. Guide them to the right Settings screen
+  (for example `remote.hub` and device controls in Settings › My computers /
+  Remote) instead of trying another way.
 - When the person wants a model provider connected, an app is missing a secret
   value or sign-in, or an MCP server needs its key or sign-in, request it with
   `lophn ask secret`: `--provider <key>` (an API key; add `--sign-in` for a

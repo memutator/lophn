@@ -82,13 +82,24 @@ lophn agent card reviewer --on <computer>
 lophn session list --on <computer>
 lophn call send --on <computer> --to '{"agent":"reviewer","workspace":{"project":"my-project"}}' --reply result --body "..."
 lophn team spawn builder --on <computer> --body "..."
+lophn send <path...> --on <computer> [--note "what these files are for"]
 \`\`\`
 
+Cross-computer actions follow **Two Promises**:
+
+| Promise | Needs target online? | What uses it |
+| --- | --- | --- |
+| **Right now** | Yes | Live reads (\`session list --on\`, \`agent list --on\`, \`agent card --on\`), live watching of \`call\` / \`team\` sessions, app commands / \`preview\`, remote terminals, remote explorer |
+| **Arrives when online** | No (queued; held by a Hub computer if offline) | Sending \`call send --on\` / \`team spawn --on\` mail, sending files (\`lophn send\`), exporting settings/workflows, app data & phone changes, \`handoff write\` |
+
+If a live read (\`session list --on\`, \`agent list --on\`) returns \`unavailable\` because the target computer is offline, do not assume sending is blocked: \`call send --on\`, \`team spawn --on\`, \`lophn send\`, and \`handoff write\` still queue and deliver when it comes back.
+
 - \`machine computers\` lists the person's computers. \`--on <computer>\` takes a name or id from it. Each computer has its own agents, projects and sessions.
-- The workspace there is a project by its cross-computer \`pri_\` id (from \`lophn project identity\` on that computer or from \`agent list --on\`), an app slug, or \`{"home":true}\`. A project name works only when the same project is also on this computer. Without one, \`agent list\` and \`agent card\` look in the workspace you run in, and \`call send\` opens the agent at home as on this computer. \`session list --on\` shows the sessions calls from this computer opened there; send to one with \`--to '{"session":"ses_xxx"}'\`.
-- Only text goes. Files, images and changes you have not committed stay on this computer; if the other side needs code, move it first (for example with git) as your instructions say.
-- A call to a computer that is off goes when it comes back. A session opened by a call from another computer sends no new calls to any computer (answer with \`call reply\`); a member opened with \`team spawn --on\` reaches only the computer that opened it.
+- The workspace there is a project by its cross-computer \`pri_\` id (from \`lophn project identity\` on that computer or from \`agent list --on\`), an app slug or \`app_\` id (an app slug works even when that app is not installed on this computer), or \`{"home":true}\`. A project name works only when the same project is also on this computer. Without one, \`agent list\` and \`agent card\` look in the workspace you run in, and \`call send\` opens the agent at home as on this computer. \`session list --on\` shows the sessions calls from this computer opened there; send to one with \`--to '{"session":"ses_xxx"}'\`.
+- Calls carry text only. To send files or folders to another computer, use \`lophn send <path...> --on <computer> [--note "..."]\` — they land in that computer's inbox (held by a Hub computer if it is offline) and are never auto-extracted or executed. For git project code, check whether \`git\` or \`project.clone\` fits better.
+- A session opened by a call from another computer sends no new calls to any computer (answer with \`call reply\`); a member opened with \`team spawn --on\` reaches only the computer that opened it.
 - \`team spawn <handle> --on <computer>\` opens a team member there: the handle comes from \`agent list --on\` (read its \`agent card --on\` first), and \`--workspace\` works as in \`call send --on\` (without it, your own workspace). It returns at once, even when that computer is off; if the member cannot start there (no such agent, the person there skipped it), the call fails later. The member counts in your team here and \`team read\` shows its computer and state (pending, held, running). It is a leaf: it cannot spawn members. Its \`ask\` comes to you.
+- To install an app shared from another computer onto this one, run \`lophn app take-in <slug>\` (takes either the app's slug or \`app_\` id).
 - Which computer and agent to call is for your instructions and the person to decide; lophn does not pick one.
 
 ## Handoff note

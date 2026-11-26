@@ -15,14 +15,16 @@ import type {
   Workspace,
 } from "../../protocol/lophn-agent/workspaces.ts";
 import type { Sql } from "../../protocol/server/mod.ts";
+import { loadRecords } from "../folder/import/deps.ts";
 import { routerEnvironment } from "./environment.ts";
 import type { SessionDirectory } from "./ports.ts";
+import type { RouterDeps } from "./router.ts";
 
 // 보내는 입구(main thread)가 mail을 넣기 전에 묻는 것. session·project·앱은 Router의 SessionDirectory port로 읽는다.
 
 type ReadSql = Pick<Sql, "get" | "all">;
 
-function directoryOf(sql: ReadSql): Result<SessionDirectory> {
+function depsOf(sql: ReadSql): Result<RouterDeps> {
   const environment = routerEnvironment();
   if (!environment.ok) return environment;
   // 읽기만 한다. commit 뒤 할 일(port)은 session을 열 때만 쓴다.
@@ -32,7 +34,12 @@ function directoryOf(sql: ReadSql): Result<SessionDirectory> {
       throw new Error("a read-only router view has no ports");
     },
   };
-  return ok(environment.value.deps(view, () => "").directory);
+  return ok(environment.value.deps(view, () => ""));
+}
+
+function directoryOf(sql: ReadSql): Result<SessionDirectory> {
+  const deps = depsOf(sql);
+  return deps.ok ? ok(deps.value.directory) : deps;
 }
 
 // 보낸 session이 다른 컴퓨터에 닿아도 되는가. 받은 mail로 열린 session은 목록과 명함을 읽지 못하고 call도 보내지 못한다. 다른 컴퓨터가
@@ -105,6 +112,47 @@ function projectCrossing(
   return ok({ project: identity.value });
 }
 
+function appIdFromFolderRecords(
+  sql: ReadSql,
+  me: Id<"mch">,
+  slug: string,
+  targetMachine?: Id<"mch">,
+): Id<"app"> | null {
+  let stored: ReturnType<typeof loadRecords>;
+  try {
+    stored = loadRecords(sql, me);
+  } catch {
+    return null;
+  }
+  const matches = stored.apps.filter(
+    (row) =>
+      row.forgotten_at === null &&
+      row.record.slug === slug &&
+      (targetMachine === undefined || row.machine === targetMachine),
+  );
+  if (matches.length === 0) return null;
+  // 대상 기계가 없을 때는 여러 기계의 서로 다른 앱과 겹치지 않을 때만 id로 푼다.
+  if (targetMachine === undefined) {
+    const ids = new Set(matches.map((row) => row.app));
+    if (ids.size !== 1) return null;
+    return matches[0].app;
+  }
+  let best = matches[0];
+  for (const row of matches.slice(1)) {
+    if (row.record.updated_at > best.record.updated_at) best = row;
+  }
+  return best.app;
+}
+
+// 받는 쪽이 remote mail의 `{ app }` slug를 이 기계의 앱 id로 푼다. 없거나 router가 아직 연결되지 않았으면 null이다.
+export function localAppIdOf(sql: ReadSql, ref: string): Id<"app"> | null {
+  if (ref.startsWith("app_")) return ref as Id<"app">;
+  const directory = directoryOf(sql);
+  if (!directory.ok) return null;
+  const app = directory.value.appIdOf(ref);
+  return app.ok ? app.value : null;
+}
+
 // 이 기계의 workspace 이름을 기계를 건너는 꼴로 바꾼다. 이름이 없으면 지금 call의 규칙과 같다: handle `lophn`은 부른 쪽 workspace,
 // 다른 agent는 home이다.
 export function remoteWorkspaceOf(
@@ -114,22 +162,32 @@ export function remoteWorkspaceOf(
   callerWorkspace: Workspace | null,
   // `team spawn`은 이 컴퓨터에서처럼 workspace를 빼면 어느 agent든 부른 쪽 workspace다.
   spawn = false,
+  targetMachine?: Id<"mch">,
 ): Result<RemoteWorkspace> {
-  const directory = directoryOf(sql);
-  if (!directory.ok) return directory;
+  const deps = depsOf(sql);
+  if (!deps.ok) return deps;
+  const { directory } = deps.value;
   if (name === undefined) {
     return spawn ||
       agentHandleKey(handle) === agentHandleKey(LOPHN_AGENT_HANDLE)
-      ? crossing(directory.value, callerWorkspace)
+      ? crossing(directory, callerWorkspace)
       : ok({ home: true });
   }
   if ("home" in name) return ok({ home: true });
   if ("project" in name) {
     return name.project.startsWith("pri_")
       ? ok({ project: name.project })
-      : projectCrossing(directory.value, name.project);
+      : projectCrossing(directory, name.project);
   }
   if (name.app.startsWith("app_")) return ok({ app: name.app });
-  const app = directory.value.appIdOf(name.app);
-  return app.ok ? ok({ app: app.value }) : app;
+  const app = directory.appIdOf(name.app);
+  if (app.ok) return ok({ app: app.value });
+  if (app.error.code !== "not_found") return app;
+  const fromFolder = appIdFromFolderRecords(
+    sql,
+    deps.value.self() as Id<"mch">,
+    name.app,
+    targetMachine,
+  );
+  return ok({ app: fromFolder ?? name.app });
 }

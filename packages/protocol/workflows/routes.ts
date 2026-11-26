@@ -23,6 +23,7 @@ import {
 import {
   derivedStatusSchema,
   participantKeySchema,
+  participantSchema,
   sessionChoiceSchema,
   sessionOpenModeSchema,
   stepNameSchema,
@@ -217,6 +218,7 @@ export const workflowInstanceList = defineRead({
     project: idSchema("prj"),
     workflow: workflowNameSchema.optional(),
     state: workflowStateSchema.optional(),
+    one_off: z.boolean().optional(),
     cursor: readCursorSchema.optional(),
   }),
   output: withReadCommon(
@@ -379,9 +381,140 @@ export const workflowSetDefaults = defineMemory({
   errors: [...readErrors, "conflict"],
 });
 
+const inlineStepInputSchema = z.strictObject({
+  name: stepNameSchema,
+  by: participantKeySchema,
+  with: participantKeySchema.optional(),
+  prompt: z.string(),
+  in: z.string().optional(),
+  out: z.string().optional(),
+  next: z.array(stepNextSchema).optional(),
+  open: sessionOpenModeSchema.optional(),
+});
+
+const overrideStepPatchSchema = z.strictObject({
+  by: participantKeySchema.optional(),
+  with: participantKeySchema.nullable().optional(),
+  prompt: z.string().optional(),
+  in: z.string().optional(),
+  out: z.string().optional(),
+  next: z.array(stepNextSchema).optional(),
+  open: sessionOpenModeSchema.nullable().optional(),
+});
+
+const workflowFilesMapSchema = z
+  .record(z.string().min(1).max(512), z.string())
+  .refine((m) => Object.keys(m).length > 0 && Object.keys(m).length <= 200, {
+    message: "files must have between 1 and 200 entries",
+  });
+
+const workflowFilePatchesSchema = z
+  .record(z.string().min(1).max(512), z.string().nullable())
+  .refine((m) => Object.keys(m).length > 0 && Object.keys(m).length <= 200, {
+    message: "files must have between 1 and 200 entries",
+  });
+
+export const workflowRunOverrideSchema = z.strictObject({
+  participants: z
+    .record(participantKeySchema, participantSchema.nullable())
+    .optional(),
+  patch_steps: z.record(stepNameSchema, overrideStepPatchSchema).optional(),
+  add_steps: z
+    .array(
+      z.strictObject({
+        step: inlineStepInputSchema,
+        after: stepNameSchema.optional(),
+      }),
+    )
+    .optional(),
+  remove_steps: z.array(stepNameSchema).optional(),
+  steps: z.array(inlineStepInputSchema).optional(),
+  files: workflowFilePatchesSchema.optional(),
+  agent: z.string().min(1).optional(),
+});
+export type WorkflowRunOverride = z.infer<typeof workflowRunOverrideSchema>;
+
+// 일회성 workflow(workflow 생략 + inline participants/steps 또는 files)나
+// 기존 workflow의 instance 전용 override(workflow + override)를 시작한다.
+// agent가 부르면 검증·flow type-check 뒤에 사람 전용 승인 카드(workflow_run)를 거친다.
+export const workflowRun = defineMemory({
+  resource: "workflows",
+  method: "run",
+  name: "RunWorkflow",
+  changes: [],
+  input: z.strictObject({
+    workflow: workflowKeySchema.optional(),
+    project: z.string().min(1).optional(),
+    name: workflowNameSchema.optional(),
+    title: workflowTitleSchema.optional(),
+    text: z.string().min(1),
+    step: stepNameSchema.optional(),
+    inputs: workflowInputValuesSchema.optional(),
+    open: sessionOpenModeSchema.optional(),
+    step_open: z.record(stepNameSchema, sessionOpenModeSchema).optional(),
+    participants: z.record(participantKeySchema, participantSchema).optional(),
+    steps: z.array(inlineStepInputSchema).optional(),
+    files: workflowFilesMapSchema.optional(),
+    agent: z.string().min(1).optional(),
+    override: workflowRunOverrideSchema.optional(),
+    tool_call: z.string().min(1).optional(),
+  }),
+  output: z.object({
+    instance: workflowInstanceSchema,
+    handed: handResultSchema.nullable(),
+  }),
+  actors: ["user", "agent"],
+  errors: [...readErrors, "conflict"],
+});
+
+// 실행 중·막힌 flow instance 하나의 code_snapshot만 패치해 이어 간다(원본 workflow 폴더는 건드리지 않는다).
+// agent가 부르면 검증·flow type-check 뒤에 사람 전용 승인 카드(workflow_run, override_code)를 거친다.
+export const workflowOverrideCode = defineMemory({
+  resource: "workflows",
+  method: "override-code",
+  name: "OverrideWorkflowCode",
+  changes: [],
+  input: z.strictObject({
+    ...instanceRef,
+    files: workflowFilePatchesSchema,
+    agent: z.string().min(1).optional(),
+    resume: z.boolean().optional(),
+    tool_call: z.string().min(1).optional(),
+  }),
+  output: z.object({
+    instance: workflowInstanceSchema,
+  }),
+  actors: ["user", "agent"],
+  errors: [...readErrors, "conflict"],
+});
+
+// 일회성 또는 override된 instance의 정의·code snapshot을 project의 정식 workflow 폴더로 저장(승격)한다.
+export const workflowSave = defineMemory({
+  resource: "workflows",
+  method: "save",
+  name: "SaveWorkflow",
+  changes: ["projects"],
+  input: z.strictObject({
+    ...instanceRef,
+    name: workflowNameSchema,
+    overwrite: z.boolean().optional(),
+  }),
+  output: z.object({
+    project: idSchema("prj"),
+    name: workflowNameSchema,
+    kind: z.enum(["agent", "flow"]),
+    files_written: z.number().int().nonnegative(),
+  }),
+  actors: ["user", "agent"],
+  errors: [...readErrors, "conflict"],
+});
+
 export const WORKFLOW_ROUTES = [
   workflowList,
   workflowStart,
+  workflowRun,
+  workflowOverrideCode,
+  workflowSave,
   workflowCheck,
   workflowRename,
   workflowDelete,

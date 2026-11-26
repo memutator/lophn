@@ -280,6 +280,15 @@ export function ApprovalCard({
                 </>
               )}
             </>
+          ) : subject.kind === "workflow_run" ? (
+            <>
+              <dt>{t("conversation.label.approval-changes")}</dt>
+              <dd>
+                {subject.lines.map((line) => (
+                  <div key={line}>{line}</div>
+                ))}
+              </dd>
+            </>
           ) : (
             <>
               <dt>{t("conversation.label.approval-target")}</dt>

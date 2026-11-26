@@ -101,6 +101,9 @@ export const workflowInstanceCreate = defineCommand({
     participant_modes: z
       .record(participantKeySchema, permissionModeSchema)
       .optional(),
+    one_off: z.boolean().optional(),
+    overridden: z.boolean().optional(),
+    flow_agent: z.string().min(1).nullable().optional(),
     handoff: handoffPlanSchema.nullable(), // null이면 flow다. 넘기지 않는다
   }),
   output: z.object({
@@ -160,10 +163,12 @@ const changeSchema = z.discriminatedUnion("kind", [
     session: idSchema("ses").nullable(),
     body: z.string().min(1).optional(),
   }),
-  // 사람의 [Resume with updated code]: 최신 flow code snapshot으로 갱신하고 code_updated 줄을 남긴다.
+  // 사람의 [Resume with updated code] 또는 agent의 instance 전용 code override: flow code snapshot을 갱신하고 code_updated 줄을 남긴다.
   z.strictObject({
     kind: z.literal("code_updated"),
     code_snapshot: z.string().min(1),
+    flow_agent: z.string().min(1).nullable().optional(),
+    overridden: z.boolean().optional(),
   }),
   // flow 또는 engine이 사람의 판단을 요청한다(escalated 줄 → derived_status: needs_you).
   z.strictObject({

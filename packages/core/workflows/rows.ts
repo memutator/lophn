@@ -41,6 +41,12 @@ export function instanceFromRow(
   }
   const title =
     typeof row.title === "string" && row.title.length > 0 ? row.title : null;
+  const oneOff = Number(row.one_off ?? 0) === 1;
+  const overridden = Number(row.overridden ?? 0) === 1;
+  const flowAgent =
+    typeof row.flow_agent === "string" && row.flow_agent.length > 0
+      ? row.flow_agent
+      : undefined;
   const parsed = workflowInstanceSchema.safeParse({
     id: row.id,
     project: row.project,
@@ -61,6 +67,9 @@ export function instanceFromRow(
     ...(participantModes !== undefined
       ? { participant_modes: participantModes }
       : {}),
+    ...(oneOff ? { one_off: true } : {}),
+    ...(overridden ? { overridden: true } : {}),
+    ...(flowAgent !== undefined ? { flow_agent: flowAgent } : {}),
     created_at: row.created_at,
     finished_at: row.finished_at,
     state_seq: String(row.state_seq),

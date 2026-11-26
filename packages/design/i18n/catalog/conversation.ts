@@ -598,6 +598,12 @@ export const conversation = {
     "{agent} wants to update project command {name}",
   "conversation.title.approval-project-command-remove":
     "{agent} wants to remove project command {name}",
+  "conversation.title.approval-workflow-one-off":
+    "{agent} wants to run one-off workflow {workflow}",
+  "conversation.title.approval-workflow-override":
+    "{agent} wants to run {workflow} with instance overrides",
+  "conversation.title.approval-workflow-override-code":
+    "{agent} wants to override flow code for {workflow}",
   "conversation.title.consent-handled": "Release approval request handled",
   "conversation.title.consent-waiting":
     "Waiting for your approval to release {app}",

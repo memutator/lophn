@@ -12,6 +12,7 @@ import {
   type HandResult,
   type InstanceStep,
   type NotHandedReason,
+  type Participant,
   type WorkflowEdit,
   type WorkflowInstance,
   type WorkflowState,
@@ -34,6 +35,7 @@ import { EMPTY_FILE_SHA256, parseSnapshotManifest } from "./snapshot.ts";
 import {
   appendLine,
   type Current,
+  hasColumn,
   hasTable,
   insertInstance,
   loadInstance,
@@ -117,6 +119,7 @@ const LOPHN = { kind: "lophn" } as const;
 type Draft = {
   state: WorkflowState;
   current: Current;
+  participants: Record<string, Participant>;
   steps: InstanceStep[];
   finished_at: string | null;
 };
@@ -270,10 +273,15 @@ function handed(
   });
 }
 
-function editSteps(
+function editInstance(
+  participants: Record<string, Participant>,
   steps: InstanceStep[],
   edit: WorkflowEdit,
-): Result<{ steps: InstanceStep[]; step: string | null }> {
+): Result<{
+  participants: Record<string, Participant>;
+  steps: InstanceStep[];
+  step: string | null;
+}> {
   const index = (name: string) => steps.findIndex((s) => s.name === name);
   switch (edit.op) {
     case "add_step": {
@@ -298,7 +306,7 @@ function editSteps(
         next: added.next ?? [],
         ...(added.open !== undefined ? { open: added.open } : {}),
       });
-      return ok({ steps: next, step: added.name });
+      return ok({ participants, steps: next, step: added.name });
     }
     case "update_step": {
       const at = index(edit.name);
@@ -313,17 +321,36 @@ function editSteps(
       const updated = { ...next[at]!, ...patch };
       if (edit.patch.open === null) delete updated.open;
       next[at] = updated;
-      return ok({ steps: next, step: edit.name });
+      return ok({ participants, steps: next, step: edit.name });
     }
     case "remove_step": {
       const at = index(edit.name);
       if (at < 0) return fail("not_found", "step not found");
-      return ok({ steps: steps.filter((_, i) => i !== at), step: edit.name });
+      return ok({
+        participants,
+        steps: steps.filter((_, i) => i !== at),
+        step: edit.name,
+      });
+    }
+    case "set_participant": {
+      return ok({
+        participants: { ...participants, [edit.key]: edit.participant },
+        steps,
+        step: null,
+      });
+    }
+    case "remove_participant": {
+      if (!Object.hasOwn(participants, edit.key)) {
+        return fail("not_found", "participant not found");
+      }
+      const next = { ...participants };
+      delete next[edit.key];
+      return ok({ participants: next, steps, step: null });
     }
     case "end":
-      return ok({ steps, step: null });
+      return ok({ participants, steps, step: null });
     case "hand_now":
-      return ok({ steps, step: edit.step });
+      return ok({ participants, steps, step: edit.step });
   }
 }
 
@@ -383,6 +410,11 @@ export function createWorkflowCommands(
           ...(input.participant_modes !== undefined
             ? { participant_modes: input.participant_modes }
             : {}),
+          ...(input.one_off === true ? { one_off: true } : {}),
+          ...(input.overridden === true ? { overridden: true } : {}),
+          ...(input.flow_agent !== undefined
+            ? { flow_agent: input.flow_agent }
+            : {}),
           participants: input.participants,
           steps: input.steps,
           current: null,
@@ -401,6 +433,7 @@ export function createWorkflowCommands(
           draft: {
             state: "running",
             current: null,
+            participants: input.participants,
             steps: input.steps,
             finished_at: null,
           },
@@ -449,6 +482,7 @@ export function createWorkflowCommands(
           draft: {
             state: current.state,
             current: current.current,
+            participants: current.participants,
             steps: current.steps,
             finished_at: current.finished_at,
           },
@@ -509,9 +543,24 @@ export function createWorkflowCommands(
             if (stopped) {
               return fail("conflict", "workflow instance is stopped");
             }
-            const edited = editSteps(scope.draft.steps, change.edit);
+            const edited = editInstance(
+              scope.draft.participants,
+              scope.draft.steps,
+              change.edit,
+            );
             if (!edited.ok) return edited;
+            scope.draft.participants = edited.value.participants;
             scope.draft.steps = edited.value.steps;
+            if (
+              change.edit.op !== "end" &&
+              change.edit.op !== "hand_now" &&
+              hasColumn(tx.sql, "workflow_instances", "overridden")
+            ) {
+              tx.sql.run(
+                "UPDATE workflow_instances SET overridden = 1 WHERE id = ?",
+                [input.instance],
+              );
+            }
             line = addLine(scope, {
               kind: "edit",
               by: input.by,
@@ -665,13 +714,29 @@ export function createWorkflowCommands(
               change.code_snapshot,
             );
             if (!registered.ok) return registered;
+            const sets = ["code_snapshot = ?"];
+            const params: (string | number | null)[] = [change.code_snapshot];
+            if (
+              change.overridden === true &&
+              hasColumn(tx.sql, "workflow_instances", "overridden")
+            ) {
+              sets.push("overridden = 1");
+            }
+            if (
+              change.flow_agent !== undefined &&
+              hasColumn(tx.sql, "workflow_instances", "flow_agent")
+            ) {
+              sets.push("flow_agent = ?");
+              params.push(change.flow_agent);
+            }
+            params.push(input.instance);
             tx.sql.run(
-              "UPDATE workflow_instances SET code_snapshot = ? WHERE id = ?",
-              [change.code_snapshot, input.instance],
+              `UPDATE workflow_instances SET ${sets.join(", ")} WHERE id = ?`,
+              params,
             );
             line = addLine(scope, {
               kind: "code_updated",
-              by: { kind: "user" },
+              by: input.by,
             });
             break;
           }

@@ -274,6 +274,14 @@ export function approvalFactsOf(
             ]),
       ];
       break;
+    case "workflow_run":
+      facts = [
+        {
+          label: t("conversation.label.approval-changes"),
+          value: subject.lines.join("\n"),
+        },
+      ];
+      break;
     case "app_tool":
     case "mcp_tool":
       facts = [

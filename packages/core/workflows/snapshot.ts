@@ -275,6 +275,210 @@ async function readBlobFromDataRoot(
   }
 }
 
+export async function readWorkflowFolderFiles(
+  workflowDir: string,
+): Promise<Result<Record<string, string>>> {
+  const discovered: { rel: string; abs: string }[] = [];
+
+  async function walk(relDir: string, absDir: string): Promise<Result<void>> {
+    let entries;
+    try {
+      entries = await readdir(absDir, { withFileTypes: true });
+    } catch (e) {
+      if (errorCode(e) === "ENOENT") {
+        return err({
+          code: "not_found",
+          message: "workflow folder not found",
+        });
+      }
+      return err({
+        code: "unavailable",
+        message: "workflow folder could not be read",
+      });
+    }
+    entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+    for (const entry of entries) {
+      if (entry.isSymbolicLink()) continue;
+      if (entry.isDirectory()) {
+        if (EXCLUDED_DIRS.has(entry.name)) continue;
+        const nextRel = relDir === "" ? entry.name : `${relDir}/${entry.name}`;
+        const nested = await walk(nextRel, `${absDir}/${entry.name}`);
+        if (!nested.ok) return nested;
+        continue;
+      }
+      if (!entry.isFile()) continue;
+      const ext = extname(entry.name).toLowerCase();
+      if (!ALLOWED_EXTENSIONS.has(ext)) continue;
+      if (discovered.length >= MAX_SNAPSHOT_FILES) {
+        return err({
+          code: "invalid_input",
+          message: `workflow snapshot exceeds maximum of ${MAX_SNAPSHOT_FILES} files`,
+        });
+      }
+      const rel = relDir === "" ? entry.name : `${relDir}/${entry.name}`;
+      discovered.push({
+        rel: posix.normalize(rel),
+        abs: `${absDir}/${entry.name}`,
+      });
+    }
+    return ok(undefined);
+  }
+
+  const walked = await walk("", workflowDir);
+  if (!walked.ok) return walked;
+  discovered.sort((a, b) => (a.rel < b.rel ? -1 : a.rel > b.rel ? 1 : 0));
+
+  const out: Record<string, string> = {};
+  for (const item of discovered) {
+    let info;
+    try {
+      info = await stat(item.abs);
+    } catch {
+      return err({
+        code: "unavailable",
+        message: `could not stat workflow file ${item.rel}`,
+      });
+    }
+    if (info.size > MAX_SNAPSHOT_FILE_BYTES) {
+      return err({
+        code: "invalid_input",
+        message: `workflow file ${item.rel} exceeds maximum snapshot size`,
+      });
+    }
+    try {
+      out[item.rel] = await readFile(item.abs, "utf8");
+    } catch {
+      return err({
+        code: "unavailable",
+        message: `could not read workflow file ${item.rel}`,
+      });
+    }
+  }
+  return ok(out);
+}
+
+export function mergeWorkflowFiles(
+  base: Readonly<Record<string, string>>,
+  patches: Readonly<Record<string, string | null>>,
+): Result<Record<string, string>> {
+  const merged: Record<string, string> = { ...base };
+  for (const [rawPath, content] of Object.entries(patches)) {
+    if (!isSafeRelativePath(rawPath)) {
+      return err({
+        code: "invalid_input",
+        message: `invalid workflow file path: ${rawPath}`,
+      });
+    }
+    const normalized = posix.normalize(rawPath);
+    if (normalized !== rawPath) {
+      return err({
+        code: "invalid_input",
+        message: `non-canonical workflow file path: ${rawPath}`,
+      });
+    }
+    const top = normalized.split("/")[0]!;
+    if (EXCLUDED_DIRS.has(top)) {
+      return err({
+        code: "invalid_input",
+        message: `workflow file path is in excluded directory: ${rawPath}`,
+      });
+    }
+    if (content === null) {
+      delete merged[normalized];
+      continue;
+    }
+    const ext = extname(normalized).toLowerCase();
+    if (!ALLOWED_EXTENSIONS.has(ext)) {
+      return err({
+        code: "invalid_input",
+        message: `unsupported workflow file extension: ${rawPath}`,
+      });
+    }
+    merged[normalized] = content;
+  }
+  if (Object.keys(merged).length > MAX_SNAPSHOT_FILES) {
+    return err({
+      code: "invalid_input",
+      message: `workflow snapshot exceeds maximum of ${MAX_SNAPSHOT_FILES} files`,
+    });
+  }
+  return ok(merged);
+}
+
+// 인라인 파일 맵을 content-addressed blob으로 고정해 manifest JSON을 만든다(일회성·instance override flow용).
+export async function captureWorkflowFilesSnapshot(
+  inputFiles: Readonly<Record<string, string>>,
+  blobStore: SnapshotBlobStore,
+): Promise<Result<string>> {
+  const checked = mergeWorkflowFiles({}, inputFiles);
+  if (!checked.ok) return checked;
+  const entries = Object.entries(checked.value).sort(([a], [b]) =>
+    a < b ? -1 : a > b ? 1 : 0,
+  );
+  if (!entries.some(([rel]) => rel === WORKFLOW_FLOW_FILE)) {
+    return err({
+      code: "invalid_input",
+      message: `${WORKFLOW_FLOW_FILE} is missing`,
+    });
+  }
+  const encoder = new TextEncoder();
+  const files: WorkflowSnapshotFile[] = [];
+  for (const [rel, content] of entries) {
+    const bytes = encoder.encode(content);
+    if (bytes.byteLength > MAX_SNAPSHOT_FILE_BYTES) {
+      return err({
+        code: "invalid_input",
+        message: `workflow file ${rel} exceeds maximum snapshot size`,
+      });
+    }
+    if (bytes.byteLength === 0) {
+      files.push({
+        path: rel,
+        blob_id: EMPTY_FILE_SHA256,
+        size_bytes: 0,
+      });
+      continue;
+    }
+    const stored = await blobStore.put(bytes, WORKFLOW_SNAPSHOT_BLOB_PURPOSE);
+    if (!stored.ok) return stored;
+    files.push({
+      path: rel,
+      blob_id: stored.value.hash,
+      size_bytes: stored.value.sizeBytes,
+    });
+  }
+  const manifest: WorkflowSnapshotManifest = {
+    version: SNAPSHOT_VERSION,
+    files,
+  };
+  return ok(JSON.stringify(manifest));
+}
+
+// 저장된 code_snapshot manifest JSON에서 모든 파일의 UTF-8 본문을 읽는다(override-code 병합·workflow save용).
+export async function readSnapshotFiles(
+  manifestJson: string,
+  options: MaterializeSnapshotOptions,
+): Promise<Result<Record<string, string>>> {
+  const parsed = parseSnapshotManifest(manifestJson);
+  if (!parsed.ok) return parsed;
+  const readBlob =
+    options.readBlob !== undefined
+      ? options.readBlob
+      : (hash: string) => readBlobFromDataRoot(options.dataRoot, hash);
+  const decoder = new TextDecoder();
+  const out: Record<string, string> = {};
+  for (const file of parsed.value.files) {
+    if (file.blob_id === EMPTY_FILE_SHA256 && (file.size_bytes ?? 0) === 0) {
+      out[file.path] = "";
+      continue;
+    }
+    const fetched = await readBlob(file.blob_id);
+    if (!fetched.ok) return fetched;
+    out[file.path] = decoder.decode(fetched.value);
+  }
+  return ok(out);
+}
+
 // 저장된 code_snapshot manifest JSON을 targetDir 아래에 복원한다(flow-host replay가 실행할 임시 폴더용).
 export async function materializeSnapshot(
   manifestJson: string,

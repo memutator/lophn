@@ -8,6 +8,8 @@ import { idSchema } from "../../protocol/base/ids.ts";
 import { WORKSPACE_KINDS } from "../../protocol/lophn-agent/workspaces.ts";
 import {
   type HandResult,
+  participantKeySchema,
+  participantSchema,
   sessionChoiceSchema,
   sessionOpenModeSchema,
   stepNameSchema,
@@ -22,11 +24,15 @@ import {
   workflowKeySchema,
   workflowList,
   workflowNameSchema,
+  workflowOverrideCode,
   workflowRefsSchema,
   workflowRename,
   workflowReport,
   workflowResume,
   workflowRetry,
+  workflowRun,
+  workflowRunOverrideSchema,
+  workflowSave,
   workflowStart,
   workflowStop,
   workflowTextSchema,
@@ -180,14 +186,24 @@ const [addStep, updateStep] = workflowEditInputSchema.options;
 const edit = defineCommand({
   name: "workflow.edit",
   summary: "Edit a workflow instance",
-  description: `Edit an instance. add_step: --new-step object, optional --after. update_step: --name and --patch. remove_step: --name. end: no extra fields. hand_now: --step name, optional --text/--session. ${TEXT_NOTE} ${STATE_NOTE}`,
+  description: `Edit an instance. add_step: --new-step object, optional --after. update_step: --name and --patch. remove_step: --name. set_participant: --key and --participant. remove_participant: --key. end: no extra fields. hand_now: --step name, optional --text/--session. ${TEXT_NOTE} ${STATE_NOTE}`,
   input: z.strictObject({
     instance,
-    op: z.enum(["add_step", "update_step", "remove_step", "end", "hand_now"]),
+    op: z.enum([
+      "add_step",
+      "update_step",
+      "remove_step",
+      "set_participant",
+      "remove_participant",
+      "end",
+      "hand_now",
+    ]),
     new_step: addStep.shape.step.optional(),
     after: addStep.shape.after,
     name: stepNameSchema.optional(),
     patch: updateStep.shape.patch.optional(),
+    key: participantKeySchema.optional(),
+    participant: participantSchema.optional(),
     step: stepNameSchema.optional(),
     text: workflowTextSchema.optional(),
     session: sessionChoiceSchema.optional(),
@@ -432,11 +448,139 @@ const remove = defineCommand({
   },
 });
 
+const run = defineCommand({
+  name: "workflow.run",
+  summary:
+    "Start a one-off workflow or a per-instance override of an existing workflow",
+  description:
+    "Start a one-off workflow (omit --workflow; pass --participants and --steps for YAML shorthand, or --files containing flow.ts for a programmatic flow) or start an instance of an existing --workflow (<project>/<name>) with per-instance --override (participants, patch_steps, add_steps, remove_steps, steps, files, agent) without modifying the base workflow folder. When called by an agent, flow files are type-checked first and the person approves via an approval card before the instance starts.",
+  input: z.strictObject({
+    workflow: workflowKeySchema
+      .optional()
+      .describe("base <project>/<name> when overriding an existing workflow"),
+    project: z
+      .string()
+      .min(1)
+      .optional()
+      .describe(
+        "target project name or id for one-off workflows (omit in a project workspace)",
+      ),
+    name: workflowNameSchema
+      .optional()
+      .describe("slug label for a one-off workflow (default: one-off)"),
+    title: workflowTitleSchema
+      .optional()
+      .describe("optional run title (default: auto-generated from text)"),
+    text: z.string().min(1),
+    step: stepNameSchema.optional(),
+    inputs: workflowInputValuesSchema.optional(),
+    open: sessionOpenModeSchema.optional(),
+    step_open: z.record(stepNameSchema, sessionOpenModeSchema).optional(),
+    participants: z.record(participantKeySchema, participantSchema).optional(),
+    steps: workflowRun.input.shape.steps,
+    files: workflowRun.input.shape.files,
+    agent: z.string().min(1).optional(),
+    override: workflowRunOverrideSchema.optional(),
+  }),
+  positional: ["text"],
+  effect: "write",
+  routes: [workflowRun],
+  workspaces: ["home", "project"],
+  run: async (input, ctx) => {
+    const started = await ctx.core.read(workflowRun, {
+      ...input,
+      ...(ctx.caller === undefined ? {} : { tool_call: ctx.caller.tool_call }),
+    });
+    if (!started.ok) return started;
+    const { instance: inst, handed } = started.value;
+    const label = inst.one_off
+      ? `one-off workflow ${inst.workflow} started`
+      : inst.overridden
+        ? `overridden workflow ${inst.workflow} started`
+        : `workflow ${inst.workflow} started`;
+    return ok({
+      summary: label,
+      content: { instance: inst, handed },
+      text: inst.id,
+      ...(handed?.outcome === "not_handed"
+        ? { note: `not_handed: ${handed.reason}: ${handed.message}` }
+        : {}),
+    });
+  },
+});
+
+const overrideCode = defineCommand({
+  name: "workflow.override-code",
+  summary:
+    "Override flow code for a single workflow instance without touching the base workflow",
+  description:
+    "Patch files in a running or blocked flow workflow instance's own code snapshot (--files JSON map of relative path to content string, or null to delete) and resume it, leaving the base workflow folder on disk unchanged. Type-checked before asking the person for approval.",
+  input: z.strictObject({
+    instance,
+    files: workflowOverrideCode.input.shape.files,
+    agent: z.string().min(1).optional(),
+    resume: z
+      .boolean()
+      .optional()
+      .describe(
+        "resume the flow process with the patched snapshot (default: true)",
+      ),
+  }),
+  positional: ["instance"],
+  effect: "write",
+  routes: [workflowOverrideCode],
+  workspaces: ["home", "project"],
+  run: async (input, ctx) => {
+    const done = await ctx.core.read(workflowOverrideCode, {
+      ...input,
+      ...(ctx.caller === undefined ? {} : { tool_call: ctx.caller.tool_call }),
+    });
+    if (!done.ok) return done;
+    return ok({
+      summary:
+        input.resume === false
+          ? `overrode flow code for ${done.value.instance.id}`
+          : `overrode flow code and resumed ${done.value.instance.id}`,
+      content: done.value,
+      text: done.value.instance.id,
+    });
+  },
+});
+
+const save = defineCommand({
+  name: "workflow.save",
+  summary:
+    "Save a one-off or overridden workflow instance as a permanent project workflow",
+  description:
+    "Promote a workflow instance (one-off YAML/flow or overridden instance) into a permanent workflow folder under the project's Workflows folder. Pass --overwrite to replace an existing workflow with the same name.",
+  input: z.strictObject({
+    instance,
+    name: workflowNameSchema,
+    overwrite: z.boolean().optional(),
+  }),
+  positional: ["instance", "name"],
+  effect: "write",
+  routes: [workflowSave],
+  workspaces: ["home", "project"],
+  run: async (input, ctx) => {
+    const done = await ctx.core.read(workflowSave, input);
+    if (!done.ok) return done;
+    return ok({
+      summary: `saved ${done.value.kind} workflow ${done.value.name} (${done.value.files_written} files)`,
+      content: done.value,
+      text: done.value.name,
+    });
+  },
+});
+
 export const WORKFLOW_COMMANDS = [
   list,
   get,
   report,
   edit,
+  run,
+  overrideCode,
+  save,
   check,
   rename,
   remove,

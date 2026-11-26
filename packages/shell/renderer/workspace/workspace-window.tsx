@@ -994,12 +994,14 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     }
     commit(next, true, true);
   };
-  // 사라진 workflow의 desk를 Main으로 합친다.
+  // 사라진 workflow 정의의 desk만 Main으로 합친다. 일회성 등 instance 전용 desk는 폴더가 없으므로 건드리지 않는다.
   const mergeVanished = (liveNames: readonly string[]) =>
     mergeDesks(
       Object.values(latestLayout.current.desks).filter(
         (item) =>
-          item.workflow !== undefined && !liveNames.includes(item.workflow),
+          item.workflow !== undefined &&
+          item.workflowInstance === undefined &&
+          !liveNames.includes(item.workflow),
       ),
     );
 
@@ -3763,6 +3765,13 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
             source,
             onOpenArtifact: (name) => openArtifact(host, name),
             onOpenWorkflow: (workflow) => openWorkflow(host, workflow),
+            onOpenWorkflowInstance: (item) =>
+              openWorkflowInstance(
+                host,
+                item.workflow,
+                item.id,
+                instanceTitle(item),
+              ),
             activeWorkflow: desk.workflow,
             onNewWorkflow: () => void openLophn(),
             explorer: {

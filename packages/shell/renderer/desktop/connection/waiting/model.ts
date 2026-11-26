@@ -399,6 +399,33 @@ function permissionView(request: TurnRequest, names: InboxNames) {
         choices,
       };
     }
+    case "workflow_run":
+      return {
+        title:
+          subject.mode === "one_off"
+            ? t("waiting.title.workflow-one-off", {
+                workflow: subject.workflow,
+              })
+            : subject.mode === "override"
+              ? t("waiting.title.workflow-override", {
+                  workflow: subject.workflow,
+                })
+              : t("waiting.title.workflow-override-code", {
+                  workflow: subject.workflow,
+                }),
+        description: t("waiting.notice.workflow-run"),
+        factsPinned: true,
+        outsideRewind,
+        facts: [
+          ...subject.lines.map((line) => ({
+            label: t("waiting.label.fact-workflow"),
+            value: line,
+            style: "text" as const,
+          })),
+          ...extra,
+        ],
+        choices,
+      };
     case "app_tool": {
       const target = toolTarget(subject, names);
       return {

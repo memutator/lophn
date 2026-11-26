@@ -69,6 +69,12 @@ export function lineBy(
 // edit 줄. step이 필요한 op인데 step이 없으면 "고쳤다"로만 읽는다.
 function editText(line: Extract<WorkflowLineView, { kind: "edit" }>): string {
   if (line.op === "end") return t("workflow.label.line-edit-end");
+  if (line.op === "set_participant") {
+    return t("workflow.label.line-edit-set-participant");
+  }
+  if (line.op === "remove_participant") {
+    return t("workflow.label.line-edit-remove-participant");
+  }
   const step = line.step;
   if (step === null) return t("workflow.label.line-edited");
   switch (line.op) {

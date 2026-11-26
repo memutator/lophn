@@ -100,38 +100,6 @@ export function WorkflowPage(props: WorkflowPageProps): ReactElement {
     instance !== null && detail === null,
   );
 
-  if (definitions.state === "loading") {
-    return (
-      <div className={styles.page} data-workflow-page="loading">
-        {showPageLoading ? <Skeleton shape="line" lines={6} /> : null}
-      </div>
-    );
-  }
-  if (definitions.state === "failed") {
-    return (
-      <div className={styles.page} data-workflow-page="failed">
-        <ErrorState
-          target={t("workflow.label.target")}
-          onRetry={state.refresh}
-        />
-      </div>
-    );
-  }
-  const entry = definitions.entry;
-  if (entry === null) {
-    return (
-      <div className={styles.page} data-workflow-page="not-found">
-        <EmptyState
-          icon={commonIcons.workflow}
-          message={t("workflow.empty.not-found")}
-          action={{
-            label: t("workflow.button.refresh"),
-            onSelect: state.refresh,
-          }}
-        />
-      </div>
-    );
-  }
   const toast =
     notice === null ? null : (
       <div className={styles.toastSlot}>
@@ -143,6 +111,8 @@ export function WorkflowPage(props: WorkflowPageProps): ReactElement {
         />
       </div>
     );
+  const entry = definitions.state === "ready" ? definitions.entry : null;
+  // 일회성 workflow나 지워진 workflow의 instance는 폴더 정의가 없어도 Run 화면을 그대로 연다.
   if (instance !== null) {
     return (
       <>
@@ -150,22 +120,24 @@ export function WorkflowPage(props: WorkflowPageProps): ReactElement {
         <div className={styles.page} data-workflow-page="run">
           {detail === null ? (
             <>
-              <div>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  icon={commonIcons.back}
-                  onClick={() => onInstance(null)}
-                >
-                  {t("workflow.button.all-runs")}
-                </Button>
-              </div>
+              {entry === null ? null : (
+                <div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    icon={commonIcons.back}
+                    onClick={() => onInstance(null)}
+                  >
+                    {t("workflow.button.all-runs")}
+                  </Button>
+                </div>
+              )}
               {showRunLoading ? <Skeleton shape="line" lines={6} /> : null}
             </>
           ) : (
             <RunView
               detail={detail}
-              hasArtifact={entry.artifacts.instance}
+              hasArtifact={entry?.artifacts.instance ?? false}
               faceOf={faceOf}
               dotOf={props.dotOf}
               workspaceNameOf={(project) => projectNames.get(project)}
@@ -197,6 +169,37 @@ export function WorkflowPage(props: WorkflowPageProps): ReactElement {
           )}
         </div>
       </>
+    );
+  }
+  if (definitions.state === "loading") {
+    return (
+      <div className={styles.page} data-workflow-page="loading">
+        {showPageLoading ? <Skeleton shape="line" lines={6} /> : null}
+      </div>
+    );
+  }
+  if (definitions.state === "failed") {
+    return (
+      <div className={styles.page} data-workflow-page="failed">
+        <ErrorState
+          target={t("workflow.label.target")}
+          onRetry={state.refresh}
+        />
+      </div>
+    );
+  }
+  if (entry === null) {
+    return (
+      <div className={styles.page} data-workflow-page="not-found">
+        <EmptyState
+          icon={commonIcons.workflow}
+          message={t("workflow.empty.not-found")}
+          action={{
+            label: t("workflow.button.refresh"),
+            onSelect: state.refresh,
+          }}
+        />
+      </div>
     );
   }
   const groups = instances === null ? null : groupRuns(instances);

@@ -44,7 +44,10 @@ import {
 import { JOBS_APPROVAL_MODES_SCHEMA_STEP } from "../../../jobs/mod.ts";
 import { sessionPermissionModeSchemaSteps } from "../../../lophn-agent/session/mod.ts";
 import { openConnection } from "../../../storage/ledger/mod.ts";
-import { WORKFLOW_PARTICIPANT_MODES_SCHEMA_STEP } from "../../../workflows/mod.ts";
+import {
+  WORKFLOW_ONEOFF_OVERRIDE_SCHEMA_STEP,
+  WORKFLOW_PARTICIPANT_MODES_SCHEMA_STEP,
+} from "../../../workflows/mod.ts";
 import { WORKFLOW_OPEN_MODE_SCHEMA_STEP } from "../../../workflows/open-mode-schema.ts";
 import { WORKFLOW_TITLE_SCHEMA_STEP } from "../../../workflows/title-schema.ts";
 import { createProductRedactor, type WiringFactory } from "./context.ts";
@@ -98,6 +101,7 @@ export const projectCommandsWiring: WiringFactory = () => {
       ...sessionPermissionModeSchemaSteps,
       WORKFLOW_PARTICIPANT_MODES_SCHEMA_STEP,
       JOBS_APPROVAL_MODES_SCHEMA_STEP,
+      WORKFLOW_ONEOFF_OVERRIDE_SCHEMA_STEP,
     ],
     operations: () => [
       {

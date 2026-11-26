@@ -83,7 +83,8 @@ interface ProjectGetValue {
 type RawStartedBy =
   | { kind: "user" }
   | { kind: "job"; job: string }
-  | { kind: "workflow"; instance: string };
+  | { kind: "workflow"; instance: string }
+  | { kind: "agent"; session: string };
 
 interface WorkflowListValue {
   workflows: (Omit<WorkflowEntryView, "invalid"> & {

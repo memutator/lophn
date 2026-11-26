@@ -92,6 +92,16 @@ const askedCallOptions = [
     before: projectCommandSummarySchema.nullable(),
     after: projectCommandSummarySchema.nullable(),
   }),
+  // agent가 일회성 workflow를 시작하거나 기존 workflow를 instance 전용으로 override해 시작·패치하려 한다.
+  // lines는 core가 검증된 선언·diff에서 결정적으로 만든 요약 줄이고 always가 없다.
+  z.strictObject({
+    kind: z.literal("workflow_run"),
+    project: idSchema("prj"),
+    mode: z.enum(["one_off", "override", "override_code"]),
+    workflow: z.string().min(1),
+    execution: z.enum(["agent", "flow"]),
+    lines: z.array(z.string().min(1)).min(1),
+  }),
 ] as const;
 
 // 사람에게 물을 수 있는 호출이다. 승인 카드(turn request)와 ACP 승인 subject가 이것만 쓴다.

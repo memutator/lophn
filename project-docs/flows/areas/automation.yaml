@@ -1856,3 +1856,94 @@ flows:
     crosses_process: true
     declared_only: [invalid_input]
     docs: [architecture/workflow.md]
+
+  - id: workflow-run
+    title: 일회성 workflow나 기존 workflow의 instance 전용 override를 시작한다
+    actor: agent
+    entries: [route:workflows/run]
+    boundary: [workflows, approvals, core-api]
+    code: [packages/core/workflows/service.ts, packages/core/workflows/oneoff-override.ts, packages/core/main/flow-host/check.ts, packages/core/main/daemon/wiring/workflows.ts]
+    steps:
+      - 일회성(인라인 YAML·flow 파일) 또는 기존 workflow 기반 override 입력을 검증하고, flow 파일은 승인 전에 type-check한다
+      - agent 호출이면 프로그램이 만든 요약 줄로 tool_gate/check(workflow_run, 사람 전용) 승인을 받은 뒤 원본 폴더를 건드리지 않고 instance(one_off/overridden)를 만들어 실행한다
+    outcomes:
+      - id: started
+        observe: [ledger:workflow_instances, ledger:workflow_lines, event:StateChanged, response]
+      - id: invalid-input
+        code: invalid_input
+        when: 선언·입력 검증이나 flow.ts type-check에 실패한다
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: project, base workflow, 또는 대상 step·participant가 없다
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: 사람 승인 거절, unattended/team_child/read_only 차단, 또는 project 범위 밖이다
+        observe: [response]
+      - id: conflict
+        code: conflict
+        when: base workflow를 시작할 수 없거나 step 이름이 겹친다
+        observe: [response]
+    crosses_process: true
+    risk: [permission]
+    docs: [architecture/workflow.md, architecture/approval.md]
+
+  - id: workflow-override-code
+    title: 실행 중·막힌 flow instance 하나의 code_snapshot만 패치해 이어 간다
+    actor: agent
+    entries: [route:workflows/override-code]
+    boundary: [workflows, approvals, core-api]
+    code: [packages/core/workflows/service.ts, packages/core/workflows/oneoff-override.ts, packages/core/main/flow-host/check.ts, packages/core/main/daemon/wiring/workflows.ts]
+    steps:
+      - instance의 현재 snapshot 파일에 패치를 병합해 type-check하고, agent 호출이면 tool_gate/check(workflow_run, override_code) 사람 승인을 거친다
+      - 원본 workflow 폴더를 건드리지 않고 instance의 code_snapshot만 갱신하고 code_updated 줄을 남긴 뒤 flow process를 재개한다
+    outcomes:
+      - id: overridden
+        observe: [ledger:workflow_instances, ledger:workflow_lines, event:StateChanged, response]
+      - id: invalid-input
+        code: invalid_input
+        when: 파일 경로·확장자 오류, flow.ts 삭제, 또는 type-check 실패
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: instance가 없다
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: 사람 승인 거절, unattended/team_child/read_only 차단, 또는 project 범위 밖이다
+        observe: [response]
+      - id: conflict
+        code: conflict
+        when: running 상태가 아니거나 flow instance가 아니거나 agent/tool step이 실행 중이다
+        observe: [response]
+    crosses_process: true
+    risk: [permission]
+    docs: [architecture/workflow.md, architecture/approval.md]
+
+  - id: workflow-save
+    title: 일회성 또는 override된 workflow instance를 정식 project workflow 폴더로 저장(승격)한다
+    actor: agent
+    entries: [route:workflows/save]
+    boundary: [workflows, core-api]
+    code: [packages/core/workflows/service.ts, packages/core/workflows/oneoff-override.ts, packages/core/main/daemon/wiring/workflows-files.ts, packages/core/main/daemon/wiring/workflows.ts]
+    steps:
+      - instance의 정의(permission_mode 제외)와 flow code_snapshot을 묶어 project의 workflows 폴더에 원자적으로 쓰고 projects StateChanged를 발행한다
+    outcomes:
+      - id: saved
+        observe: [disk:workflow-folder, event:StateChanged, response]
+      - id: not-found
+        code: not_found
+        when: instance가 없다
+        observe: [response]
+      - id: conflict
+        code: conflict
+        when: 같은 이름의 workflow가 이미 있고 overwrite가 거짓이거나 저장할 flow.ts가 없다
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: project 범위 밖이거나 대상 폴더가 symlink다
+        observe: [response]
+    crosses_process: false
+    risk: [data-loss]
+    docs: [architecture/workflow.md]

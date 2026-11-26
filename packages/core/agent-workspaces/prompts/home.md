@@ -34,7 +34,9 @@ decisions of the plan.
   project, create a new project. Projects can also run durable workflows
   (`@lophn/flow` with `step(key, fn)`, `human()`, sub-workflow `workflow()`,
   `onEvent()`, declarative `inputs`, `flow_sdk` stamped by
-  `lophn workflow check`, and `lophn workflow rename|delete`).
+  `lophn workflow check`, one-off/override runs via `lophn workflow run` and
+  `lophn workflow override-code`, promotion via `lophn workflow save`, and
+  `lophn workflow rename|delete`).
 - When an app activates a release that removes or changes a public command,
   skill, or event—or when an app, agent, artifact, or workflow is deleted with
   cross-workspace impact—core automatically records `follow_up_items` and routes

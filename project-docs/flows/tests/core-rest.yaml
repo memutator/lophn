@@ -1086,7 +1086,14 @@ files:
       - workflow-rename:not-found
       - workflow-delete:deleted
       - workflow-delete:not-found
-    note: "켤 때 running flow instance를 닫고 다시 띄우지 않는다. agent instance는 건드리지 않는다. flow_sdk 상태 판정·차단과 WorkflowRename·WorkflowDelete(폴더·ledger·layout·event)를 함께 본다"
+      - workflow-run:started
+      - workflow-run:invalid-input
+      - workflow-run:forbidden
+      - workflow-override-code:overridden
+      - workflow-override-code:conflict
+      - workflow-save:saved
+      - workflow-save:conflict
+    note: "켤 때 running flow instance를 닫고 다시 띄우지 않는다. agent instance는 건드리지 않는다. flow_sdk 상태 판정·차단, WorkflowRename·WorkflowDelete, 일회성/override workflow 실행(type-check 선행·승인 게이트·원본 불변), flow instance code override, edit set_participant, workflow save 승격(permission_mode 제외)을 함께 본다"
 
   - path: packages/core/main/daemon/app-sender-migration_test.ts
     covers:

@@ -547,6 +547,9 @@ links:
   - {entry: "cli:workflow.get", flow: workflow-instance-read}
   - {entry: "cli:workflow.report", flow: workflow-report}
   - {entry: "cli:workflow.edit", flow: workflow-edit}
+  - {entry: "cli:workflow.run", flow: workflow-run}
+  - {entry: "cli:workflow.override-code", flow: workflow-override-code}
+  - {entry: "cli:workflow.save", flow: workflow-save}
   - {entry: "cli:workflow.check", flow: workflow-check}
   - {entry: "cli:workflow.rename", flow: workflow-rename}
   - {entry: "cli:workflow.delete", flow: workflow-delete}

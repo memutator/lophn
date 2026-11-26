@@ -44,6 +44,22 @@ export function titleOf(subject: ApprovalSubject, agent: string): string {
               name,
             });
     }
+    case "workflow_run": {
+      return subject.mode === "one_off"
+        ? t("conversation.title.approval-workflow-one-off", {
+            agent,
+            workflow: subject.workflow,
+          })
+        : subject.mode === "override"
+          ? t("conversation.title.approval-workflow-override", {
+              agent,
+              workflow: subject.workflow,
+            })
+          : t("conversation.title.approval-workflow-override-code", {
+              agent,
+              workflow: subject.workflow,
+            });
+    }
     case "app_tool":
     case "mcp_tool":
       return t("conversation.title.approval-run", {
@@ -127,6 +143,8 @@ export function targetOf(subject: ApprovalSubject): string {
         ? subject.action
         : `${subject.action} ${target.name}`;
     }
+    case "workflow_run":
+      return subject.lines.join(" · ");
     case "file_read":
     case "file_write":
       return subject.path;

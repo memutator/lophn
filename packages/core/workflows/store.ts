@@ -82,6 +82,9 @@ export function insertInstance(
     code_snapshot?: string | null;
     open_mode?: SessionOpenMode | null;
     participant_modes?: Record<string, PermissionMode>;
+    one_off?: boolean;
+    overridden?: boolean;
+    flow_agent?: string | null;
     participants: Record<string, Participant>;
     steps: InstanceStep[];
     current: Current;
@@ -145,6 +148,28 @@ export function insertInstance(
     cols.push("participant_modes_json");
     values.push(JSON.stringify(instance.participant_modes));
   }
+  if (
+    instance.one_off === true &&
+    hasColumn(sql, "workflow_instances", "one_off")
+  ) {
+    cols.push("one_off");
+    values.push(1);
+  }
+  if (
+    instance.overridden === true &&
+    hasColumn(sql, "workflow_instances", "overridden")
+  ) {
+    cols.push("overridden");
+    values.push(1);
+  }
+  if (
+    instance.flow_agent !== undefined &&
+    instance.flow_agent !== null &&
+    hasColumn(sql, "workflow_instances", "flow_agent")
+  ) {
+    cols.push("flow_agent");
+    values.push(instance.flow_agent);
+  }
   const placeholders = cols.map(() => "?").join(", ");
   sql.run(
     `INSERT INTO workflow_instances (${cols.join(", ")}) VALUES (${placeholders})`,
@@ -181,24 +206,42 @@ export function updateInstance(
   change: {
     state: WorkflowState;
     current: Current;
+    participants?: Record<string, Participant>;
     steps: InstanceStep[];
     finished_at: string | null;
   },
 ): Result<void> {
-  const changed = sql.run(
-    `UPDATE workflow_instances SET state = ?, current_step = ?, human_turn = ?,
-       steps = ?, finished_at = ?, state_seq = ?
-     WHERE id = ?`,
-    [
-      change.state,
-      change.current?.step ?? null,
-      change.current?.human_turn ? 1 : 0,
-      JSON.stringify(change.steps),
-      change.finished_at,
-      nextStateSeq(sql),
-      id,
-    ],
-  );
+  const changed =
+    change.participants !== undefined
+      ? sql.run(
+          `UPDATE workflow_instances SET state = ?, current_step = ?, human_turn = ?,
+             participants = ?, steps = ?, finished_at = ?, state_seq = ?
+           WHERE id = ?`,
+          [
+            change.state,
+            change.current?.step ?? null,
+            change.current?.human_turn ? 1 : 0,
+            JSON.stringify(change.participants),
+            JSON.stringify(change.steps),
+            change.finished_at,
+            nextStateSeq(sql),
+            id,
+          ],
+        )
+      : sql.run(
+          `UPDATE workflow_instances SET state = ?, current_step = ?, human_turn = ?,
+             steps = ?, finished_at = ?, state_seq = ?
+           WHERE id = ?`,
+          [
+            change.state,
+            change.current?.step ?? null,
+            change.current?.human_turn ? 1 : 0,
+            JSON.stringify(change.steps),
+            change.finished_at,
+            nextStateSeq(sql),
+            id,
+          ],
+        );
   return Number(changed.changes) === 1
     ? ok(undefined)
     : err({ code: "not_found", message: "workflow instance not found" });
@@ -306,6 +349,7 @@ export function listInstances(
     project: string;
     workflow?: string;
     state?: WorkflowState;
+    one_off?: boolean;
     after?: string;
     limit: number;
   },
@@ -319,6 +363,13 @@ export function listInstances(
   if (filter.state !== undefined) {
     where.push("state = ?");
     params.push(filter.state);
+  }
+  if (
+    filter.one_off !== undefined &&
+    hasColumn(sql, "workflow_instances", "one_off")
+  ) {
+    where.push("one_off = ?");
+    params.push(filter.one_off ? 1 : 0);
   }
   if (filter.after !== undefined) {
     where.push("id < ?");

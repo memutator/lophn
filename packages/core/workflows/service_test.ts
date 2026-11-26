@@ -28,10 +28,13 @@ import {
 import { createRouter } from "../router/mod.ts";
 import type { RoutedInput } from "../router/ports.ts";
 import { createSql } from "../storage/ledger/sqlite.ts";
+import { WORKFLOW_CHECKPOINTS_SCHEMA_STEP } from "./checkpoint-schema.ts";
 import { createWorkflowCommands } from "./commands.ts";
 import { entryOf } from "./declaration.ts";
 import { WORKFLOW_INPUTS_SCHEMA_STEP } from "./inputs-schema.ts";
 import { workflowLinesSchemaSteps } from "./lines-schema.ts";
+import { WORKFLOW_ONEOFF_OVERRIDE_SCHEMA_STEP } from "./oneoff-override-schema.ts";
+import { WORKFLOW_OPEN_MODE_SCHEMA_STEP } from "./open-mode-schema.ts";
 import { WORKFLOW_PARTICIPANT_MODES_SCHEMA_STEP } from "./participant-modes-schema.ts";
 import { redactJsonValues, stepBody } from "./plan.ts";
 import type {
@@ -42,7 +45,7 @@ import type {
   WorkflowFlows,
   WorkflowRemote,
 } from "./ports.ts";
-import { deriveWorkflowStatus } from "./reads.ts";
+import { createWorkflowReads, deriveWorkflowStatus } from "./reads.ts";
 import { workflowsSchemaSteps } from "./schema.ts";
 import { createWorkflowService } from "./service.ts";
 import {
@@ -2038,6 +2041,7 @@ test("workflow participant_modes precedence, harness exclusion, and sub-workflow
   const db = new DatabaseSync(":memory:");
   try {
     db.exec(workflowsSchemaSteps[0]!.sql);
+    db.exec(workflowLinesSchemaSteps[0]!.sql);
     db.exec(WORKFLOW_INPUTS_SCHEMA_STEP.sql);
     db.exec(WORKFLOW_PARTICIPANT_MODES_SCHEMA_STEP.sql);
     const sql = createSql(db, () => true);
@@ -2279,5 +2283,478 @@ test("workflow participant_modes precedence, harness exclusion, and sub-workflow
     assert.deepStrictEqual(routedModes.at(-1), { step: "run", mode: "ask" });
   } finally {
     db.close();
+  }
+});
+
+test("one-off workflows, per-instance start overrides, live edits/override-code, and save promotion", async () => {
+  const root = await mkdtemp(join(tmpdir(), "wf-oneoff-"));
+  const db = new DatabaseSync(":memory:");
+  try {
+    db.exec(workflowsSchemaSteps[0]!.sql);
+    db.exec(workflowLinesSchemaSteps[0]!.sql);
+    db.exec(WORKFLOW_INPUTS_SCHEMA_STEP.sql);
+    db.exec(WORKFLOW_CHECKPOINTS_SCHEMA_STEP.sql);
+    db.exec(WORKFLOW_OPEN_MODE_SCHEMA_STEP.sql);
+    db.exec(WORKFLOW_TITLE_SCHEMA_STEP.sql);
+    db.exec(WORKFLOW_PARTICIPANT_MODES_SCHEMA_STEP.sql);
+    db.exec(WORKFLOW_ONEOFF_OVERRIDE_SCHEMA_STEP.sql);
+    const sql = createSql(db, () => true);
+    const tx = {
+      sql,
+      now: () => AT,
+      newId: (prefix: string) => `${prefix}_01hzzzzzzzzzzzzzzzzzzzzzz9`,
+      port: () => ({ push: () => {} }),
+    } as unknown as Tx;
+    const routed: Array<{ step: string; agent: string; body: string }> = [];
+    const fakeRouter = {
+      route: (_tx: Tx, input: Record<string, unknown>) => {
+        const to = input.to as { agent?: string };
+        const bodyBlocks = input.body as Array<{ text?: string }>;
+        routed.push({
+          step: String((input.step as { step?: string } | undefined)?.step),
+          agent: String(to.agent ?? ""),
+          body: bodyBlocks.map((b) => b.text ?? "").join("\n"),
+        });
+        return ok({
+          call: null,
+          state: "done",
+          fail_reason: null,
+          session: "ses_01hzzzzzzzzzzzzzzzzzzzzzza",
+        });
+      },
+    };
+    const commands = createWorkflowCommands(() => ok(fakeRouter as never));
+    const reads = createWorkflowReads();
+    const machineCtx = { actor: "machine" } as never;
+    const readSnapshot = { sql, as_of_seq: "1" } as never;
+
+    // Seed a base YAML workflow and a base flow workflow on disk.
+    const baseYamlDir = join(root, "projects", PRJ, "workflows", "base-yaml");
+    await mkdir(baseYamlDir, { recursive: true });
+    const baseYamlText = [
+      "participants:",
+      "  worker: { agent: lophn }",
+      "steps:",
+      "  first:",
+      "    by: worker",
+      "    prompt: original prompt",
+      "    next: [end]",
+    ].join("\n");
+    await writeFile(join(baseYamlDir, "workflow.yaml"), baseYamlText, "utf8");
+
+    const baseFlowDir = join(root, "projects", PRJ, "workflows", "base-flow");
+    await mkdir(baseFlowDir, { recursive: true });
+    await writeFile(
+      join(baseFlowDir, "workflow.yaml"),
+      "flow_sdk: 2.1.0\nagent: lophn\n",
+      "utf8",
+    );
+    const baseFlowCode =
+      'import { report } from "@lophn/flow";\nawait report({ step: "run", text: "base", next: "end" });\n';
+    await writeFile(join(baseFlowDir, "flow.ts"), baseFlowCode, "utf8");
+
+    // In-memory content-addressed blob store for snapshots.
+    const blobs = new Map<string, Uint8Array>();
+    const blobStore = {
+      put: async (bytes: Uint8Array) => {
+        const { createHash } = await import("node:crypto");
+        const hash = createHash("sha256").update(bytes).digest("hex");
+        blobs.set(hash, bytes);
+        return ok({ hash, sizeBytes: bytes.byteLength });
+      },
+    };
+    const {
+      captureWorkflowFilesSnapshot,
+      captureWorkflowSnapshot,
+      readSnapshotFiles,
+      readWorkflowFolderFiles,
+    } = await import("./snapshot.ts");
+    const launched: Array<{
+      instance: string;
+      agent: string;
+      codeSnapshot?: string | null;
+    }> = [];
+    const stopped: string[] = [];
+    let checkErrors: string[] = [];
+    const checkedCalls: Record<string, string>[] = [];
+    let idSeq = 0;
+
+    const svc = createWorkflowService({
+      files: createWorkflowFiles(root),
+      projects: {
+        resolve: (ref) =>
+          ref === "demo" || ref === PRJ
+            ? Promise.resolve(ok({ id: PRJ as Id<"prj">, name: "demo" }))
+            : Promise.resolve(
+                err({ code: "not_found", message: "project not found" }),
+              ),
+        nameOf: () => Promise.resolve(ok("demo")),
+      },
+      turns: {
+        stopSession: () => Promise.resolve(ok(undefined)),
+        stepTurn: () => Promise.resolve(ok(null)),
+        openOutgoingCalls: () => Promise.resolve(ok(0)),
+      },
+      remote: {
+        computer: () => err({ code: "not_found", message: "no peer" }),
+        workspace: () => err({ code: "not_found", message: "no ws" }),
+        isPrivate: () => false,
+        receivedStep: () => Promise.resolve(ok(null)),
+        report: () => Promise.resolve(ok(undefined)),
+        handOf: () => ok(null),
+      },
+      store: {
+        create: (input) =>
+          Promise.resolve(commands.create.handle(tx, machineCtx, input, {})),
+        apply: (input, compare) =>
+          Promise.resolve(
+            commands.apply.handle(tx, machineCtx, input, compare),
+          ),
+        read: (instance) =>
+          Promise.resolve(
+            reads.read.handle(readSnapshot, machineCtx, { instance }),
+          ),
+        running: () => Promise.resolve(ok([])),
+        upsertCheckpoint: (input) =>
+          Promise.resolve(
+            commands.upsertCheckpoint.handle(tx, machineCtx, input, {}),
+          ),
+      },
+      snapshots: {
+        capture: (project, workflow) =>
+          captureWorkflowSnapshot(
+            join(root, "projects", project, "workflows", workflow),
+            blobStore,
+          ),
+        captureFiles: (files) => captureWorkflowFilesSnapshot(files, blobStore),
+        readFiles: (manifest) =>
+          readSnapshotFiles(manifest, {
+            readBlob: async (hash) => {
+              const found = blobs.get(hash);
+              return found === undefined
+                ? err({ code: "not_found", message: "missing blob" })
+                : ok(found);
+            },
+          }),
+        readFolderFiles: (project, workflow) =>
+          readWorkflowFolderFiles(
+            join(root, "projects", project, "workflows", workflow),
+          ),
+      },
+      flowChecker: async (files) => {
+        checkedCalls.push({ ...files });
+        return ok({ errors: checkErrors, sdkVersion: "2.1.0" });
+      },
+      flows: {
+        launch: async (start) => {
+          launched.push({
+            instance: start.instance,
+            agent: start.agent,
+            codeSnapshot: start.codeSnapshot,
+          });
+          return ok(undefined);
+        },
+        stop: async (instance) => {
+          stopped.push(instance);
+          return ok(undefined);
+        },
+      },
+      ids: {
+        newId: (prefix: string) =>
+          `${prefix}_01hzzzzzzzzzzzzzzzzzzzzz${String(++idSeq).padStart(2, "0")}` as never,
+      },
+      logger: { info() {}, warn() {}, error() {}, debug() {} } as never,
+    });
+
+    const agentBy = {
+      kind: "agent" as const,
+      session: "ses_01hzzzzzzzzzzzzzzzzzzzzzz1" as Id<"ses">,
+    };
+
+    // 1) One-off flow type-check fails BEFORE approval is ever asked.
+    checkErrors = ["flow.ts(1,1): error TS2304: Cannot find name 'oops'."];
+    let approverCalls = 0;
+    const badFlow = await svc.run(
+      {
+        project: "demo",
+        name: "quick-flow",
+        text: "run quick check",
+        files: { "flow.ts": "oops();" },
+      },
+      agentBy,
+      {
+        approver: async () => {
+          approverCalls += 1;
+          return ok(undefined);
+        },
+      },
+    );
+    assert.ok(!badFlow.ok);
+    assert.equal(badFlow.error.code, "invalid_input");
+    assert.equal(approverCalls, 0);
+
+    // 2) One-off flow rejected by person creates no instance.
+    checkErrors = [];
+    const rejected = await svc.run(
+      {
+        project: "demo",
+        name: "quick-flow",
+        text: "run quick check",
+        files: { "flow.ts": 'import { report } from "@lophn/flow";' },
+      },
+      agentBy,
+      {
+        approver: async () =>
+          err({ code: "forbidden", message: "person rejected" }),
+      },
+    );
+    assert.ok(!rejected.ok);
+    assert.equal(rejected.error.code, "forbidden");
+    assert.equal(launched.length, 0);
+
+    // 3) One-off flow approved starts with one_off=true and flow_agent persisted; resume(use_latest_code) is blocked.
+    const seenApprovals: Array<{ mode: string; lines: readonly string[] }> = [];
+    const oneOffFlow = await svc.run(
+      {
+        project: "demo",
+        name: "quick-flow",
+        agent: "custom-agent",
+        text: "audit repo",
+        files: {
+          "flow.ts":
+            'import { report } from "@lophn/flow";\nawait report({ step: "audit", text: "ok", next: "end" });',
+        },
+      },
+      agentBy,
+      {
+        approver: async (req) => {
+          seenApprovals.push({ mode: req.mode, lines: req.lines });
+          return ok(undefined);
+        },
+      },
+    );
+    assert.ok(oneOffFlow.ok);
+    assert.equal(oneOffFlow.value.instance.one_off, true);
+    assert.equal(oneOffFlow.value.instance.flow_agent, "custom-agent");
+    assert.deepStrictEqual(oneOffFlow.value.instance.started_by, agentBy);
+    assert.equal(seenApprovals[0]?.mode, "one_off");
+    assert.equal(launched.at(-1)?.agent, "custom-agent");
+
+    // Mark blocked via program_exited so resume can be tested.
+    await svc.programExited({
+      instance: oneOffFlow.value.instance.id as Id<"wfi">,
+      code: 1,
+      stderr_tail: "boom",
+    });
+    const latestOnOneOff = await svc.resume({
+      instance: oneOffFlow.value.instance.id as Id<"wfi">,
+      use_latest_code: true,
+    });
+    assert.ok(!latestOnOneOff.ok);
+    assert.equal(latestOnOneOff.error.code, "conflict");
+
+    // 4) Override base flow at start without mutating base-flow/flow.ts on disk.
+    const overriddenFlow = await svc.run(
+      {
+        workflow: "demo/base-flow",
+        text: "custom run",
+        override: {
+          files: {
+            "flow.ts":
+              'import { report } from "@lophn/flow";\nawait report({ step: "run", text: "custom", next: "end" });',
+          },
+          agent: "alt-agent",
+        },
+      },
+      agentBy,
+      {
+        approver: async (req) => {
+          seenApprovals.push({ mode: req.mode, lines: req.lines });
+          return ok(undefined);
+        },
+      },
+    );
+    assert.ok(overriddenFlow.ok);
+    assert.equal(overriddenFlow.value.instance.overridden, true);
+    assert.equal(overriddenFlow.value.instance.flow_agent, "alt-agent");
+    assert.equal(
+      await readFile(join(baseFlowDir, "flow.ts"), "utf8"),
+      baseFlowCode,
+    );
+
+    // 5) Live override-code rejects while an agent checkpoint is started, succeeds when not in-flight, and leaves base folder untouched.
+    await commands.upsertCheckpoint.handle(
+      tx,
+      machineCtx,
+      {
+        instance: overriddenFlow.value.instance.id,
+        key: "step1/agent#1",
+        kind: "agent",
+        state: "started",
+      },
+      {},
+    );
+    const blockedOverride = await svc.overrideCode(
+      {
+        instance: overriddenFlow.value.instance.id,
+        files: { "flow.ts": "// patched" },
+      },
+      agentBy,
+      { approver: async () => ok(undefined) },
+    );
+    assert.ok(!blockedOverride.ok);
+    assert.equal(blockedOverride.error.code, "conflict");
+
+    await commands.upsertCheckpoint.handle(
+      tx,
+      machineCtx,
+      {
+        instance: overriddenFlow.value.instance.id,
+        key: "step1/agent#1",
+        kind: "agent",
+        state: "completed",
+      },
+      {},
+    );
+    const patchedFlow = await svc.overrideCode(
+      {
+        instance: overriddenFlow.value.instance.id,
+        files: {
+          "flow.ts": "// patched v2",
+          "extra.ts": "export const x = 1;",
+        },
+      },
+      agentBy,
+      {
+        approver: async (req) => {
+          seenApprovals.push({ mode: req.mode, lines: req.lines });
+          return ok(undefined);
+        },
+      },
+    );
+    assert.ok(patchedFlow.ok);
+    assert.ok(stopped.includes(overriddenFlow.value.instance.id));
+    assert.equal(seenApprovals.at(-1)?.mode, "override_code");
+    assert.equal(
+      await readFile(join(baseFlowDir, "flow.ts"), "utf8"),
+      baseFlowCode,
+    );
+
+    // 6) Override base YAML at start + live set_participant/remove_participant via edit + save as permanent workflow (stripping permission_mode).
+    const overriddenYaml = await svc.run(
+      {
+        workflow: "demo/base-yaml",
+        text: "custom yaml run",
+        override: {
+          participants: { reviewer: { agent: "claude" } },
+          patch_steps: {
+            first: { prompt: "overridden prompt", next: ["review"] },
+          },
+          add_steps: [
+            {
+              step: {
+                name: "review",
+                by: "reviewer",
+                prompt: "review it",
+                next: ["end"],
+              },
+              after: "first",
+            },
+          ],
+        },
+      },
+      agentBy,
+      { approver: async () => ok(undefined) },
+    );
+    assert.ok(overriddenYaml.ok);
+    assert.equal(overriddenYaml.value.instance.overridden, true);
+    assert.ok(routed.at(-1)?.body.includes("overridden prompt"));
+    assert.equal(
+      await readFile(join(baseYamlDir, "workflow.yaml"), "utf8"),
+      baseYamlText,
+    );
+
+    const editedParticipant = await svc.edit(
+      {
+        instance: overriddenYaml.value.instance.id,
+        op: "set_participant",
+        key: "qa",
+        participant: { agent: "codex" },
+      },
+      agentBy,
+    );
+    assert.ok(editedParticipant.ok);
+
+    // Promote one-off flow and overridden YAML to permanent workflows.
+    const savedFlow = await svc.save({
+      instance: oneOffFlow.value.instance.id,
+      name: "promoted-flow",
+    });
+    assert.ok(savedFlow.ok);
+    assert.equal(savedFlow.value.kind, "flow");
+    const promotedFlowYaml = await readFile(
+      join(
+        root,
+        "projects",
+        PRJ,
+        "workflows",
+        "promoted-flow",
+        "workflow.yaml",
+      ),
+      "utf8",
+    );
+    assert.ok(promotedFlowYaml.includes("agent: custom-agent"));
+
+    const savedYaml = await svc.save({
+      instance: overriddenYaml.value.instance.id,
+      name: "promoted-yaml",
+    });
+    assert.ok(savedYaml.ok);
+    assert.equal(savedYaml.value.kind, "agent");
+    const promotedYamlText = await readFile(
+      join(
+        root,
+        "projects",
+        PRJ,
+        "workflows",
+        "promoted-yaml",
+        "workflow.yaml",
+      ),
+      "utf8",
+    );
+    assert.ok(promotedYamlText.includes("overridden prompt"));
+    assert.ok(promotedYamlText.includes("qa:"));
+    assert.ok(!promotedYamlText.includes("permission_mode"));
+
+    // Conflict when overwrite is false; succeeds when overwrite is true.
+    const conflictSave = await svc.save({
+      instance: overriddenYaml.value.instance.id,
+      name: "promoted-yaml",
+    });
+    assert.ok(!conflictSave.ok);
+    assert.equal(conflictSave.error.code, "conflict");
+
+    const overwriteSave = await svc.save({
+      instance: overriddenYaml.value.instance.id,
+      name: "promoted-yaml",
+      overwrite: true,
+    });
+    assert.ok(overwriteSave.ok);
+
+    // ListWorkflowInstances filters one_off cleanly.
+    const oneOffList = reads.list.handle(readSnapshot, machineCtx, {
+      project: PRJ as Id<"prj">,
+      one_off: true,
+    });
+    assert.ok(oneOffList.ok);
+    assert.equal(oneOffList.value.instances.length, 1);
+    assert.equal(
+      oneOffList.value.instances[0]!.id,
+      oneOffFlow.value.instance.id,
+    );
+    assert.equal(oneOffList.value.instances[0]!.one_off, true);
+  } finally {
+    db.close();
+    await rm(root, { recursive: true, force: true });
   }
 });

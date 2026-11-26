@@ -126,6 +126,7 @@ export interface WorkflowInstanceFilter {
   readonly project: string;
   readonly workflow?: string;
   readonly state?: WorkflowState;
+  readonly one_off?: boolean;
 }
 
 export type WorkflowState = "running" | "ended" | "stopped";
@@ -230,7 +231,8 @@ export type WorkflowStartedBy =
       readonly job: string;
       readonly title: string | null;
     }
-  | { readonly kind: "workflow"; readonly instance: string };
+  | { readonly kind: "workflow"; readonly instance: string }
+  | { readonly kind: "agent"; readonly session: string };
 
 /** instance 줄. 줄은 instance 안에서 1부터 이어 센다(seq는 글). */
 export type WorkflowLineView = {
@@ -351,6 +353,9 @@ export interface WorkflowInstanceView {
   } | null;
   readonly started_by: WorkflowStartedBy;
   readonly code_snapshot?: string | null;
+  readonly one_off?: boolean;
+  readonly overridden?: boolean;
+  readonly flow_agent?: string | null;
   readonly created_at: string;
   readonly finished_at: string | null;
 }
@@ -365,6 +370,8 @@ export interface WorkflowInstanceSummaryView {
   readonly input: string;
   readonly inputs?: Readonly<Record<string, unknown>>;
   readonly started_by: WorkflowStartedBy;
+  readonly one_off?: boolean;
+  readonly overridden?: boolean;
   readonly created_at: string;
   readonly finished_at: string | null;
   readonly last_line: WorkflowLineView | null;

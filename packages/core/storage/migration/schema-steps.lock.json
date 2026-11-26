@@ -454,5 +454,9 @@
   {
     "id": "jobs.approved-modes",
     "sha256": "accebd2f0092651e748bc80a9f581cfaa7a9031ddee1c312ca1e800f7e96a8d9"
+  },
+  {
+    "id": "workflows.instances-oneoff-override",
+    "sha256": "fcb4071dcc084822ad581967bb52cff0c9b26cbc8d6a09e598d50d7ad809ca91"
   }
 ]

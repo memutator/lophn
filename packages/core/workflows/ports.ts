@@ -139,10 +139,37 @@ export type WorkflowStore = {
   children?(parent: Id<"wfi">): Promise<Result<WorkflowInstance[]>>;
 };
 
-// flow 폴더 source를 content-addressed blob으로 고정해 manifest JSON을 만든다.
+// flow 폴더 또는 인라인 파일 맵을 content-addressed blob으로 고정해 manifest JSON을 만든다.
 export type WorkflowSnapshots = {
   capture(project: Id<"prj">, workflow: string): Promise<Result<string>>;
+  captureFiles?(
+    files: Readonly<Record<string, string>>,
+  ): Promise<Result<string>>;
+  readFiles?(manifestJson: string): Promise<Result<Record<string, string>>>;
+  readFolderFiles?(
+    project: Id<"prj">,
+    workflow: string,
+  ): Promise<Result<Record<string, string>>>;
 };
+
+// 일회성·instance override flow 파일을 실행/승인 전에 type-check한다.
+export type WorkflowFlowChecker = (
+  files: Readonly<Record<string, string>>,
+) => Promise<Result<{ errors: string[]; sdkVersion?: string }>>;
+
+// agent가 일회성/override workflow를 실행·패치할 때 사람 승인 게이트(tool_gate/check)에 묻는 port.
+export type WorkflowRunApprovalRequest = {
+  readonly project: Id<"prj">;
+  readonly mode: "one_off" | "override" | "override_code";
+  readonly workflow: string;
+  readonly execution: "agent" | "flow";
+  readonly lines: readonly string[];
+  readonly toolCall?: string;
+};
+
+export type WorkflowRunApprover = (
+  request: WorkflowRunApprovalRequest,
+) => Promise<Result<void>>;
 
 // 다른 컴퓨터의 참가자. 구현은 workflows wiring이 명단(machine links), call 정책, Router의 mail 명령으로 끼운다.
 export type WorkflowRemote = {

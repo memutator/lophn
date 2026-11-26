@@ -31,13 +31,20 @@ skill `write-artifact`.
 Making and keeping this project's workflows is done here: YAML shorthand steps
 and durable programmatic `flow.ts` workflows (`@lophn/flow` with `step(key, fn)`,
 `human()`, sub-workflow `workflow()`, `onEvent()`, declarative `inputs`, and
-`flow_sdk` stamped by `lophn workflow check`). Rename or remove workflows with
-`lophn workflow rename` and `lophn workflow delete`. Before you make or change
-one, read the skill `write-workflow`; when updating a workflow's `flow_sdk`,
-read `migrate-sdk`. Running flow instances keep their start-time `code_snapshot`:
-if you fix a workflow while an instance is `blocked`, tell the person they can
-continue it with `[Resume with updated code]`. Your workspace information gives
-the Workflows folder.
+`flow_sdk` stamped by `lophn workflow check`). You can also start one-off
+workflows or per-instance overrides of existing workflows with
+`lophn workflow run` (type-checked and approved by the person via an approval
+card), patch a single flow instance's code snapshot without touching the base
+folder with `lophn workflow override-code`, edit running YAML instances' steps
+and participants with `lophn workflow edit`, and promote any one-off or
+overridden instance into a permanent workflow with `lophn workflow save`. Rename
+or remove workflows with `lophn workflow rename` and `lophn workflow delete`.
+Before you make or change one, read the skill `write-workflow`; when updating a
+workflow's `flow_sdk`, read `migrate-sdk`. Running flow instances keep their
+start-time `code_snapshot`: if you fix a workflow while an instance is
+`blocked`, tell the person they can continue it with `[Resume with updated code]`
+(or patch only that instance with `lophn workflow override-code`). Your
+workspace information gives the Workflows folder.
 
 ## What you do
 

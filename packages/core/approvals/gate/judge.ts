@@ -76,6 +76,7 @@ function ruleCategoryForCall(call: GateCall): PermissionRuleCategory | null {
     case "setting":
     case "project_command":
     case "project_command_definition":
+    case "workflow_run":
       return null;
   }
 }
@@ -705,6 +706,34 @@ export function evaluatePermission(
         kind: "ask",
         reason:
           "Modifying project command definitions requires explicit person approval.",
+        outside_rewind: true,
+        allowed_choices: ["once", "reject"],
+        personOnly: true,
+      },
+      request,
+      context,
+    );
+  }
+
+  // ---------- workflow_run ----------
+  if (call.kind === "workflow_run") {
+    if (mode === "read_only") {
+      return modeDeny(
+        request,
+        "Running or overriding workflows is blocked in read-only mode.",
+        "workflow_run",
+      );
+    }
+    const reason =
+      call.mode === "one_off"
+        ? `Starting a one-off workflow "${call.workflow}" requires explicit person approval.`
+        : call.mode === "override"
+          ? `Starting "${call.workflow}" with per-instance overrides requires explicit person approval.`
+          : `Patching flow code for "${call.workflow}" requires explicit person approval.`;
+    return finalizeContext(
+      {
+        kind: "ask",
+        reason,
         outside_rewind: true,
         allowed_choices: ["once", "reject"],
         personOnly: true,

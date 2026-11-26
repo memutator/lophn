@@ -1,4 +1,8 @@
 import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
+import {
+  type ToolGateResult,
+  toolGateCheck,
+} from "../../../../protocol/approvals/mod.ts";
 import { type Id, parseActor } from "../../../../protocol/base/mod.ts";
 import { publishStateChanged } from "../../../../protocol/events/changes.ts";
 import {
@@ -25,6 +29,7 @@ import type {
 import {
   type HandoffPlan,
   type LineBy,
+  type StartedBy,
   type WorkflowSoftOutput,
   type WorkflowTitleRequest,
   workflowCheck,
@@ -40,10 +45,13 @@ import {
   workflowInstanceRename,
   workflowInstanceSetAiTitle,
   workflowList,
+  workflowOverrideCode,
   workflowRename,
   workflowReport,
   workflowResume,
   workflowRetry,
+  workflowRun,
+  workflowSave,
   workflowSetDefaults,
   workflowStart,
   workflowStop,
@@ -82,17 +90,21 @@ import {
   type AgentPrimitivePorts,
   type AgentTurnEndedEvent,
   type AgentTurnStartedEvent,
+  captureWorkflowFilesSnapshot,
   captureWorkflowSnapshot,
   createWorkflowService,
   loadCheckpoints,
   loadChildInstances,
   mapTurnOutcomeToReason,
+  readSnapshotFiles,
+  readWorkflowFolderFiles,
   redactCheckpointPayload,
   remoteHandOf,
   runningInstances,
   type WorkflowFlows,
   type WorkflowOutcome,
   type WorkflowRemote,
+  type WorkflowRunApprover,
   type WorkflowSnapshots,
   workflowsNoHarnessKindSteps,
 } from "../../../workflows/mod.ts";
@@ -102,7 +114,7 @@ import type {
   WorkflowLifecycle,
 } from "../../../workflows/ports.ts";
 import { hasTable } from "../../../workflows/store.ts";
-import { checkWorkflow } from "../../flow-host/check.ts";
+import { checkFlowFiles, checkWorkflow } from "../../flow-host/check.ts";
 import { createProductRedactor, type WiringFactory } from "./context.ts";
 import { prepareTexts } from "./router.ts";
 import { turnAnswer } from "./turn-answer.ts";
@@ -620,10 +632,31 @@ export const workflowsWiring: WiringFactory = () => {
         },
       };
 
+      const snapshotBlobStore = () => {
+        const relay = ctx.peek.bodyPrepare;
+        if (relay === undefined) return null;
+        return {
+          async put(bytes: Uint8Array, purpose: string) {
+            const prepared = await prepareBytes(
+              relay,
+              WORKFLOWS_CONTEXT,
+              purpose,
+              bytes,
+              "workflow snapshot",
+            );
+            if (!prepared.ok) return prepared;
+            return ok({
+              hash: prepared.value,
+              sizeBytes: bytes.byteLength,
+            });
+          },
+        };
+      };
+
       const snapshots: WorkflowSnapshots = {
         async capture(project, workflow) {
-          const relay = ctx.peek.bodyPrepare;
-          if (relay === undefined) {
+          const blobStore = snapshotBlobStore();
+          if (blobStore === null) {
             return err({
               code: "unavailable",
               message: "blob preparation is not available",
@@ -631,22 +664,25 @@ export const workflowsWiring: WiringFactory = () => {
           }
           return await captureWorkflowSnapshot(
             workflowFolder(ctx.root.path, project, workflow),
-            {
-              async put(bytes, purpose) {
-                const prepared = await prepareBytes(
-                  relay,
-                  WORKFLOWS_CONTEXT,
-                  purpose,
-                  bytes,
-                  "workflow snapshot",
-                );
-                if (!prepared.ok) return prepared;
-                return ok({
-                  hash: prepared.value,
-                  sizeBytes: bytes.byteLength,
-                });
-              },
-            },
+            blobStore,
+          );
+        },
+        async captureFiles(inputFiles) {
+          const blobStore = snapshotBlobStore();
+          if (blobStore === null) {
+            return err({
+              code: "unavailable",
+              message: "blob preparation is not available",
+            });
+          }
+          return await captureWorkflowFilesSnapshot(inputFiles, blobStore);
+        },
+        readFiles(manifestJson) {
+          return readSnapshotFiles(manifestJson, { dataRoot: ctx.root.path });
+        },
+        readFolderFiles(project, workflow) {
+          return readWorkflowFolderFiles(
+            workflowFolder(ctx.root.path, project, workflow),
           );
         },
       };
@@ -954,6 +990,7 @@ export const workflowsWiring: WiringFactory = () => {
         flows,
         remote,
         snapshots,
+        flowChecker: (inputFiles) => checkFlowFiles(ctx.root.path, inputFiles),
         lifecycle,
         rememberedModesOf(project, workflow) {
           return ctx.settings.get(workflowModesSetting)?.[
@@ -1298,6 +1335,75 @@ export const workflowsWiring: WiringFactory = () => {
           ? { kind: "user" }
           : { kind: "agent", session: who.conditions.session as Id<"ses"> };
 
+      const startedByOf = (who: AuthenticatedContext): StartedBy =>
+        parseActor(who.actor)?.kind === "agent" &&
+        who.conditions.session !== undefined
+          ? { kind: "agent", session: who.conditions.session as Id<"ses"> }
+          : { kind: "user" };
+
+      const approverFor = (
+        who: AuthenticatedContext,
+      ): WorkflowRunApprover | undefined => {
+        if (parseActor(who.actor)?.kind !== "agent") return undefined;
+        return async (request) => {
+          const session = who.conditions.session;
+          const turn = who.conditions.turn;
+          const gate = ctx.runtime.memory.handlers.get(route(toolGateCheck));
+          if (
+            gate === undefined ||
+            request.toolCall === undefined ||
+            session === undefined ||
+            turn === undefined
+          ) {
+            return err({
+              code: "forbidden",
+              message:
+                "running or overriding a workflow requires approval; only an attended lophn agent turn can ask",
+              details: { reason: "needs_approval" },
+            });
+          }
+          const asked = (await gate(who, {
+            session,
+            turn,
+            tool_call: request.toolCall,
+            tool: "lophn",
+            call: {
+              kind: "workflow_run",
+              project: request.project,
+              mode: request.mode,
+              workflow: request.workflow,
+              execution: request.execution,
+              lines: [...request.lines],
+            },
+          })) as Result<ToolGateResult>;
+          if (!asked.ok) return asked;
+          const outcome = asked.value;
+          if (outcome.kind === "run") return ok(undefined);
+          if (outcome.kind === "rejected") {
+            return err({
+              code: "forbidden",
+              message:
+                outcome.reason === null
+                  ? "the person rejected this workflow request"
+                  : `the person rejected this workflow request: ${outcome.reason}`,
+              details: { reason: "needs_approval" },
+            });
+          }
+          if (outcome.kind === "denied") {
+            return err({
+              code: "forbidden",
+              message: outcome.denial.message,
+              details: { reason: outcome.denial.reason_kind },
+            });
+          }
+          return err({
+            code: "forbidden",
+            message: "the approval request ended before it was decided",
+            details: { reason: "needs_approval" },
+          });
+        };
+      };
+
       const handler =
         (
           call: (
@@ -1411,6 +1517,41 @@ export const workflowsWiring: WiringFactory = () => {
           [
             route(workflowStart),
             handler((i) => built.start(i, { kind: "user" })),
+          ],
+          [
+            route(workflowRun),
+            handler(async (i: Parameters<typeof built.run>[0], who) => {
+              const scoped = await resolveScopedProject(who, undefined);
+              if (!scoped.ok) return scoped;
+              const approver = approverFor(who);
+              return built.run(i, startedByOf(who), {
+                defaultProject: scoped.value,
+                scopedProject: scoped.value,
+                ...(approver !== undefined ? { approver } : {}),
+              });
+            }),
+          ],
+          [
+            route(workflowOverrideCode),
+            handler(
+              async (i: Parameters<typeof built.overrideCode>[0], who) => {
+                const scoped = await resolveScopedProject(who, undefined);
+                if (!scoped.ok) return scoped;
+                const approver = approverFor(who);
+                return built.overrideCode(i, byOf(who), {
+                  scopedProject: scoped.value,
+                  ...(approver !== undefined ? { approver } : {}),
+                });
+              },
+            ),
+          ],
+          [
+            route(workflowSave),
+            handler(async (i: Parameters<typeof built.save>[0], who) => {
+              const scoped = await resolveScopedProject(who, undefined);
+              if (!scoped.ok) return scoped;
+              return built.save(i, { scopedProject: scoped.value });
+            }),
           ],
           [
             route(workflowReport),

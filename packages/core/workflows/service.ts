@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer";
 import { z } from "zod";
 import {
   type Clock,
@@ -34,7 +35,10 @@ import {
   type SessionOpenMode,
   type StartedBy,
   validateWorkflowInputs,
+  WORKFLOW_DECLARATION_FILE,
+  WORKFLOW_FLOW_FILE,
   type WorkflowCheckpoint,
+  type WorkflowExportFile,
   type WorkflowSoftOutput,
   type WorkflowTitleRequest,
   type workflowCheckpointUpsert,
@@ -45,10 +49,13 @@ import {
   type workflowInstanceApply,
   type workflowInstanceRead,
   type workflowList,
+  type workflowOverrideCode,
   type workflowRename,
   type workflowReport,
   type workflowResume,
   type workflowRetry,
+  type workflowRun,
+  type workflowSave,
   type workflowSetDefaults,
   type workflowStart,
   type workflowStop,
@@ -70,22 +77,35 @@ import {
   patchWorkflowDeclarationYaml,
   stepsOf,
 } from "./declaration.ts";
+import {
+  applyRunOverrides,
+  buildOneOffApprovalLines,
+  buildOverrideApprovalLines,
+  buildOverrideCodeApprovalLines,
+  hasFlowEntryFile,
+  normalizeInlineSteps,
+  serializeInstanceToYaml,
+  summarizeFileChanges,
+} from "./oneoff-override.ts";
 import { planHandoff, retryContinueBody } from "./plan.ts";
 import type {
   FlowSdkInfo,
   WorkflowAgents,
   WorkflowFiles,
+  WorkflowFlowChecker,
   WorkflowFlows,
   WorkflowLifecycle,
   WorkflowPermissionModes,
   WorkflowProjects,
   WorkflowRemote,
+  WorkflowRunApprover,
   WorkflowSnapshots,
   WorkflowStore,
   WorkflowTurns,
 } from "./ports.ts";
 import { deriveWorkflowStatus } from "./reads.ts";
 import { remoteTurnEndedText } from "./remote.ts";
+import { mergeWorkflowFiles } from "./snapshot.ts";
 import { STATUS_LINE_KINDS, type StatusLineKind } from "./store.ts";
 import { autoWorkflowTitle, renameWorkflowTitle } from "./title-schema.ts";
 import {
@@ -378,6 +398,7 @@ export function createWorkflowService(
     flows: WorkflowFlows;
     remote: WorkflowRemote;
     snapshots?: WorkflowSnapshots;
+    flowChecker?: WorkflowFlowChecker;
     lifecycle?: WorkflowLifecycle;
     agentPorts?: AgentPrimitivePorts;
     onTitleNeeded?: (request: WorkflowTitleRequest) => void;
@@ -395,6 +416,7 @@ export function createWorkflowService(
     flows,
     remote,
     snapshots,
+    flowChecker,
     lifecycle,
     rememberedModesOf,
     agentDefaultModeOf,
@@ -573,7 +595,15 @@ export function createWorkflowService(
   async function resolveFlowAgentName(
     project: Id<"prj">,
     workflow: string,
+    storedFlowAgent?: string | null,
   ): Promise<string> {
+    if (
+      storedFlowAgent !== undefined &&
+      storedFlowAgent !== null &&
+      storedFlowAgent !== ""
+    ) {
+      return storedFlowAgent;
+    }
     if (files === undefined || typeof files.list !== "function") {
       return LOPHN_AGENT_HANDLE;
     }
@@ -933,6 +963,9 @@ export function createWorkflowService(
         ...(effectiveOpen !== undefined ? { open_mode: effectiveOpen } : {}),
         ...(participantModes !== undefined
           ? { participant_modes: participantModes }
+          : {}),
+        ...(parsed.declaration.agent !== undefined
+          ? { flow_agent: parsed.declaration.agent }
           : {}),
         participants,
         steps: flowSteps,
@@ -1742,6 +1775,12 @@ export function createWorkflowService(
     let agent = LOPHN_AGENT_HANDLE;
 
     if (useLatest) {
+      if (instance.one_off === true) {
+        return fail(
+          "conflict",
+          "one-off workflow has no folder on disk; use workflow override-code to patch this instance",
+        );
+      }
       const listed = await files.list(instance.project as Id<"prj">);
       if (!listed.ok) return listed;
       const file = listed.value.find((f) => f.name === instance.workflow);
@@ -1768,7 +1807,13 @@ export function createWorkflowService(
       const updated = await apply(instance.id, ({ instance: fresh }) =>
         ok({
           instance: fresh.id,
-          change: { kind: "code_updated", code_snapshot: captured.value },
+          change: {
+            kind: "code_updated",
+            code_snapshot: captured.value,
+            ...(parsed.declaration.agent !== undefined
+              ? { flow_agent: parsed.declaration.agent }
+              : {}),
+          },
           by: { kind: "user" },
           handoff: null,
         }),
@@ -1785,6 +1830,7 @@ export function createWorkflowService(
       agent = await resolveFlowAgentName(
         instance.project as Id<"prj">,
         instance.workflow,
+        instance.flow_agent,
       );
     }
 
@@ -2375,6 +2421,977 @@ export function createWorkflowService(
 
     start,
 
+    // 일회성 workflow(base 없음) 또는 기존 workflow의 instance 전용 override(base + override)를 시작한다.
+    // agent 호출이면 검증·flow type-check 뒤에 approver(사람 전용 승인 카드)를 거친다.
+    async run(
+      input: z.output<typeof workflowRun.input>,
+      by: StartedBy,
+      options?: {
+        defaultProject?: string | null;
+        scopedProject?: string | null;
+        approver?: WorkflowRunApprover;
+      },
+    ): Promise<Result<z.output<typeof workflowRun.output>>> {
+      let explicitTitle: string | null = null;
+      if (input.title !== undefined) {
+        const checkedTitle = renameWorkflowTitle(input.title);
+        if (!checkedTitle.ok) return checkedTitle;
+        explicitTitle = checkedTitle.value;
+      }
+
+      if (input.workflow === undefined) {
+        // ---------- 일회성(one-off) 모드 ----------
+        if (input.override !== undefined) {
+          return fail(
+            "invalid_input",
+            "override requires a base workflow key (<project>/<name>)",
+          );
+        }
+        const projectRef =
+          input.project ?? options?.defaultProject ?? undefined;
+        if (projectRef === undefined || projectRef === "") {
+          return fail(
+            "invalid_input",
+            "project is required for a one-off workflow",
+          );
+        }
+        const project = await projects.resolve(projectRef);
+        if (!project.ok) return project;
+        if (
+          options?.scopedProject !== undefined &&
+          options.scopedProject !== null &&
+          project.value.id !== options.scopedProject
+        ) {
+          return err({
+            code: "forbidden",
+            message: "an agent can only run workflows in its own project",
+          });
+        }
+
+        const isFlow = hasFlowEntryFile(input.files);
+        if (input.files !== undefined && !isFlow) {
+          return fail(
+            "invalid_input",
+            `files must include ${WORKFLOW_FLOW_FILE}`,
+          );
+        }
+
+        const workflowName = input.name ?? "one-off";
+        const participants = input.participants ?? {};
+        let steps: ReturnType<typeof stepsOf> = [];
+        let checkedFiles: Record<string, string> | undefined;
+
+        if (isFlow) {
+          if (input.step !== undefined) {
+            return fail("invalid_input", "a flow has no step to start from");
+          }
+          const validatedFiles = mergeWorkflowFiles({}, input.files!);
+          if (!validatedFiles.ok) return validatedFiles;
+          checkedFiles = validatedFiles.value;
+          if (flowChecker !== undefined) {
+            const checked = await flowChecker(checkedFiles);
+            if (!checked.ok) return checked;
+            if (checked.value.errors.length > 0) {
+              return fail(
+                "invalid_input",
+                `flow.ts has type errors:\n${checked.value.errors.join("\n")}`,
+              );
+            }
+          }
+          if (input.steps !== undefined && input.steps.length > 0) {
+            const normalized = normalizeInlineSteps(input.steps);
+            if (!normalized.ok) return normalized;
+            steps = normalized.value;
+          }
+        } else {
+          if (
+            Object.keys(participants).length === 0 ||
+            input.steps === undefined ||
+            input.steps.length === 0
+          ) {
+            return fail(
+              "invalid_input",
+              "a one-off YAML workflow requires participants and at least one step (or provide files with flow.ts)",
+            );
+          }
+          const normalized = normalizeInlineSteps(input.steps);
+          if (!normalized.ok) return normalized;
+          steps = normalized.value;
+          if (
+            input.step !== undefined &&
+            !steps.some((s) => s.name === input.step)
+          ) {
+            return fail("not_found", "step not found");
+          }
+        }
+
+        const flowAgent = isFlow
+          ? (input.agent ?? LOPHN_AGENT_HANDLE)
+          : undefined;
+        if (options?.approver !== undefined) {
+          const lines = buildOneOffApprovalLines({
+            projectName: project.value.name,
+            workflow: workflowName,
+            execution: isFlow ? "flow" : "agent",
+            participants,
+            steps,
+            ...(checkedFiles !== undefined ? { files: checkedFiles } : {}),
+            ...(flowAgent !== undefined ? { flowAgent } : {}),
+            ...(input.open !== undefined ? { open: input.open } : {}),
+            text: input.text,
+          });
+          const approved = await options.approver({
+            project: project.value.id,
+            mode: "one_off",
+            workflow: workflowName,
+            execution: isFlow ? "flow" : "agent",
+            lines,
+            ...(input.tool_call !== undefined
+              ? { toolCall: input.tool_call }
+              : {}),
+          });
+          if (!approved.ok) return approved;
+        }
+
+        const validatedInputs =
+          input.inputs !== undefined && Object.keys(input.inputs).length > 0
+            ? input.inputs
+            : undefined;
+        const modesResolved = await resolveParticipantModes({
+          project: project.value.id,
+          workflow: workflowName,
+          participants,
+          steps: isFlow ? undefined : steps,
+          explicit: undefined,
+          explicitSteps: undefined,
+          by,
+          maxMode: undefined,
+          callableRuntimeByName: undefined,
+        });
+        if (!modesResolved.ok) return modesResolved;
+        const { participantModes, stepModes } = modesResolved.value;
+
+        if (isFlow) {
+          if (snapshots === undefined || snapshots.captureFiles === undefined) {
+            return fail("unavailable", "workflow snapshots are not configured");
+          }
+          const captured = await snapshots.captureFiles(checkedFiles!);
+          if (!captured.ok) return captured;
+          const id = ids.newId("wfi") as Id<"wfi">;
+          const initialTitle =
+            explicitTitle ?? autoWorkflowTitle(input.text, validatedInputs);
+          const flowSteps = steps.map((s) => {
+            const override = input.step_open?.[s.name];
+            return override !== undefined ? { ...s, open: override } : s;
+          });
+          const created = await store.create({
+            id,
+            project: project.value.id,
+            workflow: workflowName,
+            ...(initialTitle !== null ? { title: initialTitle } : {}),
+            input: input.text,
+            ...(validatedInputs !== undefined
+              ? { inputs: validatedInputs }
+              : {}),
+            code_snapshot: captured.value,
+            ...(input.open !== undefined ? { open_mode: input.open } : {}),
+            ...(participantModes !== undefined
+              ? { participant_modes: participantModes }
+              : {}),
+            one_off: true,
+            flow_agent: flowAgent!,
+            participants,
+            steps: flowSteps,
+            started_by: by,
+            handoff: null,
+          });
+          if (!created.ok) return created;
+          if (explicitTitle === null) {
+            onTitleNeeded?.({
+              instance: id,
+              workflow: workflowName,
+              input: created.value.instance.input,
+              ...(created.value.instance.inputs !== undefined
+                ? { inputs: created.value.instance.inputs }
+                : {}),
+              expected: created.value.instance.title ?? null,
+            });
+          }
+          const launched = await flows.launch({
+            instance: id,
+            project: project.value.id,
+            workflow: workflowName,
+            input: created.value.instance.input,
+            ...(created.value.instance.inputs !== undefined
+              ? { inputs: created.value.instance.inputs }
+              : {}),
+            agent: flowAgent!,
+            checkpoints: [],
+            codeSnapshot:
+              created.value.instance.code_snapshot ?? captured.value,
+          });
+          if (launched.ok) return created;
+          await programExited({
+            instance: id,
+            code: null,
+            stderr_tail: launched.error.message,
+          });
+          const again = await store.read(id);
+          return ok({
+            instance: again.ok ? again.value.instance : created.value.instance,
+            handed: null,
+          });
+        }
+
+        const effectiveSteps = steps.map((s) => {
+          const override = input.step_open?.[s.name] ?? input.open;
+          const stepMode = stepModes?.[s.name];
+          return {
+            ...s,
+            ...(override !== undefined ? { open: override } : {}),
+            ...(stepMode !== undefined ? { permission_mode: stepMode } : {}),
+          };
+        });
+        const firstStep = input.step ?? effectiveSteps[0]!.name;
+        const id = ids.newId("wfi") as Id<"wfi">;
+        const initialTitle =
+          explicitTitle ?? autoWorkflowTitle(input.text, validatedInputs);
+        const created = await store.create({
+          id,
+          project: project.value.id,
+          workflow: workflowName,
+          ...(initialTitle !== null ? { title: initialTitle } : {}),
+          input: input.text,
+          ...(validatedInputs !== undefined ? { inputs: validatedInputs } : {}),
+          ...(input.open !== undefined ? { open_mode: input.open } : {}),
+          ...(participantModes !== undefined
+            ? { participant_modes: participantModes }
+            : {}),
+          one_off: true,
+          participants,
+          steps: effectiveSteps,
+          started_by: by,
+          handoff: planHandoff({
+            instance: {
+              id,
+              project: project.value.id,
+              participants,
+              steps: effectiveSteps,
+            },
+            step: firstStep,
+            cause: "start",
+            session: null,
+            received: input.text,
+            ...(validatedInputs !== undefined
+              ? { inputs: validatedInputs }
+              : {}),
+            sameSession: () => null,
+            remote,
+          }),
+        });
+        if (created.ok && explicitTitle === null) {
+          onTitleNeeded?.({
+            instance: id,
+            workflow: workflowName,
+            input: created.value.instance.input,
+            ...(created.value.instance.inputs !== undefined
+              ? { inputs: created.value.instance.inputs }
+              : {}),
+            expected: created.value.instance.title ?? null,
+          });
+        }
+        if (created.ok && created.value.handed !== null) {
+          let remoteCall: string | null = null;
+          if (
+            created.value.handed.outcome === "handed" &&
+            created.value.handed.receiver === null
+          ) {
+            const readAfter = await store.read(id);
+            if (readAfter.ok) {
+              const lastHanded = readAfter.value.lines.findLast(
+                (l) => l.kind === "handed",
+              );
+              if (lastHanded?.kind === "handed") {
+                remoteCall = lastHanded.remote?.call ?? null;
+              }
+            }
+          }
+          await recordYamlHandoffCheckpoint(store, {
+            instance: id,
+            handed: created.value.handed,
+            remoteCall,
+          });
+        }
+        return created;
+      }
+
+      // ---------- 기존 workflow의 instance 전용 override 모드 ----------
+      if (
+        input.name !== undefined ||
+        input.participants !== undefined ||
+        input.steps !== undefined ||
+        input.files !== undefined ||
+        input.agent !== undefined
+      ) {
+        return fail(
+          "invalid_input",
+          "use the override object when customizing an existing workflow",
+        );
+      }
+      const [projectRef, name] = input.workflow.split("/") as [string, string];
+      const project = await projects.resolve(projectRef);
+      if (!project.ok) return project;
+      if (
+        options?.scopedProject !== undefined &&
+        options.scopedProject !== null &&
+        project.value.id !== options.scopedProject
+      ) {
+        return err({
+          code: "forbidden",
+          message: "an agent can only run workflows in its own project",
+        });
+      }
+      const listed = await files.list(project.value.id);
+      if (!listed.ok) return listed;
+      const file = listed.value.find((f) => f.name === name);
+      if (file === undefined) {
+        return fail("not_found", "workflow not found");
+      }
+      const sdkInfo = await resolveFlowSdkInfo();
+      const entry = entryOf(project.value.id, input.workflow, file, sdkInfo);
+      const parsed = parseDeclaration(file);
+      if (!entry.startable || !parsed.ok) {
+        return fail(
+          "conflict",
+          entry.problem?.message ?? "workflow cannot be started",
+        );
+      }
+
+      let validatedInputs: Record<string, unknown> | undefined;
+      let callableRuntimeByName: Map<string, string | undefined> | undefined;
+      if (parsed.declaration.inputs !== undefined) {
+        let callableAgents: ReadonlySet<string> | undefined;
+        const needsAgents = Object.values(parsed.declaration.inputs).some(
+          (field) => field.type === "agent",
+        );
+        if (needsAgents && agents !== undefined) {
+          const callable = await agents.listCallable(project.value.id);
+          if (!callable.ok) return callable;
+          callableAgents = new Set(callable.value.map((a) => a.name));
+          callableRuntimeByName = new Map(
+            callable.value.map((a) => [agentHandleKey(a.name), a.kind]),
+          );
+        }
+        const checked = validateWorkflowInputs(
+          parsed.declaration.inputs,
+          input.inputs ?? {},
+          callableAgents === undefined ? {} : { callableAgents },
+        );
+        if (!checked.ok) {
+          const summary = Object.entries(checked.errors)
+            .map(([field, msg]) => `${field}: ${msg}`)
+            .join("; ");
+          return fail("invalid_input", `invalid workflow inputs: ${summary}`);
+        }
+        if (Object.keys(checked.value).length > 0) {
+          validatedInputs = checked.value;
+        }
+      } else if (
+        input.inputs !== undefined &&
+        Object.keys(input.inputs).length > 0
+      ) {
+        validatedInputs = input.inputs;
+      }
+
+      const baseParticipants = participantsOf(parsed.declaration);
+      const baseSteps = file.flow
+        ? flowStepsOf(parsed.declaration)
+        : stepsOf(parsed.declaration);
+      const applied = applyRunOverrides({
+        baseParticipants,
+        baseSteps,
+        override: input.override,
+      });
+      if (!applied.ok) return applied;
+      const { participants, steps: overriddenSteps, diffLines } = applied.value;
+
+      const filePatches = input.override?.files;
+      const effectiveIsFlow = file.flow
+        ? !(
+            filePatches !== undefined &&
+            Object.hasOwn(filePatches, WORKFLOW_FLOW_FILE) &&
+            filePatches[WORKFLOW_FLOW_FILE] === null
+          )
+        : hasFlowEntryFile(filePatches);
+
+      let mergedFiles: Record<string, string> | undefined;
+      let fileChanges: string[] = [];
+      if (effectiveIsFlow) {
+        if (input.step !== undefined) {
+          return fail("invalid_input", "a flow has no step to start from");
+        }
+        if (filePatches !== undefined) {
+          let baseFolderFiles: Record<string, string> = {};
+          if (file.flow) {
+            if (
+              snapshots === undefined ||
+              snapshots.readFolderFiles === undefined
+            ) {
+              return fail(
+                "unavailable",
+                "workflow folder snapshot read is not configured",
+              );
+            }
+            const loadedFolder = await snapshots.readFolderFiles(
+              project.value.id,
+              name,
+            );
+            if (!loadedFolder.ok) return loadedFolder;
+            baseFolderFiles = loadedFolder.value;
+          }
+          const merged = mergeWorkflowFiles(baseFolderFiles, filePatches);
+          if (!merged.ok) return merged;
+          if (!Object.hasOwn(merged.value, WORKFLOW_FLOW_FILE)) {
+            return fail(
+              "invalid_input",
+              `${WORKFLOW_FLOW_FILE} is required for a flow workflow`,
+            );
+          }
+          mergedFiles = merged.value;
+          fileChanges = summarizeFileChanges(baseFolderFiles, filePatches);
+          if (flowChecker !== undefined) {
+            const checked = await flowChecker(mergedFiles);
+            if (!checked.ok) return checked;
+            if (checked.value.errors.length > 0) {
+              return fail(
+                "invalid_input",
+                `flow.ts has type errors:\n${checked.value.errors.join("\n")}`,
+              );
+            }
+          }
+        }
+      } else {
+        if (filePatches !== undefined) {
+          return fail(
+            "invalid_input",
+            `override.files must include ${WORKFLOW_FLOW_FILE} for a flow workflow`,
+          );
+        }
+        if (
+          Object.keys(participants).length === 0 ||
+          overriddenSteps.length === 0
+        ) {
+          return fail(
+            "invalid_input",
+            "YAML workflow requires participants and at least one step after overrides",
+          );
+        }
+      }
+
+      const flowAgent = effectiveIsFlow
+        ? (input.override?.agent ??
+          parsed.declaration.agent ??
+          LOPHN_AGENT_HANDLE)
+        : undefined;
+      const isOverridden =
+        input.override !== undefined ||
+        input.open !== undefined ||
+        (input.step_open !== undefined &&
+          Object.keys(input.step_open).length > 0);
+
+      if (options?.approver !== undefined) {
+        const lines = buildOverrideApprovalLines({
+          projectName: project.value.name,
+          workflow: name,
+          execution: effectiveIsFlow ? "flow" : "agent",
+          diffLines,
+          fileChanges,
+          ...(input.override?.agent !== undefined
+            ? { flowAgentOverride: input.override.agent }
+            : {}),
+          ...(input.open !== undefined ? { openOverride: input.open } : {}),
+          text: input.text,
+        });
+        const approved = await options.approver({
+          project: project.value.id,
+          mode: "override",
+          workflow: name,
+          execution: effectiveIsFlow ? "flow" : "agent",
+          lines,
+          ...(input.tool_call !== undefined
+            ? { toolCall: input.tool_call }
+            : {}),
+        });
+        if (!approved.ok) return approved;
+      }
+
+      const modesResolved = await resolveParticipantModes({
+        project: project.value.id,
+        workflow: name,
+        participants,
+        steps: effectiveIsFlow ? undefined : overriddenSteps,
+        explicit: undefined,
+        explicitSteps: undefined,
+        by,
+        maxMode: undefined,
+        callableRuntimeByName,
+      });
+      if (!modesResolved.ok) return modesResolved;
+      const { participantModes, stepModes } = modesResolved.value;
+
+      if (effectiveIsFlow) {
+        let codeSnapshot: string | undefined;
+        if (mergedFiles !== undefined) {
+          if (snapshots === undefined || snapshots.captureFiles === undefined) {
+            return fail("unavailable", "workflow snapshots are not configured");
+          }
+          const captured = await snapshots.captureFiles(mergedFiles);
+          if (!captured.ok) return captured;
+          codeSnapshot = captured.value;
+        } else if (snapshots !== undefined) {
+          const captured = await snapshots.capture(project.value.id, name);
+          if (!captured.ok) return captured;
+          codeSnapshot = captured.value;
+        }
+        const id = ids.newId("wfi") as Id<"wfi">;
+        const initialTitle =
+          explicitTitle ?? autoWorkflowTitle(input.text, validatedInputs);
+        const flowSteps = overriddenSteps.map((s) => {
+          const override = input.step_open?.[s.name];
+          return override !== undefined ? { ...s, open: override } : s;
+        });
+        const effectiveOpen = input.open ?? parsed.declaration.open;
+        const created = await store.create({
+          id,
+          project: project.value.id,
+          workflow: name,
+          ...(initialTitle !== null ? { title: initialTitle } : {}),
+          input: input.text,
+          ...(validatedInputs !== undefined ? { inputs: validatedInputs } : {}),
+          ...(codeSnapshot !== undefined
+            ? { code_snapshot: codeSnapshot }
+            : {}),
+          ...(effectiveOpen !== undefined ? { open_mode: effectiveOpen } : {}),
+          ...(participantModes !== undefined
+            ? { participant_modes: participantModes }
+            : {}),
+          ...(isOverridden ? { overridden: true } : {}),
+          ...(flowAgent !== undefined ? { flow_agent: flowAgent } : {}),
+          participants,
+          steps: flowSteps,
+          started_by: by,
+          handoff: null,
+        });
+        if (!created.ok) return created;
+        if (explicitTitle === null) {
+          onTitleNeeded?.({
+            instance: id,
+            workflow: name,
+            input: created.value.instance.input,
+            ...(created.value.instance.inputs !== undefined
+              ? { inputs: created.value.instance.inputs }
+              : {}),
+            expected: created.value.instance.title ?? null,
+          });
+        }
+        const launched = await flows.launch({
+          instance: id,
+          project: project.value.id,
+          workflow: name,
+          input: created.value.instance.input,
+          ...(created.value.instance.inputs !== undefined
+            ? { inputs: created.value.instance.inputs }
+            : {}),
+          agent: flowAgent!,
+          checkpoints: [],
+          ...(created.value.instance.code_snapshot !== undefined
+            ? { codeSnapshot: created.value.instance.code_snapshot }
+            : {}),
+        });
+        if (launched.ok) return created;
+        await programExited({
+          instance: id,
+          code: null,
+          stderr_tail: launched.error.message,
+        });
+        const again = await store.read(id);
+        return ok({
+          instance: again.ok ? again.value.instance : created.value.instance,
+          handed: null,
+        });
+      }
+
+      const steps = overriddenSteps.map((s) => {
+        const override = input.step_open?.[s.name] ?? input.open;
+        const stepMode = stepModes?.[s.name];
+        return {
+          ...s,
+          ...(override !== undefined ? { open: override } : {}),
+          ...(stepMode !== undefined ? { permission_mode: stepMode } : {}),
+        };
+      });
+      const defaultStep =
+        parsed.declaration.default_step !== undefined &&
+        steps.some((s) => s.name === parsed.declaration.default_step)
+          ? parsed.declaration.default_step
+          : steps[0]!.name;
+      const step = input.step ?? defaultStep;
+      if (!steps.some((s) => s.name === step)) {
+        return fail("not_found", "step not found");
+      }
+      const id = ids.newId("wfi") as Id<"wfi">;
+      const initialTitle =
+        explicitTitle ?? autoWorkflowTitle(input.text, validatedInputs);
+      const created = await store.create({
+        id,
+        project: project.value.id,
+        workflow: name,
+        ...(initialTitle !== null ? { title: initialTitle } : {}),
+        input: input.text,
+        ...(validatedInputs !== undefined ? { inputs: validatedInputs } : {}),
+        ...(input.open !== undefined ? { open_mode: input.open } : {}),
+        ...(participantModes !== undefined
+          ? { participant_modes: participantModes }
+          : {}),
+        ...(isOverridden ? { overridden: true } : {}),
+        participants,
+        steps,
+        started_by: by,
+        handoff: planHandoff({
+          instance: { id, project: project.value.id, participants, steps },
+          step,
+          cause: "start",
+          session: null,
+          received: input.text,
+          ...(validatedInputs !== undefined ? { inputs: validatedInputs } : {}),
+          sameSession: () => null,
+          remote,
+        }),
+      });
+      if (created.ok && explicitTitle === null) {
+        onTitleNeeded?.({
+          instance: id,
+          workflow: name,
+          input: created.value.instance.input,
+          ...(created.value.instance.inputs !== undefined
+            ? { inputs: created.value.instance.inputs }
+            : {}),
+          expected: created.value.instance.title ?? null,
+        });
+      }
+      if (created.ok && created.value.handed !== null) {
+        let remoteCall: string | null = null;
+        if (
+          created.value.handed.outcome === "handed" &&
+          created.value.handed.receiver === null
+        ) {
+          const readAfter = await store.read(id);
+          if (readAfter.ok) {
+            const lastHanded = readAfter.value.lines.findLast(
+              (l) => l.kind === "handed",
+            );
+            if (lastHanded?.kind === "handed") {
+              remoteCall = lastHanded.remote?.call ?? null;
+            }
+          }
+        }
+        await recordYamlHandoffCheckpoint(store, {
+          instance: id,
+          handed: created.value.handed,
+          remoteCall,
+        });
+      }
+      return created;
+    },
+
+    // 실행 중·막힌 flow instance 하나의 code_snapshot만 패치한다(원본 workflow 폴더는 건드리지 않는다).
+    async overrideCode(
+      input: z.output<typeof workflowOverrideCode.input>,
+      by: LineBy,
+      options?: {
+        scopedProject?: string | null;
+        approver?: WorkflowRunApprover;
+      },
+    ): Promise<Result<z.output<typeof workflowOverrideCode.output>>> {
+      const read = await store.read(input.instance as Id<"wfi">);
+      if (!read.ok) return read;
+      const state = read.value;
+      const { instance, lines } = state;
+      if (
+        options?.scopedProject !== undefined &&
+        options.scopedProject !== null &&
+        instance.project !== options.scopedProject
+      ) {
+        return err({
+          code: "forbidden",
+          message: "an agent can only override workflows in its own project",
+        });
+      }
+      if (instance.state !== "running") {
+        return fail("conflict", `workflow instance is ${instance.state}`);
+      }
+      if (!isFlowInstance(instance, lines)) {
+        return fail(
+          "conflict",
+          "only flow workflow instances support code overrides",
+        );
+      }
+      const checkpoints: WorkflowCheckpoint[] =
+        state.checkpoints ??
+        (await loadCheckpointsOf(instance.id as Id<"wfi">).then((r) =>
+          r.ok && r.value !== undefined ? r.value : [],
+        ));
+      const hasInFlight = checkpoints.some(
+        (cp) =>
+          (cp.kind === "agent" || cp.kind === "tool") && cp.state === "started",
+      );
+      if (hasInFlight) {
+        return fail(
+          "conflict",
+          "cannot override code while an agent or tool step is actively running",
+        );
+      }
+      if (snapshots === undefined || snapshots.captureFiles === undefined) {
+        return fail("unavailable", "workflow snapshots are not configured");
+      }
+      let currentFiles: Record<string, string>;
+      if (
+        instance.code_snapshot !== undefined &&
+        instance.code_snapshot !== null
+      ) {
+        if (snapshots.readFiles === undefined) {
+          return fail(
+            "unavailable",
+            "workflow snapshot read is not configured",
+          );
+        }
+        const loaded = await snapshots.readFiles(instance.code_snapshot);
+        if (!loaded.ok) return loaded;
+        currentFiles = loaded.value;
+      } else if (
+        instance.one_off !== true &&
+        snapshots.readFolderFiles !== undefined
+      ) {
+        const loaded = await snapshots.readFolderFiles(
+          instance.project as Id<"prj">,
+          instance.workflow,
+        );
+        if (!loaded.ok) return loaded;
+        currentFiles = loaded.value;
+      } else {
+        return fail("conflict", "workflow instance has no code snapshot");
+      }
+
+      const merged = mergeWorkflowFiles(currentFiles, input.files);
+      if (!merged.ok) return merged;
+      if (!Object.hasOwn(merged.value, WORKFLOW_FLOW_FILE)) {
+        return fail(
+          "invalid_input",
+          `${WORKFLOW_FLOW_FILE} cannot be removed from a flow instance`,
+        );
+      }
+      if (flowChecker !== undefined) {
+        const checked = await flowChecker(merged.value);
+        if (!checked.ok) return checked;
+        if (checked.value.errors.length > 0) {
+          return fail(
+            "invalid_input",
+            `flow.ts has type errors:\n${checked.value.errors.join("\n")}`,
+          );
+        }
+      }
+
+      const shouldResume = input.resume !== false;
+      const fileChanges = summarizeFileChanges(currentFiles, input.files);
+      if (options?.approver !== undefined) {
+        const approvalLines = buildOverrideCodeApprovalLines({
+          instance: instance.id,
+          workflow: instance.workflow,
+          fileChanges,
+          ...(input.agent !== undefined
+            ? { flowAgentOverride: input.agent }
+            : {}),
+          resume: shouldResume,
+        });
+        const approved = await options.approver({
+          project: instance.project as Id<"prj">,
+          mode: "override_code",
+          workflow: instance.workflow,
+          execution: "flow",
+          lines: approvalLines,
+          ...(input.tool_call !== undefined
+            ? { toolCall: input.tool_call }
+            : {}),
+        });
+        if (!approved.ok) return approved;
+      }
+
+      const captured = await snapshots.captureFiles(merged.value);
+      if (!captured.ok) return captured;
+
+      await flows.stop(instance.id as Id<"wfi">);
+      const updated = await apply(instance.id, ({ instance: fresh }) => {
+        if (fresh.state !== "running") {
+          return fail("conflict", `workflow instance is ${fresh.state}`);
+        }
+        return ok({
+          instance: fresh.id,
+          change: {
+            kind: "code_updated",
+            code_snapshot: captured.value,
+            overridden: true,
+            ...(input.agent !== undefined ? { flow_agent: input.agent } : {}),
+          },
+          by,
+          handoff: null,
+        });
+      });
+      if (!updated.ok) return updated;
+
+      if (shouldResume) {
+        const latestCheckpoints = await loadCheckpointsOf(
+          instance.id as Id<"wfi">,
+        ).then((r) => (r.ok ? r.value : checkpoints));
+        const agent = await resolveFlowAgentName(
+          instance.project as Id<"prj">,
+          instance.workflow,
+          input.agent ?? instance.flow_agent,
+        );
+        const launched = await flows.launch({
+          instance: instance.id as Id<"wfi">,
+          project: instance.project as Id<"prj">,
+          workflow: instance.workflow,
+          input: updated.value.instance.input,
+          ...(updated.value.instance.inputs !== undefined
+            ? { inputs: updated.value.instance.inputs }
+            : {}),
+          agent,
+          checkpoints: latestCheckpoints,
+          codeSnapshot: captured.value,
+        });
+        if (!launched.ok) {
+          await programExited({
+            instance: instance.id as Id<"wfi">,
+            code: null,
+            stderr_tail: launched.error.message,
+          });
+        }
+      }
+
+      const refreshed = await store.read(instance.id as Id<"wfi">);
+      return ok({
+        instance: refreshed.ok
+          ? refreshed.value.instance
+          : updated.value.instance,
+      });
+    },
+
+    // 일회성 또는 override된 instance를 project의 정식 workflow 폴더로 저장(승격)한다.
+    async save(
+      input: z.output<typeof workflowSave.input>,
+      options?: { scopedProject?: string | null },
+    ): Promise<Result<z.output<typeof workflowSave.output>>> {
+      if (typeof files.importBundle !== "function") {
+        return fail("unavailable", "workflow save is not configured");
+      }
+      const read = await store.read(input.instance as Id<"wfi">);
+      if (!read.ok) return read;
+      const { instance, lines } = read.value;
+      if (
+        options?.scopedProject !== undefined &&
+        options.scopedProject !== null &&
+        instance.project !== options.scopedProject
+      ) {
+        return err({
+          code: "forbidden",
+          message: "an agent can only save workflows in its own project",
+        });
+      }
+
+      const flow = isFlowInstance(instance, lines);
+      const bundle: WorkflowExportFile[] = [];
+      const encode = (text: string) =>
+        Buffer.from(text, "utf8").toString("base64");
+
+      if (flow) {
+        let sourceFiles: Record<string, string> = {};
+        if (
+          instance.code_snapshot !== undefined &&
+          instance.code_snapshot !== null
+        ) {
+          if (snapshots === undefined || snapshots.readFiles === undefined) {
+            return fail(
+              "unavailable",
+              "workflow snapshot read is not configured",
+            );
+          }
+          const loaded = await snapshots.readFiles(instance.code_snapshot);
+          if (!loaded.ok) return loaded;
+          sourceFiles = loaded.value;
+        } else if (
+          instance.one_off !== true &&
+          snapshots?.readFolderFiles !== undefined
+        ) {
+          const loaded = await snapshots.readFolderFiles(
+            instance.project as Id<"prj">,
+            instance.workflow,
+          );
+          if (!loaded.ok) return loaded;
+          sourceFiles = loaded.value;
+        }
+        if (!Object.hasOwn(sourceFiles, WORKFLOW_FLOW_FILE)) {
+          return fail(
+            "conflict",
+            "flow instance has no flow.ts snapshot to save",
+          );
+        }
+        const sdkInfo = await resolveFlowSdkInfo();
+        const hasDecl = Object.hasOwn(sourceFiles, WORKFLOW_DECLARATION_FILE);
+        for (const [path, content] of Object.entries(sourceFiles).sort(
+          ([a], [b]) => (a < b ? -1 : a > b ? 1 : 0),
+        )) {
+          bundle.push({ path, content_base64: encode(content) });
+        }
+        if (!hasDecl) {
+          bundle.unshift({
+            path: WORKFLOW_DECLARATION_FILE,
+            content_base64: encode(
+              serializeInstanceToYaml({
+                instance,
+                isFlow: true,
+                flowSdkVersion: sdkInfo.current,
+              }),
+            ),
+          });
+        }
+      } else {
+        bundle.push({
+          path: WORKFLOW_DECLARATION_FILE,
+          content_base64: encode(
+            serializeInstanceToYaml({
+              instance,
+              isFlow: false,
+            }),
+          ),
+        });
+      }
+
+      const written = await files.importBundle(
+        instance.project as Id<"prj">,
+        input.name,
+        bundle,
+        { overwrite: input.overwrite === true },
+      );
+      if (!written.ok) return written;
+      lifecycle?.publishImported?.(instance.project as Id<"prj">, input.name);
+      return ok({
+        project: instance.project as Id<"prj">,
+        name: input.name,
+        kind: flow ? "flow" : "agent",
+        files_written: written.value.files_written,
+      });
+    },
+
     async report(input: z.output<typeof workflowReport.input>, by: LineBy) {
       // 다른 컴퓨터에서 받은 step이면 이 컴퓨터에는 instance가 없다. 그 step을 받은 session의 report만 보낸 컴퓨터로 간다.
       if (by.kind === "agent") {
@@ -2908,6 +3925,7 @@ export function createWorkflowService(
           const agent = await resolveFlowAgentName(
             item.instance.project as Id<"prj">,
             item.instance.workflow,
+            item.instance.flow_agent,
           );
           const launched = await flows.launch({
             instance: item.instance.id as Id<"wfi">,

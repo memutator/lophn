@@ -47,6 +47,7 @@ type PermissionCategory =
   | "setting"
   | "project_command"
   | "project_command_definition"
+  | "workflow_run"
   | "web"
   | "extension_tool"
   | "other";
@@ -142,6 +143,14 @@ type GateCall =
       action: "add" | "update" | "remove";
       before: ProjectCommandSummary | null;
       after: ProjectCommandSummary | null;
+    }
+  | {
+      kind: "workflow_run";
+      project: string;
+      mode: "one_off" | "override" | "override_code";
+      workflow: string;
+      execution: "agent" | "flow";
+      lines: string[];
     };
 
 type AcpApprovalSubject =

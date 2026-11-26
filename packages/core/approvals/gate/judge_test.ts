@@ -427,6 +427,14 @@ test("사람 전용 등급(setting, project_command_definition, 미신뢰 local_
       sha256: "abc123",
       changed: false,
     },
+    {
+      kind: "workflow_run",
+      project: "prj_0000000000000000000000000a",
+      mode: "one_off",
+      workflow: "quick-check",
+      execution: "flow",
+      lines: ['One-off flow workflow "quick-check" in project demo'],
+    },
   ];
 
   for (const call of personOnlyCalls) {
@@ -449,6 +457,22 @@ test("사람 전용 등급(setting, project_command_definition, 미신뢰 local_
       }
     }
   }
+
+  // workflow_run은 read_only 단계에서 mode 거부다.
+  const wfReadOnly = evalReq(
+    {
+      kind: "workflow_run",
+      project: "prj_0000000000000000000000000a",
+      mode: "override",
+      workflow: "feature-cleanroom",
+      execution: "agent",
+      lines: ["Base workflow: demo/feature-cleanroom"],
+    },
+    "read_only",
+    "attended",
+  );
+  assert.strictEqual(wfReadOnly.kind, "deny");
+  assert.strictEqual(wfReadOnly.denial.reason_kind, "mode");
 
   // 신뢰된 local_tool은 통과하고, 바뀌어 아직 신뢰되지 않은 해시는 변경 안내와 함께 다시 묻는다.
   // 사용자가 바뀐 해시를 승인해 localToolTrusted=true가 되면 세션 클로저에 changed=true가 남아 있어도 통과한다.

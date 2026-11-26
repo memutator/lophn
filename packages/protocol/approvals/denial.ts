@@ -15,6 +15,7 @@ export const PERMISSION_CATEGORIES = [
   "setting",
   "project_command",
   "project_command_definition",
+  "workflow_run",
   "web",
   "extension_tool",
   "other",

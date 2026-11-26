@@ -55,11 +55,12 @@ export type LineBy = z.infer<typeof lineBySchema>;
 const userBy = z.strictObject({ kind: z.literal("user") });
 const lophnBy = z.strictObject({ kind: z.literal("lophn") });
 
-// 시작한 쪽: 사람(StartWorkflow), 승인된 job, 또는 같은 project의 상위 workflow
+// 시작한 쪽: 사람(StartWorkflow), 승인된 job, 같은 project의 상위 workflow, 또는 사람 승인을 거친 agent
 export const startedBySchema = z.discriminatedUnion("kind", [
   userBy,
   z.strictObject({ kind: z.literal("job"), job: idSchema("job") }),
   z.strictObject({ kind: z.literal("workflow"), instance: idSchema("wfi") }),
+  z.strictObject({ kind: z.literal("agent"), session: idSchema("ses") }),
 ]);
 export type StartedBy = z.infer<typeof startedBySchema>;
 
@@ -102,6 +103,9 @@ export const workflowInstanceSchema = z
     participant_modes: z
       .record(participantKeySchema, permissionModeSchema)
       .optional(),
+    one_off: z.boolean().optional(),
+    overridden: z.boolean().optional(),
+    flow_agent: z.string().min(1).nullable().optional(),
     created_at: atSchema,
     finished_at: atSchema.nullable(),
     state_seq: seqSchema,
@@ -179,6 +183,15 @@ const removeStep = z.strictObject({
   op: z.literal("remove_step"),
   name: stepNameSchema,
 });
+const setParticipant = z.strictObject({
+  op: z.literal("set_participant"),
+  key: participantKeySchema,
+  participant: participantSchema,
+});
+const removeParticipant = z.strictObject({
+  op: z.literal("remove_participant"),
+  key: participantKeySchema,
+});
 const endEdit = z.strictObject({ op: z.literal("end") });
 const handNow = z.strictObject({
   op: z.literal("hand_now"),
@@ -191,6 +204,8 @@ export const workflowEditSchema = z.discriminatedUnion("op", [
   addStep,
   updateStep,
   removeStep,
+  setParticipant,
+  removeParticipant,
   endEdit,
   handNow,
 ]);
@@ -202,6 +217,8 @@ export const workflowEditInputSchema = z.discriminatedUnion("op", [
   addStep.extend(instanceRef),
   updateStep.extend(instanceRef),
   removeStep.extend(instanceRef),
+  setParticipant.extend(instanceRef),
+  removeParticipant.extend(instanceRef),
   endEdit.extend(instanceRef),
   handNow.extend(instanceRef),
 ]);
@@ -260,7 +277,15 @@ export const workflowLineSchema = z.discriminatedUnion("kind", [
   }),
   reportLineSchema,
   line("edit", lineBySchema, {
-    op: z.enum(["add_step", "update_step", "remove_step", "end", "hand_now"]),
+    op: z.enum([
+      "add_step",
+      "update_step",
+      "remove_step",
+      "set_participant",
+      "remove_participant",
+      "end",
+      "hand_now",
+    ]),
     step: z.string().nullable(),
     detail: z.json(), // 고친 입력 그대로
   }),
@@ -311,8 +336,8 @@ export const workflowLineSchema = z.discriminatedUnion("kind", [
     step: z.string().nullable(),
     text: z.string(),
   }),
-  // 사람이 [Resume with updated code]로 최신 flow code를 snapshot에 적용했다.
-  line("code_updated", userBy, {}),
+  // 사람이 [Resume with updated code] 또는 agent가 instance 전용 flow code override를 적용했다.
+  line("code_updated", lineBySchema, {}),
 ]);
 export type WorkflowLine = z.infer<typeof workflowLineSchema>;
 export type HandedLine = Extract<WorkflowLine, { kind: "handed" }>;
@@ -435,6 +460,8 @@ export const workflowInstanceSummarySchema = z.object({
   input: z.string(),
   inputs: workflowInputValuesSchema.optional(),
   started_by: startedBySchema,
+  one_off: z.boolean().optional(),
+  overridden: z.boolean().optional(),
   created_at: atSchema,
   finished_at: atSchema.nullable(),
   last_line: workflowLineSchema.nullable(),

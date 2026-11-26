@@ -390,6 +390,7 @@ export function createWorkflowReads(deps: WorkflowReadDeps = {}): {
           project: input.project,
           ...(input.workflow === undefined ? {} : { workflow: input.workflow }),
           ...(input.state === undefined ? {} : { state: input.state }),
+          ...(input.one_off === undefined ? {} : { one_off: input.one_off }),
           ...(input.cursor === undefined ? {} : { after: input.cursor }),
           limit: PAGE + 1,
         });
@@ -412,6 +413,8 @@ export function createWorkflowReads(deps: WorkflowReadDeps = {}): {
               ? { inputs: instance.inputs }
               : {}),
             started_by: instance.started_by,
+            ...(instance.one_off === true ? { one_off: true } : {}),
+            ...(instance.overridden === true ? { overridden: true } : {}),
             created_at: instance.created_at,
             finished_at: instance.finished_at,
             last_line: last.value,

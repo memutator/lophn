@@ -32,6 +32,7 @@ agent는 사람이 있을 때도 없을 때도 shell을 돌리고 file을 읽고
    shell extension tool은 호출 route(extension_tools/call)가 extension_tool로 판정한다
    설정 route(settings/update)가 approval: "person" 설정 바꾸기를 setting {key, lines}로 같은 판정에 묻는다
    project command route(project_commands/*)가 실행을 project_command로, 정의 쓰기를 project_command_definition으로 묻는다
+   workflow route(workflows/run, workflows/override-code)가 agent의 일회성·override 실행과 flow code 패치를 workflow_run으로 묻는다
         │ memory route tool_gate/check (그 turn의 agent 자격만)
         ▼
  core가 session의 permission_mode·agent·workspace·spawned_by, turn의 mode(attended|unattended),
@@ -49,7 +50,7 @@ agent는 사람이 있을 때도 없을 때도 shell을 돌리고 file을 읽고
 판정 순서(고정, IO 없는 순수 함수):
 1. **Floor / 자기 보호**: shell safety floor(정규화·래퍼 해제 뒤 대조)와 자기 보호 경로(`~/.ssh`, `~/.aws`, `~/.gnupg`, `<data root>/secrets*` 읽기·쓰기 및 `<data root>` 안 설정·권한·agent 정의·secret 쓰기). 어느 단계·규칙·`session` 허락으로도 풀리지 않는다(`reason_kind: "floor" | "scope"`).
 2. **사용자 규칙 (`approvals.permission_rules`)**: 전역 + project 층에서 해당 범주 규칙을 모아 고정 우선순위 **`deny > ask > allow`**로 판정한다(이전의 `findLast`를 폐지해 `deny`가 뒤의 `allow`에 실수로 뚫리지 않게 했다). 단 `elevated`·`opaque` shell 명령은 사용자 `allow`로 통과하지 못한다.
-3. **사람 전용 등급 (`personOnly`)**: `setting`(`approval: "person"`), `project_command_definition`(`approve_agent_writes` 켬), 미신뢰·내용이 바뀐 `local_tool`은 어느 단계(`full` 포함)에서도 사람에게 직접 `once | reject`로 묻고, unattended와 팀 자식에서는 `deny no_person`이다.
+3. **사람 전용 등급 (`personOnly`)**: `setting`(`approval: "person"`), `project_command_definition`(`approve_agent_writes` 켬), `workflow_run`(agent의 일회성·override workflow 시작 및 instance flow code 패치, `read_only`는 `mode` 거부), 미신뢰·내용이 바뀐 `local_tool`은 어느 단계(`full` 포함)에서도 사람에게 직접 `once | reject`로 묻고, unattended와 팀 자식에서는 `deny no_person`이다.
 4. **민감 workspace 파일**: `.git/hooks/*`, `.git/config`, `.lophn/tools/*` 쓰기와 `.env*` 읽기(`.env.example`, `.env.sample` 제외)는 모든 단계에서 `once | reject`로 묻는다(`read_only`의 쓰기는 `mode` 거부).
 5. **이번 대화 허락 (`SessionGrantStore`)**: core 메모리의 session grant에 맞으면 `run`(단 `read_only` 모드 거부, `elevated`/`opaque` shell, 민감 파일, 사람 전용 등급에는 적용되지 않는다).
 6. **권한 단계 기본값 (`read_only | ask | workspace | full`)**: 단계 × 범주 표에 따라 `run`·`ask`·`deny(mode)`를 정한다.

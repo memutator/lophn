@@ -221,15 +221,17 @@ export function NowCard({
                 >
                   {t("workflow.button.resume")}
                 </Button>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  icon={actionIcons.refresh}
-                  onClick={() => onResume(true)}
-                  data-resume-latest=""
-                >
-                  {t("workflow.button.resume-latest")}
-                </Button>
+                {detail.instance.one_off === true ? null : (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    icon={actionIcons.refresh}
+                    onClick={() => onResume(true)}
+                    data-resume-latest=""
+                  >
+                    {t("workflow.button.resume-latest")}
+                  </Button>
+                )}
               </>
             ) : null}
             {retryable ? (

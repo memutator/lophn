@@ -43,6 +43,7 @@ export {
   type WorkflowDefaultsPatch,
 } from "./declaration.ts";
 export { workflowLinesSchemaSteps } from "./lines-schema.ts";
+export { WORKFLOW_ONEOFF_OVERRIDE_SCHEMA_STEP } from "./oneoff-override-schema.ts";
 export { WORKFLOW_OPEN_MODE_SCHEMA_STEP } from "./open-mode-schema.ts";
 export { WORKFLOW_PARTICIPANT_MODES_SCHEMA_STEP } from "./participant-modes-schema.ts";
 export type {
@@ -50,10 +51,13 @@ export type {
   StepTurn,
   WorkflowAgents,
   WorkflowFiles,
+  WorkflowFlowChecker,
   WorkflowFlows,
   WorkflowPermissionModes,
   WorkflowProjects,
   WorkflowRemote,
+  WorkflowRunApprovalRequest,
+  WorkflowRunApprover,
   WorkflowSnapshots,
   WorkflowStore,
   WorkflowTurns,
@@ -76,11 +80,15 @@ export {
   type WorkflowService,
 } from "./service.ts";
 export {
+  captureWorkflowFilesSnapshot,
   captureWorkflowSnapshot,
   EMPTY_FILE_SHA256,
   type MaterializeSnapshotOptions,
   materializeSnapshot,
+  mergeWorkflowFiles,
   parseSnapshotManifest,
+  readSnapshotFiles,
+  readWorkflowFolderFiles,
   type SnapshotBlobStore,
   type WorkflowSnapshotFile,
   type WorkflowSnapshotManifest,

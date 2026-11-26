@@ -552,6 +552,16 @@ export function RunView({
                 when: whenOf(instance.created_at),
               })}
             </span>
+            {instance.one_off === true ? (
+              <span data-workflow-badge="one-off">
+                {t("workflow.label.badge-one-off")}
+              </span>
+            ) : null}
+            {instance.overridden === true ? (
+              <span data-workflow-badge="overridden">
+                {t("workflow.label.badge-overridden")}
+              </span>
+            ) : null}
             {instance.started_by.kind === "job" ? (
               <span data-started-by="job">
                 {instance.started_by.title === null
@@ -559,6 +569,10 @@ export function RunView({
                   : t("workflow.label.started-by-job", {
                       title: instance.started_by.title,
                     })}
+              </span>
+            ) : instance.started_by.kind === "agent" ? (
+              <span data-started-by="agent">
+                {t("workflow.label.started-by-agent")}
               </span>
             ) : parentInstance !== null ? (
               onSelectInstance !== null && onSelectInstance !== undefined ? (

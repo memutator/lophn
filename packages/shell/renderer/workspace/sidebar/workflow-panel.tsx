@@ -31,7 +31,12 @@ import {
   PanelRows,
   TileIcon,
 } from "../../shell/panel-rows.tsx";
-import type { WorkflowEntryView, WorkspaceSource } from "../source.ts";
+import { instanceTitle, shownOfRun } from "../../workflow/model.ts";
+import type {
+  WorkflowEntryView,
+  WorkflowInstanceSummaryView,
+  WorkspaceSource,
+} from "../source.ts";
 import {
   ExportWorkflowDialog,
   useExportTargetMachines,
@@ -56,6 +61,7 @@ export function WorkflowPanel({
   source,
   active,
   onOpen,
+  onOpenInstance,
   onNew,
 }: {
   project: string;
@@ -63,6 +69,8 @@ export function WorkflowPanel({
   /** 보이는 desk가 이 workflow의 것이면 그 이름. 그 줄을 고른 상태로 그린다. */
   active?: string;
   onOpen: (workflow: string) => void;
+  /** 일회성 workflow 실행 줄을 누르면 그 instance 전용 desk/탭을 연다. */
+  onOpenInstance?: (item: WorkflowInstanceSummaryView) => void;
   /** workflow는 project의 agent가 쓴다. 그 대화를 여는 길이고, 없으면 단추를 그리지 않는다. */
   onNew?: () => void;
 }) {
@@ -88,23 +96,26 @@ export function WorkflowPanel({
   // 목록을 못 읽으면 실패이고, 도는 수를 못 읽으면 0으로 보인다.
   const { loaded, reload } = useFollowedRead(
     async () => {
-      const [list, instances] = await Promise.all([
+      const [list, instances, oneOff] = await Promise.all([
         source.workflows(project),
         source.workflowInstances({ project, state: "running" }),
+        source.workflowInstances({ project, one_off: true }),
       ]);
       if (!list.ok) return list;
       /** workflow 이름별로 도는 run 수와 그 가운데 사람 차례인 수. */
       const running: Record<string, number> = {};
       const needsYou: Record<string, number> = {};
       for (const item of instances.ok ? instances.value : []) {
+        if (item.one_off === true) continue;
         running[item.workflow] = (running[item.workflow] ?? 0) + 1;
         if (item.current?.human_turn === true) {
           needsYou[item.workflow] = (needsYou[item.workflow] ?? 0) + 1;
         }
       }
+      const oneOffRuns = oneOff.ok ? oneOff.value.slice(0, 10) : [];
       return {
         ok: true as const,
-        value: { entries: list.value, running, needsYou },
+        value: { entries: list.value, running, needsYou, oneOffRuns },
       };
     },
     ["workflow_instances", "projects"],
@@ -199,7 +210,7 @@ export function WorkflowPanel({
     );
   }
   if (loaded.state === "loading") return null;
-  const { entries, running, needsYou } = loaded.value;
+  const { entries, running, needsYou, oneOffRuns } = loaded.value;
   const ask =
     onNew === undefined ? null : (
       <div className={styles.ask}>
@@ -208,10 +219,63 @@ export function WorkflowPanel({
         </Button>
       </div>
     );
+  const oneOffSection =
+    oneOffRuns.length === 0 || onOpenInstance === undefined ? null : (
+      <PanelRows label={t("workflow.heading.one-off-runs")}>
+        {oneOffRuns.map((item) => {
+          const shown = shownOfRun(
+            item.state,
+            item.current,
+            item.derived_status,
+          );
+          const statusLabel =
+            shown === "human"
+              ? t("workflow.label.state-human")
+              : shown === "blocked"
+                ? t("workflow.label.state-blocked")
+                : shown === "running"
+                  ? t("workflow.label.state-running")
+                  : shown === "stopped"
+                    ? t("workflow.label.state-stopped")
+                    : t("workflow.label.state-ended");
+          const tone =
+            shown === "human"
+              ? "warning"
+              : shown === "blocked"
+                ? "critical"
+                : shown === "running"
+                  ? "good"
+                  : undefined;
+          return (
+            <PanelRow
+              key={item.id}
+              data-one-off-instance={item.id}
+              leading={<TileIcon icon={commonIcons.workflow} />}
+              title={instanceTitle(item)}
+              meta={`${item.workflow} · ${statusLabel}`}
+              trailing={
+                tone === undefined ? undefined : (
+                  <span className={styles.trailing}>
+                    <span
+                      className={styles.dot}
+                      data-tone={tone === "critical" ? "warning" : tone}
+                      aria-hidden="true"
+                    />
+                  </span>
+                )
+              }
+              onClick={() => onOpenInstance(item)}
+            />
+          );
+        })}
+      </PanelRows>
+    );
   if (entries.length === 0) {
     return (
       <>
-        <PanelEmpty>{t("workflow.empty.sidebar")}</PanelEmpty>
+        {oneOffSection ?? (
+          <PanelEmpty>{t("workflow.empty.sidebar")}</PanelEmpty>
+        )}
         {ask}
       </>
     );
@@ -316,6 +380,7 @@ export function WorkflowPanel({
           );
         })}
       </PanelRows>
+      {oneOffSection}
       {ask}
       {renaming === null ? null : (
         <Dialog

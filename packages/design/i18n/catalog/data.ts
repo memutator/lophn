@@ -252,6 +252,12 @@ export const data = {
   "waiting.title.project-command-add": "Add project command {name}",
   "waiting.title.project-command-update": "Update project command {name}",
   "waiting.title.project-command-remove": "Remove project command {name}",
+  "waiting.title.workflow-one-off": "Run one-off workflow {workflow}",
+  "waiting.title.workflow-override": "Run {workflow} with overrides",
+  "waiting.title.workflow-override-code": "Override flow code for {workflow}",
+  "waiting.notice.workflow-run":
+    "Review the workflow details before approving this run.",
+  "waiting.label.fact-workflow": "Workflow",
   "waiting.label.fact-cwd": "Working folder",
   "waiting.label.fact-env-keys": "Environment keys",
   "waiting.label.fact-before": "Before",

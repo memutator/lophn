@@ -109,6 +109,8 @@ function approvalLabel(subject: AcpApprovalSubject): string {
       return `${subject.name}: ${subject.command}`;
     case "project_command_definition":
       return `${subject.action} ${subject.after?.name ?? subject.before?.name ?? "project command"}`;
+    case "workflow_run":
+      return `${subject.mode} workflow ${subject.workflow}`;
     case "file_change":
       return (
         subject.changes.map((one) => `${one.change} ${one.path}`).join(", ") ||

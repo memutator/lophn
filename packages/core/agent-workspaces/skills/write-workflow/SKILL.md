@@ -1,13 +1,15 @@
 ---
 name: write-workflow
-description: "Write or update a project workflow: YAML shorthand or durable programmatic flow.ts (@lophn/flow 2.0 step(key, fn), human(), sub-workflow workflow(), onEvent(), tool(), withFallback()), declarative inputs/outputs, flow_sdk stamped by workflow check, workflow rename/delete, and cross-computer steps."
+description: "Write, run one-off, override per-instance, save, or update project workflows: YAML shorthand or durable programmatic flow.ts (@lophn/flow 2.0 step(key, fn), human(), sub-workflow workflow(), onEvent(), tool(), withFallback()), declarative inputs/outputs, flow_sdk stamped by workflow check, workflow run/override-code/save/rename/delete, and cross-computer steps."
 ---
 
 # Workflow
 
 A workflow is how people, agents, app tools and app events compose a job from
-step to step. You write its definition as files. A person, a job, or a parent
-workflow (same project) starts it. General agent chats cannot start one.
+step to step. You can either write a permanent workflow as files, run a one-off
+workflow on the fly, or run an existing workflow with per-instance overrides.
+A person, a job, a parent workflow (same project), or an attended agent turn
+after explicit person approval (`lophn workflow run`) starts an instance.
 
 lophn only records what participants say, checkpoints durable execution and
 passes work on. It does not check a result, judge whether a step passed or
@@ -359,8 +361,53 @@ Follow "Drawing nodes" in the `write-artifact` file `kit.md` for `LophnKit.rende
 </script>
 ```
 
+## One-off workflows and per-instance overrides
+
+You do not need to create a permanent workflow folder for a one-time job or a
+single-run tweak:
+
+1. **One-off workflow (`lophn workflow run`)**:
+   - Omit `--workflow`. Pass `--text` plus either:
+     - YAML shorthand: `--participants '<json>'` and `--steps '<json array>'`
+     - Programmatic flow: `--files '{"flow.ts": "..."}'` (plus optional helper
+       files, `--agent`, `--steps` display list)
+   - Optional `--name <slug>` (default `one-off`), `--title`, `--open tab|background`,
+     `--inputs '<json>'`. In a project workspace you may omit `--project`.
+   - Core type-checks inline `flow.ts` files first, then shows the person an
+     approval card summarizing the workflow; once approved, the instance starts
+     immediately without adding a permanent folder to the project's Workflows list.
+   - Blocked in `unattended` turns, `team_child` sessions, and `read_only` mode.
+
+2. **Per-instance override at start (`lophn workflow run --workflow <project>/<name> --override '<json>'`)**:
+   - Leaves the base workflow folder on disk completely unchanged and applies the
+     override only to this instance.
+   - `override` fields (all optional):
+     - `participants`: `{ "<key>": { agent, ... } | { kind: "human" } | null }`
+       (add, replace, or remove with `null`)
+     - `patch_steps`: `{ "<step>": { by?, with?, prompt?, in?, out?, next?, open? } }`
+     - `add_steps`: `[{ step: { name, by, prompt, ... }, after? }]`
+     - `remove_steps`: `["<step>", ...]`
+     - `steps`: full replacement step array (cannot combine with patch/add/remove)
+     - `files`: `{ "flow.ts": "...", "helper.ts": "...", "old.ts": null }`
+       (merged onto the base workflow folder's files and type-checked before approval)
+     - `agent`: override the flow's app-tool creator agent handle
+
+3. **Live instance overrides (without changing the base workflow)**:
+   - YAML instance: `lophn workflow edit <instance> --op add_step|update_step|remove_step|set_participant|remove_participant|hand_now|end ...`
+   - Flow instance (running/blocked, no in-flight `agent`/`tool` step):
+     `lophn workflow override-code <instance> --files '{"flow.ts": "..."}' [--agent <handle>] [--resume true|false]`
+     Patches only that instance's `code_snapshot` (type-checked and approved by the
+     person first) and resumes from saved checkpoints.
+
+4. **Promote a one-off or overridden instance to a permanent workflow (`lophn workflow save`)**:
+   - When the person asks to keep a one-off or overridden run as a reusable
+     workflow, run `lophn workflow save <instance> <name> [--overwrite]`.
+   - Materializes the instance's definition (and `code_snapshot` for flows) into
+     `<Workflows folder>/<name>/` without copying per-run permission modes.
+
 ## What you do not do
 
 - Do not put domain pass/fail policy in `workflow.yaml`. Put rules in step
   `prompt`s or in `flow.ts`.
-- Do not start a workflow instance from a general agent chat.
+- Do not try to start or override workflows from unattended runs or team child
+  sessions (person approval is required from an attended session).

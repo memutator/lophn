@@ -29,6 +29,10 @@ export function defaultToolName(call: GateCall): string {
       return "project_commands.run";
     case "project_command_definition":
       return `project_commands.${call.action}`;
+    case "workflow_run":
+      return call.mode === "override_code"
+        ? "workflow.override_code"
+        : "workflow.run";
   }
 }
 
@@ -59,6 +63,8 @@ export function categoryOfCall(
       return "project_command";
     case "project_command_definition":
       return "project_command_definition";
+    case "workflow_run":
+      return "workflow_run";
   }
 }
 
@@ -83,6 +89,8 @@ export function targetSummaryOfCall(call: GateCall): string {
       return `${call.name}: ${call.command}`;
     case "project_command_definition":
       return `${call.action} ${call.after?.name ?? call.before?.name ?? call.project}`;
+    case "workflow_run":
+      return `${call.mode} ${call.workflow}`;
   }
 }
 

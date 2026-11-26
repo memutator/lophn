@@ -1,10 +1,17 @@
 // `workflow.check`. project workspace의 agent가 쓴 flow.ts를 실행하지 않고 type check만 한다. packageInstallPath를 쓰므로
 // apps를 import하지 않는 workflows module이 아니라 core/main에 둔다(layers.md).
 import { spawn } from "node:child_process";
-import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import process from "node:process";
 import { isMap, parseDocument } from "yaml";
 import { err, ok, type Result } from "../../../base/mod.ts";
@@ -153,6 +160,102 @@ async function readInstalledFlowVersion(
     // fallback to bundled constant
   }
   return FLOW_SDK_VERSION;
+}
+
+// 인라인 파일 맵(일회성·instance override flow)을 임시 폴더에 풀고 설치된 @lophn/flow에 대고 type-check한다.
+export async function checkFlowFiles(
+  dataRoot: string,
+  files: Readonly<Record<string, string>>,
+): Promise<Result<{ errors: string[]; sdkVersion: string }>> {
+  if (!Object.hasOwn(files, WORKFLOW_FLOW_FILE)) {
+    return ok({
+      errors: [`${WORKFLOW_FLOW_FILE} is missing`],
+      sdkVersion: FLOW_SDK_VERSION,
+    });
+  }
+  const installed = packageInstallPath(FLOW_SDK_NAME, FLOW_SDK_VERSION);
+  if (!installed.ok) return installed;
+  const linked = await linkFlowSdk({
+    dataRoot,
+    installPath: installed.value,
+  });
+  if (!linked.ok) return linked;
+  const tool = compiler();
+  if (!tool.ok) return tool;
+
+  // projects/ 아래 임시 폴더에 풀어야 moduleResolution이 `<dataRoot>/projects/node_modules/@lophn/flow`를 찾는다.
+  const projectsDir = `${dataRoot}/projects`;
+  try {
+    await mkdir(projectsDir, { recursive: true, mode: 0o700 });
+  } catch {
+    return err({
+      code: "unavailable",
+      message: "could not create projects directory for flow check",
+    });
+  }
+  const stage = await mkdtemp(join(projectsDir, ".flow-check-"));
+  const stageAbs = resolve(stage);
+  try {
+    for (const [rel, content] of Object.entries(files)) {
+      const dest = resolve(stageAbs, rel);
+      if (
+        dest !== stageAbs &&
+        !dest.startsWith(`${stageAbs}/`) &&
+        !dest.startsWith(`${stageAbs}\\`)
+      ) {
+        return err({
+          code: "invalid_input",
+          message: `flow file escapes check directory: ${rel}`,
+        });
+      }
+      await mkdir(dirname(dest), { recursive: true, mode: 0o700 });
+      await writeFile(dest, content, { encoding: "utf8", mode: 0o600 });
+    }
+    const flowPath = `${stageAbs}/${WORKFLOW_FLOW_FILE}`;
+    const config = `${stageAbs}/tsconfig.lophn-check.json`;
+    await writeFile(
+      config,
+      JSON.stringify({
+        compilerOptions: {
+          target: "esnext",
+          module: "esnext",
+          moduleResolution: "bundler",
+          lib: ["esnext"],
+          types: ["node"],
+          typeRoots: [tool.value.typeRoots],
+          strict: true,
+          noEmit: true,
+          skipLibCheck: true,
+          allowImportingTsExtensions: true,
+          erasableSyntaxOnly: true,
+        },
+        files: [flowPath],
+      }),
+    );
+    let result: { code: number; output: string };
+    try {
+      result = await runCheck(
+        tool.value.command,
+        ["--noEmit", "--pretty", "false", "-p", config],
+        stageAbs,
+      );
+    } catch {
+      return err({
+        code: "unavailable",
+        message: "workflow check did not finish",
+      });
+    }
+    const sdkVersion = await readInstalledFlowVersion(
+      dataRoot,
+      installed.value,
+    );
+    if (result.code === 0) {
+      return ok({ errors: [], sdkVersion });
+    }
+    return ok({ errors: parseErrors(result.output), sdkVersion });
+  } finally {
+    await rm(stage, { recursive: true, force: true }).catch(() => {});
+  }
 }
 
 export function checkWorkflow(deps: CheckWorkflowDeps): MemoryHandler {

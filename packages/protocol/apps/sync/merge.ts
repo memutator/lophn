@@ -2,6 +2,7 @@ import { err, ok, type Result } from "../../../base/result.ts";
 import {
   type ApplyStats,
   applyChange,
+  type ConflictResolver,
   requireForeignKeysOff,
 } from "./apply.ts";
 import {
@@ -116,6 +117,7 @@ export function mergeSnapshot(
   opts: {
     absentDeletes?: AbsentDeletes;
     tables?: (table: string) => boolean;
+    conflict?: ConflictResolver;
   } = {},
 ): Result<MergeStats> {
   requireForeignKeysOff(db);
@@ -150,7 +152,8 @@ export function mergeSnapshot(
     if (hlc > seen) seen = hlc;
   };
   const apply = (shape: TableShape, change: ChangesetChange, hlc: bigint) => {
-    if (applyChange(db, shape, change, hlc)) stats.applied++;
+    const policy = opts.conflict?.(shape.table) ?? "lww";
+    if (applyChange(db, shape, change, hlc, policy)) stats.applied++;
     else stats.skipped++;
     see(hlc);
   };

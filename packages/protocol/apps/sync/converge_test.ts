@@ -603,3 +603,209 @@ test("decodePk reverses encodePk", () => {
     assert.deepEqual(decodePk(blob), key);
   }
 });
+
+// keep_both 표에서 두 기기가 동시에 같은 텍스트 컬럼을 수정하면 어느 순서(A→B, B→A)로 적용해도
+// 승자 row는 원래 PK로 남고 패자 텍스트는 결정론적 dupPk 사본 row로 보존되며, data와 clock이 일치한다.
+// 또한 기존 lophn_sync_* 표만 써서 Android C++ authorizer 불변식을 지킨다.
+test("keep_both: concurrent text edits converge identically in both orders and only use existing lophn_sync_* tables", () => {
+  const ALLOWED_SYNC_TABLES = new Set([
+    "lophn_sync_row",
+    "lophn_sync_col",
+    "lophn_sync_kept",
+    "lophn_sync_state",
+    "lophn_sync_outbox",
+  ]);
+  const keepBoth = {
+    conflict: (table: string) =>
+      table === "memo" ? ("keep_both" as const) : ("lww" as const),
+  };
+
+  const baseRaw = new DatabaseSync(":memory:");
+  baseRaw.exec(
+    "create table memo (id text primary key, title text, body text, pinned integer)",
+  );
+  const baseDb = nodeSyncDb(baseRaw);
+  ensureSyncTables(baseDb, "base");
+  const baseClock = openClock(baseDb);
+  computerWrite(baseDb, baseClock, {
+    side: "c",
+    at: 100,
+    sql: ["insert into memo values ('m1', 'Notes', 'initial body', 0)"],
+  });
+  const baseBytes = baseRaw.serialize();
+
+  const makeReplica = (node: string) => {
+    const db = open(baseBytes);
+    setState(db, "node", node);
+    return { db, clock: openClock(db) };
+  };
+
+  const a = makeReplica("device-a");
+  const b = makeReplica("device-b");
+  const editA = computerWrite(a.db, a.clock, {
+    side: "c",
+    at: 1000,
+    sql: ["update memo set body = 'body from A', pinned = 1 where id = 'm1'"],
+  });
+  const editB = computerWrite(b.db, b.clock, {
+    side: "c",
+    at: 2000,
+    sql: ["update memo set body = 'body from B', pinned = 2 where id = 'm1'"],
+  });
+
+  const applyKeepBoth = (db: SyncDb, changes: IncomingChange[]) =>
+    inTransaction(db, () => {
+      assert.ok(applyRemote(db, changes, openClock(db), keepBoth).ok);
+    });
+
+  // A가 B를 받고, B가 A를 받고, 제3의 replica 둘이 반대 순서(A→B, B→A)로 받는다.
+  applyKeepBoth(a.db, [editB]);
+  applyKeepBoth(b.db, [editA]);
+  // 중복 재전달도 멱등해야 한다.
+  applyKeepBoth(a.db, [editB]);
+  applyKeepBoth(b.db, [editA]);
+
+  const orderAB = makeReplica("replica-ab");
+  applyKeepBoth(orderAB.db, [editA, editB]);
+  const orderBA = makeReplica("replica-ba");
+  applyKeepBoth(orderBA.db, [editB, editA]);
+
+  const replicas = [a.db, b.db, orderAB.db, orderBA.db];
+  const data = replicas.map(dumpData);
+  const clocks = replicas.map(dumpClocks);
+  for (let i = 1; i < replicas.length; i++) {
+    assert.equal(data[i], data[0], `keep_both data mismatch on replica ${i}`);
+    assert.equal(
+      clocks[i],
+      clocks[0],
+      `keep_both clocks mismatch on replica ${i}`,
+    );
+  }
+
+  // 정확히 2행: 원본 'm1'에 승자(B) 값, 결정론적 dupPk 사본에 패자(A) 텍스트
+  const rows = a.db.all("select id, title, body, pinned from memo order by id");
+  assert.equal(rows.length, 2);
+  const winner = rows.find((r) => r["id"] === "m1");
+  const copy = rows.find((r) => r["id"] !== "m1");
+  assert.ok(winner && copy);
+  assert.equal(winner["body"], "body from B");
+  assert.equal(Number(winner["pinned"]), 2);
+  assert.match(String(copy["id"]), /^m1~conflict-[0-9a-f]{12}$/);
+  assert.equal(copy["body"], "body from A");
+  assert.equal(copy["title"], "Notes");
+
+  // Android C++ authorizer 불변식: 새 lophn_sync_* 표가 생기지 않아야 한다.
+  const syncTables = a.db
+    .all(
+      "select name from sqlite_master where type = 'table' and name like 'lophn_%'",
+    )
+    .map((r) => String(r["name"]));
+  for (const name of syncTables) {
+    assert.ok(ALLOWED_SYNC_TABLES.has(name), `unexpected sync table: ${name}`);
+  }
+
+  // 사용자가 충돌 사본을 지운 뒤 패자 변경이 다시 와도 되살아나지 않는다.
+  const delCopy = computerWrite(a.db, a.clock, {
+    side: "c",
+    at: 3000,
+    sql: [`delete from memo where id = '${String(copy["id"])}'`],
+  });
+  applyKeepBoth(b.db, [delCopy]);
+  applyKeepBoth(a.db, [editA]);
+  applyKeepBoth(b.db, [editA]);
+  assert.equal(a.db.all("select id from memo").length, 1);
+  assert.equal(dumpData(b.db), dumpData(a.db));
+
+  // 순차(인과적) 수정은 충돌 사본을 만들지 않는다.
+  const seqB = computerWrite(b.db, b.clock, {
+    side: "c",
+    at: 4000,
+    sql: ["update memo set body = 'body v3 after seeing B' where id = 'm1'"],
+  });
+  applyKeepBoth(a.db, [seqB]);
+  assert.equal(a.db.all("select id from memo").length, 1);
+  assert.equal(
+    a.db.all("select body from memo where id = 'm1'")[0]!["body"],
+    "body v3 after seeing B",
+  );
+
+  // 비텍스트(INTEGER) 동시 수정만 있을 때는 LWW로 처리하고 사본을 만들지 않는다.
+  const intA = computerWrite(a.db, a.clock, {
+    side: "c",
+    at: 5000,
+    sql: ["update memo set pinned = 10 where id = 'm1'"],
+  });
+  const intB = computerWrite(b.db, b.clock, {
+    side: "c",
+    at: 6000,
+    sql: ["update memo set pinned = 20 where id = 'm1'"],
+  });
+  applyKeepBoth(a.db, [intB]);
+  applyKeepBoth(b.db, [intA]);
+  assert.equal(a.db.all("select id from memo").length, 1);
+  assert.equal(dumpData(a.db), dumpData(b.db));
+});
+
+test("keep_both: integer, blob, and composite PKs produce schema-safe deterministic conflict copies in both orders", () => {
+  const keepBoth = { conflict: () => "keep_both" as const };
+  const baseRaw = new DatabaseSync(":memory:");
+  baseRaw.exec(
+    "create table int_doc (id integer primary key, body text);" +
+      "create table blob_doc (id blob primary key, body text);" +
+      "create table comp_doc (ns text, seq integer, body text, primary key (ns, seq));",
+  );
+  const baseDb = nodeSyncDb(baseRaw);
+  ensureSyncTables(baseDb, "base");
+  computerWrite(baseDb, openClock(baseDb), {
+    side: "c",
+    at: 100,
+    sql: [
+      "insert into int_doc values (42, 'base')",
+      "insert into blob_doc values (x'cafe', 'base')",
+      "insert into comp_doc values ('n1', 7, 'base')",
+    ],
+  });
+  const baseBytes = baseRaw.serialize();
+
+  const makeReplica = (node: string) => {
+    const db = open(baseBytes);
+    setState(db, "node", node);
+    return { db, clock: openClock(db) };
+  };
+  const a = makeReplica("node-a");
+  const b = makeReplica("node-b");
+
+  const editA = computerWrite(a.db, a.clock, {
+    side: "c",
+    at: 1000,
+    sql: [
+      "update int_doc set body = 'A' where id = 42",
+      "update blob_doc set body = 'A' where id = x'cafe'",
+      "update comp_doc set body = 'A' where ns = 'n1' and seq = 7",
+    ],
+  });
+  const editB = computerWrite(b.db, b.clock, {
+    side: "c",
+    at: 2000,
+    sql: [
+      "update int_doc set body = 'B' where id = 42",
+      "update blob_doc set body = 'B' where id = x'cafe'",
+      "update comp_doc set body = 'B' where ns = 'n1' and seq = 7",
+    ],
+  });
+
+  const ab = makeReplica("ab");
+  const ba = makeReplica("ba");
+  inTransaction(ab.db, () => {
+    assert.ok(applyRemote(ab.db, [editA, editB], ab.clock, keepBoth).ok);
+  });
+  inTransaction(ba.db, () => {
+    assert.ok(applyRemote(ba.db, [editB, editA], ba.clock, keepBoth).ok);
+  });
+
+  assert.equal(dumpData(ab.db), dumpData(ba.db));
+  assert.equal(dumpClocks(ab.db), dumpClocks(ba.db));
+  assert.equal(ab.db.all("select id from int_doc").length, 2);
+  assert.equal(ab.db.all("select id from blob_doc").length, 2);
+  assert.equal(ab.db.all("select ns from comp_doc").length, 2);
+});

@@ -32,6 +32,7 @@ export type TableShape = {
   table: string;
   columns: string[];
   primaryKey: boolean[];
+  types: string[];
 };
 
 // 표가 없으면 null이다.
@@ -42,6 +43,7 @@ export function tableShape(db: SyncDb, table: string): TableShape | null {
     table,
     columns: rows.map((row) => String(row["name"])),
     primaryKey: rows.map((row) => Number(row["pk"]) > 0),
+    types: rows.map((row) => String(row["type"] ?? "")),
   };
 }
 

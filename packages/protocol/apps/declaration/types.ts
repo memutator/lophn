@@ -235,6 +235,25 @@ export const RUNS_ON_FORMS: readonly RunsOn[] = [
   ["phone"],
 ];
 
+// table별 충돌 전략. 기본은 칸 단위 LWW이고, "keep_both"는 동시 텍스트 수정 때 패자 사본을 결정론적 PK로 남긴다.
+export type SyncConflictStrategy = "lww" | "keep_both";
+
+// table 하나의 sync 설정: destination 이름("computers"·"personal" 등), "local"(이 기계 전용),
+// 또는 { destination?, conflict? } object다(destination을 빼면 기본 "computers").
+export type SyncTablePolicy =
+  | string
+  | {
+      destination?: string;
+      conflict?: SyncConflictStrategy;
+    };
+
+// 앱의 sync 선언. "local"은 앱 전체 opt-out, object는 table별 정책이다.
+export type SyncDeclaration = "local" | Record<string, SyncTablePolicy>;
+
+// @lophn/declaration >= 6.0.0 기본 destination과 로컬 전용 표지.
+export const DEFAULT_SYNC_DESTINATION = "computers";
+export const LOCAL_SYNC_POLICY = "local";
+
 export type AppDeclaration = {
   name: string;
   description: string;
@@ -253,10 +272,10 @@ export type AppDeclaration = {
   // 없어도 된다. 없으면 ["computer"]와 같고, 칸이 없는 옛 선언의 hash는 그대로다. 앱 하나의 backend가 어디서 도는지는
   // 이 칸 하나다. 폰 화면이 있다고 sync 앱이 되지 않는다(폰 화면이 있는 remote 앱이 말없이 바뀌면 안 된다).
   runs_on?: RunsOn;
-  // 없어도 된다. table 이름 → destination 이름. 적은 table의 data만 그 destination으로 가고 적지 않은 table은 이 기계를
-  // 떠나지 않는다. 값은 destination 이름뿐이다: 폴더 경로는 기계마다 달라서 선언에 두면 다른 기계에서 맞지 않는다. 경로는
-  // 기계마다의 설정이 이름에 묶는다. table마다 다른 destination이어도 되고(폰에서도 도는 앱은 하나까지), 비면 칸을 두지 않는다.
-  sync?: Record<string, string>;
+  // 없어도 된다. @lophn/declaration >= 6.0.0에서는 생략한 표가 기본 "computers"로 동기화되며 "local"로 뺄 수 있다.
+  // 앱 전체 opt-out은 "local", 표별 정책은 destination 이름("local" 포함)이나 { destination?, conflict? }다.
+  // 옛 선언(<= 5.2.0)은 적은 표만 보내며 칸이 없으면 기존처럼 로컬에 남는다(5.0–5.2 phone+computer 앱 제외).
+  sync?: SyncDeclaration;
   // 옛 release의 봉인한 선언에만 있다(모든 table을 그 destination으로). 새 release 준비는 거절하고 `syncPlanOf`만 읽는다.
   sync_to?: string;
   screens: ScreenDeclaration[];

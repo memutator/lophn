@@ -17,13 +17,17 @@ import {
   isObject,
   type JsonValue,
   lengthOf,
+  LOCAL_SYNC_POLICY,
   nonBlank,
   type PermissionKind,
   type PermissionRequirement,
+  type RunsOn,
   type ScreenDeclaration,
+  type SDKDependency,
   singleLine,
   type SkillDeclaration,
   type SubscriptionDeclaration,
+  type SyncDeclaration,
   type WidgetDeclaration,
   WIDGET_KEY_PATTERN,
   WIDGETS_MAX,
@@ -45,6 +49,46 @@ import { iconPath, permissionScope, scopeKey } from "./scope.ts";
 
 // skillNameSchema(protocol/lophn-agent/skill-settings.ts)와 같은 규칙이다. 이 file은 의존성이 없어 따로 쓴다.
 const SKILL_NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+
+function declarationMajor(
+  dependencies: readonly SDKDependency[],
+): number | null {
+  const found = dependencies.find((item) => item.name === "@lophn/declaration");
+  if (!found) return null;
+  const match = /^(\d+)\.\d+\.\d+/.exec(found.version);
+  return match ? Number(match[1]) : null;
+}
+
+function sendsAnyTable(
+  sync: SyncDeclaration | undefined,
+  syncTo: string | undefined,
+  runsOn: RunsOn | undefined,
+  dependencies: readonly SDKDependency[],
+): boolean {
+  if (runsOn?.length === 1 && runsOn[0] === "phone") return false;
+  if (sync === LOCAL_SYNC_POLICY) return false;
+  if (syncTo !== undefined) return true;
+  if (sync !== undefined) {
+    for (const entry of Object.values(sync)) {
+      const dest =
+        typeof entry === "string" ? entry : (entry.destination ?? "computers");
+      if (dest !== LOCAL_SYNC_POLICY) return true;
+    }
+  }
+  const major = declarationMajor(dependencies);
+  if (major !== null && major >= 6) return true;
+  if (
+    major !== null &&
+    major >= 5 &&
+    major < 6 &&
+    runsOn?.includes("phone") === true &&
+    runsOn?.includes("computer") === true &&
+    sync === undefined
+  ) {
+    return true;
+  }
+  return false;
+}
 
 function validateSkills(
   items: unknown,
@@ -464,15 +508,6 @@ export function validateDeclaration(
   if (!sync.ok) return sync;
   const syncTo = validateSealedSyncTo(value.sync_to);
   if (!syncTo.ok) return syncTo;
-  if (
-    sync.value === undefined &&
-    syncTo.value === undefined &&
-    events.value.some((event) => event.across_machines === true)
-  ) {
-    return invalid(
-      "an event that goes to other machines needs sync to list a table: it travels with the app's data",
-    );
-  }
 
   const permissions: PermissionRequirement[] = [];
   const kinds = new Set<PermissionKind>([
@@ -528,6 +563,15 @@ export function validateDeclaration(
   if (!uses.ok) return uses;
   const connections = uses.value.connections;
   const dependencies = uses.value.dependencies;
+
+  if (
+    events.value.some((event) => event.across_machines === true) &&
+    !sendsAnyTable(sync.value, syncTo.value, runsOn.value, dependencies)
+  ) {
+    return invalid(
+      "an event that goes to other machines needs sync to send a table: it travels with the app's data",
+    );
+  }
 
   const declaration: AppDeclaration = {
     name: value.name,

@@ -3,16 +3,21 @@
 // 화면, operation, command 선언을 검사한다(file 이름은 vendor 목록 때문에 옛 이름을 둔다).
 import {
   type CommandDeclaration,
+  DEFAULT_SYNC_DESTINATION,
   exactKeys,
   type InputSchema,
   invalid,
   isObject,
+  LOCAL_SYNC_POLICY,
   nonBlank,
   type OperationDeclaration,
   RUNS_ON_FORMS,
   type RunsOn,
   type ScreenDeclaration,
   type SubscriptionDeclaration,
+  type SyncConflictStrategy,
+  type SyncDeclaration,
+  type SyncTablePolicy,
   subscriptionHandlerName,
   DESTINATION_NAME_PATTERN,
   type Place,
@@ -166,17 +171,30 @@ const SYNC_TABLES_MAX = 256;
 // lophn(`lophn_`)과 SQLite(`sqlite_`)의 표는 앱 data가 아니다.
 const RESERVED_TABLE = /^(lophn_|sqlite_)/i;
 
-// sync의 모양(table 이름 → destination 이름)과 runs_on과의 짝. 비면 칸이 없는 것과 같다. table이 앱 DB에 있고 PK가
-// 있는지는 release 준비가 target schema의 DB에서 본다. ["phone"] 앱은 컴퓨터 사본이 없어서 폴더로 보낼 data가 없다.
+function isConflictStrategy(value: unknown): value is SyncConflictStrategy {
+  return value === "lww" || value === "keep_both";
+}
+
+// sync의 모양("local" 또는 table 이름 → destination 이름/"local"/{ destination?, conflict? })과 runs_on과의 짝.
+// 비면 칸이 없는 것과 같다. table이 앱 DB에 있고 PK가 있는지는 release 준비가 target schema의 DB에서 본다.
+// ["phone"] 앱은 컴퓨터 사본이 없어서 폴더로 보낼 data가 없다.
 // table마다 destination이 달라도 되지만 폰에서도 도는 앱은 하나까지다: 폰 길은 앱 DB 통째를 한 줄로 다룬다.
 export function validateSync(
   sync: unknown,
   runsOn: RunsOn | undefined,
-): ValidationResult<Record<string, string> | undefined> {
+): ValidationResult<SyncDeclaration | undefined> {
   if (sync === undefined) return { ok: true, value: undefined };
+  if (runsOn?.length === 1 && runsOn[0] === "phone") {
+    return invalid(
+      'runs_on ["phone"]: sync has nothing to send; a phone\'s data reaches a folder only through a computer',
+    );
+  }
+  if (sync === LOCAL_SYNC_POLICY) {
+    return { ok: true, value: LOCAL_SYNC_POLICY };
+  }
   if (!isObject(sync)) {
     return invalid(
-      "sync must be an object that maps a table name to a destination name",
+      'sync must be "local" or an object that maps a table name to a destination name, "local", or { destination?, conflict? }',
     );
   }
   const entries = Object.entries(sync);
@@ -184,37 +202,80 @@ export function validateSync(
   if (entries.length > SYNC_TABLES_MAX) {
     return invalid(`sync lists more than ${SYNC_TABLES_MAX} tables`);
   }
-  for (const [table, destination] of entries) {
+  const normalized: Record<string, SyncTablePolicy> = {};
+  const remoteDestinations = new Set<string>();
+  for (const [table, raw] of entries) {
     if (!nonBlank(table) || table.length > 128 || RESERVED_TABLE.test(table)) {
       return invalid(
         `sync table "${table}" is not an app table name (lophn_ and sqlite_ tables are not app data)`,
       );
     }
-    if (
-      typeof destination !== "string" ||
-      !DESTINATION_NAME_PATTERN.test(destination)
-    ) {
+    if (typeof raw === "string") {
+      if (!DESTINATION_NAME_PATTERN.test(raw)) {
+        return invalid(
+          `sync.${table} must be a destination name: lowercase letters, digits and -, starting with a letter, up to 32`,
+        );
+      }
+      normalized[table] = raw;
+      if (raw !== LOCAL_SYNC_POLICY) remoteDestinations.add(raw);
+      continue;
+    }
+    if (!isObject(raw)) {
       return invalid(
-        `sync.${table} must be a destination name: lowercase letters, digits and -, starting with a letter, up to 32`,
+        `sync.${table} must be a destination name, "local", or { destination?, conflict? }`,
       );
     }
+    const bad = exactKeys(raw, ["conflict", "destination"], []);
+    if (bad) return invalid(`sync.${table} ${bad}`);
+    if (!Object.hasOwn(raw, "destination") && !Object.hasOwn(raw, "conflict")) {
+      return invalid(`sync.${table} needs destination or conflict`);
+    }
+    let destination: string | undefined;
+    if (Object.hasOwn(raw, "destination")) {
+      if (
+        typeof raw.destination !== "string" ||
+        !DESTINATION_NAME_PATTERN.test(raw.destination)
+      ) {
+        return invalid(
+          `sync.${table}.destination must be a destination name: lowercase letters, digits and -, starting with a letter, up to 32`,
+        );
+      }
+      destination = raw.destination;
+    }
+    let conflict: SyncConflictStrategy | undefined;
+    if (Object.hasOwn(raw, "conflict")) {
+      if (!isConflictStrategy(raw.conflict)) {
+        return invalid(`sync.${table}.conflict must be "lww" or "keep_both"`);
+      }
+      conflict = raw.conflict;
+    }
+    if (destination === LOCAL_SYNC_POLICY && conflict !== undefined) {
+      return invalid(
+        `sync.${table} cannot set conflict when destination is "local"`,
+      );
+    }
+    if (destination === LOCAL_SYNC_POLICY) {
+      normalized[table] = LOCAL_SYNC_POLICY;
+      continue;
+    }
+    remoteDestinations.add(destination ?? DEFAULT_SYNC_DESTINATION);
+    if (conflict === "keep_both") {
+      normalized[table] =
+        destination === undefined
+          ? { conflict: "keep_both" }
+          : { destination, conflict: "keep_both" };
+    } else {
+      normalized[table] = destination ?? DEFAULT_SYNC_DESTINATION;
+    }
   }
-  if (
-    runsOn?.includes("phone") === true &&
-    new Set(entries.map(([, destination]) => destination)).size > 1
-  ) {
+  if (runsOn?.includes("phone") === true && remoteDestinations.size > 1) {
     return invalid(
       "an app that runs on the phone sends its tables to one destination: use the same destination name for each table in sync",
     );
   }
-  if (runsOn?.length === 1 && runsOn[0] === "phone") {
-    return invalid(
-      'runs_on ["phone"]: sync has nothing to send; a phone\'s data reaches a folder only through a computer',
-    );
-  }
   return {
     ok: true,
-    value: Object.fromEntries(entries) as Record<string, string>,
+    value: normalized,
   };
 }
 

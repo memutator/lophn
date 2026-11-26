@@ -22,6 +22,9 @@ export type {
   SDKDependency,
   SkillDeclaration,
   SubscriptionDeclaration,
+  SyncConflictStrategy,
+  SyncDeclaration,
+  SyncTablePolicy,
   ToolEffect,
   TraySide,
   TraySize,
@@ -30,6 +33,8 @@ export type {
   WidgetDeclaration,
 } from "./types.ts";
 export {
+  DEFAULT_SYNC_DESTINATION,
+  LOCAL_SYNC_POLICY,
   LOPHN_EVENT_SOURCE,
   OAUTH_RESERVED_PARAMS,
   PHONE_CAPABILITIES,

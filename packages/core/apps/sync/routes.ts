@@ -16,6 +16,7 @@ import {
 import { loadActiveDeclaration } from "../releases/store.ts";
 import {
   type SyncPlan,
+  type SyncPolicyOverride,
   syncPlanOf,
   syncsData,
 } from "../../../protocol/apps/declaration/sync-plan.ts";
@@ -28,11 +29,12 @@ const key = (route: { resource: string; method: string }) =>
 /** 그 release가 컴퓨터에서 sync 앱이면 선언이 정한 길(`syncPlanOf`), 아니면 null. sync log가 본다. */
 export function syncPlanFor(
   sql: Pick<Sql, "get" | "all">,
+  policyOf?: (app: string) => SyncPolicyOverride | undefined,
 ): (app: string, release: string) => SyncPlan | null {
   return (app, release) => {
     const found = loadActiveDeclaration(sql, app, release);
     if (!found.ok || found.value === null) return null;
-    const plan = syncPlanOf(found.value.declaration);
+    const plan = syncPlanOf(found.value.declaration, policyOf?.(app));
     return syncsData(plan) ? plan : null;
   };
 }

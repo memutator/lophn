@@ -6,6 +6,14 @@ import {
   handlerNames,
   validateDeclaration,
 } from "./mod.ts";
+import {
+  clockedTables,
+  conflictStrategyOf,
+  sendsTo,
+  sentTables,
+  syncPlanOf,
+  syncsData,
+} from "./sync-plan.ts";
 
 const command = {
   name: "list_items",
@@ -506,4 +514,132 @@ test("fs 권한 경로는 ~와 ~/…를 적힌 그대로 받고 ~user, ~\\, .. �
   for (const path of ["~user/a", "~\\a", "~/a/../b", "~/./a", "a/b", ""]) {
     assert.ok(!withPath(path).ok, path);
   }
+});
+
+// 6.0.0 기본 sync 정책("computers"), "local" opt-out, conflict: "keep_both"와 봉인 번들 version-gate 규칙.
+test("sync는 앱/표 local opt-out과 keep_both 충돌 전략을 검증하고, syncPlanOf는 6.0.0 기본 computers·5.x phone+computer 기본 computers·<=5.2 computer-only local과 override를 지킨다", () => {
+  const phoneScreen = {
+    key: "home",
+    label: "Home",
+    path: "/phone",
+    places: ["phone"],
+  };
+  const v6Deps = [{ name: "@lophn/declaration", version: "6.0.0" }];
+  const v52Deps = [{ name: "@lophn/declaration", version: "5.2.0" }];
+  const event = {
+    name: "note.saved",
+    description: "A note was saved.",
+    payloadSchema: objectSchema,
+    across_machines: true,
+  };
+
+  for (const [label, extra] of [
+    ["empty table policy object", { sync: { notes: {} } }],
+    ["unknown table policy field", { sync: { notes: { mode: "lww" } } }],
+    ["invalid conflict strategy", { sync: { notes: { conflict: "merge" } } }],
+    [
+      "conflict on local table",
+      { sync: { cache: { destination: "local", conflict: "keep_both" } } },
+    ],
+    [
+      "sync local with across_machines event",
+      { sync: "local", events: [event], sdk_dependencies: v6Deps },
+    ],
+    [
+      "phone-only with sync local",
+      { screens: [phoneScreen], runs_on: ["phone"], sync: "local" },
+    ],
+  ] as [string, Record<string, unknown>][]) {
+    const res = validateDeclaration({ ...declarationWith([]), ...extra });
+    assert.ok(!res.ok, label);
+    assert.equal(res.error.code, "invalid_input", label);
+  }
+
+  // 6.0.0에서는 sync 생략 시 기본 "computers"이므로 across_machines event가 통과한다.
+  const v6Default = validateDeclaration({
+    ...declarationWith([]),
+    events: [event],
+    sdk_dependencies: v6Deps,
+  });
+  assert.ok(v6Default.ok);
+  const v6Plan = syncPlanOf(v6Default.value);
+  assert.equal(syncsData(v6Plan), true);
+  assert.deepStrictEqual(sendsTo(v6Plan), ["computers"]);
+  assert.equal(sentTables(v6Plan, "computers"), null);
+  assert.equal(clockedTables(v6Plan), null);
+
+  // 앱 전체 local opt-out
+  const v6Local = validateDeclaration({
+    ...declarationWith([]),
+    sync: "local",
+    sdk_dependencies: v6Deps,
+  });
+  assert.ok(v6Local.ok && v6Local.value.sync === "local");
+  const v6LocalPlan = syncPlanOf(v6Local.value);
+  assert.equal(syncsData(v6LocalPlan), false);
+  assert.deepStrictEqual(sendsTo(v6LocalPlan), []);
+
+  // 표별 local opt-out + keep_both + custom destination + lww 정규화
+  const v6Mixed = validateDeclaration({
+    ...declarationWith([]),
+    sync: {
+      cache: "local",
+      tmp: { destination: "local" },
+      notes: { conflict: "keep_both" },
+      journal: { destination: "personal", conflict: "keep_both" },
+      plain: { destination: "computers", conflict: "lww" },
+    },
+    sdk_dependencies: v6Deps,
+  });
+  assert.ok(v6Mixed.ok);
+  assert.deepStrictEqual(v6Mixed.value.sync, {
+    cache: "local",
+    journal: { conflict: "keep_both", destination: "personal" },
+    notes: { conflict: "keep_both" },
+    plain: "computers",
+    tmp: "local",
+  });
+  const mixedPlan = syncPlanOf(v6Mixed.value);
+  assert.deepStrictEqual(sendsTo(mixedPlan), ["computers", "personal"]);
+  const toComputers = sentTables(mixedPlan, "computers")!;
+  const toPersonal = sentTables(mixedPlan, "personal")!;
+  assert.equal(toComputers("notes"), true);
+  assert.equal(toComputers("other_table"), true);
+  assert.equal(toComputers("cache"), false);
+  assert.equal(toComputers("tmp"), false);
+  assert.equal(toComputers("journal"), false);
+  assert.equal(toPersonal("journal"), true);
+  assert.equal(toPersonal("notes"), false);
+  assert.equal(clockedTables(mixedPlan)!("cache"), false);
+  assert.equal(clockedTables(mixedPlan)!("notes"), true);
+  assert.equal(conflictStrategyOf(mixedPlan, "notes"), "keep_both");
+  assert.equal(conflictStrategyOf(mixedPlan, "journal"), "keep_both");
+  assert.equal(conflictStrategyOf(mixedPlan, "plain"), "lww");
+  assert.equal(conflictStrategyOf(mixedPlan, "other_table"), "lww");
+
+  // 봉인 번들 <= 5.2.0 computer-only(sync 생략): 기본 local 유지
+  const legacyComputerOnly = syncPlanOf({ sdk_dependencies: v52Deps });
+  assert.equal(syncsData(legacyComputerOnly), false);
+  assert.deepStrictEqual(sendsTo(legacyComputerOnly), []);
+
+  // 봉인 번들 5.0.0–5.2.0 phone+computer(sync 생략): 기본 "computers"
+  const legacyPhoneComputer = syncPlanOf({
+    runs_on: ["computer", "phone"],
+    sdk_dependencies: v52Deps,
+  });
+  assert.equal(syncsData(legacyPhoneComputer), true);
+  assert.equal(legacyPhoneComputer.phone, true);
+  assert.deepStrictEqual(sendsTo(legacyPhoneComputer), ["computers"]);
+  assert.equal(sentTables(legacyPhoneComputer, "computers"), null);
+
+  // user override ("computers" / "local")
+  const overrideOn = syncPlanOf({ sdk_dependencies: v52Deps }, "computers");
+  assert.equal(syncsData(overrideOn), true);
+  assert.deepStrictEqual(sendsTo(overrideOn), ["computers"]);
+  const overrideOff = syncPlanOf(
+    { runs_on: ["computer", "phone"], sdk_dependencies: v6Deps },
+    "local",
+  );
+  assert.equal(overrideOff.phone, true);
+  assert.deepStrictEqual(sendsTo(overrideOff), []);
 });

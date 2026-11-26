@@ -9,6 +9,7 @@ import { getState, setState } from "./tables.ts";
 //   같은 칸을 써야 값이 겹친다. 겹치면 "엄격히 크다" 규칙으로 replica마다 먼저 온 쪽이 남는다(받아들인 위험).
 // JS number로는 63 bit가 안전하지 않아 늘 bigint로 다룬다. bigint literal(`1n`)은 쓰지 않는다(낮은 target으로 묶는 bundler가 거절한다).
 const NODE_BITS = BigInt(16);
+const NODE_MASK = BigInt(0xffff);
 const COUNTER_BITS = BigInt(5);
 const LOW_BITS = NODE_BITS + COUNTER_BITS;
 const COUNTER_MAX = 31;
@@ -52,6 +53,11 @@ export function hlcAtMs(ms: number): bigint {
 
 export function msOfHlc(hlc: bigint): number {
   return hlcParts(hlc).ms;
+}
+
+/** HLC의 하위 16 bit node 몫. 두 쓰기가 다른 기기에서 왔는지 구분할 때 쓴다. */
+export function nodeOfHlc(hlc: bigint): number {
+  return Number(hlc & NODE_MASK);
 }
 
 /**

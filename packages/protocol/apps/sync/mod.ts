@@ -12,9 +12,13 @@
 // 끈다. reexpress와 migrate만 스스로 transaction을 연다.
 
 export {
+  type ApplyOptions,
   type ApplyStats,
   applyIncoming,
   applyRemote,
+  type ConflictPolicy,
+  type ConflictResolver,
+  deriveConflictRow,
   type IncomingChange,
   unsafePastHorizon,
 } from "./apply.ts";
@@ -25,6 +29,7 @@ export {
   hlcAtMs,
   maxHlc,
   msOfHlc,
+  nodeOfHlc,
   openClock,
 } from "./clock.ts";
 export type { SqlParam, SyncDb, SyncSession } from "./db.ts";

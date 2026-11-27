@@ -255,6 +255,8 @@ export function createGuiMembers(deps: {
   }): Promise<Result<string>>;
   /** core가 연 터미널을 닫는다. */
   closeTerminal(terminalRef: string): void;
+  /** 터미널과 팀원 session의 묶임이 바뀌어 coding_sessions 목록을 다시 알릴 때 부른다. */
+  onChanged?(): void;
   log(message: string): void;
 }) {
   const byTerminal = new Map<string, Member>();
@@ -350,6 +352,7 @@ export function createGuiMembers(deps: {
       void members.failQueued(session);
     });
     pending.set(terminal, wait);
+    deps.onChanged?.();
   }
 
   // project에서 일하는 core가 연 탭: 여는 중이거나 GUI를 기다리는 것, 묶인 뒤 입력을 넣으려 하거나 turn이 도는 것.
@@ -804,6 +807,7 @@ export function createGuiMembers(deps: {
           touched: false,
         };
         byTerminal.set(handle.terminal, member);
+        deps.onChanged?.();
       }
       const one = member;
       one.detach?.();
@@ -869,6 +873,7 @@ export function createGuiMembers(deps: {
         timedOut: false,
         cancel: () => {},
       });
+      deps.onChanged?.();
     },
 
     /** 그 터미널에 묶였거나 GUI 시작을 기다리는 팀원 ledger session id. 없으면 null. */

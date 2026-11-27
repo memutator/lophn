@@ -70,7 +70,13 @@ export function sessionAgentTarget(
   knownTitle?: string | null,
 ): { readonly assignment: string; readonly name: string } | undefined {
   const key = sessionAgentKey(entry);
-  if (key === null || !sessionAtWorkspace(entry, workspace)) return undefined;
+  if (
+    key === null ||
+    (!sessionAtWorkspace(entry, workspace) &&
+      sessionWorkflowDesk(entry, workspace) === undefined)
+  ) {
+    return undefined;
+  }
   const row = agents.find((one) => one.assignment === key);
   return {
     assignment: key,

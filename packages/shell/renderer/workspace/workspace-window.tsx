@@ -273,7 +273,11 @@ import {
   syncTerminalTab,
   terminalRefOf,
 } from "./kinds/terminal.tsx";
-import { openWorkflow, openWorkflowInstance } from "./kinds/workflow.tsx";
+import {
+  openWorkflow,
+  openWorkflowInstance,
+  workflowTab,
+} from "./kinds/workflow.tsx";
 import { clampFloatRect, hostTabOf } from "./model.ts";
 import { NoticeCard } from "./notice-card.tsx";
 import { openTabWithGroup } from "./open-policy.ts";
@@ -304,6 +308,7 @@ import {
 import {
   findTerminalTabByRef,
   sessionAgentTarget,
+  sessionAtWorkspace,
   sessionWorkflowDesk,
 } from "./sidebar/panel-sessions.ts";
 import {
@@ -326,6 +331,12 @@ import type {
 import { TabBoundary } from "./tab-boundary.tsx";
 import { surfaceApi, useSurfaceRequests } from "./use-surface-requests.ts";
 import { useTabHostSlices } from "./use-tab-host-slices.ts";
+import {
+  dismissedRunKey,
+  dismissedSessionKey,
+  dismissedTerminalKey,
+  planWorkflowDeskSync,
+} from "./workflow-desk-sync.ts";
 import styles from "./workspace-window.module.css";
 
 /** 이 창이 보일 수 있는 workspace: Home, project, 앱. */
@@ -1149,12 +1160,40 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
   // 탭 key별 자동 묶음 힌트(`options.group`, 예: "<instance>:<step>"). 단독 1번째 탭을 기억했다가
   // 같은 힌트의 2번째 병렬 탭이 오면 1-leaf bundle로 묶는다. layout schema를 바꾸지 않으려고 창 메모리에만 둔다.
   const groupHints = useRef<Map<string, string>>(new Map());
+  // 이 창에서 사람이 직접 닫은 workflow 탭·지운 workflow instance desk. 상태 기반 동기화가 다시 열지 않는다.
+  const dismissedWorkflowTabs = useRef<Set<string>>(new Set());
+  const dismissedWorkflowDesks = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    dismissedWorkflowTabs.current.clear();
+    dismissedWorkflowDesks.current.clear();
+  }, [workspaceId]);
 
   // 비동기 확인 뒤에는 그 사이 바뀐 배치에서 그 탭을 뺀다.
   const removeTab = (key: string) => {
     groupHints.current.delete(key);
     const found = findTab(latestLayout.current, key);
     if (found === null) return;
+    const removedTab = allTabs(latestLayout.current).find(
+      (item) => item.key === key,
+    );
+    if (
+      removedTab?.kind === "workflow" &&
+      typeof removedTab.fields?.instance === "string"
+    ) {
+      dismissedWorkflowTabs.current.add(
+        dismissedRunKey(removedTab.fields.instance),
+      );
+    } else if (removedTab?.kind === "agent") {
+      const ses = sessionOf(removedTab);
+      if (ses !== null) {
+        dismissedWorkflowTabs.current.add(dismissedSessionKey(ses));
+      }
+    } else if (removedTab?.kind === "terminal") {
+      const ref = terminal?.store.refOf(key) ?? terminalRefOf(removedTab);
+      if (ref !== null) {
+        dismissedWorkflowTabs.current.add(dismissedTerminalKey(ref));
+      }
+    }
     if (found.where === "detached") {
       void props.detached?.close({ key }).catch(() => {});
       updateAt(found.desk, (item) => closeDetached(item, key));
@@ -1191,6 +1230,24 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     const all = latestLayout.current;
     const found = findTab(all, tab.key);
     const select = options?.select !== false;
+    if (select) {
+      if (tab.kind === "workflow" && typeof tab.fields?.instance === "string") {
+        dismissedWorkflowTabs.current.delete(
+          dismissedRunKey(tab.fields.instance),
+        );
+        dismissedWorkflowDesks.current.delete(tab.fields.instance);
+      } else if (tab.kind === "agent") {
+        const ses = sessionOf(tab);
+        if (ses !== null) {
+          dismissedWorkflowTabs.current.delete(dismissedSessionKey(ses));
+        }
+      } else if (tab.kind === "terminal") {
+        const ref = terminal?.store.refOf(tab.key) ?? terminalRefOf(tab);
+        if (ref !== null) {
+          dismissedWorkflowTabs.current.delete(dismissedTerminalKey(ref));
+        }
+      }
+    }
     const tabWorkflowHint =
       options?.deskWorkflow ??
       (typeof tab.fields?.workflow === "string"
@@ -1674,15 +1731,25 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
             workspace,
             sessionTitles.known.get(session)?.title,
           );
-    if (target === undefined || agentViewSource === undefined) return false;
+    if (
+      entry === undefined ||
+      target === undefined ||
+      agentViewSource === undefined
+    ) {
+      return false;
+    }
     const workflowDesk =
       open?.options?.desk === undefined
         ? sessionWorkflowDesk(entry, workspace)
         : undefined;
+    const crossWorkspace = !sessionAtWorkspace(entry, workspace)
+      ? (entry.workspace?.id ?? "home")
+      : undefined;
     return openAgent(host, {
       agent: target.assignment,
       name: target.name,
       session,
+      ...(crossWorkspace === undefined ? {} : { workspace: crossWorkspace }),
       ...open,
       ...(workflowDesk === undefined
         ? {}
@@ -2505,6 +2572,9 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
       if (confirm && !(await confirm)) return;
       removeTab(tab.key);
     }
+    if (target.workflowInstance !== undefined) {
+      dismissedWorkflowDesks.current.add(target.workflowInstance);
+    }
     commit(removeDesk(latestLayout.current, key), true, true);
   };
 
@@ -3245,6 +3315,68 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
       }
     }
   }, [terminalVersion, terminal, windowTabs]);
+
+  // 열린 workflow instance desk와 실행 중 workflow instance의 step session·GUI 터미널을 `workflow_origin` 기준으로
+  // 각 instance desk의 `<instance>:<step>` 묶음에 자동 투영한다. 로컬·원격·재접속 모두 같은 길이다.
+  const workflowDeskKeys = Object.values(layout.desks)
+    .flatMap((d) =>
+      d.workflowInstance === undefined ? [] : [d.workflowInstance],
+    )
+    .sort()
+    .join();
+  useEffect(() => {
+    if (readyWorkspace !== workspaceId || projectId === null) return;
+    const plan = planWorkflowDeskSync({
+      projectId,
+      layout: latestLayout.current,
+      runningWorkflows,
+      sessions: sessionStates,
+      codingSessions: terminal?.store.codingSessions() ?? [],
+      terminalRefOf:
+        terminal === undefined ? undefined : (key) => terminal.store.refOf(key),
+      dismissedTabs: dismissedWorkflowTabs.current,
+      dismissedDesks: dismissedWorkflowDesks.current,
+    });
+    for (const item of plan) {
+      if (item.kind === "run") {
+        openTab(workflowTab(item.workflow, item.instance, item.title), {
+          select: false,
+          desk: item.instance,
+          deskWorkflow: item.workflow,
+        });
+      } else if (item.kind === "session") {
+        openSessionTab(item.session, {
+          options: {
+            select: false,
+            desk: item.origin.instance,
+            deskWorkflow: item.origin.workflow,
+            group: `${item.origin.instance}:${item.origin.step}`,
+          },
+        });
+      } else {
+        openTerminalTab(hostRef.current, {
+          terminal: item.terminal,
+          open: {
+            options: {
+              select: false,
+              desk: item.origin.instance,
+              deskWorkflow: item.origin.workflow,
+              group: `${item.origin.instance}:${item.origin.step}`,
+            },
+          },
+        });
+      }
+    }
+  }, [
+    readyWorkspace,
+    workspaceId,
+    projectId,
+    workflowDeskKeys,
+    runningWorkflows,
+    sessionStates,
+    terminalVersion,
+    terminal,
+  ]);
 
   // 터미널 탭 이름을 core에 알린다(`terminals/name`). core가 runtime에 실어 모든 화면에 보내므로 OS 알림과 다른 창·workspace의
   // Inbox, 폰도 탭 이름을 안다. 바뀐 것만 보낸다.

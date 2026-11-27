@@ -250,6 +250,11 @@ export class TerminalStore {
     return this.#keyOf(terminalRef) !== undefined;
   }
 
+  /** 이 기계에서 지금 살아 있는 coding session 목록(`coding_sessions/list`). */
+  codingSessions(): readonly CodingSession[] {
+    return [...this.#coding.values()];
+  }
+
   /** 주어진 CLI session id가 지금 살아 있는 coding session이나 터미널 agent에 묶여 있으면 그 terminal_ref를 돌려준다. */
   terminalOfCliSession(cliSession: string): string | undefined {
     for (const [ref, coding] of this.#coding) {

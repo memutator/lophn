@@ -264,9 +264,13 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
   ) => map.set(workspace, [...(map.get(workspace) ?? []), item]);
 
   for (const entry of input.entries) {
-    const row = rowOf.get(
-      copyKey(entry.machine, entry.workspace?.id ?? "home"),
-    );
+    const originRow =
+      entry.workflowOrigin != null
+        ? rowOf.get(copyKey(entry.machine, entry.workflowOrigin.project))
+        : undefined;
+    const row =
+      originRow ??
+      rowOf.get(copyKey(entry.machine, entry.workspace?.id ?? "home"));
     if (row === undefined || entry.archived) continue;
     const own = workspaceKey(row.ref);
     // 탭을 다른 workspace로 옮겼으면 줄도 탭이 있는 workspace 아래다. 자기 workspace에도 탭이 있으면 자기 자리다.
@@ -392,14 +396,25 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
       ),
     ),
   ]);
+  const terminalWorkflowOriginBy = new Map<
+    string,
+    NonNullable<CodingSession["workflow_origin"]>
+  >();
   for (const terminal of input.remoteTerminals) {
-    const row = rowOf.get(copyKey(terminal.machine, terminal.project));
+    const targetProject = terminal.workflow_origin?.project ?? terminal.project;
+    const row =
+      rowOf.get(copyKey(terminal.machine, targetProject)) ??
+      rowOf.get(copyKey(terminal.machine, terminal.project));
     if (row === undefined || shown.has(terminal.terminal)) continue;
     const workspace = workspaceKey(row.ref);
     const tab = input.attached.get(workspace)?.get(terminal.terminal) ?? null;
+    const ref = tab ?? terminal.terminal;
+    if (terminal.workflow_origin !== undefined) {
+      terminalWorkflowOriginBy.set(ref, terminal.workflow_origin);
+    }
     add(current, workspace, {
       kind: "terminal",
-      ref: tab ?? terminal.terminal,
+      ref,
       title: terminal.title ?? terminal.label,
       agent: codingFace(terminal.harness),
       dot: activityDot({
@@ -515,8 +530,14 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
             desks?.at.get(`workflow:${item.ref}`))
           : desks?.at.get(item.ref);
       if (placed !== undefined) return placed;
-      if (item.kind === "session" && ref.kind === "project") {
-        const origin = workflowOriginBy.get(item.ref);
+      if (
+        (item.kind === "session" || item.kind === "terminal") &&
+        ref.kind === "project"
+      ) {
+        const origin =
+          item.kind === "session"
+            ? workflowOriginBy.get(item.ref)
+            : terminalWorkflowOriginBy.get(item.ref);
         if (origin != null && origin.project === ref.id) {
           const instDesk = desks?.at.get(
             `workflow-instance:${origin.instance}`,

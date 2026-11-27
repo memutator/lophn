@@ -68,6 +68,7 @@ import {
   isCodingBuiltin,
 } from "../../../../protocol/lophn-agent/workspaces.ts";
 import type { Output } from "../../../../protocol/server/mod.ts";
+import { workflowOriginSchema } from "../../../../protocol/workflows/origin.ts";
 import { codingAgentsSetting, shellSettings } from "../../../config/mod.ts";
 import { HARNESS_GUI_ADAPTERS } from "../../../harness-gui/index.ts";
 import {
@@ -388,6 +389,19 @@ export const terminalAgentsWiring: WiringFactory = () => {
               agentId,
             );
             return { id: agentId, name };
+          });
+          return found.ok ? found.value : null;
+        },
+        memberWorkflowOrigin: (session) => {
+          const found = ledgerSnapshot(ctx.ledgerPath, (lookup) => {
+            const raw = loadSession(lookup, session)?.workflow_origin;
+            if (raw == null) return null;
+            try {
+              const parsed = workflowOriginSchema.safeParse(JSON.parse(raw));
+              return parsed.success ? parsed.data : null;
+            } catch {
+              return null;
+            }
           });
           return found.ok ? found.value : null;
         },

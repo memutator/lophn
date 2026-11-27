@@ -398,6 +398,10 @@ files:
     covers: []
     note: "code 강조의 줄 단위 증분 tokenize와 LRU 순수 함수"
 
+  - path: packages/shell/renderer/workspace/workflow-desk-sync_test.ts
+    covers: []
+    note: "workflow instance desk의 상태 기반 탭 투영(planWorkflowDeskSync): 실행 중·열린 instance desk에 workflow_origin이 맞는 cross-project session·GUI 터미널을 run 탭과 함께 모으고, 이미 열린 탭·사람이 닫은 탭·지운 desk는 다시 열지 않는다"
+
   - path: packages/shell/renderer/workspace/hand_test.ts
     covers:
       - tab-hand:handed

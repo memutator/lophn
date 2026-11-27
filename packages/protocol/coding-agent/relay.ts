@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
 import { defineMemory, defineRead } from "../base/route.ts";
+import { workflowOriginSchema } from "../base/workflow-origin.ts";
 import { terminalProjectSchema } from "./terminals.ts";
 import type { AcpCliSession, AcpRewindPreview } from "./gui-harness.ts";
 
@@ -26,6 +27,8 @@ export const codingSessionSchema = z.strictObject({
   // custom harness agent 프로필로 열린 GUI 탭이면 그 agent id와 보이는 이름. 내장 coding agent나 일반 터미널은 없다.
   agent: idSchema("agt").optional(),
   agent_name: z.string().min(1).optional(),
+  // workflow step 또는 그 팀 자식으로 열린 GUI 탭이면 원 workflow 출처.
+  workflow_origin: workflowOriginSchema.optional(),
   // Home의 터미널은 `home`이다.
   project: terminalProjectSchema,
   cwd: z.string().nullable(),

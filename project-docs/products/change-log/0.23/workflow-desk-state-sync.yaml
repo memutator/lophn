@@ -1,0 +1,21 @@
+id: workflow-desk-state-sync
+version: 0.23.185
+platform_note: none
+title: workflow instance desk가 workflow_origin 상태로 step 세션과 GUI 터미널을 자동 투영해 로컬·원격 UX를 통일한다
+modules:
+  - packages/protocol
+  - packages/core/terminal-agents
+  - packages/core/main
+  - packages/shell/renderer
+change: |
+  `coding_sessions/list`의 `CodingSession`에 선택 필드 `workflow_origin`을 싣고(`memberWorkflowOrigin` + `members` 바인딩 시 `coding.changed()`), `TerminalStore.codingSessions()`로 노출한다.
+  `WorkspaceWindow`가 `planWorkflowDeskSync`로 열린·실행 중 workflow instance desk에 `workflow_origin`이 맞는 session(cross-project 포함)과 live GUI 터미널을 `<instance>:<step>` 탭 묶음으로 자동 투영한다(이 창에서 사람이 직접 닫은 탭·지운 desk는 다시 열지 않는다).
+  왼쪽 sidebar(`left-sidebar-workspaces.ts`)와 workflow 탭의 `onOpenSession`(`kinds/workflow.tsx`)도 `workflow_origin` 기준으로 cross-project session·원격 GUI 터미널을 원 workflow project의 instance desk로 모으고, fallback `runToastAction`에 `machine`을 싣는다.
+why: |
+  원격(headless) 컴퓨터의 core에는 데스크톱 `/host-link`가 붙어 있지 않아 1회성 `tab_open` push가 데스크톱 창으로 도달하지 못했고, 그 결과 원격 워크플로우 실행 시 instance desk에 step 탭이 자동으로 열리지 않고 cross-project step(`harness-lab` 등)이 다른 프로젝트로 흩어지며 클릭 시 로컬 머신으로 튀는 문제가 있었다. layout 소유는 보는 컴퓨터(shell)가 그대로 갖되 소속(membership)은 core의 `workflow_origin` 상태에서 투영하도록 구조를 정리했다.
+decisions:
+  - text: |
+      layout 소유는 각 보는 컴퓨터(shell)에 두고, workflow instance desk 안의 step 탭 구성은 `tab_open` 1회성 push 대신 core의 `workflow_origin` 상태(`sessions` + `coding_sessions/list`)에서 각 뷰어가 투영(materialize)하도록 했다. 버린 길: 원격 `hostQueue`(`tab_open`) 중계만 추가하기(다중 뷰어 ack/소비 충돌과 접속 전 지나간 step 누락·재시작 시 소실 문제를 못 푼다).
+    by: person
+checklist:
+  - "원격 컴퓨터에서 workflow를 실행했을 때 해당 workflow instance desk에 step 세션·GUI 터미널·병렬 worker 탭이 로컬처럼 step 묶음으로 자동 모이고, 사이드바에서도 원 workflow instance desk 아래에 표시되는지 확인한다"

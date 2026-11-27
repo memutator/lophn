@@ -128,7 +128,7 @@ test("sessionAgentTarget opens remote sessions without waiting for sidebar agent
       name: "Claude Code",
     },
   );
-  // 다른 workspace의 session은 열지 않는다.
+  // 다른 workspace의 일반 session은 열지 않는다.
   assert.equal(
     sessionAgentTarget(
       sessionEntry({ workspace: { kind: "project", id: "prj_other" } }),
@@ -136,6 +136,27 @@ test("sessionAgentTarget opens remote sessions without waiting for sidebar agent
       workspace,
     ),
     undefined,
+  );
+  // 다른 workspace에서 돌더라도 workflowOrigin이 이 project에 속하면 instance desk에서 열 수 있다.
+  assert.deepEqual(
+    sessionAgentTarget(
+      sessionEntry({
+        agent: "coding_claude",
+        workspace: { kind: "project", id: "prj_other" },
+        workflowOrigin: {
+          project: workspace.id,
+          workflow: "feature-cleanroom",
+          instance: "wfi_01000000000000000000000001",
+          step: "research",
+        },
+      }),
+      [],
+      workspace,
+    ),
+    {
+      assignment: "coding_claude",
+      name: "Claude Code",
+    },
   );
 });
 

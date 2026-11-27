@@ -25,6 +25,7 @@ import {
   agentRow,
   openedWorkspaceLophnSession,
   sessionAgentTarget,
+  sessionAtWorkspace,
   sessionWorkflowDesk,
 } from "./sidebar/panel-sessions.ts";
 import type { WorkspaceSource } from "./source.ts";
@@ -139,16 +140,22 @@ export function useTabHostSlices(input: TabHostSlicesInput) {
                     workspace,
                     sessionTitles.known.get(session)?.title,
                   );
-            if (target === undefined) return;
+            if (target === undefined || entry === undefined) return false;
             const workflowDesk =
               open?.options?.desk === undefined &&
               open?.options?.after === undefined
                 ? sessionWorkflowDesk(entry, workspace)
                 : undefined;
-            openAgent(hostRef.current(), {
+            const crossWorkspace = !sessionAtWorkspace(entry, workspace)
+              ? (entry.workspace?.id ?? "home")
+              : undefined;
+            return openAgent(hostRef.current(), {
               agent: target.assignment,
               name: target.name,
               session,
+              ...(crossWorkspace === undefined
+                ? {}
+                : { workspace: crossWorkspace }),
               ...open,
               ...(workflowDesk === undefined
                 ? {}

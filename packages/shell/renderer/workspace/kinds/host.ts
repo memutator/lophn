@@ -61,11 +61,11 @@ export interface AgentViewSlice {
   openSettings(target: "skills" | "mcp" | "rules"): void;
   /** provider 끊김 줄의 행동이 Settings › Providers로 간다. */
   openConnections(): void;
-  /** 그 session의 agent 탭을 연다. 이 project의 agent가 아니면 열지 않는다. `open.options`는 탭을 놓을 자리다(`openTab`의 옵션). */
+  /** 그 session의 agent 탭을 연다. 이 project(또는 이 project workflow 출처)의 agent가 아니면 열지 않고 false다. `open.options`는 탭을 놓을 자리다(`openTab`의 옵션). */
   openSession(
     session: string,
     open?: { readonly options?: Parameters<TabHost["openTab"]>[1] },
-  ): void;
+  ): boolean;
   /** 이 project workspace에서 열려 있는 lophn session. 없으면 null. */
   workspaceLophnSession(): string | null;
   /** session의 agent 이름. 이 project의 agent가 아니면 undefined. */

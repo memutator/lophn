@@ -230,11 +230,24 @@ function WorkflowTabBody({
         })
       }
       onOpenSession={(session, node) => {
-        if (agentView !== null && agentView.nameOf(session) !== undefined) {
-          // 같은 project의 대화는 workflow 탭 옆 칸에 열어 run을 보면서 말하게 한다.
+        const desk = instance ?? workflow;
+        const group =
+          instance !== null && node?.step !== undefined
+            ? `${instance}:${node.step}`
+            : undefined;
+        if (
+          !node?.harness_gui &&
+          agentView !== null &&
           agentView.openSession(session, {
-            options: { after: tab.key, beside: true },
-          });
+            options: {
+              after: tab.key,
+              beside: true,
+              desk,
+              deskWorkflow: workflow,
+              ...(group === undefined ? {} : { group }),
+            },
+          })
+        ) {
           return;
         }
         const terminalStore = host.props.terminal?.store;
@@ -266,12 +279,22 @@ function WorkflowTabBody({
         if (liveRef !== undefined) {
           openTerminal(host, {
             terminal: liveRef,
-            open: { options: { desk: instance ?? workflow } },
+            open: {
+              options: {
+                desk,
+                deskWorkflow: workflow,
+                ...(group === undefined ? {} : { group }),
+              },
+            },
           });
           return;
         }
         // 아직 안 열린 다른 workspace의 session은 toast [Open]과 같은 길로 그 workspace에서 연다.
-        runToastAction({ kind: "session", session });
+        runToastAction({
+          kind: "session",
+          session,
+          ...(host.machine === null ? {} : { machine: host.machine }),
+        });
       }}
     />
   );

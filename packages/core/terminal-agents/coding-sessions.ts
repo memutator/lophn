@@ -27,6 +27,7 @@ import {
 } from "../../protocol/events/changes.ts";
 import type { TerminalSessionReport } from "../../protocol/lophn-agent/session-lifecycle.ts";
 import { guiSessionId } from "../../protocol/lophn-agent/session-tag.ts";
+import type { WorkflowOrigin } from "../../protocol/workflows/origin.ts";
 import { attachBatched, type TabGui } from "./gui.ts";
 
 // session마다 기억하는 입력 key 수. 폰은 다시 붙은 뒤 같은 key로 다시 보내고 adapter는 key를 거르지 않는다.
@@ -57,6 +58,8 @@ export type CodingSessionsDeps = {
   platform: string;
   // custom harness agent 프로필로 열린 GUI 탭이면 그 agent id와 이름. 내장 coding agent나 일반 터미널은 null이다.
   agentOf?(terminalRef: string): { id: string; name: string } | null;
+  // workflow step 또는 그 팀 자식으로 열린 GUI 탭이면 원 workflow 출처.
+  workflowOriginOf?(terminalRef: string): WorkflowOrigin | null;
 };
 
 // 다시 보내도 한 번만 가야 하는 입력의 key다. key가 없는 입력(decide, answer, 줄 고치기)은 같은 대상에 두 번 가도 adapter가 거른다.
@@ -161,12 +164,14 @@ export function createCodingSessions(deps: CodingSessionsDeps) {
     const state = gui.current(report.terminal_ref)?.handle.state();
     const blocked = blockedOf(report);
     const agent = deps.agentOf?.(report.terminal_ref) ?? null;
+    const workflowOrigin = deps.workflowOriginOf?.(report.terminal_ref) ?? null;
     return {
       session: guiSessionId(report.terminal_ref) as CodingSession["session"],
       terminal: report.terminal_ref,
       harness: report.harness,
       label: labelOf(report.harness),
       ...(agent === null ? {} : { agent: agent.id, agent_name: agent.name }),
+      ...(workflowOrigin === null ? {} : { workflow_origin: workflowOrigin }),
       project: report.project,
       cwd: report.cwd,
       title: report.title,

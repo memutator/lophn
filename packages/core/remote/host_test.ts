@@ -250,6 +250,7 @@ function setup(real?: {
   hostKey: KeyPair;
   hub?: boolean;
   relays?: string[];
+  lophn_version?: string;
 }) {
   const random = seededRandom(11);
   const clock = manualClock(1_000_000);
@@ -433,6 +434,9 @@ function setup(real?: {
       addresses: ["192.168.0.2"],
       ...(real?.hub === undefined ? {} : { hub: real.hub }),
       ...(real?.relays === undefined ? {} : { relays: real.relays }),
+      ...(real?.lophn_version === undefined
+        ? {}
+        : { lophn_version: real.lophn_version }),
     }),
     random,
     timers: {
@@ -2013,6 +2017,7 @@ test("hubRelayUrls와 serverHello·links는 Hub 여부와 정렬된 relay 목록
     hostKey,
     hub: true,
     relays: bRelays,
+    lophn_version: "0.23.183",
   });
   const aKey = generateKeyPair(s.random);
   const b: RosterEntryBody = {
@@ -2108,6 +2113,7 @@ test("hubRelayUrls와 serverHello·links는 Hub 여부와 정렬된 relay 목록
     onPeerCarry: () => undefined,
     onPeerVault: () => undefined,
     onPeerEvent: () => undefined,
+    recordedVersion: (machine) => (machine === c.machine ? "0.23.170" : null),
   });
   links.sync(aKey);
   t.after(() => links.sync(undefined));
@@ -2124,6 +2130,15 @@ test("hubRelayUrls와 serverHello·links는 Hub 여부와 정렬된 relay 목록
   assert.equal(learnedB?.hub, true);
   assert.deepEqual(learnedB?.relays, bRelays);
   assert.equal(links.list().find((each) => each.device === b.id)?.hub, true);
+  assert.equal(
+    links.list().find((each) => each.device === b.id)?.lophn_version,
+    "0.23.183",
+  );
+  // 오프라인 컴퓨터는 폴더 기록(`recordedVersion`)의 lophn 판으로 채워진다.
+  assert.equal(
+    links.list().find((each) => each.device === c.id)?.lophn_version,
+    "0.23.170",
+  );
   // 온라인 Hub(b)의 relay URL이 오프라인 Hub(c)보다 앞에 온다.
   assert.deepEqual(links.hubRelays(), [
     "ws://203.0.113.10:7432",

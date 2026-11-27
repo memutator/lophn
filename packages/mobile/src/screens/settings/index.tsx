@@ -430,6 +430,15 @@ export function ComputerScreen({ place }: { place: PlaceOf<"computer"> }) {
             />
           </>
         )}
+        {computer.lophnVersion != null && (
+          <>
+            <Divider />
+            <Row
+              title={t("mobile.computer.label.version")}
+              end={<Value>{computer.lophnVersion}</Value>}
+            />
+          </>
+        )}
       </Group>
       {isDisputed && (
         <Text

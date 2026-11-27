@@ -39,6 +39,7 @@ export type Computer = Endpoint & {
   name?: string;
   announced?: string;
   hub?: boolean;
+  lophn_version?: string;
   disputed?: true;
 };
 
@@ -86,6 +87,7 @@ export interface ComputerItem {
   // Its machine id once a hello has told it; null before that and for the sample. Job and app text names a computer by it.
   readonly machine: string | null;
   readonly hub: boolean;
+  readonly lophnVersion?: string | null;
   readonly status: ComputerStatus;
   readonly update: Update | null;
   readonly path: ComputerPath | null;
@@ -326,6 +328,7 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
         announced: null,
         machine: null,
         hub: false,
+        lophnVersion: null,
         ...sample.link.state(),
         sample: true,
       });
@@ -340,6 +343,7 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
         announced: computer.announced ?? null,
         machine: computer.machine ?? null,
         hub: computer.hub === true,
+        lophnVersion: computer.lophn_version ?? null,
         status: cut ? "revoked" : (live?.status ?? "connecting"),
         update: cut ? null : (live?.update ?? null),
         path: cut ? null : (live?.path ?? null),
@@ -590,7 +594,15 @@ export function createComputers<D>(deps: ComputersDeps<D>): Computers<D> {
     const addresses = machine.addresses ?? known.addresses;
     const announced = listed(key)?.name ?? machine.name;
     const next = withReachRouting(
-      { ...known, machine: machine.id, announced, addresses },
+      {
+        ...known,
+        machine: machine.id,
+        announced,
+        addresses,
+        ...(machine.lophn_version === undefined
+          ? {}
+          : { lophn_version: machine.lophn_version }),
+      },
       {
         ...(machine.relays === undefined ? {} : { relays: machine.relays }),
         ...(machine.hub === undefined ? {} : { hub: machine.hub }),

@@ -187,6 +187,7 @@ async function boot(
         publish() {},
       },
       allRoutes: [],
+      productStartListeners: [],
       // shell main이 붙지 않았다: 살아 있는 shell capability가 없다.
       peek: {},
     };

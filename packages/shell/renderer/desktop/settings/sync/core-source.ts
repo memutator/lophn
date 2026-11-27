@@ -213,6 +213,17 @@ export function coreSyncSource(
                 .filter((m) => m.hub === true)
                 .map((m) => m.id)
             : [],
+          machineVersions: environment.ok
+            ? Object.fromEntries(
+                environment.value.machines.flatMap((m) =>
+                  m.lophn_version !== null &&
+                  m.lophn_version.length > 0 &&
+                  m.lophn_version !== "unknown"
+                    ? [[m.id, m.lophn_version] as const]
+                    : [],
+                ),
+              )
+            : {},
         },
       };
     },

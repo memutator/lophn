@@ -776,6 +776,17 @@ export const folderWiring: WiringFactory = () => {
             me(),
             (machine) => ctx.peek.computerSigningKey?.(machine) != null,
           ),
+        lophnVersion: (machine) => {
+          const recorded = importer
+            .records()
+            .machines.find((row) => row.machine === machine)?.record
+            .lophn.version;
+          return recorded !== undefined &&
+            recorded.length > 0 &&
+            recorded !== "unknown"
+            ? recorded
+            : null;
+        },
       });
       const apps = createFolderApps({
         machine: me,

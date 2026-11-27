@@ -49,6 +49,16 @@ export function RemotePanel({
   return (
     <div data-remote-settings="">
       <h1 className={styles.paneTitle}>{t("settings.label.tab-remote")}</h1>
+      {machine.lophnVersion == null ? null : (
+        <p
+          className={styles.lead}
+          data-remote-machine-version={machine.lophnVersion}
+        >
+          {t("machine-update.status.lophn-version", {
+            version: machine.lophnVersion,
+          })}
+        </p>
+      )}
       <KeepRunningSection
         source={source}
         name={
@@ -190,6 +200,11 @@ function ThisComputerMyComputers({
     syncStatus === null || syncStatus === "failed"
       ? []
       : (syncStatus.hubMachines ?? []),
+  );
+  const versionByMachine = new Map<string, string>(
+    syncStatus === null || syncStatus === "failed"
+      ? []
+      : Object.entries(syncStatus.machineVersions ?? {}),
   );
   const duplicateMachines = duplicateMachineIds(syncStatus, view);
 
@@ -389,6 +404,7 @@ function ThisComputerMyComputers({
                   reload={() => void loadDevices()}
                   receivedByMachine={receivedByMachine}
                   hubMachines={hubMachines}
+                  versionByMachine={versionByMachine}
                   duplicateMachines={duplicateMachines}
                 />
               </section>

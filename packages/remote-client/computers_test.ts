@@ -375,11 +375,17 @@ test("already-paired computers learn hub and ordered relays from serverHello and
     addresses: ["198.51.100.10"],
     hub: true,
     relays: ["ws://198.51.100.10:7432", "wss://fly.test"],
+    lophn_version: "0.23.183",
   });
   assert.equal(
     store.get().computers.find((c) => c.key === hub.host)?.hub,
     true,
   );
+  assert.equal(
+    store.get().computers.find((c) => c.key === hub.host)?.lophnVersion,
+    "0.23.183",
+  );
+  assert.equal(saves.at(-1)?.computers[0]?.lophn_version, "0.23.183");
   assert.deepEqual(saves.at(-1)?.computers[0]?.relays, [
     "ws://198.51.100.10:7432",
     "wss://fly.test",

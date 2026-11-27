@@ -261,3 +261,149 @@ test("coreSyncSource.setAppSyncPolicy는 sync.app_policies를 덮어쓰고 defau
   });
   assert.deepStrictEqual(policies, {});
 });
+
+test("coreRemoteSource.devices와 coreSyncSource.status는 컴퓨터별 lophn 버전을 읽어 넘긴다", async () => {
+  const core: CoreSource = {
+    subscribe: () => () => {},
+    call: (req) => {
+      if (req.resource === "roster" && req.method === "list") {
+        return Promise.resolve({
+          ok: true,
+          value: {
+            this: "dev_self",
+            removed_at: null,
+            devices: [
+              {
+                id: "dev_self",
+                key: "key_self",
+                kind: "computer",
+                name: "Studio",
+                os: "linux",
+                machine: "mch_self",
+                terminal_input: false,
+                this: true,
+                pending: false,
+                disputed: false,
+                last_connected_at: null,
+              },
+              {
+                id: "dev_peer",
+                key: "key_peer",
+                kind: "computer",
+                name: "Home server",
+                os: "macos",
+                machine: "mch_peer",
+                terminal_input: true,
+                this: false,
+                pending: false,
+                disputed: false,
+                last_connected_at: "2026-11-27T00:00:00.000Z",
+              },
+            ],
+          },
+        });
+      }
+      if (req.resource === "devices" && req.method === "list") {
+        return Promise.resolve({ ok: true, value: { devices: [] } });
+      }
+      if (req.resource === "machines" && req.method === "list") {
+        return Promise.resolve({
+          ok: true,
+          value: {
+            machines: [
+              {
+                machine: "mch_peer",
+                device: "dev_peer",
+                name: "Home server",
+                status: "connected",
+                update: null,
+                path: "direct",
+                last_seen_at: "2026-11-27T00:00:00.000Z",
+                hub: true,
+                lophn_version: "0.23.180",
+              },
+            ],
+          },
+        });
+      }
+      if (req.resource === "settings" && req.method === "list") {
+        return Promise.resolve({
+          ok: true,
+          value: {
+            settings: [
+              { key: "remote.hub", type: {}, default: false, chosen: false },
+            ],
+            folders: [],
+          },
+        });
+      }
+      if (req.resource === "carry" && req.method === "status") {
+        return Promise.resolve({
+          ok: true,
+          value: { shared: null, machines: [], apps: [] },
+        });
+      }
+      if (req.resource === "machine" && req.method === "environment") {
+        return Promise.resolve({
+          ok: true,
+          value: {
+            this_machine: { id: "mch_self", name: "Studio" },
+            machines: [
+              {
+                id: "mch_self",
+                name: "Studio",
+                display_name: "Studio",
+                always_on: null,
+                hub: false,
+                addresses: { lan: [], port: null, relay: null },
+                lophn_version: "0.23.183",
+                record_at: null,
+                exchange: "ok",
+                destinations: [],
+                sections: {},
+              },
+              {
+                id: "mch_peer",
+                name: "Home server",
+                display_name: "Home server",
+                always_on: null,
+                hub: true,
+                addresses: { lan: [], port: null, relay: null },
+                lophn_version: "0.23.180",
+                record_at: "2026-11-27T00:00:00.000Z",
+                exchange: "ok",
+                destinations: [],
+                sections: {},
+              },
+            ],
+            destinations: [],
+            apps: [],
+            available: [],
+            sections: {},
+          },
+        });
+      }
+      throw new Error(`unexpected call ${req.resource}/${req.method}`);
+    },
+  };
+
+  const remote = coreRemoteSource(core);
+  const listed = await remote.devices();
+  assert.strictEqual(listed.ok, true);
+  if (listed.ok) {
+    assert.strictEqual(
+      listed.value.devices.find((d) => d.id === "dev_peer")?.lophnVersion,
+      "0.23.180",
+    );
+  }
+
+  const sync = coreSyncSource(core, { picker: undefined });
+  const status = await sync.status();
+  assert.strictEqual(status.ok, true);
+  if (status.ok) {
+    assert.deepStrictEqual(status.value.machineVersions, {
+      mch_self: "0.23.183",
+      mch_peer: "0.23.180",
+    });
+  }
+});

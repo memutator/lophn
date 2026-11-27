@@ -50,6 +50,7 @@ const serverHelloSchema = z.object({
     addresses: remoteAddressesSchema.optional(),
     hub: z.boolean().optional(),
     relays: z.array(z.string().url()).optional(),
+    lophn_version: z.string().min(1).max(64).optional(),
   }),
 });
 

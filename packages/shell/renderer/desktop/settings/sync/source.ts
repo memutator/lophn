@@ -64,6 +64,8 @@ export interface SyncStatus {
   readonly available: readonly AvailableApp[];
   /** `machine/environment`가 보고한 hub 기계 id 목록. */
   readonly hubMachines?: readonly string[];
+  /** `machine/environment`가 보고한 기계별 lophn 판(이 컴퓨터 포함). */
+  readonly machineVersions?: Readonly<Record<string, string>>;
 }
 
 export interface StagedSettingsApplyOutcome {

@@ -82,6 +82,7 @@ export type RemoteHostDeps = {
     addresses: string[];
     hub?: boolean;
     relays?: string[];
+    lophn_version?: string;
   };
   random: RandomSource;
   timers: RemoteTimers;

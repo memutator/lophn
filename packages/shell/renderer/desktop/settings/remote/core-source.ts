@@ -267,6 +267,15 @@ export function coreRemoteSource(
             ])
           : [],
       );
+      const versionByMachine = new Map<string, string>(
+        listedMachines.ok
+          ? listedMachines.value.machines.flatMap((one) =>
+              one.lophn_version != null
+                ? [[one.machine, one.lophn_version] as const]
+                : [],
+            )
+          : [],
+      );
       const thisHub = settings.ok && settings.value.get(HUB_KEY) === true;
       return {
         ok: true,
@@ -289,6 +298,10 @@ export function coreRemoteSource(
               ? thisHub
               : device.machine !== null &&
                 hubByMachine.get(device.machine) === true,
+            lophnVersion:
+              device.machine === null
+                ? null
+                : (versionByMachine.get(device.machine) ?? null),
           })),
         },
       };

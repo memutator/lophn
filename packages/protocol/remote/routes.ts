@@ -400,6 +400,7 @@ export const machinesList = defineMemory({
         path: z.enum(["direct", "relay"]).nullable(),
         last_seen_at: atSchema.nullable(),
         hub: z.boolean().optional(),
+        lophn_version: z.string().min(1).max(64).nullable().optional(),
       }),
     ),
   }),

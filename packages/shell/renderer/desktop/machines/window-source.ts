@@ -24,6 +24,7 @@ function viewOf(list: MachineList): MachinesView {
       update: row.update,
       path: row.path,
       lastSeenAt: row.last_seen_at,
+      lophnVersion: row.lophn_version ?? null,
     })),
   };
 }

@@ -37,25 +37,23 @@ export function shortKey(key: string): string {
   return key.slice(0, 8);
 }
 
-function detailText(device: RemoteDevice): string {
+function platformText(device: RemoteDevice): string {
   const kind = t(
     device.kind === "computer"
       ? "settings.label.device-kind-computer"
       : "settings.label.device-kind-phone",
   );
-  const platform = `${kind} · ${t(OS_LABEL[device.os])}`;
+  return `${kind} · ${t(OS_LABEL[device.os])}`;
+}
+
+function seenText(device: RemoteDevice): string | null {
   // 컴퓨터의 연결은 기계 목록의 상태가 말한다. 엇갈린 컴퓨터는 link가 없어 마지막으로 본 때를 함께 보인다.
-  if (device.kind === "computer" && !device.disputed) return platform;
-  const seen =
-    device.lastConnectedAt === null
-      ? t("settings.label.remote-never-connected")
-      : t("settings.label.remote-last-connected", {
-          time: formatRelativeTime(
-            new Date(device.lastConnectedAt),
-            new Date(),
-          ),
-        });
-  return `${platform} · ${seen}`;
+  if (device.kind === "computer" && !device.disputed) return null;
+  return device.lastConnectedAt === null
+    ? t("settings.label.remote-never-connected")
+    : t("settings.label.remote-last-connected", {
+        time: formatRelativeTime(new Date(device.lastConnectedAt), new Date()),
+      });
 }
 
 export function MyDevices({
@@ -65,6 +63,7 @@ export function MyDevices({
   reload,
   receivedByMachine,
   hubMachines,
+  versionByMachine,
   duplicateMachines,
 }: {
   source: RemoteSettingsSource;
@@ -77,6 +76,8 @@ export function MyDevices({
   receivedByMachine?: ReadonlyMap<string, SyncReceived>;
   /** hub 역할을 맡은 machine id 집합. */
   hubMachines?: ReadonlySet<string>;
+  /** 기계 id → 설치된 lophn 판(이 컴퓨터 포함). */
+  versionByMachine?: ReadonlyMap<string, string>;
   /** 명단에 중복 machine id가 있는 기계 집합. */
   duplicateMachines?: ReadonlySet<string>;
 }) {
@@ -201,6 +202,16 @@ export function MyDevices({
           // 엇갈림으로 빠진 컴퓨터는 link가 없다.
           const machine = device.disputed ? undefined : machineOf(device);
           const deviceHub = isDeviceHub(device);
+          const lophnVersion =
+            device.kind !== "computer"
+              ? null
+              : (machine?.lophnVersion ??
+                device.lophnVersion ??
+                (device.machine !== null
+                  ? versionByMachine?.get(device.machine)
+                  : undefined) ??
+                null);
+          const seen = seenText(device);
           const got =
             device.machine === null
               ? undefined
@@ -264,7 +275,20 @@ export function MyDevices({
                     </Tooltip>
                   ) : null}
                 </span>
-                <span className={styles.lineHelp}>{detailText(device)}</span>
+                <span className={styles.lineHelp}>
+                  {platformText(device)}
+                  {lophnVersion === null ? null : (
+                    <>
+                      {" · "}
+                      <span data-remote-device-version={lophnVersion}>
+                        {t("machine-update.status.lophn-version", {
+                          version: lophnVersion,
+                        })}
+                      </span>
+                    </>
+                  )}
+                  {seen === null ? null : ` · ${seen}`}
+                </span>
                 {viewOnly ? (
                   <span className={styles.lineHelp} data-remote-no-grant="">
                     {t("settings.note.remote-no-grant")}

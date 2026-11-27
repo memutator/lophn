@@ -217,6 +217,7 @@ import {
 import type { DataStep } from "../../../storage/migration/mod.ts";
 import { createAdmission } from "../../../supervision/responsiveness/mod.ts";
 import type { WiringContext, WiringFactory } from "./context.ts";
+import { readProductVersion } from "./notices.ts";
 
 // 기기 행의 마지막 연결을 적고 읽고 push token을 읽고 거두고, 명단을 읽고 쓰고 버리는 core 안 machine 자격이다.
 // 기동 때 ledger에 기록한다.
@@ -478,6 +479,7 @@ export function remoteWiring(
   let carry: CarryLinks;
   let vaultSync: VaultSync;
   let subscriptions: ReturnType<typeof createRemoteSubscriptions>;
+  let ownVersion: string | undefined;
 
   function logError(ctx: WiringContext, event: string, thrown: unknown) {
     ctx.telemetry.logger.error({
@@ -926,6 +928,7 @@ export function remoteWiring(
         addresses: directAddresses(ctx),
         hub: selfHubEnabled(ctx),
         relays: advertisedRelayUrls(ctx),
+        ...(ownVersion === undefined ? {} : { lophn_version: ownVersion }),
       }),
       random: ctx.random,
       timers: systemTimers,
@@ -1291,6 +1294,11 @@ export function remoteWiring(
           if (received !== null)
             void ctx.eventDelivery.receive(machine, received);
         },
+        recordedVersion: (machine) =>
+          ctx.peek.machineRecords?.lophnVersion(machine) ?? null,
+      });
+      ctx.productStartListeners.push((start) => {
+        ownVersion = start.version;
       });
       subscriptions = createRemoteSubscriptions({
         async jobs() {
@@ -1676,6 +1684,10 @@ export function remoteWiring(
       });
     },
     async start(ctx) {
+      if (ownVersion === undefined) {
+        const readVersion = await readProductVersion();
+        if (readVersion.ok) ownVersion = readVersion.value;
+      }
       // listener와 relay를 열고 push 대상을 읽기 전에 본다. writer가 다 접힌 뒤라 forget_all의 revoked가 빼기와 같은 길로 간다.
       const dir = `${ctx.root.path}/remote`;
       const state = await remoteKeysState(dir, ctx.machine.id);

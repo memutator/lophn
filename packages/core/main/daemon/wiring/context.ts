@@ -402,10 +402,11 @@ type Late = {
   remoteRelays: () => string[];
   // projects가 낸다. 기계 기록에 싣는 이 기계의 git project 목록과, 다른 컴퓨터의 목록이 바뀌었을 때 자동 match를 다시 돌리기.
   projectMatching: { shared(): SharedProject[]; peersChanged(): void };
-  // folder가 낸다. 기계 기록을 다시 쓰기와, 폴더로 받은 다른 기계의 기록에 실린 git project 목록.
+  // folder가 낸다. 기계 기록을 다시 쓰기와, 폴더로 받은 다른 기계의 기록에 실린 git project 목록·lophn 판.
   machineRecords: {
     publish(): void;
     projects(): { machine: Id<"mch">; projects: SharedProject[] }[];
+    lophnVersion(machine: Id<"mch">): string | null;
   };
   // mail이 낸다. 다른 컴퓨터에서 온 mail 하나를 적용하는 입구다. link의 `a2a/mail`과 폴더 길이 같이 쓴다. origin이 명단의 컴퓨터가
   // 아니면 forbidden이고, 그 컴퓨터의 터미널 입력 허락이 받은 session의 skip을 정한다.

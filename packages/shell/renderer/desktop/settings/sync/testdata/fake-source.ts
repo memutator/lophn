@@ -263,6 +263,11 @@ export function fakeSync(options: FakeSyncOptions = {}) {
           },
         ],
         hubMachines: ["mch_homeserver"],
+        machineVersions: {
+          mch_studio: "0.23.183",
+          mch_homeserver: "0.23.183",
+          mch_laptop: "0.23.180",
+        },
       }),
     takeIn: (app) =>
       Promise.resolve(

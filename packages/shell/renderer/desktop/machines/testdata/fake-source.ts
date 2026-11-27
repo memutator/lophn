@@ -20,6 +20,7 @@ export function sampleMachines(now = Date.now()): MachineItem[] {
       update: null,
       path: "relay",
       lastSeenAt: new Date(now).toISOString(),
+      lophnVersion: "0.23.183",
     },
     {
       id: "mch_laptop",
@@ -28,6 +29,7 @@ export function sampleMachines(now = Date.now()): MachineItem[] {
       update: null,
       path: null,
       lastSeenAt: new Date(now - 3 * HOUR).toISOString(),
+      lophnVersion: "0.23.180",
     },
     {
       id: "mch_olddesk",

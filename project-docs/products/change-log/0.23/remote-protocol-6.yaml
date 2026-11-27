@@ -1,5 +1,5 @@
 id: remote-protocol-6
-version: 0.23.182
+version: 0.23.183
 title: remote protocol 판을 6으로 올리고 rosterReachSchema가 모르는 칸을 버리게 한다
 modules:
   - packages/protocol

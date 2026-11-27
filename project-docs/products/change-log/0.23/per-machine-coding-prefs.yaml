@@ -1,5 +1,5 @@
 id: per-machine-coding-prefs
-version: 0.23.181
+version: 0.23.182
 title: shell.coding_agents를 로컬 QuickPrefs에서 분리해 기계 범위(MachineScope)마다 읽고 쓴다
 modules:
   - packages/shell/renderer

@@ -10,6 +10,7 @@ import {
   EventsProvider,
   useOptionalEventClient,
 } from "../connection/events/hooks.tsx";
+import { CodingPrefsProvider } from "../settings/connections/prefs-store.tsx";
 import { ConnectProviderHost } from "../settings/providers/connect-host.tsx";
 import {
   MachineGrantProvider,
@@ -80,14 +81,16 @@ export function MachineScope({
   return (
     <ScopeMachineProvider value={machine}>
       <EventsProvider stores={data.stores}>
-        <AppViewsProvider value={data.appViews}>
-          <ProjectIconsProvider value={data.projectIcons}>
-            <MachineGrantProvider check={data.grant}>
-              {body}
-              {Folders === undefined ? null : <Folders />}
-            </MachineGrantProvider>
-          </ProjectIconsProvider>
-        </AppViewsProvider>
+        <CodingPrefsProvider store={data.codingPrefs}>
+          <AppViewsProvider value={data.appViews}>
+            <ProjectIconsProvider value={data.projectIcons}>
+              <MachineGrantProvider check={data.grant}>
+                {body}
+                {Folders === undefined ? null : <Folders />}
+              </MachineGrantProvider>
+            </ProjectIconsProvider>
+          </AppViewsProvider>
+        </CodingPrefsProvider>
       </EventsProvider>
     </ScopeMachineProvider>
   );

@@ -30,7 +30,10 @@ import type { JobsSource } from "../../desktop/jobs/source.ts";
 import { useMachines } from "../../desktop/machines/context.tsx";
 import { LocalMachineScope } from "../../desktop/machines/scope.tsx";
 import type { NewSessionStart } from "../../desktop/router.ts";
-import { useQuickPrefs } from "../../desktop/settings/quick-launch/store.tsx";
+import {
+  useCodingPrefs,
+  useCodingPrefsStore,
+} from "../../desktop/settings/connections/prefs-store.tsx";
 import { CreateAppDialog } from "../../desktop/workspaces/create-app-dialog.tsx";
 import {
   continueHandoff,
@@ -558,8 +561,9 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
       recentHidden.hidden,
     ],
   );
-  // 즐겨찾기 coding agent(Settings › Coding agents). + hover와 Terminal hover가 같이 쓴다.
-  const { coding } = useQuickPrefs().prefs;
+  // 즐겨찾기 coding agent(Settings › Coding agents). 지금 workspace는 지금 기계의 값, 다른 이 컴퓨터 project는 이 컴퓨터의 값을 쓴다.
+  const { coding } = useCodingPrefs();
+  const { coding: hereCoding } = useCodingPrefsStore(here.codingPrefs);
   const commandOf = (id: HarnessId) => codingCommand(coding.commands, id);
   const favorites = props.canTerminal ? coding.favorites : [];
   const runCoding = (id: HarnessId) => {
@@ -587,7 +591,7 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
               };
             }),
           ref.kind === "project" && ref.machine === undefined
-            ? coding.favorites
+            ? hereCoding.favorites
             : [],
         );
   const [registering, setRegistering] = useState(false);
@@ -1157,7 +1161,10 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
           }
           const command =
             choice.kind === "coding"
-              ? commandOf(choice.id as HarnessId)
+              ? codingCommand(
+                  (ref.machine === undefined ? hereCoding : coding).commands,
+                  choice.id as HarnessId,
+                )
               : undefined;
           if (choice.kind === "coding" && command === undefined) return;
           props.onNewSessionAt?.(

@@ -30,6 +30,10 @@ import { mockAppDetail, mockAppViews, mockViews } from "./app-space.ts";
 import { mockProjects } from "./projects.ts";
 import { mockProjectIcons } from "./project-icons.ts";
 import { mockCore, mockEvents } from "./requests.ts";
+import {
+  type CodingPrefsSource,
+  memoryCodingPrefsSource,
+} from "../settings/connections/prefs.ts";
 import { memoryQuickPrefsSource } from "../settings/quick-launch/testdata/fake-source.ts";
 import type { QuickPrefsSource } from "../settings/quick-launch/source.ts";
 
@@ -47,6 +51,8 @@ export interface DevMock {
   readonly settingsPanels: SettingsPanels;
   /** 빠른 실행 전역 값. 메모리에만 쥔다. */
   readonly quickPrefs: QuickPrefsSource;
+  /** coding agent 즐겨찾기와 실행 명령어. 메모리에만 쥔다. */
+  readonly codingPrefs: CodingPrefsSource;
   readonly jobs: JobsSource;
   readonly appDetail: AppDetailSource;
   readonly views: LophnShellViewsApi;
@@ -118,6 +124,7 @@ export function devMock(
     settings: settings.settings,
     settingsPanels: settings.panels,
     quickPrefs: memoryQuickPrefsSource(),
+    codingPrefs: memoryCodingPrefsSource(),
     jobs: mockJobs(),
     appDetail: detail.source,
     views,

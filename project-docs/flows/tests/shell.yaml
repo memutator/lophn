@@ -354,6 +354,13 @@ files:
     covers: []
     note: "다른 컴퓨터의 앱을 들이는 renderer 통로: available 확인(없으면 sync_off), apps/take_in 호출, conflict·source_incomplete 이유 옮기기"
 
+  - path: packages/shell/renderer/desktop/settings/connections/prefs_test.ts
+    covers:
+      - quick-launch-edit:saved-global
+      - quick-launch-edit:rejected
+      - quick-launch-edit:settings-unavailable
+    note: "기계마다 만든 coding prefs store가 자기 기계 core의 shell.coding_agents만 읽고 쓰며, settings/update 거절·실패 시 저장된 값으로 되돌린다"
+
   - path: packages/shell/renderer/desktop/settings/keyboard/model_test.ts
     covers: [key-record:saved]
     note: "설정의 key 바꾸기 model(같은 context의 다른 줄에서 그 key를 빼고 기본 key와 같아지면 저장에서 뺀다). 저장은 key-record:saved"

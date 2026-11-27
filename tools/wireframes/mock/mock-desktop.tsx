@@ -491,6 +491,7 @@ export function MockDesktop(props: MockDesktopProps) {
           jobs: jobs ?? mock.jobs,
           settingsPanels: wiring.settingsPanels,
           quickPrefs: undefined,
+          codingPrefs: undefined,
           agentViewSource: mock.agentViewSource,
           folders: null,
           picker: undefined,

@@ -2291,11 +2291,13 @@ flows:
       - packages/shell/renderer/workspace/project-settings/quick-launch-editor.tsx
       - packages/shell/renderer/workspace/project-settings/quick-launch.ts
       - packages/shell/renderer/desktop/settings/quick-launch/core-source.ts
+      - packages/shell/renderer/desktop/settings/connections/prefs.ts
+      - packages/shell/renderer/desktop/settings/connections/prefs-store.tsx
     steps:
       - "project 창은 그 project의 layout quick에 순서, 고정, 끈 단추를 쓴다. 전역 값을 따르면 quick을 지운다"
       - "앱 panel 고정은 20개 상한(PINS_MAX)이면 바꾸지 않는다. 명령 추가는 20개(COMMANDS_MAX)이거나 입력이 비었으면 아무 일도 없다"
       - "Settings에서 바꾸면 settings/update로 전역 shell.quick_launch 같은 선언 설정을 쓴다(project 빠른 실행은 layout quick에 쓰므로 이 route를 안 탄다). 쓰기는 먼저 화면에 반영하고 거절되면 다시 읽는다"
-      - "Coding agents 즐겨찾기와 명령어는 Settings 표로 같은 설정 쓰기를 탄다"
+      - "Coding agents 즐겨찾기와 명령어(`shell.coding_agents`)는 기계마다 `MachineScope`의 `CodingPrefsProvider`로 그 기계의 core에 읽고 쓴다"
     uses: [route:settings/update, ipc:shell:workspace-layout-save]
     outcomes:
       - id: saved-project

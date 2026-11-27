@@ -2,7 +2,6 @@
 import type { CoreSource } from "../../connection/connection.ts";
 import { chooseSetting, readEffective } from "../declared.ts";
 import {
-  codingFromValue,
   launchFromValue,
   type QuickPrefs,
   type QuickPrefsSource,
@@ -14,7 +13,6 @@ import {
 const KEYS = {
   quick: "shell.quick_launch",
   launch: "shell.app_launch",
-  coding: "shell.coding_agents",
   taskbar: "shell.taskbar",
   sidebarPanelsOff: "shell.sidebar_panels_off",
   trayOff: "shell.tray_off",
@@ -31,7 +29,6 @@ export function coreQuickPrefsSource(core: CoreSource): QuickPrefsSource {
         value: {
           quick: quickFromValue(read.value.get(KEYS.quick)),
           launch: launchFromValue(read.value.get(KEYS.launch)),
-          coding: codingFromValue(read.value.get(KEYS.coding)),
           taskbar: read.value.get(KEYS.taskbar) !== false,
           sidebarPanelsOff: picksFromValue(
             read.value.get(KEYS.sidebarPanelsOff),

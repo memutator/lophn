@@ -24,7 +24,7 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
-import { mkdir, open, rm, stat } from "node:fs/promises";
+import { mkdir, open, readdir, rm, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import {
   type Clock,
@@ -53,7 +53,10 @@ import {
   MACHINES_DIR,
   parseDataPath,
 } from "../../protocol/folder/layout.ts";
-import { CARRY_REMOVED_GRACE_MS } from "../../protocol/folder/limits.ts";
+import {
+  CARRY_REMOVED_GRACE_MS,
+  CARRY_STAGING_KEEP_MS,
+} from "../../protocol/folder/limits.ts";
 import type { Sql, Tx } from "../../protocol/server/mod.ts";
 import type { CarryReceived, FolderReplica } from "./ports.ts";
 
@@ -523,6 +526,70 @@ export function createReplica(deps: ReplicaDeps): Replica {
     return "accepted";
   }
 
+  async function sha256OfFile(file: string): Promise<string> {
+    const hash = createHash("sha256");
+    const handle = await open(file, "r");
+    try {
+      const buffer = new Uint8Array(1024 * 1024);
+      for (;;) {
+        const { bytesRead } = await handle.read(buffer, 0, buffer.length, null);
+        if (bytesRead === 0) break;
+        hash.update(buffer.subarray(0, bytesRead));
+      }
+    } finally {
+      await handle.close();
+    }
+    return hash.digest("hex");
+  }
+
+  // 받다 끊긴 file은 (machine, path, sha256)마다 staging에 남겨 다음 pass가 그 크기부터 잇는다. 같은 file을 두 상대에게서 같이
+  // 받으면 이어 쓰기가 섞이므로 받는 동안은 표시해 둔다. 오래 둔 것은 지운다(그 사이 목록이 바뀌었을 수 있다).
+  const receiving = new Set<string>();
+  const partialPath = (input: {
+    machine: string;
+    path: string;
+    sha256: string;
+  }) =>
+    join(
+      stagingDir,
+      `partial-${createHash("sha256").update(`${input.machine}\n${input.path}\n${input.sha256}`).digest("hex")}`,
+    );
+
+  async function sweepPartials(): Promise<void> {
+    let names: string[];
+    try {
+      names = await readdir(stagingDir);
+    } catch {
+      return;
+    }
+    const cutoff = deps.clock.nowMs() - CARRY_STAGING_KEEP_MS;
+    for (const name of names) {
+      if (!name.startsWith("partial-")) continue;
+      const file = join(stagingDir, name);
+      if (receiving.has(file)) continue;
+      try {
+        if ((await stat(file)).mtimeMs < cutoff)
+          await rm(file, { force: true });
+      } catch {
+        // 사이에 끝났다.
+      }
+    }
+  }
+
+  async function received(input: {
+    machine: Id<"mch">;
+    path: string;
+    sha256: string;
+  }): Promise<number | null> {
+    const file = partialPath(input);
+    if (receiving.has(file)) return null;
+    try {
+      return (await stat(file)).size;
+    } catch {
+      return 0;
+    }
+  }
+
   async function receive(input: {
     machine: Id<"mch">;
     path: string;
@@ -530,6 +597,7 @@ export function createReplica(deps: ReplicaDeps): Replica {
     sha256: string;
     via: CarryVia;
     chunks: AsyncIterable<Uint8Array>;
+    offset?: number;
   }): Promise<Result<CarryReceived>> {
     const { machine, path } = input;
     // 자기 하위 폴더는 내보내기만 쓴다.
@@ -541,24 +609,38 @@ export function createReplica(deps: ReplicaDeps): Replica {
     }
     if (!same(expected(machine, path), input)) return ok("rejected");
     if (await shas.matches(abs(path), input)) return ok("have");
-    const temp = join(stagingDir, `file-${hex16(deps.random)}`);
+    const temp = partialPath(input);
+    if (receiving.has(temp)) return ok("rejected");
+    receiving.add(temp);
     try {
       await mkdir(stagingDir, { recursive: true, mode: DIR_MODE });
-      const hash = createHash("sha256");
+      await sweepPartials();
+      const start = input.offset ?? 0;
       let size = 0;
-      const handle = await open(temp, "wx", FILE_MODE);
+      try {
+        size = (await stat(temp)).size;
+      } catch {
+        size = 0;
+      }
+      // 앞서 받은 만큼과 이어지지 않으면 처음부터다.
+      if (size !== start) {
+        if (start !== 0) return ok("rejected");
+        size = 0;
+      }
+      const handle = await open(temp, start === 0 ? "w" : "a", FILE_MODE);
       try {
         for await (const chunk of input.chunks) {
           size += chunk.byteLength;
           if (size > input.size) break;
-          hash.update(chunk);
           await handle.write(chunk);
         }
         await handle.sync();
       } finally {
         await handle.close();
       }
-      if (size !== input.size || hash.digest("hex") !== input.sha256) {
+      // 모자라면 받은 만큼을 두고 다음에 잇는다.
+      if (size < input.size) return ok("rejected");
+      if (size !== input.size || (await sha256OfFile(temp)) !== input.sha256) {
         await rm(temp, { force: true });
         return ok("rejected");
       }
@@ -572,11 +654,12 @@ export function createReplica(deps: ReplicaDeps): Replica {
       renameSync(temp, target);
       shas.remember(target, input.sha256);
     } catch (thrown) {
-      await rm(temp, { force: true }).catch(() => undefined);
       return err({
         code: "unavailable",
         message: `could not receive ${path}: ${thrown instanceof Error ? thrown.message : String(thrown)}`,
       });
+    } finally {
+      receiving.delete(temp);
     }
     // 목록 file이나 snapshot이 오면 그것이 덮는 앞 판의 file을 지울 수 있다.
     if (isCover(path) || parseDataPath(path)?.kind === "snapshot") {
@@ -694,6 +777,7 @@ export function createReplica(deps: ReplicaDeps): Replica {
     },
 
     receive,
+    received,
 
     recheck: () =>
       serial(async () => {

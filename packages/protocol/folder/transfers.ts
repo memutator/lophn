@@ -38,6 +38,14 @@ export const transferRecordSchema = z.strictObject({
   files: z.array(transferFileEntrySchema),
   state: transferDeliveryStateSchema,
   held_by: z.array(idSchema("mch")).optional(),
+  // 보낸 쪽이 읽을 때 붙은 Hub에 물어 채운다(저장하지 않는다). Hub가 이 transfer의 carry file(조각과 meta) 가운데 든 수.
+  // held === total이면 이 컴퓨터를 꺼도 Hub가 대상에게 넘긴다.
+  at_hub: z
+    .strictObject({
+      held: z.number().int().min(0),
+      total: z.number().int().min(1),
+    })
+    .optional(),
   inbox_dir: z.string().nullable(),
   created_at: atSchema,
   updated_at: atSchema,

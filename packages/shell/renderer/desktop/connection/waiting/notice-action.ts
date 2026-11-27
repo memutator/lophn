@@ -7,6 +7,7 @@ import type {
   NoticeAction,
 } from "../../../../../protocol/apps/notice.ts";
 import type { FollowUpItem } from "../../../../../protocol/base/follow-ups.ts";
+import type { FilesApi } from "../../../../ipc/files.ts";
 import { textBlocks } from "../../../../../protocol/lophn-agent/content-block.ts";
 import { lophnIdOf } from "../../../../../protocol/lophn-agent/workspaces.ts";
 import { coreAgentTabSourceFactory } from "../../../conversation/agent-tab-core-source.ts";
@@ -16,12 +17,26 @@ import type { CoreSource } from "../connection.ts";
 import { runToastAction } from "../toasts/toast-actions.ts";
 import { markNoticesRead } from "./history.ts";
 
-/** 보냈으면 true. 보낸 뒤 그 대화를 연다. */
+// 받은 file 폴더를 OS 파일 관리자에서 연다. path는 그 줄을 남긴 컴퓨터의 것이라 이 컴퓨터의 줄일 때만 연다.
+async function revealReceivedFiles(path: string): Promise<boolean> {
+  const bridge = (globalThis as { lophnFiles?: FilesApi }).lophnFiles;
+  if (bridge === undefined) return false;
+  try {
+    return (await bridge.reveal({ path })).ok;
+  } catch {
+    return false;
+  }
+}
+
+/** 시작했으면 true. home skill이면 보낸 뒤 그 대화를 연다. */
 export async function runNoticeAction(
   core: CoreSource,
   action: NoticeAction,
   machine: MachineRef = null,
 ): Promise<boolean> {
+  if (action.kind === "reveal_received_files") {
+    return machine === null && (await revealReceivedFiles(action.path));
+  }
   // 이름 그대로 Home lophn의 새 대화다(`open_home_skill`).
   const source = coreAgentTabSourceFactory(core)({
     assignment: lophnIdOf(null),

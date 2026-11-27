@@ -451,8 +451,10 @@ export function SyncSections({
                 transfer.held_by !== undefined && transfer.held_by.length > 0
                   ? machineName(transfer.held_by[0]!)
                   : null;
+              const atHub = transfer.at_hub;
               const statusTone =
-                transfer.state === "delivered"
+                transfer.state === "delivered" ||
+                (atHub !== undefined && atHub.held === atHub.total)
                   ? "good"
                   : transfer.state === "failed" || transfer.state === "expired"
                     ? "critical"
@@ -463,9 +465,22 @@ export function SyncSections({
                 transfer.state === "delivered"
                   ? t("settings-sync.state.transfer-delivered")
                   : transfer.state === "held_at_hub"
-                    ? hubName !== null
-                      ? t("settings-sync.state.transfer-held", { hub: hubName })
-                      : t("settings-sync.state.transfer-held-generic")
+                    ? atHub !== undefined && hubName !== null
+                      ? atHub.held === atHub.total
+                        ? t("settings-sync.state.transfer-at-hub-all", {
+                            hub: hubName,
+                            total: atHub.total,
+                          })
+                        : t("settings-sync.state.transfer-at-hub-partial", {
+                            hub: hubName,
+                            held: atHub.held,
+                            total: atHub.total,
+                          })
+                      : hubName !== null
+                        ? t("settings-sync.state.transfer-held", {
+                            hub: hubName,
+                          })
+                        : t("settings-sync.state.transfer-held-generic")
                     : transfer.state === "expired"
                       ? t("settings-sync.state.transfer-expired")
                       : transfer.state === "failed"

@@ -1,7 +1,7 @@
 id: sender-cannot-see-hub-holds-transfer
 title: 보내는 컴퓨터는 Hub가 transfer를 다 받았는지 알 수 없어 언제 꺼도 되는지 모른다
 kind: bug
-status: open
+status: fixed
 topic: multi-computer
 modules: [packages/core/folder, packages/core/remote, packages/cli, packages/shell/renderer]
 now: |
@@ -15,3 +15,6 @@ fix: |
   - Hub가 다른 컴퓨터 file을 다 받으면 그 컴퓨터에 event로 알린다(중간~큼. 새 event 계약).
   - 글만 고친다: `held_at_hub`의 뜻을 도움말에 적는다(이미 함. 꺼도 되는지는 여전히 모른다).
   추천: 첫째. 보내는 쪽 UI에 "Hub에 다 올라감" 한 줄이 생기면 듀얼부트와 노트북이 바로 쓸 수 있다.
+closed: |
+  보낸 쪽 `transfers/status`와 `transfers/list`가 `held_at_hub`인 기록마다 붙은 Hub에 그 transfer의 carry file(조각과 meta)을 하나씩 `carry/file` 1 byte로 물어 `at_hub{held, total}`을 붙인다(`packages/core/folder/transfers.ts`의 `withHubProgress`, 묻는 길은 remote wiring의 `carryHeldBy`). CLI는 "at hub: k of n files (safe to turn this computer off)"를, Settings › My computers는 "All n files at @Hub · safe to turn this computer off" 또는 "@Hub has k of n files · keep this computer on"을 보인다. 저장하지 않고 읽을 때 묻는다(Hub가 내 file을 가져가도 이 컴퓨터에는 신호가 없다). 고른 길이 `carry/wants`가 아니라 file마다 묻기인 것은 Hub가 옛 manifest만 든 경우에도 틀리지 않기 때문이다.
+guard: 없음

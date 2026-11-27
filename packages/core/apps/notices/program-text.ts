@@ -61,6 +61,11 @@ export function programNoticeText(input: NoticeRecordInput): {
         title: "Your phone changed",
         body: `${apps(input.params.apps)} ${input.params.apps === 1 ? "has a phone screen" : "have phone screens"} drawn for the old phone. Ask lophn to redraw them.`,
       };
+    case "files_received":
+      return {
+        title: `${input.params.files} ${input.params.files === 1 ? "file" : "files"} arrived from ${input.params.from}`,
+        body: "They are in this computer's received files folder. Nothing was opened or extracted.",
+      };
     case "app_sync_away":
       if (input.params.back === true) {
         return {

@@ -56,6 +56,7 @@ import {
   type Id,
 } from "../../../../protocol/base/mod.ts";
 import {
+  carryFile,
   machineGone,
   machineRemoved,
   machineSigningKey,
@@ -1348,6 +1349,27 @@ export function remoteWiring(
             event,
             fields,
           }),
+      });
+      // 상대가 그 file을 들었는지는 1 byte를 읽어 본다. 들지 않았으면 carry/file이 not_found다(`carry-routes.ts`).
+      ctx.provide("carryHeldBy", async (machine, paths) => {
+        const linked = links
+          .list()
+          .some(
+            (each) => each.machine === machine && each.status === "connected",
+          );
+        if (!linked) return null;
+        let held = 0;
+        for (const path of paths) {
+          const read = await links.call({
+            machine,
+            resource: carryFile.resource,
+            method: carryFile.method,
+            body: { machine: ctx.machine.id, path, offset: 0, length: 1 },
+          });
+          if (read.ok) held += 1;
+          else if (read.error.code !== "not_found") return null;
+        }
+        return held;
       });
       ctx.provide("machineLinks", {
         computers: () => links.computers(),

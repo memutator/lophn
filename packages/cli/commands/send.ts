@@ -89,6 +89,11 @@ function formatRecord(record: TransferRecord): string {
     `from: ${record.from_name} (${record.from_machine})`,
     `to: ${record.to_name} (${record.to_machine})`,
     `state: ${formatState(record.state, record.held_by)}`,
+    ...(record.at_hub === undefined
+      ? []
+      : [
+          `at hub: ${record.at_hub.held} of ${record.at_hub.total} files${record.at_hub.held === record.at_hub.total ? " (safe to turn this computer off)" : " (keep this computer on until the Hub has them all)"}`,
+        ]),
     `expires: ${record.expires_at}`,
   ];
   if (record.inbox_dir !== null) lines.push(`inbox: ${record.inbox_dir}`);
@@ -152,7 +157,9 @@ const list = defineCommand({
   name: "send.list",
   summary: "List outgoing and incoming file transfers",
   description:
-    "List file transfers sent from or received on this computer (`--direction incoming|outgoing|all`, `--limit <n>`).",
+    "List file transfers sent from or received on this computer (`--direction incoming|outgoing|all`, `--limit <n>`). " +
+    "Received files are in each incoming transfer's `inbox_dir` (`<data root>/inbox/<trf_...>/`); look there instead of searching the disk or shared folders. " +
+    "A transfer that is still on its way is not listed here; `lophn send status <trf_...>` on this computer says how many of its files have arrived.",
   input: transfersList.input,
   effect: "read",
   routes: [transfersList],
@@ -187,7 +194,9 @@ const status = defineCommand({
   name: "send.status",
   summary: "Read the status and files of a transfer",
   description:
-    "Read delivery state (`delivered`, `held_at_hub`, `queued`, `expired`, `failed`), expiry time, inbox path, and files for a `trf_...` transfer.",
+    "Read delivery state (`delivered`, `held_at_hub`, `queued`, `expired`, `failed`), expiry time, inbox path, and files for a `trf_...` transfer. " +
+    "On the sender, `held_at_hub` comes with `at_hub` (how many files the Hub already holds) when a Hub is connected; all of them means this computer can be turned off. " +
+    "On the receiver, a transfer still on its way answers `unavailable` with how many files have arrived.",
   input: transfersStatus.input,
   positional: ["transfer"],
   effect: "read",

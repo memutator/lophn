@@ -18,6 +18,8 @@ import {
   insertPlatformReview,
   loadLastPlatformReview,
 } from "../../follow-ups/mod.ts";
+import { textBlocks } from "../../../protocol/lophn-agent/content-block.ts";
+import { messageRouter } from "../../router/environment.ts";
 import { afterCommit } from "../../storage/ledger/after-commit.ts";
 import { loadApp } from "../registration/store.ts";
 import { programNoticeText } from "./program-text.ts";
@@ -175,7 +177,7 @@ function markLegacySdkUpdateRead(tx: Pick<Tx, "sql" | "now" | "port">): void {
 }
 
 // 다른 command가 자기 transaction 안에서 program 기록을 남기는 길이다. 상태 변경과 같이 commit되어 한 번만 남는다.
-// 글(title·body)은 template과 매개변수로만 만든다. `lophn_updated`·`sdk_update_needed`·`workspace_update_needed`·`phone_changed`만 앱이 없고 나머지는 있는 앱이어야 한다.
+// 글(title·body)은 template과 매개변수로만 만든다. `lophn_updated`·`sdk_update_needed`·`workspace_update_needed`·`phone_changed`·`files_received`만 앱이 없고 나머지는 있는 앱이어야 한다.
 export function recordProgramNotice(
   tx: Pick<Tx, "sql" | "now" | "newId" | "port">,
   input: NoticeRecordInput,
@@ -184,7 +186,8 @@ export function recordProgramNotice(
     input.kind === "lophn_updated" ||
     input.kind === "sdk_update_needed" ||
     input.kind === "workspace_update_needed" ||
-    input.kind === "phone_changed";
+    input.kind === "phone_changed" ||
+    input.kind === "files_received";
   if (appless !== (input.app === undefined)) {
     return err({
       code: "invalid_input",
@@ -253,6 +256,29 @@ export function recordProgramNotice(
   return ok({ id: id as Notice["id"] });
 }
 
+// 첨부를 실은 call을 먼저 받아 기다리던 session을 같은 transaction에서 program 알림으로 깨운다. 닫힌 session은 깨우지 못하고 사람에게는
+// Inbox 줄이 남는다.
+function wakeFileWaiters(tx: Tx, input: NoticeRecordInput): void {
+  if (input.kind !== "files_received" || input.wake === undefined) return;
+  const { sessions, transfer, inbox_dir } = input.wake;
+  for (const session of sessions) {
+    messageRouter.route(tx, {
+      from: { kind: "program" },
+      to: { session },
+      reply: "none",
+      body: textBlocks(
+        `The files attached to the call you received from ${input.params.from} have arrived (transfer ${transfer}, ${input.params.files} ${input.params.files === 1 ? "file" : "files"}): ${inbox_dir}`,
+      ),
+      refs: [],
+      reply_to: null,
+      dedup: null,
+      kind: "notice",
+      delivery: "next_turn",
+      notice: "files_arrived",
+    });
+  }
+}
+
 // release 행의 사람이 아는 이름(Version 탭과 같은 `r<number>`)이다. 없으면 id를 그대로 쓴다.
 export function releaseNameOf(tx: Pick<Tx, "sql">, release: string): string {
   const row = tx.sql.get("select number from releases where id = ?", [release]);
@@ -315,7 +341,9 @@ export function createNoticeCommands(): {
             message: "only the program records a program notice",
           });
         }
-        return recordProgramNotice(tx, input);
+        const recorded = recordProgramNotice(tx, input);
+        if (recorded.ok) wakeFileWaiters(tx, input);
+        return recorded;
       },
     },
     // 제품 판의 marker와 lophn_updated 행을 한 transaction에서 쓴다(기록 없이 판만 앞서가거나 그 반대가 되지 않는다).

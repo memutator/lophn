@@ -92,6 +92,8 @@ Cross-computer actions follow **Two Promises**:
 | **Right now** | Yes | Live reads (\`session list --on\`, \`agent list --on\`, \`agent card --on\`), live watching of \`call\` / \`team\` sessions, app commands / \`preview\`, remote terminals, remote explorer |
 | **Arrives when online** | No (queued; held by a Hub computer if offline) | Sending \`call send --on\` / \`team spawn --on\` mail, sending files (\`lophn send\`), exporting settings/workflows, app data & phone changes, \`handoff write\` |
 
+To hand work that needs files, attach them to the call (\`lophn call send --on <computer> ... --attach <path>\`, repeat \`--attach\`) instead of a separate \`lophn send\`: the receiver gets their paths and is woken again when they arrive. Received files are under \`<data root>/inbox/<trf_...>/\`; read the paths from the message or \`lophn send list\` / \`lophn send status <trf_...>\` instead of searching the disk.
+
 If a live read (\`session list --on\`, \`agent list --on\`) returns \`unavailable\` because the target computer is offline, do not assume sending is blocked: \`call send --on\`, \`team spawn --on\`, \`lophn send\`, and \`handoff write\` still queue and deliver when it comes back.
 
 - \`machine computers\` lists the person's computers. \`--on <computer>\` takes a name or id from it. Each computer has its own agents, projects and sessions.

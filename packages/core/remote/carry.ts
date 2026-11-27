@@ -85,6 +85,7 @@ async function openFile(
   call: PeerCall,
   file: Carried,
   pace: CarryPace,
+  start = 0,
 ): Promise<
   Result<{
     chunks: AsyncIterable<Uint8Array>;
@@ -92,15 +93,15 @@ async function openFile(
   } | null>
 > {
   let first: Uint8Array = new Uint8Array();
-  if (file.size > 0) {
-    const read = await readChunk(call, file, 0, pace);
+  if (file.size > start) {
+    const read = await readChunk(call, file, start, pace);
     if (!read.ok) return read.error.code === "not_found" ? ok(null) : read;
     first = read.value;
   }
   let failure: LophnError | undefined;
   async function* chunks() {
     let bytes = first;
-    let offset = 0;
+    let offset = start;
     while (bytes.byteLength > 0) {
       yield bytes;
       offset += bytes.byteLength;
@@ -198,7 +199,10 @@ export async function carryFrom(
     if (last === undefined) return ok(pass);
     for (const want of page.value) {
       pass.wanted += 1;
-      const opened = await openFile(call, want, pace);
+      // 앞서 받다 끊긴 만큼 뒤부터 받는다. 다른 상대에게서 지금 받고 있으면 이번에는 건너뛴다.
+      const start = await replica.received(want);
+      if (start === null) continue;
+      const opened = await openFile(call, want, pace, start);
       if (!opened.ok) return opened;
       if (opened.value === null) {
         pass.missing += 1;
@@ -208,6 +212,7 @@ export async function carryFrom(
         ...want,
         via: "link",
         chunks: opened.value.chunks,
+        offset: start,
       });
       const failure = opened.value.failure();
       if (failed(failure)) return err(failure!);

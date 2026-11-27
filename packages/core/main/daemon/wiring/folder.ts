@@ -1569,6 +1569,8 @@ export const folderWiring: WiringFactory = () => {
         onlineMachines,
         isHub: () => facts().hub,
         holds: (machine, path) => replica.holds(machine, path),
+        carryHeldBy: async (machine, paths) =>
+          (await ctx.peek.carryHeldBy?.(machine, paths)) ?? null,
         async listedTransferFiles() {
           const listed = await replica.manifests();
           if (!listed.ok) return [];
@@ -1634,6 +1636,33 @@ export const folderWiring: WiringFactory = () => {
         newTransferId: () => ids.newId("trf") as Id<"trf">,
         carryKick: () => scheduleCarry(),
         log,
+        arrived(record, waiting) {
+          if (record.files.length === 0 || record.inbox_dir === null) return;
+          const inboxDir = record.inbox_dir;
+          void ctx
+            .noticeRecorder({
+              kind: "files_received",
+              key: record.id,
+              params: {
+                from: record.from_name.slice(0, 40),
+                files: Math.min(record.files.length, 9999),
+              },
+              action: { kind: "reveal_received_files", path: inboxDir },
+              ...(waiting.length === 0
+                ? {}
+                : {
+                    wake: {
+                      sessions: waiting.slice(0, 32),
+                      transfer: record.id as Id<"trf">,
+                      inbox_dir: inboxDir,
+                    },
+                  }),
+            })
+            .then((done) => {
+              if (!done.ok)
+                log("files_received_not_recorded", done.error.message);
+            });
+        },
       });
 
       const custody = createCustodyService({

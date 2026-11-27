@@ -17,6 +17,10 @@ const ACTION_BUTTON = {
     label: "waiting.button.ask-lophn",
     icon: actionIcons.send,
   },
+  reveal_received_files: {
+    label: "waiting.button.show-files",
+    icon: actionIcons.open,
+  },
 } as const satisfies Record<
   NoticeAction["kind"],
   { label: MessageKey; icon: (typeof actionIcons)[keyof typeof actionIcons] }

@@ -67,6 +67,7 @@ function replica(wanted: { path: string; size: number }[]) {
         ),
       ),
     holds: () => Promise.resolve(false),
+    received: () => Promise.resolve(0),
     read: () => Promise.resolve(err({ code: "not_found", message: "" })),
     async receive(input) {
       const parts: Uint8Array[] = [];

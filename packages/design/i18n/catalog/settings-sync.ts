@@ -74,8 +74,13 @@ export const settingsSync = {
   "settings-sync.label.transfer-from": "From {computer}",
   "settings-sync.label.transfer-to": "To {computer}",
   "settings-sync.state.transfer-queued": "Waiting to deliver",
-  "settings-sync.state.transfer-held": "Held at @{hub}",
-  "settings-sync.state.transfer-held-generic": "Held at hub",
+  "settings-sync.state.transfer-held": "Target offline · @{hub} picks it up",
+  "settings-sync.state.transfer-held-generic":
+    "Target offline · a hub picks it up",
+  "settings-sync.state.transfer-at-hub-all":
+    "All {total} files at @{hub} · safe to turn this computer off",
+  "settings-sync.state.transfer-at-hub-partial":
+    "@{hub} has {held} of {total} files · keep this computer on",
   "settings-sync.state.transfer-delivered": "Delivered",
   "settings-sync.state.transfer-expired": "Expired",
   "settings-sync.state.transfer-failed": "Failed",

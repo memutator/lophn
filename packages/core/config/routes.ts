@@ -102,8 +102,12 @@ export function settingsUpdateHandler(
     }
     const { changes } = input.data;
     // 기기의 연결 설정(`remote.*`)은 기기·명단 관리와 같은 종류라 터미널 입력을 허락받은 기기도 바꾸지 못한다.
+    // `remote.hub`만 연다: 켜고 꺼도 붙어 있는 기기가 끊기지 않고, 화면 없는 기계(VPS)는 가서 켤 곳이 없다.
     if (
-      changes.some((change) => change.key.startsWith("remote.")) &&
+      changes.some(
+        (change) =>
+          change.key.startsWith("remote.") && change.key !== "remote.hub",
+      ) &&
       ctx.principal.startsWith("device:")
     ) {
       return err({

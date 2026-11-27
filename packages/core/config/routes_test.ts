@@ -337,6 +337,38 @@ test("기기 자격의 remote 설정 쓰기는 forbidden이고 같이 보낸 바
   });
 });
 
+// 화면 없는 기계(VPS)의 Hub 역할은 붙은 기기에서 켠다. remote 설정 중 이것만 기기에 열려 있다.
+test("기기 자격으로 remote.hub는 바꾼다", async () => {
+  const root = await mkdtemp(join(tmpdir(), "lophn-settings-hub-"));
+  const store = createSettingsStore({
+    root,
+    registry: createSettingsRegistry(shellSettings, shellSettingFolders),
+    publish: () => {},
+    log: () => {},
+  });
+  const update = settingsUpdateHandler(store, () =>
+    Promise.resolve(ok({ kind: "run" })),
+  );
+  try {
+    const done = await update(
+      {
+        actor: "user",
+        principal: `device:dev_0${"1".repeat(25)}`,
+        conditions: { process: "remote" },
+      } as never,
+      { changes: [{ key: "remote.hub", action: "set", value: true }] },
+    );
+    assert.deepStrictEqual(done, {
+      ok: true,
+      value: { changed: ["remote.hub"], rejected: [], notes: [] },
+    });
+    assert.equal(store.chosen()["remote.hub"], true);
+  } finally {
+    store.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 // remote.addresses는 폰이 거는 곳을 정한다: agent의 바꾸기는 사람이 바뀜을 보고 허락하고, 사람(Settings 화면)은 바로 쓴다.
 test("remote.addresses는 agent가 바꾸면 승인 카드에 바뀜을 보이고 사람은 바로 쓴다", async () => {
   const root = await mkdtemp(join(tmpdir(), "lophn-settings-addresses-"));

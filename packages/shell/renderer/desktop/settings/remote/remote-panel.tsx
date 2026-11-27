@@ -34,7 +34,8 @@ type Loaded<T> = T | "failed" | null;
 // relay 상태는 event가 없는 memory route라 켜 있는 동안 이 간격으로 다시 읽는다.
 const RELAY_POLL_MS = 5000;
 
-// 다른 기계의 범위에서는 그 기계의 Keep running만 있다. 기기, pairing, 제어 허락은 이 컴퓨터의 것이다.
+// 다른 기계의 범위에서는 그 기계의 Keep running과 Hub 역할만 있다(화면 없는 기계는 가서 켤 곳이 없다).
+// 연결 켜기·port·relay, 기기, pairing, 제어 허락은 이 컴퓨터의 것이다.
 export function RemotePanel({
   source,
   sync,
@@ -46,16 +47,101 @@ export function RemotePanel({
   if (machine === null) {
     return <ThisComputerMyComputers source={source} sync={sync} />;
   }
+  const name =
+    machine.name === "" ? t("machines.label.unknown-name") : machine.name;
   return (
     <div data-remote-settings="">
       <h1 className={styles.paneTitle}>{t("settings.label.tab-remote")}</h1>
-      <KeepRunningSection
-        source={source}
-        name={
-          machine.name === "" ? t("machines.label.unknown-name") : machine.name
-        }
-      />
+      <KeepRunningSection source={source} name={name} />
+      <OtherComputerHub source={source} name={name} />
     </div>
+  );
+}
+
+function OtherComputerHub({
+  source,
+  name,
+}: {
+  source: RemoteSettingsSource;
+  name: string;
+}) {
+  const [hub, setHub] = useState<boolean | null>(null);
+  const [saveFailed, setSaveFailed] = useState(false);
+  const load = useCallback(() => {
+    void source.connectionSettings().then((read) => {
+      if (read.ok) setHub(read.value.hub);
+    });
+  }, [source]);
+  useEffect(load, [load]);
+  useStateChanged(["settings"], load);
+
+  if (hub === null) return null;
+
+  async function choose(on: boolean): Promise<void> {
+    const saved = await source.setHub(on);
+    setSaveFailed(!saved.ok);
+    if (saved.ok) setHub(on);
+  }
+
+  return (
+    <>
+      <ul className={styles.lines}>
+        <HubRow
+          name={t("settings.label.remote-hub-on", { name })}
+          hub={hub}
+          onChange={(on) => void choose(on)}
+        />
+      </ul>
+      {saveFailed ? (
+        <p className={styles.rejected} role="alert">
+          {t("settings.error.value-not-saved")}
+        </p>
+      ) : null}
+    </>
+  );
+}
+
+function HubRow({
+  name,
+  hub,
+  status,
+  onChange,
+}: {
+  name: string;
+  hub: boolean;
+  /** 켜져 있을 때 이름 아래에 보일 listener 상태. */
+  status?: { listening: boolean; port: number };
+  onChange: (on: boolean) => void;
+}) {
+  return (
+    <li className={styles.line} data-remote-row="hub">
+      <div className={styles.lineMain}>
+        <span className={styles.lineName}>{name}</span>
+        <span className={styles.lineHelp}>{t("settings.note.remote-hub")}</span>
+        {status === undefined ? null : (
+          <span data-remote-hub-status="">
+            <StatusMark
+              tone={status.listening ? "good" : "neutral"}
+              label={t(
+                status.listening
+                  ? "settings.status.remote-hub-listening"
+                  : "settings.status.remote-hub-enabled",
+                { port: status.port },
+              )}
+            />
+          </span>
+        )}
+      </div>
+      <div className={styles.endSlot}>
+        <Switch
+          label={t(
+            hub ? "settings.label.value-on" : "settings.label.value-off",
+          )}
+          checked={hub}
+          onCheckedChange={onChange}
+        />
+      </div>
+    </li>
   );
 }
 
@@ -232,36 +318,19 @@ function ThisComputerMyComputers({
             </li>
             {conn === null ? null : (
               <>
-                <li className={styles.line} data-remote-row="hub">
-                  <div className={styles.lineMain}>
-                    <span className={styles.lineName}>
-                      {t("settings.label.remote-hub")}
-                    </span>
-                    <span className={styles.lineHelp}>
-                      {t("settings.note.remote-hub")}
-                    </span>
-                    {enabled && conn.hub ? (
-                      <span data-remote-hub-status="">
-                        <StatusMark
-                          tone={relay?.hubListening ? "good" : "neutral"}
-                          label={t(
-                            relay?.hubListening
-                              ? "settings.status.remote-hub-listening"
-                              : "settings.status.remote-hub-enabled",
-                            { port: conn.port },
-                          )}
-                        />
-                      </span>
-                    ) : null}
-                  </div>
-                  <div className={styles.endSlot}>
-                    <Switch
-                      label={onOff(conn.hub)}
-                      checked={conn.hub}
-                      onCheckedChange={(on) => void chooseHub(on)}
-                    />
-                  </div>
-                </li>
+                <HubRow
+                  name={t("settings.label.remote-hub")}
+                  hub={conn.hub}
+                  status={
+                    enabled && conn.hub
+                      ? {
+                          listening: relay?.hubListening === true,
+                          port: conn.port,
+                        }
+                      : undefined
+                  }
+                  onChange={(on) => void chooseHub(on)}
+                />
                 <NamedControl
                   name={t("settings.label.remote-port")}
                   labelClass={styles.lineName}

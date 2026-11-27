@@ -29,7 +29,7 @@
              보내는 기기 ─▶ 대상 온라인이면 즉시 / 오프라인이면 온라인 Hub 보관 ─▶ 대상 켜지면 검증·적용
 ```
 
-- **Hub 역할 (`remote.hub`).** 사람이 설정에서 직접 켠 컴퓨터의 core가 기존 remote port에 `/v1/host`, `/v1/phone`, `/v1/data` relay를 함께 연다. Hub는 암호화된 Noise 바이트만 중계하고, 오프라인 컴퓨터로 가는 carry 묶음(파일 전송, staged 설정, 폰 custody, mail, handoff note, 앱 데이터)을 보관했다가 대상이 켜지면 전달한다.
+- **Hub 역할 (`remote.hub`).** 사람이 설정에서 직접 켠 컴퓨터(그 컴퓨터의 My computers에서, 또는 터미널 입력을 허락받은 다른 컴퓨터가 그 컴퓨터를 고른 My computers에서)의 core가 기존 remote port에 `/v1/host`, `/v1/phone`, `/v1/data` relay를 함께 연다. Hub는 암호화된 Noise 바이트만 중계하고, 오프라인 컴퓨터로 가는 carry 묶음(파일 전송, staged 설정, 폰 custody, mail, handoff note, 앱 데이터)을 보관했다가 대상이 켜지면 전달한다.
 - **자동 relay 전파.** 컴퓨터는 명단의 온라인 Hub relay URL들을 앞에, 설정된 fallback relay(Fly)를 맨 뒤에 둔 정렬 목록을 hello와 기계 기록으로 알린다. 이미 짝지어진 폰과 컴퓨터는 재pairing 없이 이 목록을 받아 저장하고 Hub 우선으로 접속한다.
 - **앱 데이터 기본 정책과 `keep_both`.** `@lophn/declaration >= 6.0.0`(및 `5.0.0–5.2.0` phone+computer 앱)은 별도 지정이 없으면 `"computers"`로 맞추고 `"local"`로 opt-out한다. 기존 `<= 5.2.0` computer-only 봉인 번들은 하위 호환을 위해 기본 local을 유지하며, Settings › My computers의 `sync.app_policies`로 사람이 앱마다 덮어쓸 수 있다. 텍스트 컬럼의 동시 수정은 `keep_both` 선언 시 승자 행을 유지하고 패자 텍스트를 결정론적 충돌 사본 행으로 남겨 두 버전을 모두 보존한다.
 - **폰 Custody.** 폰은 Ed25519 `signing_key`를 생성해 hello와 join으로 광고하고, 대상 컴퓨터가 오프라인일 때 변경분을 서명해 온라인 Hub의 `app_sync/custody_push`로 맡긴다. Hub는 폰의 공개키로 서명을 검증한 뒤 원문 그대로 carry에 보관하고, 대상 컴퓨터가 켜지면 서명을 다시 검증해 중복 없이 적용한다.
@@ -54,7 +54,7 @@
 
 ## 결정
 
-- **Hub 지정은 사람이 직접 고른다.** program이 자동으로 Hub를 켜지 않고 사람이 My computers에서 `remote.hub`를 켠다. Hub는 명단에 든 사람의 컴퓨터이므로 보관 데이터는 평문으로 두고, Fly relay는 마지막 fallback으로 유지한다. (사람, 2026-11-26)
+- **Hub 지정은 사람이 직접 고른다.** program이 자동으로 Hub를 켜지 않고 사람이 My computers에서 `remote.hub`를 켠다. 화면 없는 컴퓨터(VPS)가 Hub의 가장 흔한 자리라, 터미널 입력을 허락받은 다른 컴퓨터의 My computers에서도 그 컴퓨터의 Hub를 켠다(사람, 2026-11-27). agent는 여전히 켜지 못한다(`locked`). Hub는 명단에 든 사람의 컴퓨터이므로 보관 데이터는 평문으로 두고, Fly relay는 마지막 fallback으로 유지한다. (사람, 2026-11-26)
 - **데이터 정책은 종류로 나눈다.** 앱 데이터는 기본으로 컴퓨터 간 동기화(`"computers"`)하고 기기 전용 표만 `"local"`로 빼며, 환경 의존 설정 5종은 자동 동기화 대신 staging 기반 export로 옮긴다. (사람, 2026-11-26)
 - **텍스트 충돌은 `"keep_both"`를 선택지로 둔다.** 동시 편집 시 승자 행은 유지하고 패자 값을 결정론적 충돌 사본 행으로 남겨 데이터 유실을 막고 모든 replica가 같은 상태로 수렴한다. (사람, 2026-11-26)
 - **수신 파일은 inbox에만 둔다.** 대상 project 폴더를 바로 덮지 않고 `<data root>/inbox/<trf>/`에 `0644`로 배치해 사람이나 agent가 확인 후 옮긴다. (사람, 2026-11-26)

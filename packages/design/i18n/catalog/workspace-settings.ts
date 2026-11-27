@@ -352,6 +352,7 @@ export const workspaceSettings = {
   "settings.label.remote-disputed": "Disputed",
   "settings.label.remote-enabled": "Allow phone and computer connections",
   "settings.label.remote-hub": "Act as hub",
+  "settings.label.remote-hub-on": "Act as hub on {name}",
   "settings.label.remote-hub-badge": "Hub",
   "settings.label.remote-port": "Port",
   "settings.label.remote-relay": "Fallback relay URL",
@@ -423,7 +424,7 @@ export const workspaceSettings = {
   "settings.note.remote-enabled":
     "While on, lophn listens for your phones and computers on every network interface, connects to your other computers, and keeps running when idle.",
   "settings.note.remote-hub":
-    "Embed a /v1/* relay on this computer's remote port and hold files, mail, phone changes, and staged settings for offline computers.",
+    "Embed a /v1/* relay on the computer's remote port and hold files, mail, phone changes, and staged settings for offline computers.",
   "settings.note.remote-port":
     "Port for direct connections and the embedded hub relay (1024–65535).",
   "settings.note.remote-relay":

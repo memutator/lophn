@@ -1,5 +1,5 @@
 id: mail-carry-lane-and-diagnostics
-version: 0.23.186
+version: 0.23.187
 platform_note: none
 title: Decouple folder mail delivery from scan debounce and add end-to-end carry diagnostics
 modules:

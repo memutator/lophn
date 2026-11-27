@@ -1,5 +1,5 @@
 id: workflow-session-desk-routing
-version: 0.23.184
+version: 0.23.185
 platform_note: none
 title: "workflow session의 workflow_origin을 실시간 전파하고 모든 열기 경로를 workflow instance desk로 맞춘다"
 modules:

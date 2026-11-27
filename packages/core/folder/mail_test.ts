@@ -308,7 +308,10 @@ async function sideOf(base: string, owner: Computer, view: RosterView) {
       );
     },
     /** 읽기 scan의 mail 부분: 받은 mail을 입구에 넘기고, 받았다고 알려 온 줄을 outbox에서 지운다. */
-    async read(byTimer = false) {
+    async read(
+      byTimer = false,
+      onWaiting?: (origin: Id<"mch">, missing: readonly string[]) => void,
+    ) {
       await applyArrivedMail({
         ...carryIn(),
         seen,
@@ -326,6 +329,7 @@ async function sideOf(base: string, owner: Computer, view: RosterView) {
         },
         failures,
         byTimer,
+        ...(onWaiting === undefined ? {} : { onWaiting }),
       });
       await readMailAcks({
         ...carryIn(),
@@ -553,8 +557,12 @@ test("폴더 길의 mail은 seq 순으로만 돈다: 목록의 mail이 다 오�
       mailFilePath(LAPTOP, mal(4)),
     ]);
     await carry(l, d, (path) => path === mailFilePath(LAPTOP, mal(2)));
-    await d.read(true);
+    const waited: { origin: Id<"mch">; missing: readonly string[] }[] = [];
+    await d.read(true, (origin, missing) => waited.push({ origin, missing }));
     assert.deepEqual(d.applied, []);
+    assert.deepEqual(waited, [
+      { origin: LAPTOP, missing: [mailFilePath(LAPTOP, mal(2))] },
+    ]);
     await carry(l, d);
 
     // 맨 앞 mail이 늘 실패한다. 파일마다 도는 scan은 세지 않는다.

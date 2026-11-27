@@ -290,6 +290,9 @@ const ACKED_BY_FOLDER = {
 } as const;
 // 환경의 `away.changes`에 싣는 held 변경 수의 한도.
 const AWAY_CHANGES_MAX = 100;
+// fs.watch event가 계속 들어와도 scan debounce가 2분 timer까지 굶지 않도록 최대 대기를 둔다.
+const SCAN_MAX_WAIT_MS = 5 * 1000;
+const isMailCarryPath = (path: string) => path.split("/")[2] === "mail";
 
 const key = (route: { resource: string; method: string }) =>
   `${route.resource}/${route.method}`;
@@ -329,13 +332,14 @@ export const folderWiring: WiringFactory = () => {
   // core 시작과 destination이 바뀐 뒤에는 scan이 다른 기계의 기록 사본(horizon)을 먼저 읽고 내보낸다: 사본 없이 내보내면
   // hold 규칙이 다른 기계의 horizon을 몰라 떨어져 있던 변경이 그대로 나간다.
   let exportAfterScan = false;
-  // 다음 scan이 2분 timer가 깨운 것이다. 폴더 길 mail의 버리기 규칙은 이 scan의 실패만 센다(file이 올 때마다 도는 scan은 몇 초
-  // 사이로 몰린다).
-  let timerScan = false;
+  // 다음 mail lane 실행이 2분 timer가 깨운 것이다. 폴더 길 mail의 버리기 규칙은 이 실행의 실패만 센다(file이 올 때마다 도는
+  // 실행은 몇 초 사이로 몰린다).
+  let mailTimerRun = false;
   // 받는 자리가 다른 기계의 file을 두거나 지웠고 아직 `carry_files`로 알리지 않았다. 다음 scan이 한 번 알린다.
   let filesArrived = false;
   const mailFailures: MailFailures = new Map();
   const loggedMail = new Set<string>();
+  const waitingMailLogged = new Map<Id<"mch">, string>();
   // build가 만들고 start가 건다.
   let startTriggers: (() => Promise<void>) | undefined;
 
@@ -421,9 +425,12 @@ export const folderWiring: WiringFactory = () => {
         clock: ctx.clock,
         random: ctx.random,
         manifestsChanged: carryChanged,
-        filesChanged: () => {
+        filesChanged: (path) => {
           filesArrived = true;
           scheduleScan();
+          if (path === undefined || isMailCarryPath(path)) {
+            kickMail();
+          }
         },
       });
       ctx.provide("folderReplica", replica);
@@ -937,8 +944,13 @@ export const folderWiring: WiringFactory = () => {
         timer.unref?.();
         timers.add(timer);
       }
-      function debounce(name: string, ms: number, fn: () => void) {
-        lanes.debounce(name, ms, fn);
+      function debounce(
+        name: string,
+        ms: number,
+        fn: () => void,
+        maxWaitMs?: number,
+      ) {
+        lanes.debounce(name, ms, fn, maxWaitMs);
       }
 
       async function publishRecords(): Promise<RunOutcome> {
@@ -1114,6 +1126,7 @@ export const folderWiring: WiringFactory = () => {
           });
           return done.ok ? ok(undefined) : done;
         };
+        const waitedOrigins = new Set<Id<"mch">>();
         const applied = await applyArrivedMail({
           ...mailIn(),
           seen,
@@ -1139,14 +1152,52 @@ export const folderWiring: WiringFactory = () => {
           },
           failures: mailFailures,
           byTimer,
+          onWaiting(origin, missing) {
+            waitedOrigins.add(origin);
+            const fingerprint = missing.join("\n");
+            if (waitingMailLogged.get(origin) === fingerprint) return;
+            waitingMailLogged.set(origin, fingerprint);
+            ctx.telemetry.logger.warn({
+              component: "folder",
+              event: "mail_carry_waiting",
+              fields: {
+                origin,
+                missing_count: missing.length,
+                sample: missing.slice(0, 3),
+              },
+            });
+          },
         });
+        for (const origin of [...waitingMailLogged.keys()]) {
+          if (!waitedOrigins.has(origin)) waitingMailLogged.delete(origin);
+        }
         const acked = await readMailAcks({
           ...mailIn(),
           pending: (peer) => pendingMails(sql, peer),
           acked: (mail) =>
             command(callsMailSent, { mail, result: ACKED_BY_FOLDER }),
         });
-        if (applied > 0 || acked > 0) scheduleCarry();
+        if (applied > 0 || acked > 0) {
+          ctx.telemetry.logger.info({
+            component: "folder",
+            event: "mail_carry_applied",
+            fields: { applied, acked, by_timer: byTimer },
+          });
+          scheduleCarry();
+        }
+      }
+
+      // mail 수신은 scan debounce·다른 scan 단계와 분리해 독립 lane으로 바로 처리한다.
+      function kickMail(byTimer = false) {
+        if (byTimer) mailTimerRun = true;
+        kick("mail", runMail);
+      }
+
+      async function runMail(): Promise<RunOutcome> {
+        const byTimer = mailTimerRun;
+        mailTimerRun = false;
+        await readMail(byTimer);
+        return { ok: true, more: false };
       }
 
       // 다른 기계의 `packages/`에 있는 `@me/*` file 목록이 바뀌면 `dependency_missing`으로 멈춘 따라가기를 다시 본다.
@@ -1201,19 +1252,42 @@ export const folderWiring: WiringFactory = () => {
           filesArrived = false;
           carryChanged();
         }
-        const byTimer = timerScan;
-        timerScan = false;
         // 돌기 시작할 때 가져간다: 도는 중에 destination이 바뀌면 다음 run이 새 destination을 읽은 뒤 내보낸다.
         const exportAfter = exportAfterScan;
         exportAfterScan = false;
+        const startedAt = ctx.clock.nowMs();
         const scanned = await importer.scan();
         if (!scanned.ok) {
           if (exportAfter) exportAfterScan = true;
           log("scan_failed", scanned.error.message);
           return { ok: false, more: false };
         }
+        if (scanned.value.errors.length > 0) {
+          ctx.telemetry.logger.warn({
+            component: "folder",
+            event: "scan_record_errors",
+            fields: {
+              count: scanned.value.errors.length,
+              sample: scanned.value.errors.slice(0, 3).map((each) => ({
+                destination: each.destination,
+                machine: each.machine,
+                code: each.error.code,
+                message: each.error.message,
+              })),
+            },
+          });
+        }
         // 다른 기계의 활성 release와 git project 목록이 바뀌었을 수 있다.
         if (scanned.value.updated.length > 0) {
+          ctx.telemetry.logger.info({
+            component: "folder",
+            event: "folder_scan_done",
+            fields: {
+              updated: scanned.value.updated.length,
+              errors: scanned.value.errors.length,
+              duration_ms: Math.max(0, ctx.clock.nowMs() - startedAt),
+            },
+          });
           updateChanged(null);
           ctx.peek.projectMatching?.peersChanged();
         }
@@ -1232,14 +1306,25 @@ export const folderWiring: WiringFactory = () => {
           follow.retryDependencies();
         }
         followUp();
-        await readEvents();
-        await readMail(byTimer);
-        await transfers.processIncoming();
-        await transfers.processAcksAndGc();
-        await custody.processIncoming();
-        await custody.processAcks();
-        await settingsExport.processIncoming();
-        await settingsExport.processAcks();
+        const runStage = async (name: string, work: () => Promise<unknown>) => {
+          try {
+            await work();
+          } catch (thrown) {
+            log(`${name}_threw`, thrown);
+          }
+        };
+        kickMail(false);
+        await runStage("events", () => readEvents());
+        await runStage("transfers_in", () => transfers.processIncoming());
+        await runStage("transfers_ack", () => transfers.processAcksAndGc());
+        await runStage("custody_in", () => custody.processIncoming());
+        await runStage("custody_ack", () => custody.processAcks());
+        await runStage("settings_export_in", () =>
+          settingsExport.processIncoming(),
+        );
+        await runStage("settings_export_ack", () =>
+          settingsExport.processAcks(),
+        );
         return { ok: true, more: false };
       }
 
@@ -1390,7 +1475,12 @@ export const folderWiring: WiringFactory = () => {
         debounce(`export:${id}`, EXPORT_DEBOUNCE_MS, () => exportLanes(id));
       }
       function scheduleScan() {
-        debounce("scan", IMPORT_DEBOUNCE_MS, () => kick("scan", scan));
+        debounce(
+          "scan",
+          IMPORT_DEBOUNCE_MS,
+          () => kick("scan", scan),
+          SCAN_MAX_WAIT_MS,
+        );
       }
 
       function exportAll() {
@@ -1486,8 +1576,8 @@ export const folderWiring: WiringFactory = () => {
       function everyImport() {
         later(() => {
           rewatch();
-          timerScan = true;
           kick("scan", scan);
+          kickMail(true);
           everyImport();
         }, IMPORT_TIMER_MS);
       }
@@ -2264,6 +2354,7 @@ export const folderWiring: WiringFactory = () => {
         rewatch();
         exportAfterScan = true;
         kick("scan", scan);
+        kickMail();
         scheduleCarry();
         everyExport();
         everyImport();

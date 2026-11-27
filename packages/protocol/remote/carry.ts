@@ -760,7 +760,7 @@ const wantSchema = z.object({
   path: pathSchema,
 });
 
-// 믿는 manifest가 싣거나 덮는데 이 기계에 아직 없는 file. (machine, path) 글자 순서이고 `after` 뒤부터다. 앞 page를 들지
+// 믿는 manifest가 싣거나 덮는데 이 기계에 아직 없는 file. (machine, 우선순위 path: mail → record/roster → 나머지) 순서이고 `after` 뒤부터다. 앞 page를 들지
 // 않은 상대도 다음 page로 간다.
 export const carryWants = defineRead({
   resource: "carry",

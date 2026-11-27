@@ -182,6 +182,7 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
         return undefined;
       }
       const owner = devicePrincipal(device);
+      const peerKind = deps.kind(owner) ?? "unknown";
       const slot = deps.admission.enterEvent(owner);
       if (!slot.ok) {
         channel.close();
@@ -195,7 +196,7 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
           bufferedAmount: () => socket.bufferedAmount(),
         },
         deps.bus,
-        deps.kind(owner) === "computer"
+        peerKind === "computer"
           ? {
               events: [...REMOTE_ALLOWED_EVENTS, ...REMOTE_COMPUTER_EVENTS],
               owner,
@@ -206,6 +207,11 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
           : { events: REMOTE_ALLOWED_EVENTS, owner },
       );
       cleanups.push(() => {
+        deps.logger?.info({
+          component: "remote",
+          event: "peer_disconnected",
+          fields: { device, kind: peerKind },
+        });
         session.closed();
         slot.value.release();
         // 폰이 새 연결로 먼저 다시 붙은 뒤 옛 연결의 닫힘이 늦게 오면, 새 연결이 다시 연 view를 지우지 않는다.
@@ -218,6 +224,16 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
       deps.timers.clear(joinTimer);
       channel.setMaxFrameBytes(REMOTE_FRAME_MAX_BYTES);
       attached();
+      deps.logger?.info({
+        component: "remote",
+        event: "peer_attached",
+        fields: {
+          device,
+          kind: peerKind,
+          name: channel.peer.name,
+          protocol_version: channel.peer.version,
+        },
+      });
       deps.devices.connected({
         id: device,
         name: channel.peer.name,
@@ -247,6 +263,22 @@ export function createRemoteHost(deps: RemoteHostDeps): RemoteHost {
                 err({ code: "internal", message: "internal error" }),
             )
             .then((result) => {
+              if (
+                !result.ok &&
+                frame.resource === "carry" &&
+                result.error.code !== "not_found"
+              ) {
+                deps.logger?.warn({
+                  component: "remote",
+                  event: "carry_call_failed",
+                  fields: {
+                    device,
+                    method: frame.method,
+                    code: result.error.code,
+                    message: result.error.message,
+                  },
+                });
+              }
               const sent = channel.send(
                 result.ok
                   ? {

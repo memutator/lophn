@@ -48,7 +48,7 @@ export function createReceiveScheduler(deps: ReceiveSchedulerDeps) {
   const firstMs = deps.backoffFirstMs ?? BACKOFF_FIRST_MS;
   const maxMs = deps.backoffMaxMs ?? BACKOFF_MAX_MS;
   const lanes = new Map<string, Lane>();
-  const debounces = new Map<string, () => void>();
+  const debounces = new Map<string, { cancel: () => void; firstAt: number }>();
   let active = deps.started ?? true;
 
   function clearDeferred(lane: Lane) {
@@ -144,17 +144,29 @@ export function createReceiveScheduler(deps: ReceiveSchedulerDeps) {
     deps.track?.(done);
   }
 
-  function debounce(name: string, ms: number, fn: () => void): void {
+  function debounce(
+    name: string,
+    ms: number,
+    fn: () => void,
+    maxWaitMs?: number,
+  ): void {
     if (!active) return;
-    debounces.get(name)?.();
-    debounces.set(
-      name,
-      deps.wait(ms, () => {
+    const now = deps.nowMs();
+    const prev = debounces.get(name);
+    prev?.cancel();
+    const firstAt = prev?.firstAt ?? now;
+    const delay =
+      maxWaitMs === undefined
+        ? ms
+        : Math.max(0, Math.min(ms, firstAt + maxWaitMs - now));
+    debounces.set(name, {
+      firstAt,
+      cancel: deps.wait(delay, () => {
         debounces.delete(name);
         if (!active) return;
         fn();
       }),
-    );
+    });
   }
 
   return {
@@ -166,7 +178,7 @@ export function createReceiveScheduler(deps: ReceiveSchedulerDeps) {
     },
     stop() {
       active = false;
-      for (const cancel of debounces.values()) cancel();
+      for (const entry of debounces.values()) entry.cancel();
       debounces.clear();
       for (const lane of lanes.values()) clearDeferred(lane);
     },

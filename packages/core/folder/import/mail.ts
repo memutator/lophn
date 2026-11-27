@@ -125,17 +125,24 @@ export async function applyArrivedMail(
     refuse(input: { mail: Mail; origin: Id<"mch"> }): Promise<Result<unknown>>;
     failures: MailFailures;
     byTimer: boolean;
+    /** 그 기계의 manifest가 싣는 다른 mail file이 아직 없어 적용을 미룬다(관측용). */
+    onWaiting?(origin: Id<"mch">, missing: readonly string[]): void;
   },
 ): Promise<number> {
   let applied = 0;
   for (const [origin, mails] of await arrivedMail(deps)) {
     const dir = `${mailDir(origin)}/`;
-    const missing = (await deps.wanted(origin)).some(
-      (file) =>
-        file.path.startsWith(dir) &&
-        mailFileId(file.path.slice(dir.length)) !== null,
-    );
-    if (missing) continue;
+    const missing = (await deps.wanted(origin))
+      .filter(
+        (file) =>
+          file.path.startsWith(dir) &&
+          mailFileId(file.path.slice(dir.length)) !== null,
+      )
+      .map((file) => file.path);
+    if (missing.length > 0) {
+      deps.onWaiting?.(origin, missing);
+      continue;
+    }
     for (const mail of mails) {
       if (deps.seen(origin, mail.id as Id<"mal">)) continue;
       const done = await deps.apply({ mail, origin, via: "folder" });

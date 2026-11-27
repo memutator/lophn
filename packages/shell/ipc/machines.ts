@@ -27,6 +27,7 @@ export const machineRowSchema = z.strictObject({
   update: z.enum(["client", "host"]).nullable(),
   path: z.enum(["direct", "relay"]).nullable(),
   last_seen_at: z.string().nullable(),
+  lophn_version: z.string().nullable().optional(),
 });
 export type MachineRow = z.infer<typeof machineRowSchema>;
 

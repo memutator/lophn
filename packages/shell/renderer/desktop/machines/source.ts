@@ -24,6 +24,8 @@ export interface MachineItem {
   readonly lastSeenAt: string | null;
   /** 이 기계가 hub(embedded relay + offline custody) 역할을 맡고 있는지. */
   readonly hub?: boolean;
+  /** 그 컴퓨터에 설치된 lophn 판. 아직 모르면 null이다. */
+  readonly lophnVersion?: string | null;
 }
 
 export interface MachinesView {

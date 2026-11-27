@@ -136,6 +136,7 @@ export type LinkedMachine = {
   path: "direct" | "relay" | null;
   last_seen_at: string | null;
   hub?: boolean;
+  lophn_version?: string | null;
 };
 
 // 주소 후보와 port로 hub relay URL 목록을 만든다(`ws://<addr>:<port>` 또는 설정된 `ws://`/`wss://` URL).
@@ -191,6 +192,8 @@ export type LinksDeps = {
   // 그 컴퓨터가 보낸 event 가운데 core 안 구독자(capability가 없는 구독자)의 조건에 든 것. 그 컴퓨터가 보낸 글이라 믿지 않고 받는 쪽이 다시 읽는다.
   // bus의 `MachineFrameReceived`에는 싣지 않는다: 창이 원한 것이 아니다.
   onPeerEvent(machine: Id<"mch">, event: unknown): void;
+  // 폴더로 받은 기계 기록(`record.json`)의 lophn 판. 아직 hello를 받지 못했거나 오프라인인 컴퓨터의 판으로 쓴다.
+  recordedVersion?(machine: Id<"mch">): string | null;
 };
 
 // 나르기가 link마다 화면의 조건에 더해 거는 조건. 화면이 원하지 않은 `StateChanged`는 bus에 싣지 않는다.
@@ -254,6 +257,8 @@ export function createLinks(deps: LinksDeps) {
   ];
   // 기기 id → 마지막으로 붙었거나 끊긴 때. core가 사는 동안만 든다.
   const seen = new Map<string, string>();
+  // 기기 id → serverHello로 받은 그 컴퓨터의 lophn 판.
+  const versions = new Map<string, string>();
   let key: KeyPair | undefined;
 
   function changed(device: string) {
@@ -488,6 +493,13 @@ export function createLinks(deps: LinksDeps) {
       },
       onPeer(peer) {
         if (
+          peer.lophn_version !== undefined &&
+          versions.get(body.id) !== peer.lophn_version
+        ) {
+          versions.set(body.id, peer.lophn_version);
+          changed(body.id);
+        }
+        if (
           peer.addresses !== undefined ||
           peer.hub !== undefined ||
           peer.relays !== undefined
@@ -643,7 +655,12 @@ export function createLinks(deps: LinksDeps) {
         )
         .map((each) => [each.body.id, each.body]),
     );
-    for (const id of [...links.keys()]) if (!wanted.has(id)) drop(id);
+    for (const id of [...links.keys()]) {
+      if (!wanted.has(id)) {
+        versions.delete(id);
+        drop(id);
+      }
+    }
     for (const [id, body] of wanted) {
       const endpoint = endpointOf(body);
       const link = links.get(id);
@@ -776,6 +793,10 @@ export function createLinks(deps: LinksDeps) {
             link === undefined
               ? { status: "offline" as const, update: null, path: null }
               : statusOf(link);
+          const lophnVersion =
+            versions.get(body.id) ??
+            deps.recordedVersion?.(body.machine as Id<"mch">) ??
+            null;
           return {
             machine: body.machine as Id<"mch">,
             device: body.id,
@@ -783,6 +804,7 @@ export function createLinks(deps: LinksDeps) {
             ...state,
             last_seen_at: seen.get(body.id) ?? null,
             hub: reachByDevice.get(body.id)?.hub === true,
+            ...(lophnVersion === null ? {} : { lophn_version: lophnVersion }),
           };
         });
     },

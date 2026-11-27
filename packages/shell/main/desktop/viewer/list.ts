@@ -25,6 +25,9 @@ export function machineList(input: {
       update: one.update,
       path: one.path,
       last_seen_at: one.last_seen_at,
+      ...(one.lophn_version == null
+        ? {}
+        : { lophn_version: one.lophn_version }),
     })),
   };
 }

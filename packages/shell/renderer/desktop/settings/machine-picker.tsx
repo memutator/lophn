@@ -47,7 +47,14 @@ export function MachinePicker({
       id: one.id,
       name: one.name,
       status: optionStatus(one.status),
-      detail: one.status === "connected" ? undefined : statusParts(one).label,
+      detail:
+        one.status === "connected"
+          ? one.lophnVersion != null
+            ? t("machine-update.status.lophn-version", {
+                version: one.lophnVersion,
+              })
+            : undefined
+          : statusParts(one).label,
       disabled: one.status !== "connected",
     })),
   ];

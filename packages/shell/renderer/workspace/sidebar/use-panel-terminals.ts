@@ -36,6 +36,8 @@ export function usePanelTerminals(
   /** project 또는 Home(`home`). 앱이면 null이고 저장한 session이 없다. */
   project: string | null,
   tabs: readonly TerminalTabView[],
+  /** 창 메모리(`savedTerminals`)의 구분 key. 다른 기계의 Home이 이 컴퓨터의 Home과 겹치지 않게 workspaceKey를 준다. */
+  cacheKey: string | null = project,
 ): readonly PanelTerminal[] {
   const store = deps?.store;
   const core = deps?.core ?? null;
@@ -45,10 +47,11 @@ export function usePanelTerminals(
   );
   // workspace를 옮기면 창의 마지막 값에서 시작한다. 비면 Recent 수가 0에서 다시 차오른다.
   const [savedAll, setSavedAll] = useRemembered("savedTerminals");
+  const memoryKey = project === null ? null : cacheKey;
   const saved =
-    (project === null ? undefined : savedAll.get(project)) ?? NO_SAVED;
+    (memoryKey === null ? undefined : savedAll.get(memoryKey)) ?? NO_SAVED;
   useEffect(() => {
-    if (core === null || project === null) return;
+    if (core === null || project === null || memoryKey === null) return;
     const follow = followCoreRead<{ sessions: TerminalAgentSession[] }>(
       core.events,
       terminalsSavedSessions,
@@ -56,12 +59,12 @@ export function usePanelTerminals(
       (loaded) => {
         if (loaded.state !== "ready") return;
         const sessions = loaded.value.sessions;
-        setSavedAll((all) => new Map(all).set(project, sessions));
+        setSavedAll((all) => new Map(all).set(memoryKey, sessions));
       },
       () => new Date(),
     );
     return () => follow.stop();
-  }, [core, project, setSavedAll]);
+  }, [core, project, memoryKey, setSavedAll]);
   // hook은 시각을 알리지 않는다. 저장한 session의 마지막 움직임을 쓰고, 아직 저장 전이면 처음 본 때를 쓴다.
   const firstSeen = useRef(new Map<string, number>());
   return useMemo(() => {

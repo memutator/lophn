@@ -28,7 +28,7 @@ export interface SidebarValues {
   readonly elsewhereTerminals: ReadonlyMap<string, readonly TabItem[]>;
   /** workspace key → 그 workspace의 desk(다른 workspace의 layout, Agent 탭은 이 창 메모리의 것). */
   readonly elsewhereDesks: ReadonlyMap<string, LayoutDesks>;
-  /** project id → main이 저장한 coding agent session. */
+  /** workspace key → core가 저장한 coding agent session. */
   readonly savedTerminals: ReadonlyMap<string, readonly TerminalAgentSession[]>;
   /** project id → 사람 차례를 기다리는 workflow instance. */
   readonly workflows: ReadonlyMap<string, readonly SidebarWaitingWorkflow[]>;

@@ -253,7 +253,12 @@ export function register(ctx: ShellContext): Machines & Registered {
       for (const listener of frames) listener(machine, message, to);
       return;
     }
-    if (changedIds(event, "remote_devices").length > 0) refresh();
+    if (
+      changedIds(event, "remote_devices").length > 0 ||
+      changedIds(event, "carry_files").length > 0
+    ) {
+      refresh();
+    }
   });
 
   // `machine/rename` sends no event; its answer carries the name in effect.

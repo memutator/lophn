@@ -1,0 +1,17 @@
+id: per-machine-coding-prefs
+version: 0.23.182
+title: shell.coding_agents를 로컬 QuickPrefs에서 분리해 기계 범위(MachineScope)마다 읽고 쓴다
+modules:
+  - packages/shell/renderer
+change: |
+  `shell.coding_agents`(coding agent 즐겨찾기와 실행 명령어)를 로컬 전용 `QuickPrefs`에서 분리해 기계마다 독립된 `CodingPrefsStore`로 옮기고 `MachineScope`의 `CodingPrefsProvider`로 내려 준다.
+  `Settings › Coding agents`, 원격 workspace 창의 `+` / Terminal hover 목록과 명령 실행이 이제 지금 범위 기계의 core에서 `shell.coding_agents`를 읽고 쓴다.
+  왼쪽 sidebar의 다른 로컬 project 줄은 이 컴퓨터의 `codingPrefs`를 유지한다.
+why: |
+  원격 컴퓨터의 `Settings › Coding agents`를 열었을 때 Executable·Hooks는 원격 core에서 읽으면서 Favorite·Command는 최상단 로컬 `QuickPrefsProvider`를 읽고 써서, 원격 컴퓨터에서 즐겨찾기한 것처럼 보이지만 실제로는 로컬 `settings.json`만 바뀌고 원격 컴퓨터의 내장 coding agent(예: `antigravity`)가 활성화되지 않던 버그를 고쳤다.
+decisions:
+  - text: |
+      `shell.coding_agents`를 `QuickPrefs`에 남긴 채 `QuickPrefsProvider`를 기계마다 두는 대신, 로컬 UI chrome 설정(`QuickPrefs`)과 기계별 coding agent 설정(`CodingPrefs`)을 분리했다. 버린 길: `QuickPrefsProvider` 전체를 기계마다 감싸기(작업 표시줄·트레이·빠른 실행 등 로컬 UI 설정까지 원격 컴퓨터에 묶여 의도와 어긋난다).
+    by: agent
+checklist:
+  - "원격 컴퓨터의 Settings › Coding agents에서 Favorite과 Command가 그 컴퓨터의 실제 값으로 보이고, 별을 토글하면 로컬이 아닌 그 원격 컴퓨터의 settings.json에 반영되는지 확인한다"

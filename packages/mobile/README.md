@@ -82,7 +82,7 @@ React Navigation 7(native stack과 drawer)이다. 아래 tab bar는 없다. 앱�
 
 ### 폰 앱과 core는 같이 올린다
 
-remote protocol 판은 5이고 하한도 5다(hello가 판 범위, 기계 id와 이름, 컴퓨터의 지금 주소 후보를 싣는다. 판 3에서 pairing code가 명단의 초대장이 되었고 연결의 첫 frame은 `join`이다. 판 4는 명단 규칙을 고쳤고 판 5는 컴퓨터끼리 부르는 call frame에 요청한 쪽을 싣고 터미널 입력 허락을 명단 밖으로 옮겼다). 판 4 이하인 옛 폰 build는 판 5 core에 붙지 못한다. 그래서 core를 올리면 폰에도 새 build를 깐다(실제 폰에 까는 것은 사람에게 묻는다). 범위가 어긋나면 `conflict`의 `details.update`(`client`·`host`)가 어느 쪽을 올릴지 말하고, 폰은 초대장으로 들어갈 때 그 실패 화면으로, 붙어 있던 컴퓨터는 목록에서 올리라는 상태로 보인다.
+remote protocol 판은 6이고 하한도 6다(hello가 판 범위, 기계 id와 이름, 컴퓨터의 지금 주소 후보를 싣는다. 판 3에서 pairing code가 명단의 초대장이 되었고 연결의 첫 frame은 `join`이다. 판 4는 명단 규칙을 고쳤고 판 5는 컴퓨터끼리 부르는 call frame에 요청한 쪽을 싣고 터미널 입력 허락을 명단 밖으로 옮겼으며 판 6은 computer-hub의 reach 칸과 폰 `signing_key`를 반영했다). 판 5 이하인 옛 폰 build는 판 6 core에 붙지 못한다. 그래서 core를 올리면 폰에도 새 build를 깐다(실제 폰에 까는 것은 사람에게 묻는다). 범위가 어긋나면 `conflict`의 `details.update`(`client`·`host`)가 어느 쪽을 올릴지 말하고, 폰은 초대장으로 들어갈 때 그 실패 화면으로, 붙어 있던 컴퓨터는 목록에서 올리라는 상태로 보인다.
 
 ### 개발 core와 pairing
 

@@ -26,8 +26,10 @@ export { deviceNameSchema, keyTextSchema, remoteAddressesSchema };
 // 판 4는 명단 규칙(쓰인 초대, key로만 세는 빼기, 모르는 서명자 상한)이다. 판 3과 같은 명단을 다르게 보므로 하한도 같이 올린다.
 // 판 5는 call frame의 요청한 쪽 `by`와 명단 항목의 모양(터미널 입력 허락이 항목의 칸이 아니다)이다. 판 4의 core는 `by`가 있는 call을
 // 받지 못하고(strictObject) 항목을 다르게 읽으므로 하한도 같이 올린다.
-export const REMOTE_PROTOCOL_VERSION = 5;
-export const REMOTE_PROTOCOL_MIN_VERSION = 5;
+// 판 6은 computer-hub의 명단 reach(`hub`, `relays`)와 폰 항목의 `signing_key` 허용이다. 판 5의 `rosterReachSchema`가 `strictObject`였고
+// 폰 항목의 `signing_key`를 거절해 join 직후 조용히 끊기므로, hello 단계에서 "올려야 한다"가 보이게 하한도 같이 올린다.
+export const REMOTE_PROTOCOL_VERSION = 6;
+export const REMOTE_PROTOCOL_MIN_VERSION = 6;
 export const REMOTE_PROLOGUE = "lophn-remote/1";
 
 // hello는 모르는 칸을 버린다(z.object). 다음 판이 칸을 더해도 이 판과 붙는다.
@@ -48,6 +50,7 @@ const serverHelloSchema = z.object({
     addresses: remoteAddressesSchema.optional(),
     hub: z.boolean().optional(),
     relays: z.array(z.string().url()).optional(),
+    lophn_version: z.string().min(1).max(64).optional(),
   }),
 });
 

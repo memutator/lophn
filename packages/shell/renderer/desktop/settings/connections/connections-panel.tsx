@@ -1,5 +1,5 @@
 // Settings › Coding agents. 제품마다 즐겨찾기(맨 왼쪽), 실행 파일, version, turn 끝 신호, hook, 실행 명령어를 보인다. 연결 만들기·범위·
-// 이름·회수와 doctor 단계는 없다. 감지는 사람이 [Detect again]을 누를 때만 다시 한다. 즐겨찾기와 명령어는 빠른 실행 전역 값이다.
+// 이름·회수와 doctor 단계는 없다. 감지는 사람이 [Detect again]을 누를 때만 다시 한다. 즐겨찾기와 명령어는 이 기계의 설정(`shell.coding_agents`)이다.
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import {
   harnessVendorOf,
@@ -20,7 +20,7 @@ import {
 import { settingsList } from "../../../../../protocol/config/file.ts";
 import { useCoreRead } from "../../connection/core-read.ts";
 import { effectiveOf } from "../declared.ts";
-import { useQuickPrefs } from "../quick-launch/store.tsx";
+import { useCodingPrefs } from "./prefs-store.tsx";
 import styles from "../settings.module.css";
 import {
   discoveryText,
@@ -92,10 +92,9 @@ export function CodingConnectionsPanel({
   }, [sharedRead]);
   const [unshareFailed, setUnshareFailed] = useState(false);
   const [query, setQuery] = useState("");
-  const { prefs, set } = useQuickPrefs();
-  const coding = prefs.coding;
+  const { coding, set: setCoding } = useCodingPrefs();
   const toggleFavorite = (id: HarnessId) =>
-    set("coding", {
+    setCoding({
       ...coding,
       favorites: coding.favorites.includes(id)
         ? coding.favorites.filter((item) => item !== id)
@@ -104,7 +103,7 @@ export function CodingConnectionsPanel({
   const setCommand = (id: HarnessId, command: string) => {
     const { [id]: _old, ...rest } = coding.commands;
     const text = command.trim();
-    set("coding", {
+    setCoding({
       ...coding,
       commands: text === "" ? rest : { ...rest, [id]: text },
     });

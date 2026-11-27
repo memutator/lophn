@@ -781,6 +781,17 @@ export const folderWiring: WiringFactory = () => {
             me(),
             (machine) => ctx.peek.computerSigningKey?.(machine) != null,
           ),
+        lophnVersion: (machine) => {
+          const recorded = importer
+            .records()
+            .machines.find((row) => row.machine === machine)?.record
+            .lophn.version;
+          return recorded !== undefined &&
+            recorded.length > 0 &&
+            recorded !== "unknown"
+            ? recorded
+            : null;
+        },
       });
       const apps = createFolderApps({
         machine: me,
@@ -993,6 +1004,13 @@ export const folderWiring: WiringFactory = () => {
         return { ok: written.ok, more: false };
       }
 
+      const peerConnected = (peer: Id<"mch">): boolean =>
+        ctx.peek.machineLinks
+          ?.list()
+          .some(
+            (each) => each.machine === peer && each.status === "connected",
+          ) ?? false;
+
       // `computers` 폴더의 자기 하위 폴더: 옛 event file 지우기, 명단 file, 앱 목록과 manifest, 그리고 사람의 폴더에 거울.
       async function carryOut(): Promise<RunOutcome> {
         const pruned = await pruneEventFiles({
@@ -1017,6 +1035,7 @@ export const folderWiring: WiringFactory = () => {
           root: computersRoot,
           pending: pendingMails(sql),
           acks: await seenArrivedMail({ ...mailIn(), seen }),
+          connected: peerConnected,
           nowMs: ctx.clock.nowMs(),
           random: ctx.random,
           log: (message) => log("mail_file_not_written", message),
@@ -1567,7 +1586,6 @@ export const folderWiring: WiringFactory = () => {
         me: () => ({ id: me(), name: ctx.machine.status().name }),
         resolveMachine: resolveTargetMachine,
         onlineMachines,
-        isHub: () => facts().hub,
         holds: (machine, path) => replica.holds(machine, path),
         carryHeldBy: async (machine, paths) =>
           (await ctx.peek.carryHeldBy?.(machine, paths)) ?? null,
@@ -2350,15 +2368,20 @@ export const folderWiring: WiringFactory = () => {
           for (const [route, handler] of carry.reads) reads.set(route, handler);
         },
         writer: (inner) => {
-          // outbox에 줄이 생기면 그 mail이 file이 될 때(연결이 그 사이 닿지 않았으면) 옮긴다.
+          // outbox에 줄이 생기면 link가 없는 상대의 mail은 바로 옮기고, link가 붙은 상대는 그 사이 닿지 않았을 때 file이 되도록 예약한다.
           const mailed = withAfterCommit(
             inner,
             (actions) => {
-              if (
-                actions.some((action) => action.topic === MAIL_QUEUED_TOPIC)
-              ) {
-                later(scheduleCarry, MAIL_FILE_AFTER_MS + 1000);
+              let immediate = false;
+              let delayed = false;
+              for (const action of actions) {
+                if (action.topic !== MAIL_QUEUED_TOPIC) continue;
+                const peer = (action.data as { peer: Id<"mch"> }).peer;
+                if (peerConnected(peer)) delayed = true;
+                else immediate = true;
               }
+              if (immediate) scheduleCarry();
+              if (delayed) later(scheduleCarry, MAIL_FILE_AFTER_MS + 1000);
             },
             ctx.telemetry.logger,
           );

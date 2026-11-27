@@ -66,6 +66,7 @@ export function sampleDevices(now = Date.now()): RemoteDevice[] {
       lastConnectedAt: null,
       primary: false,
       terminalInput: false,
+      lophnVersion: "0.23.183",
     }),
     device("02", {
       kind: "computer",
@@ -76,6 +77,7 @@ export function sampleDevices(now = Date.now()): RemoteDevice[] {
       primary: false,
       terminalInput: true,
       hub: true,
+      lophnVersion: "0.23.183",
     }),
     device("03", {
       kind: "computer",
@@ -85,6 +87,7 @@ export function sampleDevices(now = Date.now()): RemoteDevice[] {
       lastConnectedAt: new Date(now - 3 * HOUR).toISOString(),
       primary: false,
       terminalInput: false,
+      lophnVersion: "0.23.180",
     }),
     device("04", {
       kind: "phone",

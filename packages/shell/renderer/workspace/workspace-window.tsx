@@ -91,6 +91,7 @@ import {
 } from "../desktop/palette/workspace-scope.ts";
 import type { NewSessionStart } from "../desktop/router.ts";
 import type { SettingsPane } from "../desktop/settings/model.ts";
+import { useCodingPrefs } from "../desktop/settings/connections/prefs-store.tsx";
 import { launchKey } from "../desktop/settings/quick-launch/source.ts";
 import { useQuickPrefs } from "../desktop/settings/quick-launch/store.tsx";
 import type { ProjectsSource } from "../desktop/workspaces/projects/source.ts";
@@ -576,6 +577,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     null,
   ).read;
   const { prefs: quickPrefs, set: setQuickPrefs } = useQuickPrefs();
+  const { coding: codingPrefs } = useCodingPrefs();
   // 모든 workspace에 사는 전역 float. 앱 panel 화면을 desk float과 서로 옮기고, QuickLaunch가 있는 것을 펼친다.
   const globalFloats = useGlobalFloats();
   // 이 workspace에서 나온 터미널 중 전역 float이 된 것의 key. 문자열로 접어 float이 움직여도 다시 돌지 않게 한다.
@@ -1486,17 +1488,14 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
       });
       return;
     }
-    const command = codingCommand(
-      quickPrefs.coding.commands,
-      choice.id as HarnessId,
-    );
+    const command = codingCommand(codingPrefs.commands, choice.id as HarnessId);
     if (command !== undefined) {
       openTerminalTab(host, { command, docked: true });
     }
   };
   const agentChoiceList = agentChoices(
     sidebarAgents.agents,
-    terminal === undefined ? [] : quickPrefs.coding.favorites,
+    terminal === undefined ? [] : codingPrefs.favorites,
   );
 
   // 이 창에 그 session의 Agent 탭이 이미 있으면 고른다. 다른 workspace에서 옮겨 온 탭은 이 workspace의 agent 목록에 없는
@@ -3217,6 +3216,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     terminal,
     isHome ? HOME_TERMINAL_PROJECT : projectId,
     terminalTabs,
+    workspaceId,
   );
 
   // 이름은 탭 화면이 아니라 여기서 모든 터미널 탭에 맞춘다. 그려진 탭만 맞추면 숨은 탭의 이름이 갈라진다.
@@ -4008,7 +4008,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
 
   // 빠른 실행 단추 줄. 작업 표시줄이 켜져 있으면 작업 표시줄 왼쪽 끝에, 꺼져 있으면 왼쪽 sidebar 맨 아래에 그린다.
   // Terminal hover 목록은 즐겨찾기 coding agent와 이 project의 명령이다.
-  const quickCoding = terminal === undefined ? [] : quickPrefs.coding.favorites;
+  const quickCoding = terminal === undefined ? [] : codingPrefs.favorites;
   const quickLaunch: QuickLaunch = {
     order: shownQuickOrder(quickNow),
     pins: quickPins,
@@ -4021,7 +4021,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
             label: HARNESS_ADAPTERS[id].label,
             leading: <AgentFaceIcon face={codingFace(id)} />,
             onSelect: () => {
-              const command = codingCommand(quickPrefs.coding.commands, id);
+              const command = codingCommand(codingPrefs.commands, id);
               if (command !== undefined) {
                 openTerminalTab(host, { command, docked: true });
               }

@@ -32,7 +32,7 @@
  agent ─ calls/send_remote ─▶ 검사(private, mail이 연 session, 컴퓨터, 주소, 글)
                               └▶ 한 tx: agent_calls 행(to remote, delivery pending) + mail_outbox 줄
  drain(B마다 한 번에 하나, seq 순) ── link: a2a/mail ──────────────▶ 명단·보낸 기계·받는 기계 확인
- 나르기(60초 남은 mail) ── computers/machines/<A>/mail/<mal>.json ─▶ 받는 자리 → mail 입구(같은 적용)
+ 나르기(오프라인은 바로, 연결된 상대는 60초 뒤) ── computers/machines/<A>/mail/<mal>.json ─▶ 받는 자리 → mail 입구(같은 적용)
                                                                      mail_seen: (A, mail id) 한 번
                                                                      만료 → 실패 mail
                                                                      10분 넘게 늦음 → 대기 목록(held)
@@ -72,7 +72,7 @@
   - 보냈는데 답을 잃으면(`unavailable`, 보냄) 줄을 두고 행의 `delivery`를 `unknown`으로 하고 그 기계의 줄을 멈춘다. 다음 때 같은 mail(같은 id)이 다시 간다. 받는 쪽이 id로 거르므로 일은 한 번 돈다.
   - `not_found`(그 route를 모른다)나 `invalid_input`(그 판이 이 꼴을 읽지 못한다)이면 옛 판이다. 줄을 지우고 call은 `failed(old_version)`이다. 두면 그 기계의 줄이 영영 막힌다.
   - 그 밖의 오류는 그 기계 전체의 사정으로 보고 멈췄다가 다음 때 다시 한다. 다만 timer가 시작한 차례마다 줄 맨 앞 mail에 받는 기계가 `internal`로 답한 것이 다섯 번이면 그 mail을 버린다: call mail은 `failed(expired)`로 닫고 다른 종류는 지운다. 횟수는 메모리에 있고 맨 앞이 바뀌면 0이다.
-- **폴더.** outbox에 60초 넘게 남은 mail은 `computers` 폴더의 자기 하위 폴더에 file 하나(`machines/<보낸 기계>/mail/<mal id>.json`, 128 KiB까지)로 쓰이고 서명한 manifest의 선택 칸 `mail`에 실려 link, 폰, 같이 보는 폴더로 간다(`folder-sync.md`). 곧 link로 닿을 mail은 file이 되지 않아 manifest가 바뀌지 않는다. 받는 기계마다 seq 순으로 쓰다가 file이 될 수 없는 mail(60초가 안 됨, 크기를 넘음)에서 멈춘다: 뒤 mail만 file로 가면 받는 쪽이 앞 mail 없이 돌린다. outbox에서 빠진 줄의 file은 다음 나르기가 지운다.
+- **폴더.** link가 없는(오프라인) 상대에게 가는 outbox mail은 바로, link가 붙어 있는 상대의 mail은 outbox에 60초 넘게 남았을 때 `computers` 폴더의 자기 하위 폴더에 file 하나(`machines/<보낸 기계>/mail/<mal id>.json`, 128 KiB까지)로 쓰이고 서명한 manifest의 선택 칸 `mail`에 실려 link, 폰, 같이 보는 폴더로 간다(`folder-sync.md`). 곧 link로 닿을 mail은 file이 되지 않아 manifest가 바뀌지 않으며, 꺼져 있는 상대(dual boot 등)의 mail은 기다리지 않고 곧바로 Hub로 넘어간다. 받는 기계마다 seq 순으로 쓰다가 file이 될 수 없는 mail(연결된 상대이고 60초가 안 됨, 크기를 넘음)에서 멈춘다: 뒤 mail만 file로 가면 받는 쪽이 앞 mail 없이 돌린다. outbox에서 빠진 줄의 file은 다음 나르기가 지운다.
   - 받는 기계는 받는 자리가 그 컴퓨터의 지금 명단 key로 검증한 manifest가 싣는 file만 읽고, 그 manifest가 싣는 mail file이 다 왔을 때만 그 기계의 mail을 seq 순으로 link와 같은 입구에 넘긴다. 크기, mail schema, path의 기계와 `from.machine`, 이 기계로 온 것인지를 본다. 틀린 file은 본문 없는 log 한 줄로 넘긴다. 자기 하위 폴더와 사람의 폴더는 mail의 출처가 아니다.
   - 폴더로 받은 mail의 id는 받은 기계가 자기 하위 폴더의 `mail/acks.json`에 적는다. 보낸 기계는 검증한 사본에서 그 file을 읽어 자기 outbox의 그 기계로 가는 줄 가운데 거기 있는 것을 받은 것으로 지운다. 받은 call의 상태는 받은 기계가 `state` mail로 따로 알린다.
   - 입구가 `internal`·`unavailable`로 늘 거절하는 맨 앞 mail은 timer scan 다섯 번 뒤 거절로 적어(아래 "받는 쪽") 그 기계의 뒤 mail을 막지 않는다.

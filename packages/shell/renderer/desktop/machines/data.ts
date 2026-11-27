@@ -53,6 +53,11 @@ import type { CatalogSource } from "../palette/catalog.ts";
 import { catalogSource } from "../palette/core-catalog.ts";
 import { coreAgentsSettingsSource } from "../settings/agents/core-source.ts";
 import { coreCodingConnectionsSource } from "../settings/connections/core-source.ts";
+import {
+  type CodingPrefsStore,
+  coreCodingPrefsSource,
+  createCodingPrefsStore,
+} from "../settings/connections/prefs.ts";
 import { windowSecretInputOpener } from "../settings/core-call.ts";
 import { coreSettingsSource } from "../settings/core-source.ts";
 import { coreDiagnosticsSource } from "../settings/diagnostics/core-source.ts";
@@ -98,6 +103,8 @@ export interface MachineData {
   readonly settingsPanels: SettingsPanels;
   /** 빠른 실행·작업 표시줄·오른쪽 sidebar·tray 설정은 이 컴퓨터의 값이다. 다른 기계 묶음도 이 컴퓨터의 것을 쓴다. */
   readonly quickPrefs: QuickPrefsSource | undefined;
+  /** 이 기계의 coding agent 즐겨찾기와 실행 명령어(`shell.coding_agents`). 기계 범위마다 따로 읽고 쓴다. */
+  readonly codingPrefs: CodingPrefsStore | undefined;
   readonly agentViewSource: AgentTabSourceFactory;
   /** 문서 탭. 다른 기계는 그 기계의 등록 폴더 file을 `project_files/*`로 읽고 쓴다. */
   readonly editor?: EditorDeps;
@@ -244,6 +251,7 @@ function otherMachineData(
       remote: coreRemoteSource(core),
     },
     quickPrefs: localData.quickPrefs,
+    codingPrefs: createCodingPrefsStore(coreCodingPrefsSource(core)),
     appDetail: readOnlyAppDetailSource,
     // `shell.reading_width`는 이 컴퓨터의 Appearance 설정이라 원격 문서 편집기도 이 컴퓨터의 store를 공유한다.
     editor: remoteEditorDeps(

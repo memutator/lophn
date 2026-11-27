@@ -33,6 +33,8 @@ export interface RemoteDevice {
   readonly disputed: boolean;
   /** 이 컴퓨터가 hub 역할을 맡고 있는지(embedded relay + offline custody). */
   readonly hub?: boolean;
+  /** 이 컴퓨터에 설치된 lophn 판. 폰이거나 아직 모르면 null이다. */
+  readonly lophnVersion?: string | null;
 }
 
 /** 명단과, 다른 컴퓨터가 이 컴퓨터를 빼 명단을 버린 때(ISO. core가 다시 뜨거나 다시 들면 null). */

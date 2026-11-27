@@ -56,6 +56,10 @@ import { coreAppearanceSource } from "./settings/appearance/core-source.ts";
 import type { QueryLocalFonts } from "./settings/appearance/local-fonts.ts";
 import { windowBrowserSettings } from "./settings/browser/window-source.ts";
 import { coreCodingConnectionsSource } from "./settings/connections/core-source.ts";
+import {
+  coreCodingPrefsSource,
+  createCodingPrefsStore,
+} from "./settings/connections/prefs.ts";
 import { coreSettingsSource } from "./settings/core-source.ts";
 import { coreDiagnosticsSource } from "./settings/diagnostics/core-source.ts";
 import { coreKeyboardSource } from "./settings/keyboard/core-source.ts";
@@ -170,8 +174,12 @@ function hereData(): MachineData {
       coding: coreCodingConnectionsSource(core),
       browser: windowBrowserSettings(),
     },
-    // 빠른 실행 전역 값(단추 순서·고정, 앱 panel 여는 자리, coding agent 즐겨찾기). Settings와 workspace 창이 같이 쓴다.
+    // 빠른 실행 전역 값(단추 순서·고정, 앱 panel 여는 자리, 작업 표시줄·sidebar·tray). Settings와 workspace 창이 같이 쓴다.
     quickPrefs: mock?.quickPrefs ?? coreQuickPrefsSource(core),
+    // 이 컴퓨터의 coding agent 즐겨찾기와 실행 명령어(`shell.coding_agents`). 기계 범위마다 따로 둔다.
+    codingPrefs: createCodingPrefsStore(
+      mock?.codingPrefs ?? coreCodingPrefsSource(core),
+    ),
     // Agent 탭과 앱 공간의 Agent 칸이 agent마다 통로를 얻는 함수.
     agentViewSource:
       mock?.agentViewSource ??

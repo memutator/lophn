@@ -51,6 +51,7 @@ export type RemotePeer = PeerBase & {
     addresses?: string[];
     hub?: boolean;
     relays?: string[];
+    lophn_version?: string;
   };
 };
 
@@ -159,9 +160,18 @@ export function connectRemote(
       const conflict = versionConflict(ownRange, theirs);
       // pairing 중인 붙는 쪽은 아직 core의 이름을 몰라 "<이름>의 lophn을 올려라"를 말하려면 hello의 이름이 필요하다.
       if (conflict) {
+        const sameMachine =
+          options.machine === undefined ||
+          theirs.machine.id === options.machine;
         return err({
           ...conflict,
-          details: { ...conflict.details, name: theirs.machine.name },
+          details: {
+            ...conflict.details,
+            name: theirs.machine.name,
+            ...(sameMachine && theirs.machine.lophn_version !== undefined
+              ? { lophn_version: theirs.machine.lophn_version }
+              : {}),
+          },
         });
       }
       if (
@@ -173,7 +183,8 @@ export function connectRemote(
           message: "a different computer answered",
         });
       }
-      const { id, name, addresses, hub, relays } = theirs.machine;
+      const { id, name, addresses, hub, relays, lophn_version } =
+        theirs.machine;
       return ok({
         publicKey,
         version: theirs.version,
@@ -185,6 +196,7 @@ export function connectRemote(
           ...(addresses === undefined ? {} : { addresses }),
           ...(hub === undefined ? {} : { hub }),
           ...(relays === undefined ? {} : { relays }),
+          ...(lophn_version === undefined ? {} : { lophn_version }),
         },
       });
     },

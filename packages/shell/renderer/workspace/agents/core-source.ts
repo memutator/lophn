@@ -42,8 +42,8 @@ import {
 } from "../../desktop/settings/core-call.ts";
 import {
   codingFromValue,
-  DEFAULT_QUICK_PREFS,
-} from "../../desktop/settings/quick-launch/source.ts";
+  DEFAULT_CODING_PREFS,
+} from "../../desktop/settings/connections/prefs.ts";
 import { isAgentId, isAppWorkspace, kindOfWorkspace } from "./agent-key.ts";
 import {
   cancelMcpSignIn,
@@ -960,7 +960,7 @@ export function coreAgentsSource(
         : undefined;
       const favorites =
         entry === undefined
-          ? DEFAULT_QUICK_PREFS.coding.favorites
+          ? DEFAULT_CODING_PREFS.favorites
           : codingFromValue(entry.chosen ?? entry.default).favorites;
       const detected = harnesses.ok
         ? harnesses.value.harnesses

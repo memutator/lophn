@@ -1124,7 +1124,18 @@ test("read-only brain child inspector populates state.children and degrades grac
         },
       },
     });
-    await wait(90);
+    const deadline = Date.now() + 2000;
+    while (Date.now() < deadline) {
+      const current = tools(agy.state).find((t) => t.tool === "swarm");
+      if (
+        current?.detail.kind === "subagent" &&
+        current.detail.child === childId &&
+        agy.state.children[childId] !== undefined
+      ) {
+        break;
+      }
+      await wait(25);
+    }
 
     // Child work linked to subagent card and transcript projected into state.children[childId]!
     const card = tools(agy.state).find((t) => t.tool === "swarm");
@@ -1511,7 +1522,18 @@ test("acpStateSchema accepts child transcripts with second-precision timestamps,
         },
       },
     });
-    await wait(90);
+    const deadline = Date.now() + 2000;
+    while (Date.now() < deadline) {
+      const current = tools(agy.state).find((t) => t.tool === "swarm");
+      if (
+        current?.detail.kind === "subagent" &&
+        current.detail.child === childId &&
+        agy.state.children[childId] !== undefined
+      ) {
+        break;
+      }
+      await wait(25);
+    }
 
     const childState = agy.state.children[childId];
     assert.ok(childState !== undefined);

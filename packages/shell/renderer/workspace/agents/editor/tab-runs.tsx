@@ -15,7 +15,7 @@ import {
 } from "../../../../../protocol/lophn-agent/agent-values.ts";
 import { CODING_BUILTINS } from "../../../../../protocol/lophn-agent/workspaces.ts";
 import { useFollowedRead } from "../../../desktop/connection/core-read.ts";
-import { DEFAULT_QUICK_PREFS } from "../../../desktop/settings/quick-launch/source.ts";
+import { DEFAULT_CODING_PREFS } from "../../../desktop/settings/connections/prefs.ts";
 import { commonIcons } from "../../../icons/mod.ts";
 import {
   VendorIcon,
@@ -94,7 +94,7 @@ function partitionHarnesses(
 }
 
 const DEFAULT_CHOICES: CodingChoices = {
-  favorites: DEFAULT_QUICK_PREFS.coding.favorites,
+  favorites: DEFAULT_CODING_PREFS.favorites,
   detected: [],
 };
 

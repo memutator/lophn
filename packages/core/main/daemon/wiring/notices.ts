@@ -42,7 +42,7 @@ const PRODUCT_PACKAGE_JSON = fileURLToPath(
   new URL("../../../../../package.json", import.meta.url),
 );
 
-async function readProductVersion(): Promise<Result<string>> {
+export async function readProductVersion(): Promise<Result<string>> {
   try {
     const version = JSON.parse(
       await readFile(PRODUCT_PACKAGE_JSON, "utf8"),

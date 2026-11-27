@@ -1815,7 +1815,6 @@ test("transfers: agent workspace 경계를 강제하고, offline 대상은 held_
         { machine: OTHER, status: "offline", hub: false },
         { machine: HUB, status: "connected", hub: true },
       ],
-      isHub: () => false,
       holds: (m, p) => senderReplica.holds(m, p),
       listedTransferFiles: async () => [],
       carryHeldBy: async () => null,
@@ -1901,7 +1900,6 @@ test("transfers: agent workspace 경계를 강제하고, offline 대상은 held_
       me: () => ({ id: OTHER, name: "Laptop" }),
       resolveMachine: () => err({ code: "not_found", message: "none" }),
       onlineMachines: () => [],
-      isHub: () => false,
       holds: (m, p) => targetReplica.holds(m, p),
       listedTransferFiles: async () => [],
       carryHeldBy: async () => null,
@@ -1924,7 +1922,7 @@ test("transfers: agent workspace 경계를 강제하고, offline 대상은 held_
     assert.equal(statSync(mat1).mode & 0o777, 0o644);
     assert.equal(statSync(mat1).mode & 0o111, 0);
 
-    // 4) target의 acks.json이 sender로 돌아가면 sender가 delivered로 닫고 carry file을 정리한다.
+    // 4) target의 acks.json이 생겨도 sender가 manifest에서 빼기 전에는 다른 기계(Hub 등)의 replica 사본을 임의로 지워 재다운로드 루프를 만들지 않는다.
     const targetPub = await publishManifest({
       me: OTHER,
       root: targetComputers,
@@ -1935,6 +1933,10 @@ test("transfers: agent workspace 경계를 강제하고, offline 대상은 held_
       sign: (body) => signManifest(body, targetKey.secretKey),
     });
     assert.deepEqual(targetPub, ok(true));
+    assert.equal(await target.processAcksAndGc(), 0);
+    assert.deepEqual(await targetReplica.wants(100), ok([]));
+
+    // target의 acks.json이 sender로 돌아가면 sender가 delivered로 닫고 자기 carry file을 정리한다.
     const targetManifest = readFileSync(
       join(targetComputers, ...manifestPath(OTHER).split("/")),
       "utf8",
@@ -1965,6 +1967,29 @@ test("transfers: agent workspace 경계를 강제하고, offline 대상은 held_
       transfer: sent.value.transfer,
     });
     assert.ok(status.ok && status.value.transfer.state === "delivered");
+    // sender가 새 manifest를 내면 target/Hub replica가 prune으로 사본을 정리한다.
+    clock.advance(1000);
+    assert.deepEqual(
+      await publishManifest({
+        me: ME,
+        root: senderComputers,
+        sql: senderSql,
+        transaction: (fn) => fn({ sql: senderSql }),
+        clock,
+        random,
+        sign: (body) => signManifest(body, senderKey.secretKey),
+      }),
+      ok(true),
+    );
+    const cleanedManifest = readFileSync(
+      join(senderComputers, ...manifestPath(ME).split("/")),
+      "utf8",
+    );
+    assert.deepEqual(
+      await targetReplica.offerManifest(cleanedManifest, "link"),
+      ok("accepted"),
+    );
+    assert.deepEqual(await targetReplica.wants(100), ok([]));
 
     // 5) 만료(TTL 7일) GC와 clear(delete_inbox_files).
     const sent2 = await sender.send(userAuth, {

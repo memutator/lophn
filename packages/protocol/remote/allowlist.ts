@@ -88,6 +88,7 @@ import {
 } from "../coding-agent/coding-agents.ts";
 import {
   codingSessionsCliSessions,
+  codingSessionsForget,
   codingSessionsList,
   codingSessionsOpen,
   codingSessionsRewindPreview,
@@ -108,6 +109,7 @@ import {
   terminalsPasteImage,
   terminalsRenameSaved,
   terminalsRestart,
+  terminalsSavedSessions,
 } from "../coding-agent/terminals.ts";
 import { settingsList, settingsUpdate } from "../config/file.ts";
 import { diagnosticsStatus } from "../diagnostics/diagnostics.ts";
@@ -340,8 +342,9 @@ export const REMOTE_ALLOWED_ROUTES = [
   terminalViewSnapshot,
   terminalViewWatch,
   terminalViewResize,
-  // core가 여는 터미널: 목록, 열기와 입력·이미지 붙여넣기. 입력은 허락받은 기기만 core가 받는다
+  // core가 여는 터미널: 목록, 저장한 coding agent session 목록(Recent), 열기와 입력·이미지 붙여넣기. 입력은 허락받은 기기만 core가 받는다
   terminalsList,
+  terminalsSavedSessions,
   terminalsOpen,
   terminalsInput,
   terminalsPasteImage,
@@ -516,11 +519,12 @@ export const REMOTE_ALLOWED_ROUTES = [
 // MCP 로그인 상태 읽기(`agent-mcp-auth/state`)는 Tools and skills가 보이므로 연다.
 // 확인이 필요한 command(`providers/disconnect`)는 core가 그 자리에서 확인 handle을 붙인다(core/remote/call.ts).
 export const REMOTE_PERSON_ROUTES = [
-  // 터미널 닫기·다시 띄우기·이름 바꾸기(다른 컴퓨터의 터미널 탭과 저장한 session). 다시 띄우기는 core가 입력과 같은 허락을 한 번 더 본다
+  // 터미널 닫기·다시 띄우기·이름 바꾸기·Recent 지우기(다른 컴퓨터의 터미널 탭과 저장한 session). 다시 띄우기는 core가 입력과 같은 허락을 한 번 더 본다
   terminalsClose,
   terminalsRestart,
   terminalsName,
   terminalsRenameSaved,
+  codingSessionsForget,
   // coding agent 감지·전역 hook 상태 및 설치·제거(다른 컴퓨터의 Settings › Coding agents)
   codingAgentsList,
   codingAgentsRefresh,

@@ -151,14 +151,20 @@ export type Opened = {
 // Which side must update when the two remote protocol ranges do not meet: `client` is this app, `host` is lophn on the
 // computer (named `name` in its hello). From the channel's `conflict` details.
 export type Update = "client" | "host";
-export type Outdated = { update: Update; name: string };
+export type Outdated = { update: Update; name: string; lophn_version?: string };
 
 function outdatedOf(error: LophnError): Outdated | undefined {
   const details = error.details;
   if (error.code !== "conflict" || details === undefined) return undefined;
-  const { update, name } = details;
+  const { update, name, lophn_version } = details;
   return (update === "client" || update === "host") && typeof name === "string"
-    ? { update, name }
+    ? {
+        update,
+        name,
+        ...(typeof lophn_version === "string" && lophn_version.length > 0
+          ? { lophn_version }
+          : {}),
+      }
     : undefined;
 }
 
@@ -372,7 +378,16 @@ export function createConnection(
     );
     connecting = false;
     if (!opened || !("channel" in opened)) {
-      if (opened) update = opened.update;
+      if (opened) {
+        update = opened.update;
+        if (opened.lophn_version !== undefined && machine !== undefined) {
+          deps.onPeer?.({
+            id: machine,
+            name: opened.name,
+            lophn_version: opened.lophn_version,
+          });
+        }
+      }
       setState({ state: "stale", confirmedAt: state.confirmedAt });
       return retry();
     }

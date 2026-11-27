@@ -1,7 +1,8 @@
 // `computers` 폴더의 자기 mail 폴더 `machines/<자기 id>/mail/`를 outbox와 받은 mail에 맞춘다. outbox의 mail은 하나에 file 하나이고
-// 한 번 쓰면 다시 쓰지 않는다(id가 path다). 연결이 곧 닿을 mail까지 file로 만들어 manifest를 고치지 않도록 `MAIL_FILE_AFTER_MS`
-// 동안 outbox에 남은 mail만 쓴다. outbox에 없는 file(받았다고 알려 왔거나 줄이 지워진 것)은 지운다. 폴더 길로 받은 mail의
-// id는 `acks.json` 하나에 적어 낸 기계가 자기 줄을 지우게 한다. manifest는 그 뒤 이 폴더를 읽어 `mail` 칸에 싣는다.
+// 한 번 쓰면 다시 쓰지 않는다(id가 path다). 연결이 붙은 상대의 mail은 곧 link로 닿을 수 있어 `MAIL_FILE_AFTER_MS` 동안 outbox에 남은
+// 것만 쓰고, 연결이 없는(오프라인) 상대의 mail은 기다리지 않고 바로 쓴다. outbox에 없는 file(받았다고 알려 왔거나 줄이 지워진 것)은
+// 지운다. 폴더 길로 받은 mail의 id는 `acks.json` 하나에 적어 낸 기계가 자기 줄을 지우게 한다. manifest는 그 뒤 이 폴더를 읽어 `mail`
+// 칸에 싣는다.
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import {
@@ -49,6 +50,8 @@ export async function writeMailFiles(input: {
   pending: readonly Mail[];
   /** 폴더 길로 받아 이 기계가 본 다른 기계의 mail id. */
   acks: readonly Id<"mal">[];
+  /** 그 상대 기계와 지금 link가 붙어 있는가. 붙어 있으면 `MAIL_FILE_AFTER_MS` 동안 기다리고, 없으면 바로 file로 쓴다. */
+  connected?(peer: Id<"mch">): boolean;
   nowMs: number;
   random: RandomSource;
   log(message: string): void;
@@ -64,7 +67,11 @@ export async function writeMailFiles(input: {
   const stopped = new Set<string>();
   for (const mail of input.pending) {
     if (stopped.has(mail.to_machine) || held.has(mail.id)) continue;
-    if (input.nowMs - Date.parse(mail.sent_at) < MAIL_FILE_AFTER_MS) {
+    const peerOnline = input.connected?.(mail.to_machine as Id<"mch">) ?? false;
+    if (
+      peerOnline &&
+      input.nowMs - Date.parse(mail.sent_at) < MAIL_FILE_AFTER_MS
+    ) {
       stopped.add(mail.to_machine);
       continue;
     }

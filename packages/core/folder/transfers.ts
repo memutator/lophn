@@ -337,7 +337,6 @@ export type TransfersDeps = {
     ref: string,
   ): Result<{ machine: Id<"mch">; name: string; self: boolean }>;
   onlineMachines(): { machine: Id<"mch">; status: string; hub: boolean }[];
-  isHub(): boolean;
   holds(machine: Id<"mch">, path: string): Promise<boolean>;
   // 붙은 그 컴퓨터가 이 컴퓨터의 carry file 가운데 몇 개를 들었나. 붙어 있지 않거나 묻지 못하면 null이다.
   carryHeldBy(
@@ -971,8 +970,9 @@ export function createTransfersService(deps: TransfersDeps) {
     },
 
     /**
-     * 받는 컴퓨터의 `transfers/acks.json`을 읽어 보낸 transfer를 delivered로 닫고 carry file을 정리한다.
-     * `TRANSFER_TTL_MS`(7일)가 지난 carry file과 hub 보관 사본도 여기서 정리한다.
+     * 받는 컴퓨터의 `transfers/acks.json`을 읽어 내가 보낸 transfer를 delivered로 닫고 자기 carry file을 정리한다.
+     * `TRANSFER_TTL_MS`(7일)가 지난 자기 carry file도 여기서 정리한다. 다른 컴퓨터의 하위 폴더는 `replica`가 그 컴퓨터의
+     * 최신 manifest를 받아 prune할 때 함께 정리한다(origin manifest에 아직 실린 사본을 Hub가 먼저 지우면 carry가 무한 재다운로드된다).
      */
     async processAcksAndGc(): Promise<number> {
       const me = deps.me().id;
@@ -1049,49 +1049,6 @@ export function createTransfersService(deps: TransfersDeps) {
             updated_at: now,
           });
           changed += 1;
-        }
-      }
-
-      // 2) Hub 컴퓨터 보관 정리: 다른 컴퓨터가 맡긴 transfer가 대상에게 ack됐거나 만료됐으면 보관 사본을 정리한다.
-      if (deps.isHub()) {
-        for (const origin of machines.value) {
-          if (origin === me) continue;
-          const base = join(
-            deps.computersRoot,
-            ...transfersDir(origin).split("/"),
-          );
-          let dirNames: string[];
-          try {
-            dirNames = await readdir(base);
-          } catch {
-            continue;
-          }
-          for (const trfDirName of dirNames) {
-            if (!/^trf_[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$/.test(trfDirName)) {
-              continue;
-            }
-            const metaRel = `${transfersDir(origin)}/${trfDirName}/meta.json`;
-            const read = await reader.read(metaRel, TRANSFER_META_MAX_BYTES);
-            const decoded = read.ok
-              ? decodeRecord(
-                  transferMetaSchema,
-                  read.value,
-                  TRANSFER_META_MAX_BYTES,
-                )
-              : null;
-            if (!decoded?.ok) continue;
-            const meta = decoded.value;
-            const acked =
-              peerAcks.get(meta.to_machine as Id<"mch">)?.has(meta.id) === true;
-            const expired = nowMs > Date.parse(meta.expires_at);
-            if (acked || expired) {
-              await rm(join(base, trfDirName), {
-                recursive: true,
-                force: true,
-              });
-              changed += 1;
-            }
-          }
         }
       }
 

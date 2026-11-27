@@ -39,8 +39,23 @@ and arrive when that computer comes back.
   computer).
 - **Sending files between computers**: Use `lophn send <path...> --on <computer> [--note "..."]`.
   Files arrive in the target computer's inbox (never auto-extracted or executed);
-  if the target is offline, a Hub computer holds them until it wakes up. Do not
-  drop user files into internal sync folder paths (`machines/<id>/…`).
+  if the target is offline, a Hub computer picks them up and delivers them when it
+  wakes up. `held_at_hub` on the sender only means the target was offline and a
+  Hub was online; `at_hub` in `lophn send status <trf_...>` says how many files the
+  Hub already holds, and only when it holds all of them is it safe to turn the
+  sending computer off. Do not drop user files into internal sync folder paths
+  (`machines/<id>/…`).
+- **Handing work that needs files**: send the files with the call itself,
+  `lophn call send --on <computer> ... --attach <path>` (repeat `--attach`), not a
+  separate `lophn send`. The receiving agent gets the exact paths in the message
+  and its session is woken again when the files arrive. Send one call to one
+  receiver (not the same job to several agents), and use `--reply result` when you
+  need to know how it went.
+- **Receiving files**: received files are under `<data root>/inbox/<trf_...>/`.
+  Read the paths from the call message, `lophn send list` (`inbox_dir`), or
+  `lophn send status <trf_...>`; do not search the disk or shared folders for them.
+  If a call says its files have not arrived yet, end the turn; lophn wakes the
+  session when they arrive. The person sees each arrival in the Inbox.
 
 ## What lophn does by itself
 

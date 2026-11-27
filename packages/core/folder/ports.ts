@@ -138,7 +138,10 @@ export type FolderReplica = {
     offset: number,
     length: number,
   ): Promise<Result<Uint8Array>>;
-  /** manifest가 아닌 file 하나를 조각 순서대로 받는다. 첫 조각 전과 rename 직전에 지금 목록과 견준다. */
+  /**
+   * manifest가 아닌 file 하나를 조각 순서대로 받는다. 첫 조각 전과 rename 직전에 지금 목록과 견준다. `offset`이 있으면 앞서 받다 끊긴
+   * 만큼(`received`) 뒤부터 잇는다. 조각이 모자라게 끝나면 받은 만큼을 남기고 `rejected`다.
+   */
   receive(input: {
     machine: Id<"mch">;
     path: string;
@@ -146,7 +149,14 @@ export type FolderReplica = {
     sha256: string;
     via: CarryVia;
     chunks: AsyncIterable<Uint8Array>;
+    offset?: number;
   }): Promise<Result<CarryReceived>>;
+  /** 그 file을 앞서 받다 끊겨 남은 byte 수. 다른 상대에게서 지금 받고 있으면 null이다. */
+  received(input: {
+    machine: Id<"mch">;
+    path: string;
+    sha256: string;
+  }): Promise<number | null>;
 };
 
 /** 앱이 다른 기계에도 알리겠다고 낸 event를 그 앱의 event file로 쓴다. folder가 낸다. */

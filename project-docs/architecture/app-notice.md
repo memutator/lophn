@@ -37,8 +37,8 @@
 | `action` | nullable JSON. 줄을 누르면 할 일 |
 | `created_at`, `read_at` | `read_at`은 nullable(안 읽음) |
 
-- **program kind**: `release_activated`, `release_failed`, `release_rolled_back`, `app_unavailable`, `app_data_migrated`, `app_data_restored`, `lophn_updated`, `sdk_update_needed`, `session_stopped_by_app`, `phone_changed`, `app_sync_away`. `lophn_updated`·`sdk_update_needed`·`phone_changed`는 앱이 없고 나머지는 앱이 있다. kind 목록은 계약(protocol의 schema)이 정하고 표에는 CHECK를 걸지 않아 종류를 더해도 표를 다시 짜지 않는다.
-- **action**: 지금은 `{kind: "open_home_skill", skill, args}` 하나다. 화면은 종류로만 그리고 실행한다. app 줄은 action이 없다(앱이 home skill을 열 수 없다).
+- **program kind**: `release_activated`, `release_failed`, `release_rolled_back`, `app_unavailable`, `app_data_migrated`, `app_data_restored`, `lophn_updated`, `sdk_update_needed`, `session_stopped_by_app`, `phone_changed`, `app_sync_away`, `files_received`. `lophn_updated`·`sdk_update_needed`·`phone_changed`·`files_received`는 앱이 없고 나머지는 앱이 있다. kind 목록은 계약(protocol의 schema)이 정하고 표에는 CHECK를 걸지 않아 종류를 더해도 표를 다시 짜지 않는다.
+- **action**: `{kind: "open_home_skill", skill, args}`와 `{kind: "reveal_received_files", path}`(받은 file 폴더를 OS 파일 관리자에서 연다. path는 그 줄을 남긴 컴퓨터의 것이라 이 컴퓨터의 줄에서만 연다) 둘이다. 화면은 종류로만 그리고 실행한다. app 줄은 action이 없다(앱이 home skill을 열 수 없다).
 - **key와 대신하기**: 같은 `(source, app, key)`는 줄 하나다(key가 있을 때. 앱 없는 program 줄끼리도 같다). 새로 오면 그 줄의 내용·시각·`persistent`·`action`을 바꾸고 안 읽음으로 되돌린다(id 그대로). 영구 줄이 읽음이었어도 안 읽음으로 돌아온다.
 - **수명**: program 줄은 늘 영구이고 DB trigger가 지우기를 막는다. 앱 줄만 command가 지운다. 앱 줄은 휘발과 영구를 따로 세어 앱마다 휘발 50개, 영구 200개까지이고 넘으면 오래된 것부터 지운다. 앱을 보관하면 그 앱의 휘발 줄이 지워지고 영구 줄은 남는다(보관한 앱의 줄도 `notices.list`로 읽히고 Inbox의 열린 목록에서는 빠진다). 앱을 영구히 지우면(`app.delete`) 그 앱의 app 줄은 영구 줄까지 지워지고 program 줄은 trigger 때문에 남는다.
 - **옛 표**: 옛 표 `app_notices`는 ledger step `apps.notices.unified`가 줄을 앱이 쓴 휘발·안 읽은 줄로 옮기고 지웠다.
@@ -55,6 +55,7 @@
 | `lophn_updated` | 제품 판이 바뀐 기동(아래 "제품 판 marker") | 없음 |
 | `phone_changed` | 사람의 기준 폰이 바뀜(새 pairing이나 기준 바꾸기. `devices`의 `is_primary` 기기 id가 core가 마지막으로 본 id와 달라짐, 지운 뒤 다른 기기가 기준이 된 것 포함. 이름 바꾸기와 연결 갱신은 id가 같아 알리지 않는다). 폰 화면(`places`에 `phone`)을 가진 활성 앱이 하나 이상일 때만 앱 없는 줄 하나 | `phone_changed`(되풀이를 한 줄로 합친다) |
 | `app_sync_away` | sync 폴더로 data를 주고받는 앱(선언의 `sync`가 표를 보냄)이 이 컴퓨터에서 다른 기계의 흔적 정리 경계(horizon) 밖으로 떨어졌거나, 내보내기가 이 컴퓨터의 변경을 held로 두었음(`architecture/folder-sync.md`). held 수가 늘면 다시 쓴다. 떨어져 있음이 끝나거나 사람이 held를 풀어 수가 줄면 같은 줄을 "따라잡았다"로 바꾼다 | `app_sync_away`(앱마다 한 줄) |
+| `files_received` | 다른 컴퓨터가 보낸 file(`lophn send`, `call send --attach`)이 이 컴퓨터 inbox에 다 내려옴(`folder-sync.md`). params는 `{from, files}`, action은 `reveal_received_files`. 그 file을 첨부로 실은 call을 먼저 받아 기다리던 session이 있으면 같은 command가 그 session에 program 알림(`files_arrived`)을 넣어 깨운다 | transfer id |
 | `sdk_update_needed` | 제품 판이나 설치된 SDK 판이 바뀐 기동의 SDK 감지(`architecture/ui-kit.md`의 "SDK 상태 read"와 "SDK 업데이트 감지와 맡기기"). 필수 SDK가 있거나 아직 검토하지 않은 SDK 메모(`unreviewed`)가 있는 앱이 하나라도 있을 때 앱 없는 줄 하나 | `sdk_update_needed`(다음 기동이 개수를 새로 쓰고 안 읽음으로 되돌린다) |
 
 `sdk_update_needed`의 params는 `{required, available}`(옮겨야 하는 앱 수, 필수는 아니지만 home이 아직 검토하지 않은 새 메모가 있는 앱 수)이고 글은 "SDK updates for your apps" / "3 apps must update, 2 can use new SDK features."이다. action은 `open_home_skill` `update-apps` + 빈 args(전체)다. 앱마다 줄을 만들지 않는 것은 각 앱을 두고 갈지 올릴지(그리고 새 SDK 기능을 쓸지) 숲으로 보는 일이 사람이 아니라 home lophn의 몫이기 때문이다. 앱마다 있던 옛 `sdk_update_needed` 줄(앱 있음)은 program 줄이라 지울 수 없어 남고 단추도 그대로 동작한다.

@@ -6,13 +6,20 @@ import {
   sessionOpenModeSchema,
 } from "../lophn-agent/agent-values.ts";
 import { workspaceNameSchema } from "../lophn-agent/workspaces.ts";
+import {
+  type WorkflowOrigin,
+  workflowNameSchema,
+  workflowOriginSchema,
+} from "./origin.ts";
 
-export { SESSION_OPEN_MODES, type SessionOpenMode, sessionOpenModeSchema };
-
-export const workflowNameSchema = z
-  .string()
-  .max(63)
-  .regex(/^[a-z][a-z0-9]*(-[a-z0-9]+)*$/);
+export {
+  SESSION_OPEN_MODES,
+  type SessionOpenMode,
+  sessionOpenModeSchema,
+  type WorkflowOrigin,
+  workflowNameSchema,
+  workflowOriginSchema,
+};
 
 // workflow instance 제목의 글자는 사람이 보는 글자(grapheme cluster)다. 자동 제목은 앞 60자, 사람 rename은 120자 이하다.
 export const WORKFLOW_TITLE_AUTO_MAX = 60;
@@ -126,15 +133,6 @@ export const DERIVED_STATUSES = [
 ] as const;
 export const derivedStatusSchema = z.enum(DERIVED_STATUSES);
 export type DerivedStatus = z.infer<typeof derivedStatusSchema>;
-
-// session이 속한 workflow instance와 step이다(`sessions.workflow_origin`). step을 넘길 때마다 갱신하고 team spawn 자식은 열 때 이어받는다.
-export const workflowOriginSchema = z.strictObject({
-  project: idSchema("prj"),
-  workflow: workflowNameSchema,
-  instance: idSchema("wfi"),
-  step: z.string().min(1),
-});
-export type WorkflowOrigin = z.infer<typeof workflowOriginSchema>;
 
 // 명시적으로 report한 산출물 경로 목록과 선택적 구조화 값이다. 경로는 lophn이 판정하지 않고 적힌 대로 둔다.
 export const workflowRefsSchema = z.array(z.string().min(1).max(1024)).max(100);

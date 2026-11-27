@@ -1586,6 +1586,7 @@ async function linkedComputer(
     publish: (event) => void published.push(event),
     logger: {
       error() {},
+      info() {},
       warn(entry: { event?: string; fields?: Record<string, unknown> }) {
         warnings.push(entry);
       },
@@ -1881,7 +1882,7 @@ test("첫 ready 직전에 watch가 겹쳐도 다음 창 watch의 ready가 그 wa
       return () => clearTimeout(timer);
     },
     publish: (event) => void published.push(event),
-    logger: { error() {}, warn() {} } as never,
+    logger: { error() {}, warn() {}, info() {} } as never,
     onPeerReady: () => {
       links.watch(CORE_APP_EVENTS, HOST_MACHINE, [
         { types: ["AppEventPublished"] },
@@ -2108,7 +2109,7 @@ test("hubRelayUrls와 serverHello·links는 Hub 여부와 정렬된 relay 목록
       return () => clearTimeout(timer);
     },
     publish: () => undefined,
-    logger: { error() {}, warn() {} } as never,
+    logger: { error() {}, warn() {}, info() {} } as never,
     onPeerReady: () => undefined,
     onPeerCarry: () => undefined,
     onPeerVault: () => undefined,

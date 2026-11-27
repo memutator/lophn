@@ -1,0 +1,18 @@
+id: workflow-session-desk-routing
+version: 0.23.185
+platform_note: none
+title: "workflow session의 workflow_origin을 실시간 전파하고 모든 열기 경로를 workflow instance desk로 맞춘다"
+modules:
+  - packages/protocol
+  - packages/core/lophn-agent
+  - packages/core/router
+  - packages/shell/renderer
+change: |
+  - **`SessionStarted`에 `workflow_origin` 포함 및 `StateChanged{sessions}` 발행**: workflow step이 새 session을 열 때 `startSession` 단계에서 `workflow_origin`을 바로 기록해 `SessionStarted` event payload에 실어 보내고(team spawn 자식 상속 포함), `router`가 `setWorkflowOrigin`을 호출할 때 `StateChanged { name: "sessions", id }`도 함께 발행한다.
+  - **Renderer `sessions-store` 즉시 반영**: `SessionStarted` 수신 시 `payload.workflow_origin`을 즉시 저장해, 재연결 전에도 sidebar 묶음과 session 열기 fallback이 `workflowOrigin`을 잃지 않게 한다.
+  - **Sidebar·Slice 열기 경로 통일**: 현재 workspace의 왼쪽 sidebar 클릭(`onOpenHere`)과 `agentView.openSession`도 `sessionWorkflowDesk`를 통해 `workflowOrigin`의 instance desk로 열리게 하고, `select: false`인 `tab_open` 요청이 이미 열린 session 탭의 focus를 가로채지 않게 한다.
+why: |
+  기존에는 `SessionStarted`에 `workflow_origin`이 없고 `workflowInstanceCreate`/`workflowInstanceApply`도 `StateChanged{sessions}`를 내지 않아, 새로 열린 workflow session의 `workflowOrigin`이 renderer 메모리에서 `null`로 남았다. 그 결과 `tab_open`이 지연되거나 다른 workspace·toast·알림·왼쪽 sidebar에서 세션을 열 때 workflow instance desk 대신 Main desk에 열리는 문제가 생겼다.
+decisions:
+  - text: "새 workflow session은 `startSession`에서 `workflow_origin`을 저장·`SessionStarted`에 싣고, 기존 session 재사용(`session: same`)은 `router`의 `StateChanged{sessions}`로 갱신한다. 버린 길: `StateChanged{sessions}`만 발행(비동기 snapshot 읽기 전 짧은 race 구간에 `workflowOrigin`이 `null`로 남음)."
+    by: agent

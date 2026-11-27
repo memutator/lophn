@@ -1,0 +1,41 @@
+id: transfer-visibility
+version: 0.23.184
+platform_note: none
+title: 받은 file을 Inbox에 알리고 기다리던 session을 깨우며, 보낸 쪽이 Hub가 다 받았는지 보고, 끊긴 나르기를 잇는다
+modules:
+  - packages/protocol
+  - packages/core/apps
+  - packages/core/folder
+  - packages/core/remote
+  - packages/core/main
+  - packages/core/agent-workspaces
+  - packages/cli
+  - packages/coding-agent
+  - packages/shell/renderer
+  - packages/design
+change: |
+  - program notice 종류 `files_received`(앱 없음, key는 transfer id, params `{from, files}`)와 action `reveal_received_files{path}`가 생겼다. 다른 컴퓨터가 보낸 transfer가 이 컴퓨터 inbox에 다 내려오면 Inbox(History)에 "N files arrived from X" 줄이 서고 [Show files]가 받은 폴더를 OS 파일 관리자에서 연다. 알림 종류라 toast·OS 알림·폰 push도 같이 간다. 전에는 Settings › My computers의 목록에만 보였다.
+  - `call send --on --attach`로 온 call이 file보다 먼저 닿으면 받는 쪽이 메시지 끝에 "These files have not reached this computer yet … lophn tells this session when they arrive …"를 붙이고 그 session을 `<data root>/transfers/waiting/<trf>.json`에 적는다. 다 내려오면 `notices.record`(`files_received`의 `wake`)가 같은 transaction에서 그 session에 program 알림(session 알림 종류 `files_arrived`)을 넣어 깨운다. 전에는 사람이 "다시 해봐"를 쳐야 했다.
+  - `transfers/status`·`transfers/list`의 기록에 `at_hub{held, total}`이 생겼다. 보낸 쪽이 대상이 꺼져 있는(`held_at_hub`) 기록을 읽을 때 붙은 Hub에 carry file마다 `carry/file` 1 byte로 물어 채운다. CLI는 "at hub: k of n files (safe to turn this computer off | keep this computer on …)", Settings는 "All n files at @Hub · safe to turn this computer off"·"@Hub has k of n files · keep this computer on"을 보인다. `held_at_hub`만 있을 때의 글은 "Target offline · @Hub picks it up"으로 바뀌었다.
+  - link pull이 받다 끊긴 file을 받은 만큼부터 잇는다(`FolderReplica.received`, `receive`의 `offset`). 전에는 처음 조각부터 다시 받았다.
+  - agent 지침: `call send` 도움말, `send list|status` 도움말, home 프롬프트, 내장 skill `connect-computers`, coding agent skill `lophn-agent`가 "file이 필요한 일은 `--attach`로 call과 같이 보낸다, 한 일은 한 받는 쪽에게, 결과가 필요하면 `--reply result`", "받은 file은 `<data root>/inbox/<trf>/`이고 message·`send list`·`send status`에서 경로를 읽는다, 디스크나 공유 폴더를 뒤지지 않는다", "아직 안 왔으면 turn을 끝낸다. 오면 깨운다"를 적는다.
+why: |
+  듀얼부트 PC(Windows `Window`, Linux `MainHome`)에서 Window agent가 설치 file을 `lophn send`로 따로 보내고 같은 일을 MainHome의 project agent와 home agent에게 첨부 없는 call 둘로 맡겼다. file이 내려와도 Inbox에는 아무것도 서지 않았고, 기다리던 session은 깨지 않았으며, 받은 agent는 `send list`가 `inbox_dir`을 주었는데도 디스크 전체와 Google Drive를 뒤졌다. 보낸 쪽은 Hub가 다 받았는지 몰라 같은 file을 세 번 보냈고 Hub가 다 받기 전에 Linux로 재부팅했다.
+decisions:
+  - text: |
+      받은 file은 program notice `files_received`(알림 종류)로 알리고, 단추는 폴더 열기다. 버린 길: Settings 목록만 두기(사람이 찾아가야 한다), 앱 Inbox의 새 card 종류(답할 것이 아니라 알릴 것이다). Inbox에 보이게 하는 것은 사람이 정했고 notice로 만든 것은 agent가 골랐다.
+    by: agent
+  - text: |
+      기다리는 session은 `call send --attach`로 file과 묶인 call만 깨운다. 첨부 없는 call과 따로 보낸 `lophn send`는 core가 어느 call의 file인지 모른다. 그 길은 agent 지침으로 막는다. 기다림은 ledger 표가 아니라 data root의 `transfers/waiting/<trf>.json`에 둔다(받은 기록 `transfers/incoming/`과 같은 자리이고 schema step이 필요 없다).
+    by: agent
+  - text: |
+      보낸 쪽의 Hub 진행은 읽을 때 Hub에 file마다 묻고 저장하지 않는다. 버린 길: `carry/wants`로 Hub가 바라는 것에서 빠졌는지 보기(Hub가 옛 manifest만 들었으면 바라지도 들지도 않아 틀린다), 기록에 저장해 folder scan마다 갱신하기(Hub가 가져가도 보낸 쪽에는 신호가 없어 늦다).
+    by: agent
+  - text: |
+      폰 `carry/put`의 공개 relay 속도는 고치지 않는다. 걸린 사례를 보지 못했다.
+    by: agent
+checklist:
+  - "해야: 보내는 컴퓨터, Hub, 받는 컴퓨터를 이 판으로 올린다"
+  - 꺼진 컴퓨터로 `lophn send`한 뒤 보내는 쪽 `lophn send status <trf>`의 `at hub`가 다 찼을 때 "safe to turn this computer off"가 나오는지 본다
+  - 받는 컴퓨터의 Inbox History에 "N files arrived from …" 줄과 [Show files]가 서고 누르면 받은 폴더가 열리는지 본다
+  - 다른 컴퓨터에서 `call send --on <이 컴퓨터> --attach <file>`로 일을 맡기고, 받은 session이 file 도착 뒤 스스로 다시 도는지 본다

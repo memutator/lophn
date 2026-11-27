@@ -129,7 +129,7 @@ host(desktop 앱의 shell main, display가 없는 Linux에서는 page host)와 c
 - 폰과 core가 다른 network에 있으면 lophn relay로 만난다. 설정 `remote.relay`(relay 주소, 기본 빈 값, 사람만 바꾼다)가 있고 `remote.enabled`가 켜져 있으면 core가 relay에 control socket 하나를 밖으로 건다. listener와 따로 돌아 listener port를 못 열어도 relay는 돈다. 끊기면 1초에서 30초 backoff로 다시 걸고, 20초마다 ping하고 60초 받은 것이 없으면 끊는다.
 - core는 relay에 자기 static key를 증명한다: relay가 임시 X25519 key와 nonce를 보내면 core가 두 key의 DH로 만든 HMAC을 돌려준다. relay는 증명된 control socket에만 그 key의 자리를 주고, 같은 key가 다시 증명하면 옛 자리와 그 폰 연결을 닫는다.
 - 폰이 relay에 그 core key로 붙으면 relay가 무작위 128-bit 연결 id를 control로 알리고, core가 그 id로 data socket을 열어 listener의 연결과 같이 remote host에 넘긴다. 그 뒤는 listener로 붙은 폰과 같다(Noise handshake, 기기 자격, route 목록). relay는 binary message를 그대로 넘기고 내용을 보지 못한다.
-- relay는 저장소의 relay package이고 Fly.io에서 돈다. 한도: core마다 폰 연결 16, data socket이 붙기 전 든 message 16, 증명과 data socket을 기다리는 10초, 받는 쪽이 1 MiB 넘게 밀리면 그 짝을 닫는다. client IP마다 socket 32개와 control socket 4개까지 받고, 폰 연결마다 초당 1 MiB(한 번에 17 MiB까지 몰아 쓴다)를 넘겨 보내면 그 연결을 닫는다. IP는 Fly가 붙이는 header로 읽는다. 1분마다 연결 수와 넘긴 bytes를 한 줄 log로 남기고 IP와 key는 남기지 않는다. `roster/invite`의 초대장(QR·CLI 글)에 relay 주소가 실리고, 상태는 `remote_relay/status`(사람만)로 본다.
+- relay는 저장소의 relay package이고 Fly.io에서 돈다. 한도: core마다 폰 연결 16, data socket이 붙기 전 든 message 16, 증명과 data socket을 기다리는 10초, 받는 쪽이 1 MiB 넘게 밀리면 그 짝을 닫는다. client IP마다 socket 32개와 control socket 4개까지 받고, 폰 연결마다 초당 1 MiB(한 번에 17 MiB까지 몰아 쓴다)를 넘겨 보내면 그 연결을 닫는다. IP는 Fly가 붙이는 header로 읽는다. 1분마다 연결 수와 넘긴 bytes를 한 줄 log로 남기고 IP와 key는 남기지 않는다. 짝이나 host 자리를 한도로 닫으면 그 이유(`buffer_full`, `rate_exceeded`, `pending_full`)를 한 줄 남긴다. 이 한도는 공개 relay의 것이다. Hub 컴퓨터가 내장한 relay는 다르다(`multi-computer.md`). `roster/invite`의 초대장(QR·CLI 글)에 relay 주소가 실리고, 상태는 `remote_relay/status`(사람만)로 본다.
 
 ### core가 죽었을 때
 

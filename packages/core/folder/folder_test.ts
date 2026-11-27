@@ -1078,6 +1078,85 @@ test("서명한 목록에 없는 file, 내용이 목록과 다른 file, 명단�
   });
 });
 
+test("받다 끊긴 file은 받은 만큼부터 이어 받고, 이어지지 않는 offset과 틀린 내용은 받지 않는다", async () => {
+  await carryEnv(async (env) => {
+    const sent = await published(laptop);
+    assert.deepEqual(
+      await env.replica.offerManifest(sent.manifest, "link"),
+      ok("accepted"),
+    );
+    // 앱의 data file은 그 앱 목록이 온 뒤에 받는다.
+    assert.deepEqual(
+      await env.link(
+        OTHER,
+        appFilesPath(OTHER, APP),
+        sent.files[appFilesPath(OTHER, APP)]!,
+      ),
+      ok("accepted"),
+    );
+    const path = sent.changesPath;
+    const whole = sent.files[path]!;
+    const half = Math.floor(whole.byteLength / 2);
+    const want = {
+      machine: OTHER,
+      path,
+      size: whole.byteLength,
+      sha256: hex(whole),
+    };
+    const pull = (offset: number, bytes: Uint8Array) =>
+      env.replica.receive({
+        ...want,
+        via: "link",
+        offset,
+        chunks: (async function* () {
+          yield bytes;
+        })(),
+      });
+
+    // 앞 절반에서 끊긴다: 받지 않지만 받은 만큼은 남는다.
+    assert.deepEqual(await pull(0, whole.subarray(0, half)), ok("rejected"));
+    assert.equal(await env.replica.received(want), half);
+    // 받은 만큼과 이어지지 않는 offset은 받지 않고 남은 것을 건드리지 않는다.
+    assert.deepEqual(
+      await pull(half + 1, whole.subarray(half + 1)),
+      ok("rejected"),
+    );
+    assert.equal(await env.replica.received(want), half);
+    // 뒤를 이으면 전체가 맞다.
+    assert.deepEqual(await pull(half, whole.subarray(half)), ok("accepted"));
+    assert.equal(await env.replica.holds(OTHER, path), true);
+    assert.equal(await env.replica.received(want), 0);
+
+    // 이어 붙인 결과가 목록의 hash와 다르면 버린다.
+    const other = sent.files[recordPath(OTHER)]!;
+    const wantOther = {
+      machine: OTHER,
+      path: recordPath(OTHER),
+      size: other.byteLength,
+      sha256: hex(other),
+    };
+    const cut = Math.floor(other.byteLength / 2);
+    const pullOther = (offset: number, bytes: Uint8Array) =>
+      env.replica.receive({
+        ...wantOther,
+        via: "link",
+        offset,
+        chunks: (async function* () {
+          yield bytes;
+        })(),
+      });
+    assert.deepEqual(
+      await pullOther(0, other.subarray(0, cut)),
+      ok("rejected"),
+    );
+    const wrong = other.slice(cut);
+    wrong[0]! ^= 1;
+    assert.deepEqual(await pullOther(cut, wrong), ok("rejected"));
+    assert.equal(await env.replica.received(wantOther), 0);
+    assert.equal(await env.replica.holds(OTHER, recordPath(OTHER)), false);
+  });
+});
+
 // 앱을 사람이 이름 붙인 폴더로 맞추던 사람은 갈 곳이 더해져도 그 폴더로 그대로 주고받아야 한다(다른 기계가 그 폴더를 본다).
 test("이름 붙인 폴더로 맞추던 앱은 computers가 더해져도 그 폴더로 내보내고 읽는다", async () => {
   await withTemp(async (base) => {
@@ -1736,8 +1815,10 @@ test("transfers: agent workspace 경계를 강제하고, offline 대상은 held_
         { machine: OTHER, status: "offline", hub: false },
         { machine: HUB, status: "connected", hub: true },
       ],
-      isHub: () => false,
       holds: (m, p) => senderReplica.holds(m, p),
+      listedTransferFiles: async () => [],
+      carryHeldBy: async () => null,
+      arrived: () => {},
       workspaceRoots: async (auth) =>
         auth.actor.startsWith("agent:") ? [workspace] : null,
       clock,
@@ -1819,8 +1900,10 @@ test("transfers: agent workspace 경계를 강제하고, offline 대상은 held_
       me: () => ({ id: OTHER, name: "Laptop" }),
       resolveMachine: () => err({ code: "not_found", message: "none" }),
       onlineMachines: () => [],
-      isHub: () => false,
       holds: (m, p) => targetReplica.holds(m, p),
+      listedTransferFiles: async () => [],
+      carryHeldBy: async () => null,
+      arrived: () => {},
       workspaceRoots: async () => null,
       clock,
       random,
@@ -1839,7 +1922,7 @@ test("transfers: agent workspace 경계를 강제하고, offline 대상은 held_
     assert.equal(statSync(mat1).mode & 0o777, 0o644);
     assert.equal(statSync(mat1).mode & 0o111, 0);
 
-    // 4) target의 acks.json이 sender로 돌아가면 sender가 delivered로 닫고 carry file을 정리한다.
+    // 4) target의 acks.json이 생겨도 sender가 manifest에서 빼기 전에는 다른 기계(Hub 등)의 replica 사본을 임의로 지워 재다운로드 루프를 만들지 않는다.
     const targetPub = await publishManifest({
       me: OTHER,
       root: targetComputers,
@@ -1850,6 +1933,10 @@ test("transfers: agent workspace 경계를 강제하고, offline 대상은 held_
       sign: (body) => signManifest(body, targetKey.secretKey),
     });
     assert.deepEqual(targetPub, ok(true));
+    assert.equal(await target.processAcksAndGc(), 0);
+    assert.deepEqual(await targetReplica.wants(100), ok([]));
+
+    // target의 acks.json이 sender로 돌아가면 sender가 delivered로 닫고 자기 carry file을 정리한다.
     const targetManifest = readFileSync(
       join(targetComputers, ...manifestPath(OTHER).split("/")),
       "utf8",
@@ -1880,6 +1967,29 @@ test("transfers: agent workspace 경계를 강제하고, offline 대상은 held_
       transfer: sent.value.transfer,
     });
     assert.ok(status.ok && status.value.transfer.state === "delivered");
+    // sender가 새 manifest를 내면 target/Hub replica가 prune으로 사본을 정리한다.
+    clock.advance(1000);
+    assert.deepEqual(
+      await publishManifest({
+        me: ME,
+        root: senderComputers,
+        sql: senderSql,
+        transaction: (fn) => fn({ sql: senderSql }),
+        clock,
+        random,
+        sign: (body) => signManifest(body, senderKey.secretKey),
+      }),
+      ok(true),
+    );
+    const cleanedManifest = readFileSync(
+      join(senderComputers, ...manifestPath(ME).split("/")),
+      "utf8",
+    );
+    assert.deepEqual(
+      await targetReplica.offerManifest(cleanedManifest, "link"),
+      ok("accepted"),
+    );
+    assert.deepEqual(await targetReplica.wants(100), ok([]));
 
     // 5) 만료(TTL 7일) GC와 clear(delete_inbox_files).
     const sent2 = await sender.send(userAuth, {

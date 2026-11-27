@@ -204,6 +204,8 @@ async function sideOf(base: string, owner: Computer, view: RosterView) {
   const failures: MailFailures = new Map();
   const logged = new Set<string>();
   const logs: string[] = [];
+  // 지금 link가 붙어 있는 상대 기계.
+  const connected = new Set<string>();
   const seen = (origin: Id<"mch">, id: Id<"mal">) =>
     seenIds.has(`${origin}/${id}`);
   const carryIn = (): MailCarryIn => ({
@@ -232,6 +234,7 @@ async function sideOf(base: string, owner: Computer, view: RosterView) {
     refused,
     failing,
     logs,
+    connected,
     db,
     /** outbox에 줄을 넣는다(router의 outbox와 같은 행). */
     queue(...mails: Mail[]) {
@@ -260,6 +263,7 @@ async function sideOf(base: string, owner: Computer, view: RosterView) {
         root: computers,
         pending: pendingMails(sql),
         acks: await seenArrivedMail({ ...carryIn(), seen }),
+        connected: (peer) => connected.has(peer),
         nowMs: clock.nowMs(),
         random,
         log: (message) => logs.push(message),
@@ -469,17 +473,27 @@ test("폴더로 온 mail은 지금 명단의 컴퓨터 폴더에 있고 from.mac
 // 받았다고 잘못 알면 보낸 쪽이 닿지 않은 mail을 지운다. 알리지 못하면 연결이 닿을 때까지 줄과 file이 남는다.
 test("outbox의 mail은 file과 manifest의 mail 칸에 실리고, 줄이 지워지면 file과 칸에서 빠진다", async () => {
   await withSides(async ({ desk: d, laptop: l }) => {
-    // 방금 넣은 mail은 연결이 곧 닿을 수 있어 file로 쓰지 않는다.
+    // 연결이 붙은 상대에게 방금 넣은 mail은 곧 link로 닿을 수 있어 60초 동안 file로 쓰지 않는다.
+    // 연결이 없는(오프라인) 상대에게 방금 넣은 mail은 기다리지 않고 바로 file로 쓴다.
+    l.connected.add(DESK);
+    const nowAt = new Date(l.clock.nowMs()).toISOString();
     l.queue(
       cancelMail(1, {
         from: LAPTOP,
         to: DESK,
         seq: 1,
-        sent_at: new Date(l.clock.nowMs()).toISOString(),
+        sent_at: nowAt,
+      }),
+      cancelMail(99, {
+        from: LAPTOP,
+        to: OUTSIDER,
+        seq: 1,
+        sent_at: nowAt,
       }),
     );
     await l.publish();
-    assert.deepEqual(l.paths(), []);
+    assert.deepEqual(l.paths(), [mailFilePath(LAPTOP, mal(99))]);
+    l.db.exec(`delete from mail_outbox where id = '${mal(99)}'`);
     l.clock.advance(MAIL_FILE_AFTER_MS);
     l.queue(cancelMail(2, { from: LAPTOP, to: DESK, seq: 2 }));
     assert.equal(await l.publish(), true);

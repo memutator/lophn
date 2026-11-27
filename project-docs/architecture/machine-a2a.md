@@ -32,7 +32,7 @@
  agent ─ calls/send_remote ─▶ 검사(private, mail이 연 session, 컴퓨터, 주소, 글)
                               └▶ 한 tx: agent_calls 행(to remote, delivery pending) + mail_outbox 줄
  drain(B마다 한 번에 하나, seq 순) ── link: a2a/mail ──────────────▶ 명단·보낸 기계·받는 기계 확인
- 나르기(60초 남은 mail) ── computers/machines/<A>/mail/<mal>.json ─▶ 받는 자리 → mail 입구(같은 적용)
+ 나르기(오프라인은 바로, 연결된 상대는 60초 뒤) ── computers/machines/<A>/mail/<mal>.json ─▶ 받는 자리 → mail 입구(같은 적용)
                                                                      mail_seen: (A, mail id) 한 번
                                                                      만료 → 실패 mail
                                                                      10분 넘게 늦음 → 대기 목록(held)
@@ -60,7 +60,7 @@
 
 ### 보내는 쪽
 
-- `calls/send_remote`(agent만)가 차례로 본다: 부른 session이 있는가, 그 workspace가 이 기계의 call 정책에서 private이면 `forbidden`, 컴퓨터 풀기, 그 session이 다른 컴퓨터의 mail로 열린 session인데 그 mail을 보낸 컴퓨터가 아니면 `forbidden`, 주소 바꾸기, 글만인가(아니면 `invalid_input` "only text goes to another computer"), redaction(끝나지 않았으면 `unavailable`), 크기. 할당이나 명함은 보지 않는다(명단의 컴퓨터는 mail을 받고 받는 쪽 agent는 그 기계에만 있다). call 정책의 쌍 규칙과 팀 규칙도 기계를 건너지 않는다.
+- `calls/send_remote`(agent만)가 차례로 본다: 부른 session이 있는가, 그 workspace가 이 기계의 call 정책에서 private이면 `forbidden`, 컴퓨터 풀기, 그 session이 다른 컴퓨터의 mail로 열린 session이면 `forbidden`(다른 컴퓨터가 연 팀원이 자기를 연 컴퓨터로 보낼 때만 된다), 주소 바꾸기, 글만인가(아니면 `invalid_input` "only text goes to another computer"), redaction(끝나지 않았으면 `unavailable`), 크기. 할당이나 명함은 보지 않는다(명단의 컴퓨터는 mail을 받고 받는 쪽 agent는 그 기계에만 있다). call 정책의 쌍 규칙과 팀 규칙도 기계를 건너지 않는다.
 - 쓰는 command는 같은 tx에서 private과 mail이 연 session(연 기계로만)을 한 번 더 보고, dedup(보낸 session + tool call id)이 있으면 처음 결과를 돌려준다. 아니면 `agent_calls` 행(`to: {kind: remote, machine, computer, address}`, `delivery: pending`, 받는 session 없음)과 outbox 줄을 같이 쓰고 `{call, state: accepted}`를 바로 돌려준다. link를 기다리지 않는다.
 - 행은 있고 이 기계의 queue에는 없다(앱이 보낸 call과 같다). 켤 때 정산은 이 행을 잃은 call로 닫지 않는다.
 - 답(`call reply`)과 취소(`call cancel`)도 mail이다. 받은 call에 답하면 reply mail을 그 기계의 outbox에 넣고 result면 이 기계의 행을 done으로 닫는다. 이 기계가 보낸 conversation call에 보낸 쪽이 말을 이으면 끝 없는 reply mail이다. 다른 컴퓨터로 가는 답도 글만이다. 보낸 call을 취소하면 행을 닫고, 아직 내지 않은 call mail을 지우고, cancel mail을 낸다(drain이 이미 읽었을 수 있다. 기계마다 seq 순이라 cancel은 call 뒤에 닿는다).
@@ -72,7 +72,7 @@
   - 보냈는데 답을 잃으면(`unavailable`, 보냄) 줄을 두고 행의 `delivery`를 `unknown`으로 하고 그 기계의 줄을 멈춘다. 다음 때 같은 mail(같은 id)이 다시 간다. 받는 쪽이 id로 거르므로 일은 한 번 돈다.
   - `not_found`(그 route를 모른다)나 `invalid_input`(그 판이 이 꼴을 읽지 못한다)이면 옛 판이다. 줄을 지우고 call은 `failed(old_version)`이다. 두면 그 기계의 줄이 영영 막힌다.
   - 그 밖의 오류는 그 기계 전체의 사정으로 보고 멈췄다가 다음 때 다시 한다. 다만 timer가 시작한 차례마다 줄 맨 앞 mail에 받는 기계가 `internal`로 답한 것이 다섯 번이면 그 mail을 버린다: call mail은 `failed(expired)`로 닫고 다른 종류는 지운다. 횟수는 메모리에 있고 맨 앞이 바뀌면 0이다.
-- **폴더.** outbox에 60초 넘게 남은 mail은 `computers` 폴더의 자기 하위 폴더에 file 하나(`machines/<보낸 기계>/mail/<mal id>.json`, 128 KiB까지)로 쓰이고 서명한 manifest의 선택 칸 `mail`에 실려 link, 폰, 같이 보는 폴더로 간다(`folder-sync.md`). 곧 link로 닿을 mail은 file이 되지 않아 manifest가 바뀌지 않는다. 받는 기계마다 seq 순으로 쓰다가 file이 될 수 없는 mail(60초가 안 됨, 크기를 넘음)에서 멈춘다: 뒤 mail만 file로 가면 받는 쪽이 앞 mail 없이 돌린다. outbox에서 빠진 줄의 file은 다음 나르기가 지운다.
+- **폴더.** link가 없는(오프라인) 상대에게 가는 outbox mail은 바로, link가 붙어 있는 상대의 mail은 outbox에 60초 넘게 남았을 때 `computers` 폴더의 자기 하위 폴더에 file 하나(`machines/<보낸 기계>/mail/<mal id>.json`, 128 KiB까지)로 쓰이고 서명한 manifest의 선택 칸 `mail`에 실려 link, 폰, 같이 보는 폴더로 간다(`folder-sync.md`). 곧 link로 닿을 mail은 file이 되지 않아 manifest가 바뀌지 않으며, 꺼져 있는 상대(dual boot 등)의 mail은 기다리지 않고 곧바로 Hub로 넘어간다. 받는 기계마다 seq 순으로 쓰다가 file이 될 수 없는 mail(연결된 상대이고 60초가 안 됨, 크기를 넘음)에서 멈춘다: 뒤 mail만 file로 가면 받는 쪽이 앞 mail 없이 돌린다. outbox에서 빠진 줄의 file은 다음 나르기가 지운다.
   - 받는 기계는 받는 자리가 그 컴퓨터의 지금 명단 key로 검증한 manifest가 싣는 file만 읽고, 그 manifest가 싣는 mail file이 다 왔을 때만 그 기계의 mail을 seq 순으로 link와 같은 입구에 넘긴다. 크기, mail schema, path의 기계와 `from.machine`, 이 기계로 온 것인지를 본다. 틀린 file은 본문 없는 log 한 줄로 넘긴다. 자기 하위 폴더와 사람의 폴더는 mail의 출처가 아니다.
   - 폴더로 받은 mail의 id는 받은 기계가 자기 하위 폴더의 `mail/acks.json`에 적는다. 보낸 기계는 검증한 사본에서 그 file을 읽어 자기 outbox의 그 기계로 가는 줄 가운데 거기 있는 것을 받은 것으로 지운다. 받은 call의 상태는 받은 기계가 `state` mail로 따로 알린다.
   - 입구가 `internal`·`unavailable`로 늘 거절하는 맨 앞 mail은 timer scan 다섯 번 뒤 거절로 적어(아래 "받는 쪽") 그 기계의 뒤 mail을 막지 않는다.
@@ -83,7 +83,7 @@
 - 입구 `a2a/mail`은 명단의 컴퓨터인 기기(principal `device:<id>`, kind computer)만 받고, 요청한 쪽이 `agent`여야 한다. 폰, 모르는 기기, 다른 요청한 쪽은 `forbidden`이다. mail의 `from.machine`이 그 기기의 기계이고 `to_machine`이 이 기계여야 한다(이 기계 자신이 보낸 것은 받지 않는다). 폴더 길도 같은 입구로 들어오고 실어 온 하위 폴더의 기계가 지금 명단의 다른 컴퓨터여야 한다.
 - 터미널 입력 허락은 받을지가 아니라 skip을 따를지에만 쓴다: mail이 여는 session은 받는 컴퓨터가 보낸 컴퓨터에 그 허락을 켜 두었을 때만 agent 정의의 skip을 따르고, 아니면 묻는 session이다.
 - 적용은 tx 하나다: `mail_seen`에 (보낸 기계, mail id)를 적고 처음이 아니면 지난 결과를 돌려준다. 그다음 call mail은 만료면 실패(`expired`), 같은 call id가 이미 있으면 실패(`not_found`), 보낸 기계의 cancel이 먼저 닿았으면 실패(`closed`), 늦었으면 대기(아래), 아니면 이 기계의 Router로 같은 call id를 쓰는 call이다. 보낸 쪽은 `{kind: remote, machine, computer, agent, session, name}`이고 `computer`는 받은 때 이 기계 명단의 그 컴퓨터 이름으로 얼린다. call 정책의 쌍 규칙, 팀 규칙, 명함 검사는 하지 않는다(부른 agent가 `agent card --on`으로 이미 읽었다). 보낸 session이 이 기계가 그 기계에 연 팀원의 열린 자리면 그 자리가 보낸 것처럼 셋을 다 거친다. 이미 닫은 자리의 session이 보낸 mail이면 돌리지 않고(call이면 `closed` 실패) 그 기계에 cancel(`end`)을 다시 낸다. 받는 workspace가 이 기계에서 private이면 없는 workspace와 같다. 배달하지 못하면 실패 행과 실패 reply mail이다.
-- mail이 연 session에는 `sessions.opened_by_machine`(보낸 기계, 바뀌지 않는다)이 달리고 탭을 열지 않는다. 그 session은 그 mail을 보낸 컴퓨터로만 보내고 셋째 컴퓨터로는 보내지 못한다. 다른 컴퓨터의 목록과 명함도 읽지 못한다.
+- mail이 연 session에는 `sessions.opened_by_machine`(보낸 기계, 바뀌지 않는다)이 달리고 탭을 열지 않는다. 그 session은 다른 컴퓨터로 새 call을 보내지 못한다. 그 mail을 보낸 컴퓨터로도, 셋째 컴퓨터로도 보내지 못하고 받은 call의 답(`call reply`)만 그 컴퓨터로 간다. 이유: 보낸 컴퓨터로 call을 보내게 두면 A와 B의 agent가 서로 mail로 session을 열어 가며 끝없이 오갈 수 있다. 예외는 다른 컴퓨터가 연 팀원으로, 자기를 연 컴퓨터의 부모에게만 보낸다("다른 컴퓨터에 연 팀원"). 다른 컴퓨터의 목록과 명함도 읽지 못한다.
 - 받은 입력의 tag는 `from="remote:<name>@<computer>"`이고 끝의 고정 줄이 다른 컴퓨터의 agent가 보냈고 사람이 보낸 것이 아니라고 말한다. 이 기계 agent의 줄은 그대로다(prompt cache).
 - reply mail은 이 기계가 그 기계로 보낸 행이면 보낸 session에 입력(답, 고정 글의 실패 알림)으로 넣고, 끝이 있으면 행을 그 상태로 닫고 남은 call mail을 지운다. 그 기계에서 받은 conversation call이면 받은 session에 넣는다. cancel mail은 그 기계가 보낸 받은 call을 취소로 닫고 받은 session에 취소 알림을 넣는다. 행이 없는 call의 cancel은 대기 줄을 닫거나 기억해 같은 call이 뒤에 와도 돌지 않게 한다. state mail은 보낸 행의 `delivery`와 받은 session을 고치고 남은 call mail을 지운다. 끝난 행에 온 mail은 아무것도 바꾸지 않는다. reply·cancel·state는 늦어도 바로 적용한다.
 - 적용이 `not_found`·`forbidden`·`invalid_input`·`conflict` 오류로 되돌아가면 본 것으로 따로 적고(state `refused`) call mail이면 실패 mail(`conflict`는 `closed`, 나머지는 `not_found`)을 낸다. 아니면 그 기계가 같은 mail을 끝없이 다시 낸다. `unavailable`·`internal`은 그대로 돌려줘 보낸 쪽이 다시 보낸다.

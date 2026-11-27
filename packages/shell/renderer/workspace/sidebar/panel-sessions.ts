@@ -82,6 +82,22 @@ export function sessionAgentTarget(
   };
 }
 
+/** session의 `workflowOrigin`이 현재 project workspace에 속하면 그 instance desk 옵션을 돌려준다. */
+export function sessionWorkflowDesk(
+  entry: SessionEntry | undefined,
+  workspace: WorkspaceRef,
+): { readonly desk: string; readonly deskWorkflow: string } | undefined {
+  const origin = entry?.workflowOrigin;
+  if (
+    origin == null ||
+    workspace.kind !== "project" ||
+    workspace.id !== origin.project
+  ) {
+    return undefined;
+  }
+  return { desk: origin.instance, deskWorkflow: origin.workflow };
+}
+
 /** 이 workspace layout에 `terminalRef`가 이미 열린 터미널 탭. store는 기계 전체 공유라 다른 workspace 탭과 섞이지 않게 layout만 본다. */
 export function findTerminalTabByRef(
   layout: WorkspaceLayout,

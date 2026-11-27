@@ -2,7 +2,14 @@
 // SQLite ledger schema를 추가하지 않고 검증된 disk 파일(`<dataRoot>/transfers/`, `<dataRoot>/inbox/<trf>/`,
 // `<dataRoot>/computers/machines/<m>/transfers/`)로만 상태와 기록을 관리한다.
 import { createHash } from "node:crypto";
-import { createReadStream, existsSync, mkdirSync } from "node:fs";
+import {
+  createReadStream,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import {
   chmod,
   mkdir,
@@ -55,6 +62,69 @@ const TRANSFER_ACKS_MAX_BYTES = 512 * 1024;
 const INBOX_FILE_MODE = 0o644;
 const RECORD_FILE_MODE = 0o600;
 const DIR_MODE = 0o700;
+
+// 첨부(`call send --attach`)를 실은 call이 파일보다 먼저 닿으면 그 call을 받은 session을 transfer마다 적어 두고, 파일이 다 내려온
+// 때 그 session을 깨운다. 받은 기록(`transfers/incoming/<trf>.json`)과 같은 data root에 둔다.
+const waitersPath = (dataRoot: string, id: string) =>
+  join(dataRoot, "transfers", "waiting", `${id}.json`);
+const incomingRecordPath = (dataRoot: string, id: string) =>
+  join(dataRoot, "transfers", "incoming", `${id}.json`);
+const waitersSchema = z.object({ sessions: z.array(idSchema("ses")) });
+
+/** 그 transfer가 이 컴퓨터 inbox에 다 내려왔나. */
+export function transferDelivered(dataRoot: string, id: string): boolean {
+  try {
+    const parsed = transferRecordSchema.safeParse(
+      JSON.parse(readFileSync(incomingRecordPath(dataRoot, id), "utf8")),
+    );
+    return parsed.success && parsed.data.state === "delivered";
+  } catch {
+    return false;
+  }
+}
+
+function readWaiters(dataRoot: string, id: string): Id<"ses">[] {
+  try {
+    const parsed = waitersSchema.safeParse(
+      JSON.parse(readFileSync(waitersPath(dataRoot, id), "utf8")),
+    );
+    return parsed.success ? (parsed.data.sessions as Id<"ses">[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** 아직 내려오지 않은 transfer를 기다리는 session으로 적는다. 이미 내려왔으면 적지 않고 false다. */
+export function addTransferWaiter(
+  dataRoot: string,
+  id: string,
+  session: Id<"ses">,
+): boolean {
+  if (transferDelivered(dataRoot, id)) return false;
+  const sessions = [...new Set([...readWaiters(dataRoot, id), session])];
+  mkdirSync(join(dataRoot, "transfers", "waiting"), {
+    recursive: true,
+    mode: DIR_MODE,
+  });
+  writeFileSync(
+    waitersPath(dataRoot, id),
+    `${JSON.stringify({ sessions })}\n`,
+    { mode: RECORD_FILE_MODE },
+  );
+  // 적는 사이 내려왔으면 processIncoming이 이 file을 못 봤다. 지우고 이미 왔다고 답한다.
+  if (transferDelivered(dataRoot, id)) {
+    rmSync(waitersPath(dataRoot, id), { force: true });
+    return false;
+  }
+  return true;
+}
+
+/** 내려온 transfer를 기다리던 session을 꺼내고 적은 것을 지운다. */
+function takeTransferWaiters(dataRoot: string, id: string): Id<"ses">[] {
+  const sessions = readWaiters(dataRoot, id);
+  rmSync(waitersPath(dataRoot, id), { force: true });
+  return sessions;
+}
 
 const CONTROLS = /\p{Cc}/gu;
 
@@ -267,8 +337,14 @@ export type TransfersDeps = {
     ref: string,
   ): Result<{ machine: Id<"mch">; name: string; self: boolean }>;
   onlineMachines(): { machine: Id<"mch">; status: string; hub: boolean }[];
-  isHub(): boolean;
   holds(machine: Id<"mch">, path: string): Promise<boolean>;
+  // 붙은 그 컴퓨터가 이 컴퓨터의 carry file 가운데 몇 개를 들었나. 붙어 있지 않거나 묻지 못하면 null이다.
+  carryHeldBy(
+    machine: Id<"mch">,
+    paths: readonly string[],
+  ): Promise<number | null>;
+  // 이 컴퓨터가 믿는 다른 컴퓨터의 manifest가 싣는 transfer file의 path.
+  listedTransferFiles(): Promise<{ machine: Id<"mch">; paths: string[] }[]>;
   /**
    * agent 호출일 때 허용된 workspace 절대 경로 목록을 돌려준다.
    * user 호출이고 특정 workspace에 묶여 있지 않으면 null을 돌려줄 수 있다.
@@ -279,6 +355,8 @@ export type TransfersDeps = {
   newTransferId(): Id<"trf">;
   carryKick(): void;
   log(event: string, message: string): void;
+  // 다른 컴퓨터가 보낸 transfer가 이 컴퓨터 inbox에 다 내려왔다. 사람에게 알리고 그 첨부를 기다리던 session을 깨운다.
+  arrived(record: TransferRecord, waiting: Id<"ses">[]): void;
 };
 
 export function createTransfersService(deps: TransfersDeps) {
@@ -377,6 +455,44 @@ export function createTransfersService(deps: TransfersDeps) {
         transfers: unique,
       }),
     );
+  }
+
+  // 대상이 꺼져 있는 동안 보낸 transfer: 붙은 Hub가 그 carry file을 다 들었는지 물어 붙인다. 보낸 컴퓨터를 꺼도 되는지 사람이 안다.
+  async function withHubProgress(rec: TransferRecord): Promise<TransferRecord> {
+    if (rec.direction !== "outgoing" || rec.state !== "held_at_hub") return rec;
+    const me = deps.me().id;
+    const id = rec.id as Id<"trf">;
+    const paths = [
+      ...rec.files.map((_, index) => transferBinPath(me, id, index)),
+      transferMetaPath(me, id),
+    ];
+    let held: number | null = null;
+    for (const hub of hubInfo(rec.to_machine as Id<"mch">).held_by ?? []) {
+      const count = await deps.carryHeldBy(hub, paths);
+      if (count !== null) held = Math.max(held ?? 0, count);
+    }
+    return held === null
+      ? rec
+      : { ...rec, at_hub: { held, total: paths.length } };
+  }
+
+  // 보낸 컴퓨터의 manifest가 싣지만 아직 내려놓지 않은 transfer. 몇 조각이 여기 왔는지 알려 준다.
+  async function arriving(
+    id: Id<"trf">,
+  ): Promise<Result<z.infer<typeof transfersStatus.output>>> {
+    for (const { machine, paths } of await deps.listedTransferFiles()) {
+      const prefix = `${transferDir(machine, id)}/files/`;
+      const parts = paths.filter((path) => path.startsWith(prefix));
+      if (parts.length === 0) continue;
+      let here = 0;
+      for (const path of parts) if (await deps.holds(machine, path)) here += 1;
+      const from = deps.resolveMachine(machine);
+      return err({
+        code: "unavailable",
+        message: `transfer ${id} from ${from.ok ? from.value.name : machine} is on its way: ${here} of ${parts.length} files have reached this computer. They come over the link from the sender or a Hub computer that holds them`,
+      });
+    }
+    return err({ code: "not_found", message: `transfer ${id} not found` });
   }
 
   return {
@@ -617,7 +733,11 @@ export function createTransfersService(deps: TransfersDeps) {
             ? 1
             : -1,
       );
-      return ok({ transfers: rows.slice(0, limit) });
+      const shown = [];
+      for (const row of rows.slice(0, limit)) {
+        shown.push(await withHubProgress(row));
+      }
+      return ok({ transfers: shown });
     },
 
     async status(
@@ -628,10 +748,8 @@ export function createTransfersService(deps: TransfersDeps) {
       const found =
         (await readRecordFile(recordPath(outgoingDir, id))) ??
         (await readRecordFile(recordPath(incomingDir, id)));
-      if (found === null) {
-        return err({ code: "not_found", message: `transfer ${id} not found` });
-      }
-      return ok({ transfer: found });
+      if (found === null) return await arriving(id);
+      return ok({ transfer: await withHubProgress(found) });
     },
 
     async clear(
@@ -821,7 +939,7 @@ export function createTransfersService(deps: TransfersDeps) {
           }
           if (failed) continue;
 
-          await saveRecord(incomingDir, {
+          const delivered: TransferRecord = {
             id: meta.id,
             from_machine: meta.from_machine,
             from_name: meta.from_name,
@@ -835,7 +953,9 @@ export function createTransfersService(deps: TransfersDeps) {
             created_at: meta.created_at,
             updated_at: now,
             expires_at: meta.expires_at,
-          });
+          };
+          await saveRecord(incomingDir, delivered);
+          deps.arrived(delivered, takeTransferWaiters(deps.dataRoot, meta.id));
           ackIds.push(meta.id as Id<"trf">);
           changed += 1;
         }
@@ -850,8 +970,9 @@ export function createTransfersService(deps: TransfersDeps) {
     },
 
     /**
-     * 받는 컴퓨터의 `transfers/acks.json`을 읽어 보낸 transfer를 delivered로 닫고 carry file을 정리한다.
-     * `TRANSFER_TTL_MS`(7일)가 지난 carry file과 hub 보관 사본도 여기서 정리한다.
+     * 받는 컴퓨터의 `transfers/acks.json`을 읽어 내가 보낸 transfer를 delivered로 닫고 자기 carry file을 정리한다.
+     * `TRANSFER_TTL_MS`(7일)가 지난 자기 carry file도 여기서 정리한다. 다른 컴퓨터의 하위 폴더는 `replica`가 그 컴퓨터의
+     * 최신 manifest를 받아 prune할 때 함께 정리한다(origin manifest에 아직 실린 사본을 Hub가 먼저 지우면 carry가 무한 재다운로드된다).
      */
     async processAcksAndGc(): Promise<number> {
       const me = deps.me().id;
@@ -928,49 +1049,6 @@ export function createTransfersService(deps: TransfersDeps) {
             updated_at: now,
           });
           changed += 1;
-        }
-      }
-
-      // 2) Hub 컴퓨터 보관 정리: 다른 컴퓨터가 맡긴 transfer가 대상에게 ack됐거나 만료됐으면 보관 사본을 정리한다.
-      if (deps.isHub()) {
-        for (const origin of machines.value) {
-          if (origin === me) continue;
-          const base = join(
-            deps.computersRoot,
-            ...transfersDir(origin).split("/"),
-          );
-          let dirNames: string[];
-          try {
-            dirNames = await readdir(base);
-          } catch {
-            continue;
-          }
-          for (const trfDirName of dirNames) {
-            if (!/^trf_[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$/.test(trfDirName)) {
-              continue;
-            }
-            const metaRel = `${transfersDir(origin)}/${trfDirName}/meta.json`;
-            const read = await reader.read(metaRel, TRANSFER_META_MAX_BYTES);
-            const decoded = read.ok
-              ? decodeRecord(
-                  transferMetaSchema,
-                  read.value,
-                  TRANSFER_META_MAX_BYTES,
-                )
-              : null;
-            if (!decoded?.ok) continue;
-            const meta = decoded.value;
-            const acked =
-              peerAcks.get(meta.to_machine as Id<"mch">)?.has(meta.id) === true;
-            const expired = nowMs > Date.parse(meta.expires_at);
-            if (acked || expired) {
-              await rm(join(base, trfDirName), {
-                recursive: true,
-                force: true,
-              });
-              changed += 1;
-            }
-          }
         }
       }
 

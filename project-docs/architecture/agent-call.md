@@ -59,7 +59,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
 2. 보낸 쪽을 막지 않는다. 동기 호출, timeout, 자동 재시도가 없다. 입력 하나가 turn 하나이고 turn이 token이라 재시도가 곧 비용이다.
 3. 입력함과 Bus는 main thread 메모리에 있고 command는 writer Worker의 tx에서 돈다. 그래서 입력함 적용은 tx가 commit된 뒤에만 한다. 되돌린 tx나 재전달은 입력을 넣지 않는다. 입력함을 표로 옮기면 durable queue라 쓰지 않는다. 이 길이 없으면 "commit됐는데 입력이 안 들어간" 틈이 생긴다.
 4. 받는 session 기록의 본문은 blob이고 tx 안에서는 blob을 만들 수 없다. 그래서 call 본문(redaction 거친)과 고정 문구(늦은 실패 알림, 취소 알림)는 writer 앞 단계가 미리 blob으로 준비한다. 고정 문구가 몇 개뿐이라 쓰이지 않을 때의 낭비가 작고, inline 글로 바꾸면 받은 메시지 기록의 꼴(계약)이 바뀐다.
-5. 새 session을 열지 열린 session에 보낼지는 보내는 쪽이 고른다. "있으면 보내고 없으면 연다"를 기본으로 두지 않는다. session을 열 때마다 token이 든다. "열린 session, 없으면 새 session"(`fallback`)은 놓치면 안 되는 사실을 돌려줄 때만 쓴다.
+5. 새 session을 열지 열린 session에 보낼지는 보내는 쪽이 고른다. Router는 "있으면 보내고 없으면 연다"를 기본으로 두지 않는다. session을 열 때마다 token이 든다. 고르는 기준은 제품 공통 지시가 agent에게 준다: 어떤 session이 이미 한 일의 후속(고치기, 다시 하기, 다음 단계, 결과에 대한 질문)이면 그 session으로 `fallback: "new"`를 붙여 보내고, 그 session이 든 일과 상관없는 일일 때만 새 session을 연다. 이유: 새 session은 앞 call을 모르므로 보내는 쪽이 body에 맥락을 다시 적고 받는 쪽이 이미 한 일을 다시 찾는다(2026-11-27 Home lophn이 exe 빌드 한 일을 project lophn의 새 session 일곱에 나눠 보내 뒤 session이 앞 session이 만든 파일을 찾지 못했다).
 6. 받는 쪽의 앱(id, slug, 이름)과 project(id, 이름)는 정확히 맞아야 풀린다. 짐작하지 않는다. 앱은 id와 slug를 먼저 보고 표시 이름은 마지막에 본다(표시 이름만 unique가 아니고 이름 바꾸기로 겹칠 수 있다). 풀리지 않으면 `not_found`, 같은 이름이 여럿이면 `invalid_input`이고 오류에 후보 slug가 실린다. 지침은 앱을 slug로 가리키게 한다.
 7. agent가 archived 앱 workspace로 보내는 call은 없는 앱과 같은 `not_found`다(사람, 2026-11-07). archived 앱은 agent에게 보이지 않는 규칙의 한 부분이다(`architecture/app-call.md`). 사람과 program이 같은 workspace를 여는 길은 `conflict`(closed) 그대로다. 이미 열려 있던 session 주소로 보내는 call은 그 session이 입력을 받지 않아 `closed`다.
 8. 부르는 것 자체에는 묻지 않는다. call tool에 Gate가 없다. workspace 안에서 누구를 부를지는 지침과 workflow의 일이다(`products/AGENT.md` T5).

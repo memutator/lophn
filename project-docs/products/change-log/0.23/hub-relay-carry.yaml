@@ -1,0 +1,40 @@
+id: hub-relay-carry
+version: 0.23.183
+platform_note: none
+title: Hub relay가 공개 relay 한도를 떼고, 나르기가 공개 relay에서 속도를 맞추고, 끊긴 전송을 관측할 수 있게 한다
+modules:
+  - packages/protocol
+  - packages/relay
+  - packages/core/remote
+  - packages/core/folder
+  - packages/core/main
+  - packages/core/agent-workspaces
+  - packages/cli
+change: |
+  - Hub 내장 relay(`remote.hub`): 공개 relay(Fly)와 같은 한도(짝마다 초당 1 MiB, 한꺼번에 17 MiB, 받는 쪽 1 MiB 밀림에 짝 닫기)를 썼다. 이제 명단의 컴퓨터 key만 host 자리를 잡고(아니면 닫고 `hub_relay_ended{reason: host_not_allowed}`), 대역 한도가 없으며, 받는 쪽이 밀리면 짝을 닫지 않고 보내는 쪽 socket 읽기를 멈췄다가 비우면 다시 연다. IP마다 socket·host 수와 열기 timeout은 그대로다.
+  - Hub가 공유기 안의 컴퓨터에 link를 걸 때 자기 relay를 "꺼진 Hub"로 세어 Fly를 골랐다. 이제 자기 relay를 켜진 Hub로 세어 먼저 고른다.
+  - 나르기(`carry/*` link pull): link가 공개 relay를 거치면 조각을 512 KiB로 줄이고 조각 사이를 1초 쉰다. direct와 Hub relay는 전처럼 8 MiB를 쉬지 않고 받는다.
+  - log: link가 붙을 때 `link_ready{machine, path: direct|hub_relay|public_relay}`, 받은 것이나 바란 file이 있는 pass마다 `link_carry_pass{machine, paced, manifests, wanted, received, missing, rejected}`. 공개 relay와 Hub relay는 짝·host를 한도로 닫을 때 이유(`buffer_full`, `rate_exceeded`, `pending_full`, `host_not_allowed`)를 남긴다.
+  - `transfers/status`(`lophn send status`): 받는 컴퓨터에 기록이 없으면 `not_found`였다. 이제 믿는 manifest가 그 transfer를 실으면 `unavailable`("… is on its way: k of n files have reached this computer")이고, 어디에도 없을 때만 `not_found`다.
+  - `held_at_hub` 글: CLI가 "held_at_hub via @Hub"를 "held_at_hub (target offline; Hub … picks it up)"로 보이고, `lophn send` 도움말과 내장 skill `connect-computers`가 이 상태가 Hub가 file을 받았다는 확인이 아님을 적는다.
+why: |
+  Window(공유기 안)가 Hub(VPS)와 MainHome에 `lophn send`로 58 MB 조각 셋을 보냈는데 7시간 넘게 도착하지 않았다. Hub log에는 Window에게서 받을 때마다 `link_carry_failed: connection closed`가 남았고, 작은 mail file은 왔지만 첫 8 MiB 조각을 받기 시작한 지 6초 만에 끊겼다. Hub→Window link가 Fly를 탔고(자기 relay를 꺼진 Hub로 셈), Hub relay를 탔더라도 공개용 한도가 같아 17 MiB를 넘는 순간 relay가 짝을 닫았다. 끊긴 file은 처음부터 다시 받으므로 영원히 끝나지 않았다. 그 사이 carry는 상대가 "없다"고 답한 file을 log 없이 건너뛰고, 받는 쪽 `send status`는 `not_found`, 보내는 쪽은 `held_at_hub`라 두 컴퓨터의 agent가 모두 상황을 틀리게 전했다.
+decisions:
+  - text: |
+      Hub relay는 명단의 컴퓨터만 host로 받고 대역 한도를 두지 않으며, 받는 쪽이 밀리면 닫지 않고 기다리게 한다. 사람이 바꾸는 한도 설정은 두지 않는다. 버린 길: 공개 relay 한도 그대로(Hub의 약속인 "켜지면 도착"이 큰 file에서 깨진다), 사용자 설정 한도(relay를 모르는 사람에게 고민만 준다. 전송량이 묶인 VPS 요구가 나오면 그때 더한다). 대가: Hub relay를 다른 사람의 컴퓨터와 나눠 쓰지 못한다.
+    by: person
+  - text: |
+      공개 relay 위 나르기는 512 KiB 조각과 1초 쉼으로 고정한다(base64·Noise를 더해도 초당 1 MiB와 밀림 1 MiB 안). 버린 길: 공개 relay 한도 올리기(누구나 쓰는 서버의 남용 막기가 약해진다).
+    by: agent
+  - text: |
+      진행 중인 transfer의 받는 쪽 status는 schema를 늘리지 않고 `unavailable`과 도착 수를 실은 글로 답한다. 버린 길: 새 상태(`arriving`)와 기록 모양(meta.json이 마지막에 와서 보낸 이름·대상을 모를 때가 있다).
+    by: agent
+  - text: |
+      끊긴 file을 이어 받기는 이번에 하지 않고 이슈로 둔다. 속도를 맞추면 relay가 끊지 않아 남는 끊김(잠든 노트북)은 처음부터 다시 받아도 끝난다.
+    by: agent
+follow_up: |
+  이슈 `carry-restarts-interrupted-files`(끊긴 file을 이어 받기, 폰 `carry/put`의 공개 relay 속도).
+checklist:
+  - "해야: Hub(VPS)와 공유기 안의 컴퓨터를 둘 다 이 판으로 올린다"
+  - Hub의 core log에서 공유기 안의 컴퓨터에 대한 `link_ready`의 `path`가 `hub_relay`인지 본다
+  - 공유기 안의 컴퓨터에서 다른 컴퓨터로 수십 MB file을 `lophn send`로 보내고, 받는 컴퓨터의 `lophn send status <trf>`가 도착 수를 보이다 inbox에 내려오는지 본다

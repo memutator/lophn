@@ -174,7 +174,7 @@ async function boot(
         screens = edits[0].value;
         return ok({ changed: [], rejected: [] });
       },
-      telemetry: { logger: { error() {}, warn() {} } },
+      telemetry: { logger: { error() {}, warn() {}, info() {} } },
       attention: { bindPush() {}, forgetReporter() {} },
       bus: {
         subscribe: (

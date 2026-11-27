@@ -164,7 +164,11 @@ import { writeRosterFile } from "../../../folder/export/roster.ts";
 import { carryRoutes } from "../../../folder/carry-routes.ts";
 import { carryStatusHandler } from "../../../folder/carry-status.ts";
 import { createMirror } from "../../../folder/mirror.ts";
-import { CARRY_STAGING_DIR, createReplica } from "../../../folder/replica.ts";
+import {
+  CARRY_STAGING_DIR,
+  createReplica,
+  parseManifestText,
+} from "../../../folder/replica.ts";
 import { createSettingsExportService } from "../../../folder/settings-export.ts";
 import { createTransfersService } from "../../../folder/transfers.ts";
 import {
@@ -199,6 +203,7 @@ import {
   COMPUTERS_DESTINATION,
   carryStatus,
   COMPUTERS_DIR,
+  manifestPath,
   SHARED_FOLDER_KEY,
 } from "../../../../protocol/remote/carry.ts";
 import { openWriteLink, type WriteLink } from "../../../apps/write-link.ts";
@@ -999,6 +1004,13 @@ export const folderWiring: WiringFactory = () => {
         return { ok: written.ok, more: false };
       }
 
+      const peerConnected = (peer: Id<"mch">): boolean =>
+        ctx.peek.machineLinks
+          ?.list()
+          .some(
+            (each) => each.machine === peer && each.status === "connected",
+          ) ?? false;
+
       // `computers` 폴더의 자기 하위 폴더: 옛 event file 지우기, 명단 file, 앱 목록과 manifest, 그리고 사람의 폴더에 거울.
       async function carryOut(): Promise<RunOutcome> {
         const pruned = await pruneEventFiles({
@@ -1023,6 +1035,7 @@ export const folderWiring: WiringFactory = () => {
           root: computersRoot,
           pending: pendingMails(sql),
           acks: await seenArrivedMail({ ...mailIn(), seen }),
+          connected: peerConnected,
           nowMs: ctx.clock.nowMs(),
           random: ctx.random,
           log: (message) => log("mail_file_not_written", message),
@@ -1573,8 +1586,29 @@ export const folderWiring: WiringFactory = () => {
         me: () => ({ id: me(), name: ctx.machine.status().name }),
         resolveMachine: resolveTargetMachine,
         onlineMachines,
-        isHub: () => facts().hub,
         holds: (machine, path) => replica.holds(machine, path),
+        carryHeldBy: async (machine, paths) =>
+          (await ctx.peek.carryHeldBy?.(machine, paths)) ?? null,
+        async listedTransferFiles() {
+          const listed = await replica.manifests();
+          if (!listed.ok) return [];
+          const out: { machine: Id<"mch">; paths: string[] }[] = [];
+          for (const each of listed.value) {
+            if (each.machine === me()) continue;
+            const text = await replica.read(
+              each.machine,
+              manifestPath(each.machine),
+              0,
+              each.size,
+            );
+            const body = text.ok
+              ? parseManifestText(new TextDecoder().decode(text.value))
+              : null;
+            const paths = (body?.transfers ?? []).map((file) => file.path);
+            if (paths.length > 0) out.push({ machine: each.machine, paths });
+          }
+          return out;
+        },
         async workspaceRoots(auth) {
           if (parseActor(auth.actor)?.kind !== "agent") return null;
           const sessionId = auth.conditions.session as Id<"ses"> | undefined;
@@ -1620,6 +1654,33 @@ export const folderWiring: WiringFactory = () => {
         newTransferId: () => ids.newId("trf") as Id<"trf">,
         carryKick: () => scheduleCarry(),
         log,
+        arrived(record, waiting) {
+          if (record.files.length === 0 || record.inbox_dir === null) return;
+          const inboxDir = record.inbox_dir;
+          void ctx
+            .noticeRecorder({
+              kind: "files_received",
+              key: record.id,
+              params: {
+                from: record.from_name.slice(0, 40),
+                files: Math.min(record.files.length, 9999),
+              },
+              action: { kind: "reveal_received_files", path: inboxDir },
+              ...(waiting.length === 0
+                ? {}
+                : {
+                    wake: {
+                      sessions: waiting.slice(0, 32),
+                      transfer: record.id as Id<"trf">,
+                      inbox_dir: inboxDir,
+                    },
+                  }),
+            })
+            .then((done) => {
+              if (!done.ok)
+                log("files_received_not_recorded", done.error.message);
+            });
+        },
       });
 
       const custody = createCustodyService({
@@ -2307,15 +2368,20 @@ export const folderWiring: WiringFactory = () => {
           for (const [route, handler] of carry.reads) reads.set(route, handler);
         },
         writer: (inner) => {
-          // outbox에 줄이 생기면 그 mail이 file이 될 때(연결이 그 사이 닿지 않았으면) 옮긴다.
+          // outbox에 줄이 생기면 link가 없는 상대의 mail은 바로 옮기고, link가 붙은 상대는 그 사이 닿지 않았을 때 file이 되도록 예약한다.
           const mailed = withAfterCommit(
             inner,
             (actions) => {
-              if (
-                actions.some((action) => action.topic === MAIL_QUEUED_TOPIC)
-              ) {
-                later(scheduleCarry, MAIL_FILE_AFTER_MS + 1000);
+              let immediate = false;
+              let delayed = false;
+              for (const action of actions) {
+                if (action.topic !== MAIL_QUEUED_TOPIC) continue;
+                const peer = (action.data as { peer: Id<"mch"> }).peer;
+                if (peerConnected(peer)) delayed = true;
+                else immediate = true;
               }
+              if (immediate) scheduleCarry();
+              if (delayed) later(scheduleCarry, MAIL_FILE_AFTER_MS + 1000);
             },
             ctx.telemetry.logger,
           );

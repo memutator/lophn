@@ -87,7 +87,11 @@ function cmdLauncher(
     // cmd.exe는 OEM codepage로 읽으므로 본문은 ASCII만 쓴다.
     `rem ${name}: runs the CLI with the Node inside Electron`,
     "setlocal",
-    'if "%~1"=="hook" if not defined LPN_TERMINAL_HOOK goto :hook_noop',
+    // `%~1`을 `"%~1"`로 감싸면 `^"`로 escape된 첫 인자에서 구문 오류가 나므로, 대괄호로 비교하고 hook env가 있으면 건너뛴다.
+    "if defined LPN_TERMINAL_HOOK goto :run",
+    "if [%1]==[hook] goto :hook_noop",
+    'if [%1]==["hook"] goto :hook_noop',
+    ":run",
     'if not defined LOPHN_HOME set "LOPHN_HOME=%USERPROFILE%\\.lophn"',
     "set ELECTRON_RUN_AS_NODE=1",
     `"${electron}" "${cli}" %*`,

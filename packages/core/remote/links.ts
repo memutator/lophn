@@ -203,6 +203,8 @@ type Link = {
   body: RosterEntryBody;
   // 연 endpoint의 canonical 글. 붙지 않은 link는 주소가 바뀌면 새로 연다.
   endpoint: string;
+  // direct가 닿지 않을 때 그 endpoint가 거치는 relay URL.
+  relay: string | undefined;
   connection: Connection & {
     sendRoster(roster: RosterSnapshot): void;
     sendWatch(conditions: EventCondition[]): boolean;
@@ -286,6 +288,11 @@ export function createLinks(deps: LinksDeps) {
     link.shown = text;
     changed(link.body.id);
     if (state.status === "connected" && was.status !== "connected") {
+      deps.logger.info({
+        component: "remote",
+        event: "link_ready",
+        fields: { machine: link.body.machine, path: pathOf(link) },
+      });
       deps.onPeerReady(link.body.machine as Id<"mch">);
     }
   }
@@ -334,6 +341,25 @@ export function createLinks(deps: LinksDeps) {
     };
     if (canonicalize(known) === canonicalize(next)) return;
     receive({ statements: [], reach: [next] });
+  }
+
+  // 명단의 Hub 컴퓨터(이 컴퓨터 포함)가 내장한 relay의 URL.
+  function hubRelayUrlSet(): Set<string> {
+    const urls = new Set<string>();
+    for (const each of deps.roster.snapshot().reach) {
+      if (each.hub !== true) continue;
+      for (const url of hubRelayUrls(each.addresses, each.port)) urls.add(url);
+    }
+    return urls;
+  }
+
+  // 붙은 길. 공개 relay(Fly)는 대역 한도가 있어 나르기가 속도를 맞춘다. Hub relay는 사람의 컴퓨터라 한도가 없다.
+  function pathOf(link: Link): "direct" | "hub_relay" | "public_relay" | null {
+    const path = link.connection.path();
+    if (path !== "relay") return path;
+    return link.relay !== undefined && hubRelayUrlSet().has(link.relay)
+      ? "hub_relay"
+      : "public_relay";
   }
 
   // 명단에 있는 다른 Hub 컴퓨터들의 relay URL을 정렬해 돌려준다(현재 연결된 Hub 먼저, 최근 접속 순).
@@ -390,16 +416,19 @@ export function createLinks(deps: LinksDeps) {
       if (ownHubUrls.has(url) || candidates.includes(url)) continue;
       candidates.push(url);
     }
-    // 다른 Hub 컴퓨터가 지금 offline이면 그 Hub relay보다 온라인 Hub나 fallback relay를 먼저 고른다.
+    // 다른 Hub 컴퓨터가 지금 offline이면 그 Hub relay보다 온라인 Hub나 fallback relay를 먼저 고른다. 이 컴퓨터가 Hub면
+    // 자기 relay는 늘 켜져 있다(자기와의 link는 없어 꺼진 것으로 세면 Fly로 돌아 나간다).
+    const self = deps.roster.self()?.id;
     const offlineHubUrls = new Set<string>();
     const onlineHubUrls = new Set<string>();
     for (const each of snapshot.reach) {
       if (each.hub !== true || each.device === body.id) continue;
       const link = links.get(each.device);
       const connected =
-        link !== undefined &&
-        !link.refused &&
-        link.connection.current().state === "ready";
+        each.device === self ||
+        (link !== undefined &&
+          !link.refused &&
+          link.connection.current().state === "ready");
       const target = connected ? onlineHubUrls : offlineHubUrls;
       for (const url of hubRelayUrls(each.addresses, each.port)) {
         target.add(url);
@@ -482,6 +511,7 @@ export function createLinks(deps: LinksDeps) {
     const link: Link = {
       body,
       endpoint: canonicalize(endpoint),
+      relay: endpoint.relay,
       connection,
       refused: false,
       shown: canonicalize({ status: "connecting", update: null, path: null }),
@@ -736,6 +766,16 @@ export function createLinks(deps: LinksDeps) {
     },
 
     hubRelays,
+
+    // 그 컴퓨터와의 link가 공개 relay를 거친다.
+    throughPublicRelay(machine: Id<"mch">): boolean {
+      for (const link of links.values()) {
+        if (link.body.machine === machine) {
+          return pathOf(link) === "public_relay";
+        }
+      }
+      return false;
+    },
 
     list(): LinkedMachine[] {
       const self = deps.roster.self()?.id;

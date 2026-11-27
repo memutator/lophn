@@ -1,0 +1,16 @@
+id: core-socket-follows-caller-env
+title: core를 띄운 환경과 XDG_RUNTIME_DIR가 다른 shell에서는 떠 있는 core에 닿지 못한다
+kind: bug
+status: open
+topic: platform
+modules: [packages/base, packages/protocol, packages/cli, packages/core/main, packages/shell/main]
+now: |
+  control socket 자리는 `packages/base/os/socket-dir.ts`의 `socketDirectoryPath`가 정한다. `XDG_RUNTIME_DIR`가 있으면 `<XDG_RUNTIME_DIR>/lophn/<key>`, 없으면 `<tmp>/lophn-<uid>/<key>`다. core(`packages/core/main/daemon/control.ts`), CLI(`packages/cli/connection/client/node.ts`의 `cliDial`), shell(`packages/shell/main/desktop/core/supervise.ts`)이 저마다 자기 process의 env로 이 규칙을 계산한다. 그래서 같은 사용자, 같은 data root인데도 부르는 쪽 env에 `XDG_RUNTIME_DIR`가 있느냐에 따라 서로 다른 자리를 본다.
+
+  실제로 난 일: VPS에서 root 로그인으로 `sudo -u ubuntu bash -c 'lophn settings get'`을 돌리자 ensure가 core를 띄웠다. sudo는 `XDG_RUNTIME_DIR`를 넘기지 않아 그 core는 `/tmp/lophn-1000/<key>/core.sock`에 섰다. 그 뒤 `ssh ubuntu@`로 들어간 shell(`XDG_RUNTIME_DIR=/run/user/1000`)의 CLI는 `/run/user/1000/lophn/<key>/core.sock`을 찾아 `lophn core stop`이 `unavailable: core control에 답이 없다`로 끝났다. ensure를 거치는 명령(`lophn remote devices`)도 붙지 못했다. `packages/protocol/client/ensure.ts`의 `startAndJoin`이 새 core를 띄우지만 instance lock은 옛 core가 쥐고 있고, 다시 identify를 물어도 같은 틀린 자리를 본다.
+impact: |
+  사람이 core가 떠 있는데도 CLI에서 끄지도 쓰지도 못한다. 오류 문구는 "답이 없다"뿐이라 core가 죽은 것처럼 보인다. 끄지 못한 채 설치 파일을 갈면 옛 판 core가 새 판 파일 위에서 계속 돈다(VPS update가 이렇게 실패했다). cron, sudo, systemd system unit처럼 로그인 session 밖에서 `lophn`을 부르는 길은 모두 걸린다. always-on의 systemd user unit은 `XDG_RUNTIME_DIR`가 있어 ssh 로그인과 같은 자리를 쓴다.
+fix: |
+  - (추천, 작음) 도는 core가 자기 socket 경로를 data root에 적는다(`run/running.marker`에 칸 하나, 또는 `run/` 아래 file 하나). 붙는 쪽은 env로 계산하지 않고 그 값을 읽는다. 자리 규칙은 core가 socket을 만들 때 한 번만 쓰인다. 잃는 것: 붙기 전에 file 읽기 하나. Windows는 pipe 이름이 env와 무관해 지금 규칙 그대로다.
+  - (작음) 붙는 쪽이 두 후보 자리를 차례로 본다. 규칙이 두 군데서 계속 계산되고 후보가 늘면 같이 고쳐야 한다.
+  - (중간) socket을 늘 data root 아래에 둔다. sun_path 한도(Linux 107 byte)가 깊은 data root에서 넘치고, data root가 network file system이면 socket을 못 만든다.

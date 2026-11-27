@@ -67,6 +67,7 @@ function replica(wanted: { path: string; size: number }[]) {
         ),
       ),
     holds: () => Promise.resolve(false),
+    received: () => Promise.resolve(0),
     read: () => Promise.resolve(err({ code: "not_found", message: "" })),
     async receive(input) {
       const parts: Uint8Array[] = [];
@@ -89,7 +90,17 @@ test("조각 여럿인 file은 offset 순서로 receive 하나에 가고 상대�
     { path: at(2), size: 3 },
   ]);
   const done = await carryFrom(peer(new Map([[at(1), big]])), port, new Map());
-  assert.deepEqual(done, ok({ more: true }));
+  assert.deepEqual(
+    done,
+    ok({
+      more: true,
+      manifests: 0,
+      wanted: 2,
+      received: 1,
+      missing: 1,
+      rejected: 0,
+    }),
+  );
   assert.equal(received.length, 1);
   assert.equal(received[0]!.path, at(1));
   assert.ok(Buffer.from(big).equals(received[0]!.bytes));
@@ -107,7 +118,17 @@ test("상대가 갖지 않은 file로 찬 page가 다음 page를 막지 않는�
     port,
     new Map(),
   );
-  assert.deepEqual(done, ok({ more: true }));
+  assert.deepEqual(
+    done,
+    ok({
+      more: true,
+      manifests: 0,
+      wanted: CARRY_WANTS_MAX + 1,
+      received: 1,
+      missing: CARRY_WANTS_MAX,
+      rejected: 0,
+    }),
+  );
   assert.deepEqual(
     received.map((each) => [each.path, [...each.bytes]]),
     [[last, [1, 2]]],
@@ -122,7 +143,15 @@ test("받는 자리가 믿지 않은 manifest는 다음 pass에서 다시 받지
   const call = peer(new Map([[path, text]]), listed, reads);
   const { port } = replica([]);
   const rejected = new Map<string, string>();
-  assert.deepEqual(await carryFrom(call, port, rejected), ok({ more: false }));
-  assert.deepEqual(await carryFrom(call, port, rejected), ok({ more: false }));
+  const nothing = ok({
+    more: false,
+    manifests: 0,
+    wanted: 0,
+    received: 0,
+    missing: 0,
+    rejected: 0,
+  });
+  assert.deepEqual(await carryFrom(call, port, rejected), nothing);
+  assert.deepEqual(await carryFrom(call, port, rejected), nothing);
   assert.equal(reads.get(path), 1);
 });

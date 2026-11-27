@@ -65,7 +65,8 @@ decisions of the plan.
   computer online: live `session list --on`, `agent list --on`, `agent card --on`,
   live `call`/`team` watching, `preview`, remote terminals, remote explorer) vs
   **Arrives when online** (queues and holds via a Hub computer when offline:
-  `lophn send <path...> --on <computer>` for files, exported settings/workflows,
+  `lophn send <path...> --on <computer>` for files (to hand work that needs them,
+  use `call send --on ... --attach <path>` instead), exported settings/workflows,
   app data & phone changes, `call send --on` / `team spawn --on` mail, and
   `handoff write`). When a live read fails because the other computer is offline,
   queued sends still work. For `remote.addresses`, always verify each computer

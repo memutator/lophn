@@ -117,7 +117,7 @@ files:
       - settings-update:rejected
       - settings-update:device-remote-refused
       - settings-update:locked
-    note: "agent는 사람만 바꾸는 shell.browser.share_with_computers를 바꾸지 못하고(locked) 사람은 바꾼다. agent의 folder.destinations 두기·바꾸기·지우기는 사람이 허락한 그 값만 그 한 번 쓰이고, 묻는 자리가 없거나 거절·막힘·취소·묻기 실패·결정 사이 바뀜이면 needs_approval이고 설정 file이 bytes 그대로다. 카드 줄은 이름과 전체 경로다. 사람 자격은 묻지 않고 쓰고, 틀린 값은 묻기 전에 거절된다. 기기 자격의 remote.* 쓰기는 forbidden이고 같이 보낸 다른 바꿈도 쓰이지 않는다"
+    note: "agent는 사람만 바꾸는 shell.browser.share_with_computers를 바꾸지 못하고(locked) 사람은 바꾼다. agent의 folder.destinations 두기·바꾸기·지우기는 사람이 허락한 그 값만 그 한 번 쓰이고, 묻는 자리가 없거나 거절·막힘·취소·묻기 실패·결정 사이 바뀜이면 needs_approval이고 설정 file이 bytes 그대로다. 카드 줄은 이름과 전체 경로다. 사람 자격은 묻지 않고 쓰고, 틀린 값은 묻기 전에 거절된다. 기기 자격의 remote.* 쓰기는 forbidden이고 같이 보낸 다른 바꿈도 쓰이지 않는다. remote.hub만 기기 자격으로 바뀐다"
 
   - path: packages/core/config/shell-settings_test.ts
     covers:

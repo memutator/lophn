@@ -78,7 +78,7 @@ flows:
         observe: ["response"]
       - id: device-remote-refused
         code: forbidden
-        when: "기기 자격(터미널 입력 허락이 있어도)이 `remote.*` key를 바꾸려 했다. 같이 보낸 다른 key도 쓰지 않는다"
+        when: "기기 자격(터미널 입력 허락이 있어도)이 `remote.hub`가 아닌 `remote.*` key를 바꾸려 했다. 같이 보낸 다른 key도 쓰지 않는다"
         observe: ["response"]
     crosses_process: false
     risk: [data-loss, permission]

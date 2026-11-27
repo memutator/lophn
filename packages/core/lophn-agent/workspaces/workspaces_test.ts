@@ -458,9 +458,14 @@ test("max_depth와 max_members를 넘는 spawn은 conflict이고 session이 남�
 });
 
 // workflow_origin은 step을 넘길 때마다 바뀌고, team spawn 자식만 열 때 부모 것을 이어받는다(일반 call로 열린 session은 아니다).
-test("workflow_origin은 갱신되고 spawn 자식만 이어받는다", () => {
-  const { sql, tx, spawn } = teamWorld();
-  const directory = createSessionDirectory({ ...deps, sql: () => sql });
+test("workflow_origin은 갱신되고 spawn 자식만 이어받으며 SessionStarted에 실린다", () => {
+  const { sql, tx } = teamWorld();
+  const events: Array<{ session: string; type: string; payload: unknown }> = [];
+  const directory = createSessionDirectory({
+    ...deps,
+    publish: (event) => events.push(event as never),
+    sql: () => sql,
+  });
   const origin = (step: string) => ({
     project: PROJECT as never,
     workflow: "demo",
@@ -471,13 +476,35 @@ test("workflow_origin은 갱신되고 spawn 자식만 이어받는다", () => {
     sql.get("select workflow_origin from sessions where id = ?", [session])?.[
       "workflow_origin"
     ];
-  const root = String(spawn(null));
-  directory.setWorkflowOrigin(tx, root as never, origin("a"));
+  const wfRoot = directory.open(
+    tx,
+    { agent: REVIEWER, workspace: null } as never,
+    { kind: "program" },
+    null,
+    { workflowOrigin: origin("a") },
+  );
+  assert.ok(wfRoot.ok);
+  const root = String(wfRoot.value.session);
+  assert.deepStrictEqual(
+    (events.at(-1)?.payload as { workflow_origin?: unknown })?.workflow_origin,
+    origin("a"),
+  );
   directory.setWorkflowOrigin(tx, root as never, origin("b"));
   assert.deepStrictEqual(JSON.parse(String(originOf(root))).step, "b");
 
-  const child = String(spawn(root));
+  const spawned = directory.open(
+    tx,
+    { agent: REVIEWER, workspace: null } as never,
+    { kind: "agent", session: root as never },
+    root as never,
+  );
+  assert.ok(spawned.ok);
+  const child = String(spawned.value.session);
   assert.deepStrictEqual(originOf(child), originOf(root));
+  assert.deepStrictEqual(
+    (events.at(-1)?.payload as { workflow_origin?: unknown })?.workflow_origin,
+    origin("b"),
+  );
 
   const called = directory.open(
     tx,
@@ -487,6 +514,10 @@ test("workflow_origin은 갱신되고 spawn 자식만 이어받는다", () => {
   );
   assert.ok(called.ok);
   assert.deepStrictEqual(originOf(called.value.session), null);
+  assert.strictEqual(
+    (events.at(-1)?.payload as { workflow_origin?: unknown })?.workflow_origin,
+    undefined,
+  );
 });
 
 test("team end는 자기 엄격한 자손만 잎부터 끝내고 형제의 자식은 forbidden이다", () => {

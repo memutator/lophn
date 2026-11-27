@@ -1,0 +1,21 @@
+id: remote-hub-from-device
+version: 0.23.182
+title: 다른 컴퓨터의 My computers에서 그 컴퓨터의 Hub 역할을 켠다
+modules:
+  - packages/core/config
+  - packages/shell/renderer
+  - packages/design
+change: |
+  - `settings/update`: 기기 자격은 `remote.*`를 바꾸지 못했다. 이제 `remote.hub` 하나는 바꾼다. 나머지 `remote.*`(`remote.enabled`, `remote.port`, `remote.relay`, `remote.addresses`)는 전과 같이 `forbidden`이고 같이 보낸 다른 key도 쓰이지 않는다. agent는 전과 같이 `remote.hub`를 바꾸지 못한다(`locked`).
+  - Settings › My computers: 다른 컴퓨터를 고른 범위에 Keep running만 있었다. 이제 그 아래에 "Act as hub on <이름>" 스위치가 선다. listener 상태 줄(`remote_relay/status`)은 이 컴퓨터 범위에만 있다.
+  - 도움말 문구가 "this computer's remote port"에서 "the computer's remote port"로 바뀌었다(두 범위가 같은 글을 쓴다).
+why: |
+  Hub는 늘 켜 둔 컴퓨터가 맡는데 그 자리는 흔히 화면 없는 VPS다. VPS에는 가서 켤 화면이 없어 ssh로 들어가 CLI를 쳐야 했다. Keep running은 같은 이유로 이미 기기에 열려 있었다.
+decisions:
+  - text: "`remote.hub`만 열고 나머지 `remote.*`는 닫아 둔다. 기기가 연결을 끄면 모든 기기(자기도)가 끊기고 relay를 바꾸면 알림이 다른 곳으로 가지만, Hub는 켜고 꺼도 붙어 있는 기기가 끊기지 않는다. 터미널 입력을 허락받은 기기는 그 기계 터미널에서 이미 같은 명령을 칠 수 있어 실제로 더 열리는 것은 거의 없다. 버린 길: 지금대로 두기(화면 없는 기계를 Hub로 쓰려면 매번 ssh)."
+    by: person
+  - text: "다른 컴퓨터 범위에는 listener 상태 줄을 그리지 않는다. `remote_relay/status`를 기기 route에 더해야 해서, 필요해지면 그때 연다."
+    by: agent
+checklist:
+  - "해야: Hub로 쓸 컴퓨터(VPS)와 데스크탑 둘 다 이 판으로 올린다"
+  - "Settings › My computers에서 VPS를 고르면 Keep running 아래에 Act as hub 스위치가 보이고, 켜면 이 컴퓨터의 기기 목록에서 VPS 줄에 Hub 배지가 붙는지 본다"

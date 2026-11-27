@@ -29,6 +29,29 @@ import type { FolderReplica } from "../folder/ports.ts";
 const SECOND = 1000;
 const PEER_DEBOUNCE_MS = 2 * SECOND;
 const TIMER_MS = 5 * 60 * SECOND;
+// 공개 relay(Fly)는 짝마다 초당 1 MiB, 한꺼번에 17 MiB, 받는 쪽 밀림 1 MiB를 넘으면 짝을 닫는다(`relay-room.ts`). 그 길로는
+// 조각을 줄이고 조각 사이를 쉬어 base64와 Noise 덧붙임을 더해도 한도 안에 든다. 64 MiB file 하나가 2분쯤 걸린다.
+const PUBLIC_RELAY_CHUNK_BYTES = 512 * 1024;
+const PUBLIC_RELAY_GAP_MS = SECOND;
+
+// 한 pass에서 조각을 몇 byte씩 받고 조각 사이를 얼마나 쉬는가.
+export type CarryPace = { chunk: number; pause(): Promise<void> };
+const FULL_SPEED: CarryPace = {
+  chunk: CARRY_CHUNK_MAX_BYTES,
+  pause: () => Promise.resolve(),
+};
+
+// 한 pass가 한 일. 관측용으로 log에 남긴다.
+export type CarryPass = {
+  more: boolean;
+  // 새로 받아 들인 manifest 수.
+  manifests: number;
+  // 이 컴퓨터가 바란 file 수, 받아 들인 수, 상대가 들고 있지 않은 수, 받는 자리가 믿지 않은 수.
+  wanted: number;
+  received: number;
+  missing: number;
+  rejected: number;
+};
 
 // 한 상대에게 route 하나를 부른다(link의 `call`). 답에는 type이 없다.
 export type PeerCall = (
@@ -43,12 +66,13 @@ async function readChunk(
   call: PeerCall,
   file: Carried,
   offset: number,
+  pace: CarryPace,
 ): Promise<Result<Uint8Array>> {
   const got = await call(carryFile.resource, carryFile.method, {
     machine: file.machine,
     path: file.path,
     offset,
-    length: Math.min(CARRY_CHUNK_MAX_BYTES, file.size - offset),
+    length: Math.min(pace.chunk, file.size - offset),
   });
   if (!got.ok) return got;
   const { base64 } = got.value as { base64: string };
@@ -60,6 +84,8 @@ async function readChunk(
 async function openFile(
   call: PeerCall,
   file: Carried,
+  pace: CarryPace,
+  start = 0,
 ): Promise<
   Result<{
     chunks: AsyncIterable<Uint8Array>;
@@ -67,20 +93,21 @@ async function openFile(
   } | null>
 > {
   let first: Uint8Array = new Uint8Array();
-  if (file.size > 0) {
-    const read = await readChunk(call, file, 0);
+  if (file.size > start) {
+    const read = await readChunk(call, file, start, pace);
     if (!read.ok) return read.error.code === "not_found" ? ok(null) : read;
     first = read.value;
   }
   let failure: LophnError | undefined;
   async function* chunks() {
     let bytes = first;
-    let offset = 0;
+    let offset = start;
     while (bytes.byteLength > 0) {
       yield bytes;
       offset += bytes.byteLength;
       if (offset >= file.size) return;
-      const next = await readChunk(call, file, offset);
+      await pace.pause();
+      const next = await readChunk(call, file, offset, pace);
       if (!next.ok) {
         failure = next.error;
         return;
@@ -106,17 +133,25 @@ export async function carryFrom(
   call: PeerCall,
   replica: FolderReplica,
   rejected: Map<string, string>,
-): Promise<Result<{ more: boolean }>> {
+  pace: CarryPace = FULL_SPEED,
+): Promise<Result<CarryPass>> {
+  const pass: CarryPass = {
+    more: false,
+    manifests: 0,
+    wanted: 0,
+    received: 0,
+    missing: 0,
+    rejected: 0,
+  };
   const listed = await call(carryManifests.resource, carryManifests.method, {});
   if (!listed.ok) {
-    return listed.error.code === "not_found" ? ok({ more: false }) : listed;
+    return listed.error.code === "not_found" ? ok(pass) : listed;
   }
   const held = await replica.manifests();
   if (!held.ok) return held;
   const revisions = new Map<string, number>(
     held.value.map((each) => [each.machine, each.revision]),
   );
-  let more = false;
   const { manifests } = listed.value as {
     manifests: {
       machine: Id<"mch">;
@@ -128,11 +163,15 @@ export async function carryFrom(
   for (const each of manifests) {
     if (each.revision <= (revisions.get(each.machine) ?? 0)) continue;
     if (rejected.get(each.machine) === each.sha256) continue;
-    const opened = await openFile(call, {
-      machine: each.machine,
-      path: manifestPath(each.machine),
-      size: each.size,
-    });
+    const opened = await openFile(
+      call,
+      {
+        machine: each.machine,
+        path: manifestPath(each.machine),
+        size: each.size,
+      },
+      pace,
+    );
     if (!opened.ok) return opened;
     if (opened.value === null) continue;
     const parts: Uint8Array[] = [];
@@ -147,27 +186,41 @@ export async function carryFrom(
     if (!offered.ok) return offered;
     if (offered.value === "rejected") rejected.set(each.machine, each.sha256);
     else rejected.delete(each.machine);
-    if (offered.value === "accepted") more = true;
+    if (offered.value === "accepted") {
+      pass.more = true;
+      pass.manifests += 1;
+    }
   }
   let after: { machine: Id<"mch">; path: string } | undefined;
   for (;;) {
     const page = await replica.wants(CARRY_WANTS_MAX, after);
     if (!page.ok) return page;
     const last = page.value.at(-1);
-    if (last === undefined) return ok({ more });
+    if (last === undefined) return ok(pass);
     for (const want of page.value) {
-      const opened = await openFile(call, want);
+      pass.wanted += 1;
+      // 앞서 받다 끊긴 만큼 뒤부터 받는다. 다른 상대에게서 지금 받고 있으면 이번에는 건너뛴다.
+      const start = await replica.received(want);
+      if (start === null) continue;
+      const opened = await openFile(call, want, pace, start);
       if (!opened.ok) return opened;
-      if (opened.value === null) continue;
+      if (opened.value === null) {
+        pass.missing += 1;
+        continue;
+      }
       const received = await replica.receive({
         ...want,
         via: "link",
         chunks: opened.value.chunks,
+        offset: start,
       });
       const failure = opened.value.failure();
       if (failed(failure)) return err(failure!);
       if (!received.ok) return received;
-      if (received.value === "accepted") more = true;
+      if (received.value === "accepted") {
+        pass.more = true;
+        pass.received += 1;
+      } else if (received.value === "rejected") pass.rejected += 1;
     }
     after = { machine: last.machine, path: last.path };
   }
@@ -179,6 +232,8 @@ export type CarryLinksDeps = {
   peers(): Id<"mch">[];
   // 받는 자리. 아직 없으면(folder가 내지 않았다) 다음 계기로 미룬다.
   replica(): FolderReplica | undefined;
+  // 그 컴퓨터와의 link가 공개 relay를 거친다(속도를 맞춘다).
+  throughPublicRelay(machine: Id<"mch">): boolean;
   clock: Clock;
   // ms 뒤에 fn을 부른다(idle-exit를 막지 않게). 취소 함수를 돌려준다.
   wait(ms: number, fn: () => void): () => void;
@@ -224,9 +279,19 @@ export function createCarryLinks(deps: CarryLinksDeps) {
       try {
         for (;;) {
           one.again = false;
-          let done: Result<{ more: boolean }>;
+          const paced = deps.throughPublicRelay(machine);
+          const pace: CarryPace = paced
+            ? {
+                chunk: PUBLIC_RELAY_CHUNK_BYTES,
+                pause: () =>
+                  new Promise((resolve) => {
+                    deps.wait(PUBLIC_RELAY_GAP_MS, resolve);
+                  }),
+              }
+            : FULL_SPEED;
+          let done: Result<CarryPass>;
           try {
-            done = await carryFrom(call, replica, rejected);
+            done = await carryFrom(call, replica, rejected, pace);
           } catch (thrown) {
             done = err({
               code: "internal",
@@ -255,6 +320,22 @@ export function createCarryLinks(deps: CarryLinksDeps) {
           }
           one.attempts = 0;
           one.notBefore = 0;
+          const pass = done.value;
+          if (pass.manifests > 0 || pass.wanted > 0) {
+            deps.logger.info({
+              component: "remote",
+              event: "link_carry_pass",
+              fields: {
+                machine,
+                paced,
+                manifests: pass.manifests,
+                wanted: pass.wanted,
+                received: pass.received,
+                missing: pass.missing,
+                rejected: pass.rejected,
+              },
+            });
+          }
           if (!active || !(done.value.more || one.again)) return;
         }
       } finally {

@@ -48,6 +48,7 @@ export const PROGRAM_NOTICE_KINDS = [
   "session_stopped_by_app",
   "phone_changed",
   "app_sync_away",
+  "files_received",
 ] as const;
 // 사람이 알아야 하는 program 기록: 실패하거나 사람이 가서 볼 일. desktop toast·OS 알림과 폰 push가 같이 읽는다.
 // 나머지(켜짐, data migration 적용, lophn 업데이트)는 결과가 기록으로 충분해 Inbox에만 남긴다.
@@ -61,6 +62,7 @@ export const ALERT_PROGRAM_KINDS: ReadonlySet<NoticeKind> = new Set([
   "session_stopped_by_app",
   "phone_changed",
   "app_sync_away",
+  "files_received",
 ] satisfies ProgramNoticeKind[]);
 export const programNoticeKindSchema = z.enum(PROGRAM_NOTICE_KINDS);
 export type ProgramNoticeKind = z.infer<typeof programNoticeKindSchema>;
@@ -77,6 +79,11 @@ export const noticeActionSchema = z.discriminatedUnion("kind", [
       .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/)
       .max(64),
     args: z.string().max(500),
+  }),
+  // 다른 컴퓨터가 보낸 file이 내려온 이 컴퓨터의 `<data root>/inbox/<trf>/`를 OS 파일 관리자에서 연다.
+  z.strictObject({
+    kind: z.literal("reveal_received_files"),
+    path: z.string().min(1).max(4096),
   }),
 ]);
 export type NoticeAction = z.infer<typeof noticeActionSchema>;
@@ -178,6 +185,20 @@ export const noticeRecordInputSchema = z.discriminatedUnion("kind", [
   variant("app_sync_away", {
     held: z.number().int().min(0).max(999999),
     back: z.boolean().optional(),
+  }),
+  // 다른 컴퓨터가 보낸 file(`lophn send`, `call send --attach`)이 이 컴퓨터 inbox에 다 내려왔다. 앱 없는 줄이고 key는 transfer id다.
+  // wake: 그 file을 첨부로 실은 call을 먼저 받아 기다리던 session. 같은 transaction에서 program 알림으로 깨운다.
+  variant("files_received", {
+    from: short,
+    files: z.number().int().min(1).max(9999),
+  }).extend({
+    wake: z
+      .strictObject({
+        sessions: z.array(idSchema("ses")).min(1).max(32),
+        transfer: idSchema("trf"),
+        inbox_dir: z.string().min(1).max(4096),
+      })
+      .optional(),
   }),
 ]);
 export type NoticeRecordInput = z.infer<typeof noticeRecordInputSchema>;

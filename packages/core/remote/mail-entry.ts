@@ -43,6 +43,7 @@ import {
   localAppIdOf,
   mapTransferAttachments,
 } from "../router/remote-reach.ts";
+import { addTransferWaiter, transferDelivered } from "../folder/transfers.ts";
 import type { MemoryHandler } from "../server/mod.ts";
 
 // 폴더 길(mail-carry)도 link와 같은 입구로 적용한다. origin은 mail을 실어 온 컴퓨터의 기계다.
@@ -344,8 +345,26 @@ async function applyFrom(
     skip_allowed: deps.granted(computer.machine),
     via,
   });
-  if (applied.ok) return ok(applied.value as MailApplied);
-  return await refuse(deps, resolvedMail, origin, applied);
+  if (!applied.ok) return await refuse(deps, resolvedMail, origin, applied);
+  const result = applied.value as MailApplied;
+  waitForAttachments(deps.sql, mail, result.session as Id<"ses"> | null);
+  return ok(result);
+}
+
+// 첨부가 아직 내려오지 않은 call을 받은 session은 그 transfer가 다 내려올 때 깨운다(`files_received`).
+function waitForAttachments(
+  sql: Pick<Sql, "get" | "all">,
+  mail: Mail,
+  session: Id<"ses"> | null,
+): void {
+  const dataRoot = dataRootFromSql(sql);
+  if (session === null || dataRoot === null) return;
+  if (mail.kind !== "call" && mail.kind !== "reply") return;
+  for (const transfer of new Set(
+    (mail.attachments ?? []).map((each) => each.transfer),
+  )) {
+    addTransferWaiter(dataRoot, transfer, session);
+  }
 }
 
 // 받는 call/reply mail에 첨부(`attachments`)가 실렸으면 이 기계의 `<dataRoot>/inbox/<trf>/` 아래 경로로
@@ -364,7 +383,29 @@ function resolveIncomingAttachments(
   }
   const mapped = mapTransferAttachments(mail.attachments, dataRootFromSql(sql));
   if (!mapped.ok || mapped.value.length === 0) return mail;
-  const nextBody = appendAttachmentBlock(mail.body, mapped.value);
+  const dataRoot = dataRootFromSql(sql);
+  const pending = [
+    ...new Set(
+      mail.attachments
+        .map((each) => each.transfer)
+        .filter(
+          (transfer) =>
+            dataRoot === null || !transferDelivered(dataRoot, transfer),
+        ),
+    ),
+  ];
+  const attached = appendAttachmentBlock(mail.body, mapped.value);
+  // 메시지가 file보다 먼저 닿는다. agent가 디스크를 뒤지지 않게 아직 없다는 것과 오면 알린다는 것을 붙인다.
+  const nextBody =
+    pending.length === 0
+      ? attached
+      : [
+          ...attached,
+          {
+            type: "text" as const,
+            text: `These files have not reached this computer yet (${pending.join(", ")}). lophn tells this session when they arrive; until then \`lophn send status <trf_...>\` shows how many have arrived. Do not search the disk for them.`,
+          },
+        ];
   const checked = mailBodySchema.safeParse(nextBody);
   if (!checked.success) return mail;
   return {

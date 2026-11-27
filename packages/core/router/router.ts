@@ -307,7 +307,7 @@ export function createRouter(deps: RouterDeps): Router {
     spawn: boolean,
     input: Pick<
       RouteInput,
-      "skipAllowed" | "permissionMode" | "member" | "open"
+      "skipAllowed" | "permissionMode" | "member" | "open" | "workflowOrigin"
     >,
   ): Result<Resolved> {
     const opened = directory.open(
@@ -322,6 +322,9 @@ export function createRouter(deps: RouterDeps): Router {
           : { permissionMode: input.permissionMode }),
         ...(input.member === undefined ? {} : { member: input.member }),
         ...(input.open === undefined ? {} : { open: input.open }),
+        ...(input.workflowOrigin == null
+          ? {}
+          : { workflowOrigin: input.workflowOrigin }),
       },
     );
     if (opened.ok) {
@@ -833,6 +836,8 @@ export function createRouter(deps: RouterDeps): Router {
     const receiver = target.session;
     if (input.kind === "step" && input.workflowOrigin) {
       directory.setWorkflowOrigin(tx, receiver, input.workflowOrigin);
+      // 기존 session을 재사용(`session: same`)하거나 workflow_origin이 갱신될 때 화면 store도 따라가게 알린다.
+      announce(tx, STATE_CHANGED_TOPIC, [{ name: "sessions", id: receiver }]);
     }
     if (call !== null && hasRow) {
       const record = newRecord(

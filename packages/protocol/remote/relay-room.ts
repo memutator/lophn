@@ -27,6 +27,9 @@ export type RelaySocket = {
   onClose(handler: () => void): void;
   // 보내지 못하고 쌓인 byte 수.
   bufferedAmount(): number;
+  // 받기를 멈추고 다시 연다. Hub relay가 받는 쪽이 밀린 동안 보내는 쪽을 기다리게 한다.
+  pause(): void;
+  resume(): void;
 };
 
 export type RelayTimers = {
@@ -56,6 +59,22 @@ type Phone = {
   // 넘길 수 있는 byte(token bucket). 두 방향을 같이 센다.
   allowance: number;
   checkedAt: number;
+  // Hub relay에서 받는 쪽이 밀려 멈춘 보내는 쪽과 그것을 다시 볼 timer.
+  paused: Set<RelaySocket>;
+  drain: unknown;
+};
+
+// relay가 짝이나 host 자리를 정상이 아닌 까닭으로 닫은 이유. IP와 key는 싣지 않는다.
+export type RelayEndReason =
+  | "buffer_full"
+  | "rate_exceeded"
+  | "pending_full"
+  | "host_not_allowed";
+
+// 사람의 Hub 컴퓨터가 내장한 relay. 명단의 컴퓨터만 host 자리를 잡아 낯선 key가 통로로 쓰지 못하므로 대역 한도를 두지 않고,
+// 받는 쪽이 밀리면 짝을 닫지 않고 보내는 쪽을 기다리게 한다. 공개 relay(Fly)는 이것 없이 아래 한도를 그대로 쓴다.
+export type RelayOwner = {
+  allowsHost(key: string): boolean;
 };
 
 const NONCE_BYTES = 32;
@@ -75,12 +94,16 @@ export const RELAY_BYTES_PER_SECOND = 1024 * 1024;
 export const RELAY_BURST_BYTES = 17 * 1024 * 1024;
 // 남용을 볼 수 있게 이 간격마다 연결 수와 넘긴 byte 합만 남긴다. IP와 key는 남기지 않는다.
 const STATS_MS = 60_000;
+// Hub relay가 멈춘 보내는 쪽을 다시 열지 보는 간격. 받는 쪽이 한도의 반 아래로 비우면 연다.
+const DRAIN_CHECK_MS = 20;
 
 export function createRelay(deps: {
   random: RandomSource;
   timers: RelayTimers;
   now(): number;
   log?(line: string): void;
+  ended?(reason: RelayEndReason): void;
+  owner?: RelayOwner;
 }): Relay {
   // 증명된 control socket만 key의 자리를 갖는다.
   const hosts = new Map<string, Host>();
@@ -134,10 +157,12 @@ export function createRelay(deps: {
     host.socket.send(JSON.stringify(frame));
   }
 
-  function endPhone(phone: Phone): void {
+  function endPhone(phone: Phone, reason?: RelayEndReason): void {
     if (phone.ended) return;
     phone.ended = true;
+    if (reason !== undefined) deps.ended?.(reason);
     deps.timers.clear(phone.timer);
+    deps.timers.clear(phone.drain);
     phones.delete(phone.conn);
     phone.host.phones.delete(phone);
     phone.socket.close();
@@ -146,8 +171,40 @@ export function createRelay(deps: {
       sendControl(phone.host, { type: "gone", conn: phone.conn });
   }
 
-  function forward(phone: Phone, to: RelaySocket, data: Uint8Array): void {
-    if (to.bufferedAmount() > RELAY_BUFFER_MAX_BYTES) return endPhone(phone);
+  // 받는 쪽이 한도의 반 아래로 비울 때까지 멈춘 보내는 쪽을 둔다.
+  function waitDrain(phone: Phone, to: RelaySocket): void {
+    phone.drain = deps.timers.set(() => {
+      if (phone.ended) return;
+      if (to.bufferedAmount() > RELAY_BUFFER_MAX_BYTES / 2) {
+        return waitDrain(phone, to);
+      }
+      phone.drain = undefined;
+      for (const socket of phone.paused) socket.resume();
+      phone.paused.clear();
+    }, DRAIN_CHECK_MS);
+  }
+
+  function forward(
+    phone: Phone,
+    from: RelaySocket,
+    to: RelaySocket,
+    data: Uint8Array,
+  ): void {
+    if (deps.owner !== undefined) {
+      forwarded += data.byteLength;
+      to.send(data);
+      if (to.bufferedAmount() > RELAY_BUFFER_MAX_BYTES) {
+        if (!phone.paused.has(from)) {
+          phone.paused.add(from);
+          from.pause();
+        }
+        if (phone.drain === undefined) waitDrain(phone, to);
+      }
+      return;
+    }
+    if (to.bufferedAmount() > RELAY_BUFFER_MAX_BYTES) {
+      return endPhone(phone, "buffer_full");
+    }
     const now = deps.now();
     phone.allowance = Math.min(
       RELAY_BURST_BYTES,
@@ -156,7 +213,7 @@ export function createRelay(deps: {
     );
     phone.checkedAt = now;
     phone.allowance -= data.byteLength;
-    if (phone.allowance < 0) return endPhone(phone);
+    if (phone.allowance < 0) return endPhone(phone, "rate_exceeded");
     forwarded += data.byteLength;
     to.send(data);
   }
@@ -170,6 +227,10 @@ export function createRelay(deps: {
   }
 
   function acceptHost(key: string, socket: RelaySocket, ip: string): void {
+    if (deps.owner !== undefined && !deps.owner.allowsHost(key)) {
+      deps.ended?.("host_not_allowed");
+      return socket.close();
+    }
     if (!claim(hostsByIp, ip, RELAY_HOSTS_PER_IP, socket)) {
       return socket.close();
     }
@@ -238,15 +299,19 @@ export function createRelay(deps: {
       ended: false,
       allowance: RELAY_BURST_BYTES,
       checkedAt: deps.now(),
+      paused: new Set(),
+      drain: undefined,
     };
     phone.timer = deps.timers.set(() => endPhone(phone), RELAY_OPEN_TIMEOUT_MS);
     phones.set(phone.conn, phone);
     host.phones.add(phone);
     socket.onMessage((data) => {
       if (typeof data === "string") return endPhone(phone);
-      if (phone.data) return forward(phone, phone.data, data);
+      if (phone.data) return forward(phone, socket, phone.data, data);
       phone.pending.push(data);
-      if (phone.pending.length > RELAY_PENDING_MESSAGES) endPhone(phone);
+      if (phone.pending.length > RELAY_PENDING_MESSAGES) {
+        endPhone(phone, "pending_full");
+      }
     });
     socket.onClose(() => endPhone(phone));
     sendControl(host, { type: "connected", conn: phone.conn });
@@ -257,11 +322,13 @@ export function createRelay(deps: {
     if (!phone || phone.data) return socket.close();
     phone.data = socket;
     deps.timers.clear(phone.timer);
-    for (const message of phone.pending) forward(phone, socket, message);
+    for (const message of phone.pending) {
+      forward(phone, phone.socket, socket, message);
+    }
     phone.pending = [];
     socket.onMessage((data) => {
       if (typeof data === "string") return endPhone(phone);
-      forward(phone, phone.socket, data);
+      forward(phone, socket, phone.socket, data);
     });
     socket.onClose(() => endPhone(phone));
   }

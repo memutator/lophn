@@ -1,5 +1,5 @@
 id: workflow-desk-state-sync
-version: 0.23.185
+version: 0.23.186
 platform_note: none
 title: workflow instance desk가 workflow_origin 상태로 step 세션과 GUI 터미널을 자동 투영해 로컬·원격 UX를 통일한다
 modules:

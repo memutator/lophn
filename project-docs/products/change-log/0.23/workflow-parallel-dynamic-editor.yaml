@@ -1,5 +1,5 @@
 id: workflow-parallel-dynamic-editor
-version: 0.23.186
+version: 0.23.187
 platform_note: none
 title: workflow 병렬 단계(join all|any), 동적 step 삽입, flow 1급 타임라인, split lophn 편집 세션을 추가한다
 modules:

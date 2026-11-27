@@ -219,6 +219,9 @@ export function createSessionDirectory(
         ...(options?.permissionMode === undefined
           ? {}
           : { permissionMode: options.permissionMode }),
+        ...(options?.workflowOrigin === undefined
+          ? {}
+          : { workflowOrigin: options.workflowOrigin }),
       });
       return started.ok ? ok(targetOf(started.value)) : started;
     },

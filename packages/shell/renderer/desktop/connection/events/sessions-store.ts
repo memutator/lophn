@@ -202,7 +202,7 @@ export function createSessionsStore(
   function apply(event: BusEvent) {
     switch (event.type) {
       case "SessionStarted": {
-        const { agent, workspace, spawned_by } = event.payload;
+        const { agent, workspace, spawned_by, workflow_origin } = event.payload;
         const parentOrigin =
           spawned_by !== null
             ? (records.get(spawned_by)?.workflowOrigin ?? null)
@@ -215,7 +215,7 @@ export function createSessionsStore(
           agent,
           workspace,
           spawnedBy: spawned_by,
-          workflowOrigin: parentOrigin,
+          workflowOrigin: workflow_origin ?? parentOrigin,
         });
         break;
       }

@@ -33,6 +33,7 @@ import type { ToolContext } from "../lophn-agent/tools/tool-context.ts";
 import { carriesReason, executeToolCall } from "../lophn-agent/tools/work.ts";
 import { createA2aLists } from "../remote/a2a-lists.ts";
 import { mailHandler, type MailEntryDeps } from "../remote/mail-entry.ts";
+import { STATE_CHANGED_TOPIC } from "../storage/ledger/after-commit.ts";
 import { installRouterEnvironment } from "./environment.ts";
 import {
   AGENT_CALL_SETTLED_TOPIC,
@@ -91,6 +92,7 @@ function setup(
   let opened = 0;
   const openedBy: (string | null)[] = [];
   const openedAt: AgentAtWorkspace[] = [];
+  const openedOptions: Array<Parameters<SessionDirectory["open"]>[4]> = [];
   const store: CallStore = {
     insert: (_tx, record) => {
       rows.set(record.call, record);
@@ -144,10 +146,11 @@ function setup(
     membersUnder: () => [],
     setWorkflowOrigin: () => {},
     openMember: () => err({ code: "forbidden", message: "not in this test" }),
-    open: (_tx, agent, _opener, spawnedBy) => {
+    open: (_tx, agent, _opener, spawnedBy, options) => {
       opened += 1;
       openedAt.push(agent);
       openedBy.push(spawnedBy);
+      openedOptions.push(options);
       return ok(sessions[RECEIVER]!);
     },
     app: (id) => ({ slug: id.replace("app_", ""), archived: false }),
@@ -188,6 +191,7 @@ function setup(
     opened: () => opened,
     openedBy,
     openedAt,
+    openedOptions,
   };
 }
 
@@ -1320,4 +1324,44 @@ test("carriesReason keeps detailed reasons for cross-computer/a2a commands while
     "tool target is not available: no such computer",
   );
   assert.equal(await summaryOf("file_read"), "tool target is not available");
+});
+
+test("workflow step routing passes workflowOrigin on open and emits StateChanged for sessions", () => {
+  const { tx, router, announced, openedOptions } = setup({
+    [RECEIVER]: target(RECEIVER, true),
+  });
+  const origin = {
+    project: "prj_00000000000000000000000001" as Id<"prj">,
+    workflow: "feature-cleanroom",
+    instance: "wfi_00000000000000000000000001" as Id<"wfi">,
+    step: "design",
+  };
+  const routed = router.route(tx, {
+    from: { kind: "program" },
+    to: { agent: "lophn" },
+    reply: "none",
+    body: textBlocks("design step"),
+    refs: [],
+    reply_to: null,
+    dedup: null,
+    kind: "step",
+    delivery: "next_turn",
+    step: { instance: origin.instance, step: origin.step },
+    workflowOrigin: origin,
+    open: "tab",
+    unattended: false,
+  });
+  assert.ok(routed.ok);
+  assert.deepStrictEqual(openedOptions[0]?.workflowOrigin, origin);
+  assert.ok(
+    announced.some(
+      (one) =>
+        one.topic === STATE_CHANGED_TOPIC &&
+        Array.isArray(one.data) &&
+        one.data.some(
+          (change: { name?: string; id?: string | null }) =>
+            change.name === "sessions" && change.id === RECEIVER,
+        ),
+    ),
+  );
 });

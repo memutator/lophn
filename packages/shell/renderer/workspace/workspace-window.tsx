@@ -303,6 +303,7 @@ import {
 import {
   findTerminalTabByRef,
   sessionAgentTarget,
+  sessionWorkflowDesk,
 } from "./sidebar/panel-sessions.ts";
 import {
   SIDEBAR_KEEP_PREFIX,
@@ -1635,7 +1636,17 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     open?: SessionTabOpen,
     on?: string,
   ): boolean => {
-    if (selectSessionTab(session)) return true;
+    if (open?.options?.select === false) {
+      if (
+        allTabs(latestLayout.current).some(
+          (tab) => tab.kind === "agent" && sessionOf(tab) === session,
+        )
+      ) {
+        return true;
+      }
+    } else if (selectSessionTab(session)) {
+      return true;
+    }
     if (on !== undefined && on !== machine) {
       const there = machineData(on)
         .stores.sessions.get()
@@ -1665,25 +1676,21 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
             sessionTitles.known.get(session)?.title,
           );
     if (target === undefined || agentViewSource === undefined) return false;
-    const workflowOrigin =
-      open?.options?.desk === undefined &&
-      entry?.workflowOrigin != null &&
-      workspace.kind === "project" &&
-      workspace.id === entry.workflowOrigin.project
-        ? entry.workflowOrigin
+    const workflowDesk =
+      open?.options?.desk === undefined
+        ? sessionWorkflowDesk(entry, workspace)
         : undefined;
     return openAgent(host, {
       agent: target.assignment,
       name: target.name,
       session,
       ...open,
-      ...(workflowOrigin === undefined
+      ...(workflowDesk === undefined
         ? {}
         : {
             options: {
               ...open?.options,
-              desk: workflowOrigin.instance,
-              deskWorkflow: workflowOrigin.workflow,
+              ...workflowDesk,
             },
           }),
     });
@@ -4284,11 +4291,15 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
                   hereTabs={() => allTabs(latestLayout.current)}
                   onPutTab={(tab) => openTab(tab)}
                   onOpenHere={(session, agent) => {
-                    if (selectSessionTab(session)) return;
+                    if (openSessionTab(session)) return;
                     const row = sidebarAgents.agents.find(
                       (item) => item.assignment === agent,
                     );
                     const title = sessionTitles.known.get(session)?.title;
+                    const workflowDesk = sessionWorkflowDesk(
+                      sessionStates.find((item) => item.session === session),
+                      workspace,
+                    );
                     openAgent(host, {
                       agent,
                       name:
@@ -4297,6 +4308,9 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
                         codingBuiltinOf(agent)?.label ??
                         LOPHN_AGENT_NAME,
                       session,
+                      ...(workflowDesk === undefined
+                        ? {}
+                        : { options: workflowDesk }),
                     });
                   }}
                   onTerminal={(item) => {

@@ -12,6 +12,10 @@ import {
 import type { TeamLimits } from "../../../protocol/lophn-agent/team.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
 import {
+  type WorkflowOrigin,
+  workflowOriginSchema,
+} from "../../../protocol/workflows/values.ts";
+import {
   type AgentSessionRow,
   loadSession,
   nextSessionSeq,
@@ -108,6 +112,8 @@ export function startSession(
     permissionMode?: PermissionMode;
     // 팀 자식의 부모 단계 override(생략하면 spawnedBy session에서 읽는다).
     parentMode?: PermissionMode;
+    // workflow step이 새로 여는 session이면 시작 시점에 workflow_origin을 바로 적는다(생략하면 spawnedBy에서 상속).
+    workflowOrigin?: WorkflowOrigin | null;
     // fork는 출처의 제목, model 선택, 출처 표시를 이어받는다. permission_mode는 가져가지 않고 정의·전역 기본값으로 시작한다.
     inherit?: {
       title: string | null;
@@ -154,13 +160,15 @@ export function startSession(
   const kind = workspace?.kind ?? null;
   const id = workspace?.id ?? null;
   const inherit = input.inherit;
+  const explicitOrigin =
+    input.workflowOrigin != null ? JSON.stringify(input.workflowOrigin) : null;
   tx.sql.run(
     `insert into sessions (id, agent, project, app, workspace_kind,
        workspace_id, title, lifecycle, forked_from_session, forked_from_through_seq,
        model_selection, permission_mode, harness, harness_gui, called_from_kind, called_from_id, spawned_by, opened_by_app, opened_by_machine,
        workflow_origin, created_seq, state_seq)
      values (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-       (select workflow_origin from sessions where id = ?), ?, ?)`,
+       coalesce(?, (select workflow_origin from sessions where id = ?)), ?, ?)`,
     [
       input.id,
       input.agent,
@@ -180,6 +188,7 @@ export function startSession(
       input.spawnedBy ?? null,
       input.openedByApp ?? null,
       input.openedByMachine ?? null,
+      explicitOrigin,
       // team spawn 자식은 부모의 workflow_origin을 열 때 이어받는다. fork와 일반 call은 spawnedBy가 없어 null이다.
       input.spawnedBy ?? null,
       seq,
@@ -187,6 +196,17 @@ export function startSession(
     ],
   );
   const row = loadSession(tx, input.id)!;
+  let workflowOrigin: WorkflowOrigin | null = null;
+  if (row.workflow_origin !== null) {
+    try {
+      const parsed = workflowOriginSchema.safeParse(
+        JSON.parse(row.workflow_origin),
+      );
+      if (parsed.success) workflowOrigin = parsed.data;
+    } catch {
+      // 손상된 값은 무시한다.
+    }
+  }
   deps.publish({
     session: row.id as Id<"ses">,
     type: "SessionStarted",
@@ -196,6 +216,7 @@ export function startSession(
       workspace: workspaceOf(row),
       spawned_by: row.spawned_by as Id<"ses"> | null,
       revived: false,
+      ...(workflowOrigin === null ? {} : { workflow_origin: workflowOrigin }),
     },
   });
   return ok(row);

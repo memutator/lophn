@@ -11,6 +11,7 @@ import {
   agentIdSchema,
   workspaceOutputSchema,
 } from "../lophn-agent/workspaces.ts";
+import { workflowOriginSchema } from "../workflows/origin.ts";
 
 // agent event는 session에서 일어나고 메모리로만 흐른다. seq가 없고 저장하지 않는다.
 // ToolCallStarted·ToolCallEnded, QuestionAsked·QuestionResolved, CompactStarted·CompactEnded는 core가 낸다.
@@ -57,6 +58,7 @@ const sessionStarted = defineAgentEvent(
     workspace: workspaceOutputSchema.nullable(),
     spawned_by: idSchema("ses").nullable(),
     revived: z.boolean(),
+    workflow_origin: workflowOriginSchema.nullable().optional(),
   }),
 );
 

@@ -11,7 +11,11 @@ import {
   openTab,
   updateDesk,
 } from "../../shell/desk-model.ts";
-import { findTerminalTabByRef, sessionAgentTarget } from "./panel-sessions.ts";
+import {
+  findTerminalTabByRef,
+  sessionAgentTarget,
+  sessionWorkflowDesk,
+} from "./panel-sessions.ts";
 
 function sessionEntry(overrides: Partial<SessionEntry> = {}): SessionEntry {
   return {
@@ -131,6 +135,36 @@ test("sessionAgentTarget opens remote sessions without waiting for sidebar agent
       [],
       workspace,
     ),
+    undefined,
+  );
+});
+
+test("sessionWorkflowDesk resolves the workflow instance desk only in its owning project", () => {
+  const origin = {
+    project: "prj_01000000000000000000000001",
+    workflow: "feature-cleanroom",
+    instance: "wfi_01000000000000000000000001",
+    step: "design",
+  };
+  assert.deepEqual(
+    sessionWorkflowDesk(sessionEntry({ workflowOrigin: origin }), {
+      kind: "project",
+      id: origin.project,
+    }),
+    { desk: origin.instance, deskWorkflow: origin.workflow },
+  );
+  assert.equal(
+    sessionWorkflowDesk(sessionEntry({ workflowOrigin: origin }), {
+      kind: "project",
+      id: "prj_other",
+    }),
+    undefined,
+  );
+  assert.equal(
+    sessionWorkflowDesk(sessionEntry({ workflowOrigin: null }), {
+      kind: "project",
+      id: origin.project,
+    }),
     undefined,
   );
 });

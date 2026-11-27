@@ -112,6 +112,8 @@ export interface SessionDirectory {
       member?: { id: Id<"ses">; parent: Id<"ses"> };
       // session을 탭으로 열지 background로 돌릴지. 없으면 agent 정의와 내장 기본을 따른다.
       open?: SessionOpenMode;
+      // workflow step이 새 session을 열 때 SessionStarted에 바로 실어 보낼 workflow_origin.
+      workflowOrigin?: WorkflowOrigin;
     },
   ): Result<TargetSession>;
   // 그 agent의 기본 session 열기 방식(agent 정의의 open 또는 내장 기본).

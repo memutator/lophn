@@ -1,5 +1,5 @@
 id: platform-bundle-startup
-version: 0.23.186
+version: 0.23.188
 platform_note: none
 title: 설치 묶음의 platform 진입점을 esbuild로 bundle하고 shell의 failed-start 자동 붙기를 추가한다
 modules:

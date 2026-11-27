@@ -27,6 +27,7 @@ import {
 } from "./inputs.ts";
 import { HARNESS_HOST_ROUTES } from "./harness-host.ts";
 import { HOST_QUEUE_MEMORY_ROUTES } from "./host-queue.ts";
+import { TERMINAL_USE_ROUTES } from "./terminal-use.ts";
 import {
   INPUT_REQUEST_ROUTES,
   inputRequestAnswerSecret,
@@ -88,8 +89,9 @@ export const ROUTES = [
   ...ASK_ROUTES,
   // core 안 extension host의 harness extension이 부르는 memory route와 그것이 쓰는 machine command다.
   ...HARNESS_HOST_ROUTES,
-  // core 메모리 host queue를 agent와 사람에게 여는 tabs/*, browser/*.
+  // core 메모리 host queue를 agent와 사람에게 여는 tabs/*, browser/*, terminal/*.
   ...HOST_QUEUE_MEMORY_ROUTES,
+  ...TERMINAL_USE_ROUTES,
   // 사람에게 login 저장·한 번 넣기를 요청하는 agent 입구와, card·보호 창이 부르는 route.
   ...INPUT_REQUEST_ROUTES,
   inputRequestAnswerSecret,

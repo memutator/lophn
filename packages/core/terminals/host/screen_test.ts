@@ -141,3 +141,60 @@ test("Screen은 OSC 52 쓰기(1 MiB 이하)만 감지하고 읽기(?)·1 MiB 초
   assert.equal(parseOsc52WriteBytes("c;?"), null);
   screen.dispose();
 });
+
+test("Screen은 TerminalModes, VT 질의 회신, 한글 highlight 열 좌표, 32 KiB 하단 보존 절단, visual_hash를 정확히 처리한다", async () => {
+  const replies: string[] = [];
+  const screen = new Screen(20, 4, {
+    onReply: (data) => replies.push(data),
+  });
+  screen.push("\x1b]0;vim notes.txt\x07");
+  screen.push("\x1b[?1h\x1b[?2004h\x1b[?1049h\x1b[?1002h\x1b[?1006h\x1b[?25l");
+  screen.push("\x1b[>1u");
+  // DA1, DSR 6n, OSC 10/11, Kitty query
+  screen.push("\x1b[c\x1b[6n\x1b]10;?\x07\x1b]11;?\x07\x1b[?u");
+  // 한글이 섞인 반전 구간: "가나" = 4칸(0..3), 공백 1칸(4), 반전 "한글" = 4칸(5..8)
+  screen.push("가나 \x1b[7m한글\x1b[0m\r\nsecond");
+
+  const snap = await screen.tuiSnapshot();
+  assert.ok(snap !== null);
+  assert.equal(snap.title, "vim notes.txt");
+  assert.deepEqual(snap.modes, {
+    application_cursor_keys: true,
+    bracketed_paste: true,
+    alt_screen: true,
+    cursor_visible: false,
+    mouse_tracking: "button",
+    mouse_encoding: "sgr",
+    kitty_keyboard_flags: 1,
+  });
+  assert.deepEqual(snap.highlights, [
+    { row: 0, col_start: 5, col_end: 8, text: "한글" },
+  ]);
+  assert.equal(snap.truncated, false);
+  assert.ok(snap.screen.startsWith("가나 한글\nsecond"));
+  // 질의 회신 확인: DA1, DSR CPR, OSC 10, OSC 11, Kitty query 모두 답함
+  assert.ok(replies.some((r) => r.includes("\x1b[?")));
+  assert.ok(replies.some((r) => r.includes("rgb:")));
+  assert.ok(replies.some((r) => r === "\x1b[?1u"));
+
+  // 커서만 이동해도 visual_hash가 바뀐다. OSC 제목만 바뀌면 visual_hash가 유지된다.
+  const hashBefore = snap.visual_hash;
+  screen.push("\x1b]0;new title\x07");
+  const afterTitle = await screen.tuiState();
+  assert.equal(afterTitle?.visual_hash, hashBefore);
+  screen.push("\x1b[1;1H");
+  const afterMove = await screen.tuiState();
+  assert.notEqual(afterMove?.visual_hash, hashBefore);
+
+  // Kitty pop 및 RIS 리셋 확인
+  screen.push("\x1b[<u");
+  const afterPop = await screen.tuiState();
+  assert.equal(afterPop?.modes.kitty_keyboard_flags, 0);
+  screen.push("\x1bc");
+  const afterReset = await screen.tuiState();
+  assert.equal(afterReset?.modes.application_cursor_keys, false);
+  assert.equal(afterReset?.modes.bracketed_paste, false);
+  assert.equal(afterReset?.modes.mouse_tracking, "none");
+  assert.equal(afterReset?.modes.cursor_visible, true);
+  screen.dispose();
+});

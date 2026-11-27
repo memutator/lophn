@@ -6,6 +6,7 @@ import type {
   TerminalRuntime,
 } from "../../../protocol/coding-agent/terminals.ts";
 import type { TerminalScreen } from "../ports.ts";
+import type { TuiScreenSnapshot, TuiScreenState } from "./screen.ts";
 
 type FolderRecord = { folder_ref: string; path: string };
 
@@ -27,6 +28,8 @@ export type HostRequest =
       terminal_ref?: string;
       /** project command 전용 PTY 표시. */
       dedicated?: true;
+      /** agent가 `tab open --terminal`로 연 TUI 터미널 표시. 닫기 시 프로세스 그룹 종료를 쓰고 종료 뒤 화면을 보존한다. */
+      agent?: true;
     }
   | {
       type: "input";
@@ -67,7 +70,18 @@ export type HostRequest =
       rows?: number;
       /** 이전에 받은 scrollback key. 같으면 host가 scrollback 줄을 생략한다. */
       scrollback_key?: string;
-    };
+    }
+  /** 모델용 경량 상태(모드, 커서, 제목, 시각 해시)를 읽는다. */
+  | { type: "tui_state"; terminal_ref: string }
+  /** 모델용 화면 스냅샷(평문/ANSI, highlights, 선택 scrollback, 시각 해시)을 읽는다. */
+  | {
+      type: "tui_snapshot";
+      terminal_ref: string;
+      scrollback?: number;
+      ansi?: boolean;
+    }
+  /** desktop xterm client가 이 터미널에 붙었는지 알린다. 붙지 않은 동안만 headless가 VT 질의에 답한다. */
+  | { type: "client_attached"; terminal_ref: string; attached: boolean };
 
 export type HostReject = {
   ok: false;
@@ -115,10 +129,27 @@ export type ClipboardWrite = {
   bytes: number;
 };
 
+export type HostTuiStateReply = {
+  ok: true;
+  runtime: TerminalRuntime;
+  state: TuiScreenState;
+};
+
+export type HostTuiSnapshotReply = {
+  ok: true;
+  runtime: TerminalRuntime;
+  snapshot: TuiScreenSnapshot;
+};
+
 /** host가 stdout에 쓰는 줄 하나. 요청의 답은 id와 reply(와 runtime)를 싣는다. */
 export type HostLine = {
   id?: string;
-  reply?: HostReply | HostSnapshotReply | HostScreenReply;
+  reply?:
+    | HostReply
+    | HostSnapshotReply
+    | HostScreenReply
+    | HostTuiStateReply
+    | HostTuiSnapshotReply;
   runtime?: TerminalRuntime;
   output?: TerminalOutput[];
   foreground?: ForegroundChange;

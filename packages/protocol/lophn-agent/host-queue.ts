@@ -16,6 +16,12 @@ export type HostToolContent = z.infer<typeof hostToolContentSchema>;
 
 import { loginIdSchema } from "../secrets/logins.ts";
 import { pageInputSchema } from "./page-view.ts";
+import {
+  TUI_MAX_COLS,
+  TUI_MAX_ROWS,
+  TUI_MIN_COLS,
+  TUI_MIN_ROWS,
+} from "./terminal-use.ts";
 import { workspaceSchema } from "./workspaces.ts";
 
 // core 메모리의 host queue다. core가 host에 시킬 일(탭 열기·닫기·보이기, browser 호출, 멀리서 page 보기)을 담고, host가 붙은
@@ -123,6 +129,17 @@ const codingOpenSchema = z.strictObject({
           message: `handoff is at most ${HANDOFF_MAX_BYTES} bytes`,
         },
       ),
+  }),
+});
+
+// `tabs/open` 입력의 terminal target이다. core가 PTY를 바로 열고(창을 기다리지 않는다) `lophn terminal`로 다룰 탭을 만든다.
+// command가 있으면 login shell로 그 명령 하나를 돌리고 끝나면 마지막 화면을 보존한다. 없으면 대화형 shell이다.
+const terminalOpenSchema = z.strictObject({
+  terminal: z.strictObject({
+    command: z.string().min(1).max(65_536).optional(),
+    cwd: z.string().min(1).max(4096).optional(),
+    columns: z.number().int().min(TUI_MIN_COLS).max(TUI_MAX_COLS).optional(),
+    rows: z.number().int().min(TUI_MIN_ROWS).max(TUI_MAX_ROWS).optional(),
   }),
 });
 
@@ -389,10 +406,13 @@ export const tabsOpen = defineMemory({
       tuiTargetSchema,
       phoneTabTargetSchema,
       codingOpenSchema,
+      terminalOpenSchema,
     ]),
     relation: tabRelationSchema.optional(),
-    // 사람 token이 browser 탭을 놓을 workspace다. 없으면 home이다. agent는 자기 session의 workspace를 쓰므로 이 칸을 무시한다.
+    // 사람 token이 browser·terminal 탭을 놓을 workspace다. 없으면 home이다. agent는 자기 session의 workspace를 쓰므로 이 칸을 무시한다.
     workspace: workspaceSchema.optional(),
+    // agent의 `--terminal` 열기 승인 카드가 묶일 tool call id.
+    tool_call: idSchema("tcl").optional(),
   }),
   output: acceptedSchema,
   actors: ["agent", "user"],
@@ -624,10 +644,17 @@ export const tabsHand = defineMemory({
     session: idSchema("ses"),
     // 탭이 있는 workspace다.
     workspace: hostWorkspaceSchema,
-    // 탭의 browser profile이다. 없으면 기본이다.
+    // browser 탭의 browser profile이다. 없으면 기본이다.
     profile: idSchema("bpf").optional(),
-    // 지금 주소다. 상태가 오기 전에는 tab list가 이것을 낸다.
-    url: z.string().max(8192),
+    // browser 탭의 지금 주소다. 상태가 오기 전에는 tab list가 이것을 낸다.
+    url: z.string().max(8192).optional(),
+    // 터미널 탭을 넘길 때의 터미널 참조(`trm_…`)다. url과 둘 중 하나만 준다.
+    terminal: z
+      .string()
+      .min(1)
+      .max(80)
+      .regex(/^[A-Za-z0-9_-]+$/)
+      .optional(),
   }),
   output: z.strictObject({ tab: idSchema("tab") }),
   actors: ["user"],

@@ -70,9 +70,12 @@ const A2A_REASON_TOOLS = new Set([
 
 export function carriesReason(name: string, code: string): boolean {
   return (
-    ((name.startsWith("browser.") || name.startsWith("tab.")) &&
+    ((name.startsWith("browser.") ||
+      name.startsWith("terminal.") ||
+      name.startsWith("tab.")) &&
       (code === "unavailable" || code === "conflict")) ||
-    (name.startsWith("browser.") && code === "not_found") ||
+    ((name.startsWith("browser.") || name.startsWith("terminal.")) &&
+      code === "not_found") ||
     (name === "tab.give" &&
       (code === "not_found" || code === "invalid_input")) ||
     (name === "app.take_in" && REASON_CODES.has(code)) ||

@@ -113,6 +113,7 @@ const RENDERER_MEMORY_ROUTES: readonly string[] = [
   "memory:terminals/close",
   "memory:terminals/resize",
   "memory:terminals/watch",
+  "memory:terminals/control",
   "memory:terminals/name",
   "memory:terminals/rename_saved",
   "memory:coding_sessions/forget",

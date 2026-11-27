@@ -8,5 +8,11 @@ export {
   SHELL_NOT_ATTACHED,
   SHELL_START_FAILED,
   type TabOwner,
+  type TerminalRemovedInfo,
+  type TerminalTabInfo,
   withinTeam,
 } from "./queue.ts";
+export {
+  createTerminalUseDriver,
+  type TerminalUseDriver,
+} from "./terminal-use.ts";

@@ -55,7 +55,7 @@ function recorder() {
   };
 }
 
-test("넘길 수 있는 탭은 사람이 연 browser 탭뿐이다", () => {
+test("넘길 수 있는 탭은 사람이 연 browser 탭과 이 컴퓨터의 일반 터미널 탭뿐이다", () => {
   assert.equal(canHand(browser()), true);
   assert.equal(canHand(browser({ owner: A, handedTab: OLD })), true);
   assert.equal(canHand(browser({ transient: true })), false);
@@ -64,6 +64,23 @@ test("넘길 수 있는 탭은 사람이 연 browser 탭뿐이다", () => {
   assert.equal(canHand(browser({ key: `host:${OLD}`, owner: A })), false);
   assert.equal(canHand(browser({ key: `host:${OLD}` })), false);
   assert.equal(canHand(browser({ kind: "document_editor" })), false);
+  // 사람이 연 로컬 터미널 탭(dedicated·다른 기계·PTY 없는 탭 제외)
+  const term = (extra: Partial<TabItem> = {}): TabItem => ({
+    key: "terminal-1",
+    kind: "terminal",
+    title: "repo",
+    fields: { terminal: "trm_1" },
+    ...extra,
+  });
+  assert.equal(canHand(term()), true);
+  assert.equal(canHand(term({ owner: A, handedTab: OLD })), true);
+  assert.equal(
+    canHand(term({ fields: { terminal: "trm_1", dedicated: true } })),
+    false,
+  );
+  assert.equal(canHand(term({ machine: "mch_other" })), false);
+  assert.equal(canHand(term({ fields: {} })), false);
+  assert.equal(canHand(term({ key: `host:${OLD}`, owner: A })), false);
 });
 
 test("다시 알리기는 owner와 handedTab이 둘 다 있는 browser 탭만 그 주인으로 알리고 not_found·conflict면 되돌린다", async () => {
@@ -90,7 +107,10 @@ test("다시 알리기는 owner와 handedTab이 둘 다 있는 browser 탭만 �
     browser({ key: "person" }),
     browser({ key: "only-owner", owner: A }),
     browser({ key: "only-id", handedTab: NEW }),
-    { ...browser({ key: "doc", owner: A, handedTab: NEW }), kind: "terminal" },
+    {
+      ...browser({ key: "doc", owner: A, handedTab: NEW }),
+      kind: "document_editor",
+    },
   ];
   const seen = recorder();
   await announceHanded(

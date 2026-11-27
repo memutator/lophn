@@ -27,6 +27,7 @@ import { SETTINGS_COMMANDS } from "./settings.ts";
 import { SKILL_COMMANDS } from "./skill.ts";
 import { TAB_COMMANDS } from "./tab.ts";
 import { TEAM_COMMANDS } from "./team.ts";
+import { TERMINAL_COMMANDS } from "./terminal.ts";
 import type { Command } from "./types.ts";
 import { UPDATE_COMMANDS } from "./update.ts";
 import { WORKFLOW_COMMANDS } from "./workflow.ts";
@@ -68,6 +69,7 @@ export const COMMANDS: readonly Command[] = [
   ...SKILL_COMMANDS,
   ...TAB_COMMANDS,
   ...TEAM_COMMANDS,
+  ...TERMINAL_COMMANDS,
   ...UPDATE_COMMANDS,
   ...WORKFLOW_COMMANDS,
 ];

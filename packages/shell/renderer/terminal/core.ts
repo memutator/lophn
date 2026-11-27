@@ -14,6 +14,7 @@ import {
   type TerminalRuntime,
   terminalFailureSchema,
   terminalsClose,
+  terminalsControl,
   terminalsList,
   terminalsName,
   terminalsOpen,
@@ -65,6 +66,11 @@ export interface TerminalCore {
   >;
   /** 이 창의 출력 lease를 잡거나 놓는다. 잡은 동안 10초마다 다시 부른다(`TerminalDisplays`). */
   watch(terminal: string, on: boolean): Promise<TerminalReply<unknown>>;
+  /** agent가 다루는 터미널 탭의 take control / hand back. */
+  control?(
+    terminal: string,
+    held: boolean,
+  ): Promise<TerminalReply<{ terminal: string; held: boolean }>>;
   /** 탭 줄에 보이는 이름. 알림 제목과 다른 창이 쓴다. */
   name(terminal: string, name: string): Promise<TerminalReply<unknown>>;
   /** 지금 core가 가진 터미널. 못 읽으면 null이다. */
@@ -151,6 +157,8 @@ export function createTerminalCore(
       call(terminalsSnapshot as Route, { terminal, after_seq: afterSeq }),
     watch: (terminal, on) =>
       call(terminalsWatch as Route, { terminal, watcher, on }),
+    control: (terminal, held) =>
+      call(terminalsControl as Route, { terminal, held }),
     name: (terminal, name) =>
       call(terminalsName as Route, { terminal, name: name.slice(0, 200) }),
     async list() {

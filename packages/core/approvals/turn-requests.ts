@@ -92,7 +92,7 @@ export function createTurnRequests(deps: TurnRequestsDeps) {
         ? []
         : options?.alwaysPatterns !== undefined
           ? [...options.alwaysPatterns]
-          : subject.kind === "shell"
+          : subject.kind === "shell" && subject.opaque !== true
             ? alwaysPatterns(
                 deps.permissionRules(origin.workspace),
                 subject.command,

@@ -36,6 +36,8 @@ import type {
   HostRequest,
   HostScreenReply,
   HostSnapshotReply,
+  HostTuiSnapshotReply,
+  HostTuiStateReply,
 } from "./wire.ts";
 
 type FolderRecord = { folder_ref: string; path: string };
@@ -81,6 +83,10 @@ type Session = {
   foreground: string | null;
   /** project command 전용 PTY 여부. */
   dedicated: boolean;
+  /** agent가 `tab open --terminal`로 연 TUI 터미널 여부. */
+  agent: boolean;
+  /** desktop xterm client가 이 터미널에 붙어 있는지. false인 동안만 headless가 VT 질의에 답한다. */
+  clientAttached: boolean;
   /** 전용 PTY에서 실행한 명령. */
   exec?: string;
 };
@@ -98,7 +104,13 @@ type Host = {
   /** 요청 하나의 예외는 그 요청의 host_lost 답이 된다. close·restart는 child 종료를 기다린다. */
   handle(
     request: HostRequest,
-  ): Promise<HostReply | HostSnapshotReply | HostScreenReply>;
+  ): Promise<
+    | HostReply
+    | HostSnapshotReply
+    | HostScreenReply
+    | HostTuiStateReply
+    | HostTuiSnapshotReply
+  >;
   sessions(): readonly TerminalRuntime[];
   /** 살아 있는 shell 터미널 중 foreground argv가 지난번과 달라진 것만 돌려준다. */
   foregroundChanges(): ForegroundChange[] | Promise<ForegroundChange[]>;
@@ -119,8 +131,9 @@ function createHost(deps: HostDeps): Host {
     if (!checked.ok) {
       return reject(checked.reason, "registered folder cannot be used");
     }
+    const isAgent = request.agent === true;
     const isDedicated =
-      request.exec !== undefined || request.dedicated === true;
+      request.dedicated === true || (!isAgent && request.exec !== undefined);
     const program =
       request.exec !== undefined
         ? resolveCommandShell(
@@ -175,30 +188,45 @@ function createHost(deps: HostDeps): Host {
         : undefined;
     const session: Session = {
       runtime,
-      screen: new Screen(request.columns, request.rows, {
-        ...(windowsPty === undefined ? {} : { windowsPty }),
-        onClipboard: (bytes) =>
-          deps.onClipboard?.({ terminal_ref: terminalRef, generation, bytes }),
-      }),
+      screen: null as unknown as Screen,
       handle: null,
       group: null,
       conptyBuffer: null,
       env: shellEnv,
       foreground: null,
       dedicated: isDedicated,
+      agent: isAgent,
+      clientAttached: false,
       ...(request.exec === undefined ? {} : { exec: request.exec }),
     };
+    session.screen = new Screen(request.columns, request.rows, {
+      ...(windowsPty === undefined ? {} : { windowsPty }),
+      onClipboard: (bytes) =>
+        deps.onClipboard?.({ terminal_ref: terminalRef, generation, bytes }),
+      // 붙은 desktop xterm이 없을 때만 headless가 VT 질의(DA/DSR/OSC 10·11/Kitty)에 바로 답해 vim·less 멈춤을 막는다.
+      onReply: (reply) => {
+        if (
+          !session.clientAttached &&
+          session.runtime.state === "running" &&
+          session.handle !== null
+        ) {
+          session.handle.write(reply);
+        }
+      },
+    });
     sessions.set(terminalRef, session);
     try {
       // strip 뒤에 덮어야 더한 LPN_ 값이 지워지지 않는다. 세션 표지는 물려받은 값이 아니라 이 탭의 id다(strip이 지운다).
       const env = {
         ...terminalEnv(deps.env),
+        TERM: "xterm-256color",
         ...shellEnv,
         [SESSION_ENV_NAME]: terminalSessionId(terminalRef),
       };
-      const integrated = isDedicated
-        ? { args: program.args, env: {} as Record<string, string> }
-        : integrateShell(program.file, program.args, env, deps.exists);
+      const integrated =
+        isDedicated || isAgent
+          ? { args: program.args, env: {} as Record<string, string> }
+          : integrateShell(program.file, program.args, env, deps.exists);
       const handle = deps.pty.spawn({
         file: program.file,
         args: integrated.args,
@@ -300,13 +328,56 @@ function createHost(deps: HostDeps): Host {
   ):
     | HostReply
     | HostSnapshotReply
-    | Promise<HostReply | HostSnapshotReply | HostScreenReply> {
+    | Promise<
+        | HostReply
+        | HostSnapshotReply
+        | HostScreenReply
+        | HostTuiStateReply
+        | HostTuiSnapshotReply
+      > {
     if (request.type === "open") {
       const previous =
         request.terminal_ref === undefined
           ? undefined
           : sessions.get(request.terminal_ref);
       return start(previous, request);
+    }
+    if (request.type === "client_attached") {
+      const session = sessions.get(request.terminal_ref);
+      if (!session) return reject("host_lost", "terminal is gone");
+      session.clientAttached = request.attached;
+      return { ok: true, runtime: { ...session.runtime } };
+    }
+    if (request.type === "tui_state") {
+      const session = sessions.get(request.terminal_ref);
+      if (!session) return reject("host_lost", "terminal is gone");
+      return session.screen.tuiState().then((state) => {
+        if (state === null) return reject("host_lost", "terminal is gone");
+        return {
+          ok: true as const,
+          runtime: { ...session.runtime },
+          state,
+        };
+      });
+    }
+    if (request.type === "tui_snapshot") {
+      const session = sessions.get(request.terminal_ref);
+      if (!session) return reject("host_lost", "terminal is gone");
+      return session.screen
+        .tuiSnapshot({
+          ...(request.scrollback === undefined
+            ? {}
+            : { scrollback: request.scrollback }),
+          ...(request.ansi === undefined ? {} : { ansi: request.ansi }),
+        })
+        .then((snapshot) => {
+          if (snapshot === null) return reject("host_lost", "terminal is gone");
+          return {
+            ok: true as const,
+            runtime: { ...session.runtime },
+            snapshot,
+          };
+        });
     }
     if (request.type === "screen") {
       const session = sessions.get(request.terminal_ref);
@@ -414,7 +485,9 @@ function createHost(deps: HostDeps): Host {
       delete session.runtime.remote_size;
       return { ok: true, runtime: { ...session.runtime } };
     }
-    if (request.type === "close") return stop(session, deps.sleep);
+    if (request.type === "close") {
+      return stop(session, deps.sleep, session.agent);
+    }
     if (request.type === "restart") {
       return restart(session);
     }
@@ -439,6 +512,7 @@ function createHost(deps: HostDeps): Host {
         const running = [...sessions.values()].filter(
           (session) =>
             !session.dedicated &&
+            !session.agent &&
             session.runtime.state === "running" &&
             session.handle !== null,
         );
@@ -466,7 +540,7 @@ function createHost(deps: HostDeps): Host {
       const changes: ForegroundChange[] = [];
       for (const session of sessions.values()) {
         const { runtime, handle } = session;
-        if (session.dedicated || runtime.state !== "running") {
+        if (session.dedicated || session.agent || runtime.state !== "running") {
           continue;
         }
         if (!handle) continue;
@@ -516,10 +590,12 @@ async function stop(
     session.runtime.state !== "running" &&
     session.runtime.state !== "starting"
   ) {
+    if (disposeDedicatedScreen) session.screen.dispose();
     return { ok: true, runtime: { ...session.runtime } };
   }
   const group = session.group;
-  const polls = session.dedicated ? DEDICATED_STOP_POLLS : STOP_POLLS;
+  const useProcessGroup = session.dedicated || session.agent;
+  const polls = useProcessGroup ? DEDICATED_STOP_POLLS : STOP_POLLS;
   const settle = async (
     signal: NodeJS.Signals,
     maxPolls: number,
@@ -534,7 +610,7 @@ async function stop(
     return false;
   };
   let confirmed: boolean;
-  if (session.dedicated) {
+  if (useProcessGroup) {
     confirmed =
       (await settle("SIGTERM", polls)) || (await settle("SIGKILL", STOP_POLLS));
   } else {

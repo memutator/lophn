@@ -34,3 +34,25 @@ test("tab open --phone은 --device와 같이 못 주고 --screen과 phone target
   assert.ok(ran.ok);
   assert.deepEqual(good.sent, [{ target: { phone: { app, screen: "home" } } }]);
 });
+
+test("tab open --terminal은 --command·--cwd·--cols·--rows와 함께 terminal target으로 가고 --terminal 없이는 거부된다", async () => {
+  const bad = fakeCtx();
+  const withoutTerm = await open.run(
+    { url: "https://example.com", command: "vim" },
+    bad.ctx,
+  );
+  assert.ok(!withoutTerm.ok && withoutTerm.error.code === "invalid_input");
+  assert.equal(bad.sent.length, 0);
+
+  const good = fakeCtx();
+  const ran = await open.run(
+    { terminal: true, command: "vim a.txt", cols: 100, rows: 30 },
+    good.ctx,
+  );
+  assert.ok(ran.ok);
+  assert.deepEqual(good.sent, [
+    {
+      target: { terminal: { command: "vim a.txt", columns: 100, rows: 30 } },
+    },
+  ]);
+});

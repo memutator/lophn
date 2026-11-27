@@ -5,6 +5,14 @@ export {
   isHeadlessLinux,
 } from "./clipboard-shim.ts";
 export {
+  encodeMouse,
+  encodePaste,
+  encodePress,
+  encodeType,
+  type MouseInput,
+  SUPPORTED_KEY_SUMMARY,
+} from "./input-encoder.ts";
+export {
   saveTerminalPasteImage,
   TERMINAL_PASTE_IMAGE_MAX_BYTES,
   type TerminalPasteMediaType,

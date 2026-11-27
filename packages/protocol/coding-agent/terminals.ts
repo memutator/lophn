@@ -91,6 +91,12 @@ export const terminalRuntimeSchema = z.strictObject({
   tab_name: z.string().optional(),
   // 폰이 PTY 크기를 잡았다. desktop 탭은 칸에 맞추지 않고 이 크기로 그리고, 사람이 그 탭에서 `resize`하면 놓는다.
   remote_size: z.literal(true).optional(),
+  // agent가 다루는 터미널 탭의 take control 상태다. held가 true면 사람이 가져간 상태라 agent의 act·resize가 conflict다.
+  agent_control: z
+    .strictObject({
+      held: z.boolean(),
+    })
+    .optional(),
 });
 export type TerminalRuntime = z.infer<typeof terminalRuntimeSchema>;
 
@@ -369,6 +375,20 @@ export const terminalsPasteImage = defineMemory({
   errors,
 });
 
+export const terminalsControl = defineMemory({
+  resource: "terminals",
+  method: "control",
+  name: "TerminalsControl",
+  changes: [],
+  input: z.strictObject({
+    terminal: terminalRefSchema,
+    held: z.boolean(),
+  }),
+  output: z.strictObject({ held: z.boolean() }),
+  actors: ["user"],
+  errors,
+});
+
 export const TERMINAL_ROUTES = [
   terminalsList,
   terminalsOpen,
@@ -380,6 +400,7 @@ export const TERMINAL_ROUTES = [
   terminalsSnapshot,
   terminalsWatch,
   terminalsName,
+  terminalsControl,
   terminalsSavedSessions,
   terminalsRenameSaved,
 ] as const;

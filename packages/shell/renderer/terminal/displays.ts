@@ -464,9 +464,12 @@ export class TerminalDisplays {
   #runtime(key: string, runtime: TerminalRuntime): void {
     const current = this.#store.get(key);
     if (!current || current.generation > runtime.generation) return;
-    // 폰이 잡은 크기면 view를 PTY 치수로 두고, 놓으면 탭이 칸에 다시 맞춘다(`remote`).
+    // 폰이 잡은 크기이거나 agent가 조작 중(사람이 가져오기 전)이면 view를 PTY 치수로 두고, 놓거나 가져가면 탭이 칸에 다시 맞춘다.
     const remote = runtime.remote_size === true;
-    if (remote) this.#kept.get(key)?.view.resize(runtime.columns, runtime.rows);
+    const agentWatching = runtime.agent_control?.held === false;
+    if (remote || agentWatching) {
+      this.#kept.get(key)?.view.resize(runtime.columns, runtime.rows);
+    }
     if ((current.remote ?? false) !== remote) {
       this.#store.update(key, { remote });
     }

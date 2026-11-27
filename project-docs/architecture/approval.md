@@ -33,6 +33,7 @@ agent는 사람이 있을 때도 없을 때도 shell을 돌리고 file을 읽고
    설정 route(settings/update)가 approval: "person" 설정 바꾸기를 setting {key, lines}로 같은 판정에 묻는다
    project command route(project_commands/*)가 실행을 project_command로, 정의 쓰기를 project_command_definition으로 묻는다
    workflow route(workflows/run, workflows/override-code)가 agent의 일회성·override 실행과 flow code 패치를 workflow_run으로 묻는다
+   대화형 터미널 열기(`tabs/open`의 `terminal` target)가 agent 호출을 기존 `shell` 판정으로 묻는다(`--command`는 그 명령줄, 명령 없는 대화형 shell은 `opaque: true`. 사람 token은 묻지 않는다)
         │ memory route tool_gate/check (그 turn의 agent 자격만)
         ▼
  core가 session의 permission_mode·agent·workspace·spawned_by, turn의 mode(attended|unattended),
@@ -87,7 +88,7 @@ agent는 사람이 있을 때도 없을 때도 shell을 돌리고 file을 읽고
 - **상태 기계 shell 스캐너**: 단순 정규식 분리를 폐지하고 TypeScript 순수 구현 상태 기계 스캐너를 쓴다(native tree-sitter 없음).
   - 작은따옴표·큰따옴표·이스케이프·heredoc·제어 연산자(`&&`, `||`, `;`, `|`, 줄바꿈)·서브셸(`(...)`)·명령 치환(`$(...)`, `` `...` ``)·리다이렉션·선행 환경변수 할당을 파싱하고, 래퍼(`sh -c`, `bash -c`, `zsh -c`, `env`, `command`, `exec`, `nohup`, `timeout`, `xargs`, `sudo`, `doas`, `su` 등)를 최대 깊이 8까지 벗겨 안쪽 명령 조각까지 모두 검사한다.
   - `rm`의 묶인/긴 flag(`-rf`, `-fr`, `-r --force`, `--recursive -f` 등)와 경로(`~`, `$HOME`, `${HOME}`, 실제 home 경로, `/`, `/*`)를 정규화한 뒤 floor 표와 대조한다. `sh -c "rm -rf ~"`, `env rm -rf ~`, `rm -r --force ~`가 모두 floor에 잡힌다.
-  - **비대칭 안전 규칙**: 닫히지 않은 따옴표, 동적 `eval`, 변수로 구성된 실행 명령, 입력 크기 상한 초과는 `opaque`로 표시하고, `sudo`/`doas`/`su`는 `elevated`로 표시한다. `opaque`와 `elevated` 명령은 사용자 `allow` 규칙, `SessionGrantStore`, 내장 읽기 목록으로 통과하지 못하며 `once | reject`로만 묻는다.
+  - **비대칭 안전 규칙**: 닫히지 않은 따옴표, 동적 `eval`, 변수로 구성된 실행 명령, 입력 크기 상한 초과, 그리고 명령 없는 대화형 터미널 열기(`tabs/open { terminal: {} }`, `GateCall.shell.opaque: true`)는 `opaque`로 표시하고, `sudo`/`doas`/`su`는 `elevated`로 표시한다. `opaque`와 `elevated` 명령은 사용자 `allow` 규칙, `SessionGrantStore`, 내장 읽기 목록으로 통과하지 못하며 `once | reject`로만 묻는다(`unattended`에서는 `deny(no_person)`, 팀 자식은 부모에게 묻는다).
   - **내장 읽기 명령 allowlist**: 출력 리다이렉션·`opaque`·`elevated`가 없는 안전한 읽기 명령(`ls`, `cat`, `head`, `tail`, `wc`, `pwd`, `which`, `git status`, `git diff`, `git log` 등)과 읽기 파이프라인만 기본 허용한다. 그 밖의 shell 명령은 ③(`workspace`) 이하에서 기본 `ask`다.
 - **안전한 `always` 패턴과 기존 넓은 규칙 경고**:
   - `always` 패턴은 CLI subcommand 길이 표(예: `git`, `npm`, `pnpm`, `cargo`, `docker`, `kubectl` 등)로 안전한 최소 접두사를 계산한다.

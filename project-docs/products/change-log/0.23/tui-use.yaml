@@ -1,5 +1,5 @@
 id: tui-use
-version: 0.23.184
+version: 0.23.186
 platform_note: none
 title: agent가 대화형 터미널 프로그램을 열고 보고 다루는 TUI use(`lophn terminal`, `tab open --terminal`)를 더한다
 modules:

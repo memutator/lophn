@@ -143,6 +143,15 @@ export function createConversationCommands(deps: ConversationDeps): {
           id: input.id,
           agent: input.agent,
           workspace: input.workspace,
+          ...(input.title !== undefined
+            ? {
+                inherit: {
+                  title: input.title,
+                  model_selection: null,
+                  forked_from: null,
+                },
+              }
+            : {}),
         });
         return started.ok ? ok(openedOf(started.value)) : started;
       },

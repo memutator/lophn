@@ -88,6 +88,11 @@ export const SESSION_CHOICES = ["new", "same"] as const;
 export const sessionChoiceSchema = z.enum(SESSION_CHOICES);
 export type SessionChoice = z.infer<typeof sessionChoiceSchema>;
 
+// 병렬 선행 step들이 이 step으로 합류할 때의 대기 규칙. 기본은 all(모두 완료 후 합류), any는 첫 완료 시 합류·나머지 취소.
+export const STEP_JOIN_MODES = ["all", "any"] as const;
+export const stepJoinModeSchema = z.enum(STEP_JOIN_MODES);
+export type StepJoinMode = z.infer<typeof stepJoinModeSchema>;
+
 // report 글은 다음 step 메시지 본문에 그대로 실리고 화면이 줄마다 읽는 짧은 메모다.
 export const WORKFLOW_TEXT_MAX_BYTES = 8192;
 const encoder = new TextEncoder();

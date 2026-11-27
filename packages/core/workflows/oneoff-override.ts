@@ -6,6 +6,7 @@ import {
   type InstanceStep,
   type Participant,
   type SessionOpenMode,
+  type StepJoinMode,
   WORKFLOW_FLOW_FILE,
   type WorkflowInstance,
   type WorkflowRunOverride,
@@ -19,6 +20,9 @@ export type InlineStepInput = {
   readonly in?: string;
   readonly out?: string;
   readonly next?: string[];
+  readonly parallel?: boolean;
+  readonly needs?: string[];
+  readonly join?: StepJoinMode;
   readonly open?: SessionOpenMode;
 };
 
@@ -43,6 +47,9 @@ export function normalizeInlineSteps(
       in: s.in ?? "",
       out: s.out ?? "",
       next: s.next ?? [],
+      ...(s.parallel !== undefined ? { parallel: s.parallel } : {}),
+      ...(s.needs !== undefined ? { needs: s.needs } : {}),
+      ...(s.join !== undefined ? { join: s.join } : {}),
       ...(s.open !== undefined ? { open: s.open } : {}),
     });
   }
@@ -163,11 +170,22 @@ export function applyRunOverrides(input: {
         }
         const filtered = Object.fromEntries(
           Object.entries(patch).filter(
-            ([k, v]) => v !== undefined && !(k === "open" && v === null),
+            ([k, v]) =>
+              v !== undefined &&
+              !(
+                (k === "open" ||
+                  k === "parallel" ||
+                  k === "needs" ||
+                  k === "join") &&
+                v === null
+              ),
           ),
         );
         const updated = { ...steps[idx]!, ...filtered };
         if (patch.open === null) delete updated.open;
+        if (patch.parallel === null) delete updated.parallel;
+        if (patch.needs === null) delete updated.needs;
+        if (patch.join === null) delete updated.join;
         steps[idx] = updated;
         const fields = Object.keys(patch).join("/");
         stepChanges.push(`~${name} (${fields})`);
@@ -200,6 +218,13 @@ export function applyRunOverrides(input: {
           in: entry.step.in ?? "",
           out: entry.step.out ?? "",
           next: entry.step.next ?? [],
+          ...(entry.step.parallel !== undefined
+            ? { parallel: entry.step.parallel }
+            : {}),
+          ...(entry.step.needs !== undefined
+            ? { needs: entry.step.needs }
+            : {}),
+          ...(entry.step.join !== undefined ? { join: entry.step.join } : {}),
           ...(entry.step.open !== undefined ? { open: entry.step.open } : {}),
         });
         stepChanges.push(`+${entry.step.name} (by: ${entry.step.by})`);
@@ -370,6 +395,11 @@ export function serializeInstanceToYaml(input: {
           ...(s.in !== "" ? { in: s.in } : {}),
           ...(s.out !== "" ? { out: s.out } : {}),
           ...(s.next.length > 0 ? { next: s.next } : {}),
+          ...(s.parallel !== undefined ? { parallel: s.parallel } : {}),
+          ...(s.needs !== undefined && s.needs.length > 0
+            ? { needs: s.needs }
+            : {}),
+          ...(s.join !== undefined ? { join: s.join } : {}),
           ...(s.open !== undefined ? { open: s.open } : {}),
         };
         steps[s.name] = stepObj;

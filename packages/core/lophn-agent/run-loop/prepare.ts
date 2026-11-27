@@ -106,6 +106,31 @@ import { abortableWait } from "./retry.ts";
 import { turnModeOf } from "./turn-mode.ts";
 import type { TurnStart } from "./work.ts";
 
+const EDIT_WORKFLOW_TITLE =
+  /^Edit workflow:\s+([a-z0-9_-]+)\s+\((wfi_[0-9a-z]+)\)/;
+const CUSTOMIZE_WORKFLOW_TITLE = /^Customize workflow:\s+([a-z0-9_-]+)/;
+
+function workflowEditorPromptNote(title: string | null): string | null {
+  if (title === null) return null;
+  const editMatch = EDIT_WORKFLOW_TITLE.exec(title);
+  if (editMatch !== null) {
+    const [, workflow, instance] = editMatch;
+    return [
+      `Workflow editor session: You are helping edit workflow instance ${instance} (${workflow}) without modifying the base workflow folder unless asked.`,
+      `  Inspect state with \`lophn workflow get ${instance} --lines 30\`. Edit YAML runs with \`lophn workflow edit\` (add_step, insert_steps, update_step, remove_step, set_participant, hand_now, end) or patch flow runs with \`lophn workflow override-code\`. Promote with \`lophn workflow save\` if the person wants to keep changes permanently.`,
+    ].join("\n");
+  }
+  const customizeMatch = CUSTOMIZE_WORKFLOW_TITLE.exec(title);
+  if (customizeMatch !== null) {
+    const [, workflow] = customizeMatch;
+    return [
+      `Workflow customization session: You are helping customize workflow "${workflow}" for a single run without modifying the base workflow folder unless asked.`,
+      `  Inspect its files under Workflows folder or via \`lophn workflow list\`, then start the customized run with \`lophn workflow run --workflow <project>/${workflow} --override '<json>' --text "<request>"\` (supports participants, patch_steps, add_steps, remove_steps, steps, files, parallel/needs/join).`,
+    ].join("\n");
+  }
+  return null;
+}
+
 // 시작할 turn의 재료를 core 기록에서 모은다. session의 agent id와 workspace, 이번 turn의 resolved agent
 // (층을 합친 값), tool 목록, 적용 한도, 고정할 turn 근거(basis)를 만든다. tool 목록은 turn마다 새로 만들지
 // 않고 session의 첫 turn에서 만든 것을 쓴다(model에 보이는 `tools[]`가 session 동안 같다). 도중에 달라지면
@@ -767,6 +792,14 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
         seat.session,
       );
       if (!placed.ok) return placed;
+      const editorNote = workflowEditorPromptNote(session.title);
+      const workspaceInfo =
+        editorNote === null
+          ? placed.value.workspace
+          : {
+              ...placed.value.workspace,
+              text: `${placed.value.workspace.text}\n${editorNote}`,
+            };
       scope.read.push(...placed.value.scope.read);
       scope.write.push(...placed.value.scope.write);
       scope.base = placed.value.scope.base;
@@ -806,7 +839,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
                 custom: { system: instructions.agent },
               }
             : {}),
-          workspace: placed.value.workspace,
+          workspace: workspaceInfo,
           ...(seenAtStart !== undefined && seenAtStart.compaction === compaction
             ? { seen: seenAtStart.basis }
             : {}),

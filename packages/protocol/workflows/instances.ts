@@ -19,6 +19,7 @@ import {
   participantSchema,
   sessionChoiceSchema,
   sessionOpenModeSchema,
+  stepJoinModeSchema,
   stepNameSchema,
   stepNextSchema,
   workflowCheckpointKindSchema,
@@ -73,17 +74,21 @@ export const instanceStepSchema = z.strictObject({
   in: z.string(),
   out: z.string(),
   next: z.array(stepNextSchema),
+  parallel: z.boolean().optional(),
+  needs: z.array(stepNameSchema).optional(),
+  join: stepJoinModeSchema.optional(),
   open: sessionOpenModeSchema.optional(),
   permission_mode: permissionModeSchema.optional(),
 });
 export type InstanceStep = z.infer<typeof instanceStepSchema>;
 
-const currentSchema = z
-  .object({
-    step: stepNameSchema,
-    human_turn: z.boolean(),
-  })
-  .nullable();
+export const activeStepSchema = z.object({
+  step: stepNameSchema,
+  human_turn: z.boolean(),
+});
+export type ActiveStep = z.infer<typeof activeStepSchema>;
+
+const currentSchema = activeStepSchema.nullable();
 
 export const workflowInstanceSchema = z
   .object({
@@ -97,6 +102,10 @@ export const workflowInstanceSchema = z
     participants: z.record(participantKeySchema, participantSchema), // 시작할 때 선언에서 옮긴 것
     steps: z.array(instanceStepSchema), // 순서 있음. agent가 고친다
     current: currentSchema,
+    // 지금 동시에 돌고 있는 활성 step 목록(직렬이면 0~1개, 병렬이면 2개 이상).
+    active_steps: z.array(activeStepSchema).optional(),
+    // 이 instance를 편집·조정하기 위해 사람이 on-demand로 연 lophn agent session.
+    editor_session: idSchema("ses").nullable().optional(),
     started_by: startedBySchema,
     code_snapshot: z.string().min(1).nullable().optional(),
     open_mode: sessionOpenModeSchema.nullable().optional(),
@@ -146,7 +155,7 @@ export const handResultSchema = z.discriminatedUnion("outcome", [
 export type HandResult = z.infer<typeof handResultSchema>;
 
 // step 더하기와 고치기 입력의 step. 없는 칸은 service가 채운다.
-const newStepSchema = z.strictObject({
+export const newStepSchema = z.strictObject({
   name: stepNameSchema,
   by: participantKeySchema,
   with: participantKeySchema.optional(),
@@ -154,8 +163,12 @@ const newStepSchema = z.strictObject({
   in: z.string().optional(),
   out: z.string().optional(),
   next: z.array(stepNextSchema).optional(),
+  parallel: z.boolean().optional(),
+  needs: z.array(stepNameSchema).optional(),
+  join: stepJoinModeSchema.optional(),
   open: sessionOpenModeSchema.optional(),
 });
+export type NewStep = z.infer<typeof newStepSchema>;
 
 const stepPatchSchema = z.strictObject({
   by: participantKeySchema.optional(),
@@ -164,6 +177,9 @@ const stepPatchSchema = z.strictObject({
   in: z.string().optional(),
   out: z.string().optional(),
   next: z.array(stepNextSchema).optional(),
+  parallel: z.boolean().nullable().optional(),
+  needs: z.array(stepNameSchema).nullable().optional(),
+  join: stepJoinModeSchema.nullable().optional(),
   open: sessionOpenModeSchema.nullable().optional(),
 });
 
@@ -173,6 +189,17 @@ const addStep = z.strictObject({
   op: z.literal("add_step"),
   step: newStepSchema,
   after: stepNameSchema.optional(),
+});
+// 한 번의 호출로 단일 또는 병렬 동적 step 여러 개를 끼워 넣고(then·join 연결 포함) 원하면 바로 넘긴다.
+const insertSteps = z.strictObject({
+  op: z.literal("insert_steps"),
+  steps: z.array(newStepSchema).min(1),
+  after: stepNameSchema.optional(),
+  then_step: stepNextSchema.optional(),
+  join: stepJoinModeSchema.optional(),
+  hand_now: z.boolean().optional(),
+  text: workflowTextSchema.optional(),
+  session: sessionChoiceSchema.optional(),
 });
 const updateStep = z.strictObject({
   op: z.literal("update_step"),
@@ -196,12 +223,14 @@ const endEdit = z.strictObject({ op: z.literal("end") });
 const handNow = z.strictObject({
   op: z.literal("hand_now"),
   step: stepNameSchema,
+  steps: z.array(stepNameSchema).min(1).optional(),
   text: workflowTextSchema.optional(),
   session: sessionChoiceSchema.optional(),
 });
 
 export const workflowEditSchema = z.discriminatedUnion("op", [
   addStep,
+  insertSteps,
   updateStep,
   removeStep,
   setParticipant,
@@ -215,6 +244,7 @@ export type WorkflowEdit = z.infer<typeof workflowEditSchema>;
 const instanceRef = { instance: idSchema("wfi") };
 export const workflowEditInputSchema = z.discriminatedUnion("op", [
   addStep.extend(instanceRef),
+  insertSteps.extend(instanceRef),
   updateStep.extend(instanceRef),
   removeStep.extend(instanceRef),
   setParticipant.extend(instanceRef),
@@ -263,6 +293,8 @@ export const reportLineSchema = line("report", lineBySchema, {
   step: stepNameSchema,
   text: z.string(),
   next: stepNextSchema.nullable(),
+  // 병렬 fan-out으로 여러 다음 step을 동시에 넘길 때 적는다.
+  next_steps: z.array(stepNameSchema).min(1).optional(),
   session: sessionChoiceSchema,
   // 옛 줄에는 없다.
   refs: workflowRefsSchema.optional(),
@@ -279,6 +311,7 @@ export const workflowLineSchema = z.discriminatedUnion("kind", [
   line("edit", lineBySchema, {
     op: z.enum([
       "add_step",
+      "insert_steps",
       "update_step",
       "remove_step",
       "set_participant",
@@ -425,6 +458,9 @@ export const workflowEntrySchema = z
           by: participantKeySchema,
           with: z.string().nullable(),
           next: z.array(stepNextSchema),
+          parallel: z.boolean().optional(),
+          needs: z.array(stepNameSchema).optional(),
+          join: stepJoinModeSchema.optional(),
           open: sessionOpenModeSchema.optional(),
         }),
       )

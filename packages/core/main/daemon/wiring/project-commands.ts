@@ -46,6 +46,7 @@ import { sessionPermissionModeSchemaSteps } from "../../../lophn-agent/session/m
 import { openConnection } from "../../../storage/ledger/mod.ts";
 import {
   WORKFLOW_ONEOFF_OVERRIDE_SCHEMA_STEP,
+  WORKFLOW_PARALLEL_EDITOR_SCHEMA_STEP,
   WORKFLOW_PARTICIPANT_MODES_SCHEMA_STEP,
 } from "../../../workflows/mod.ts";
 import { WORKFLOW_OPEN_MODE_SCHEMA_STEP } from "../../../workflows/open-mode-schema.ts";
@@ -102,6 +103,7 @@ export const projectCommandsWiring: WiringFactory = () => {
       WORKFLOW_PARTICIPANT_MODES_SCHEMA_STEP,
       JOBS_APPROVAL_MODES_SCHEMA_STEP,
       WORKFLOW_ONEOFF_OVERRIDE_SCHEMA_STEP,
+      WORKFLOW_PARALLEL_EDITOR_SCHEMA_STEP,
     ],
     operations: () => [
       {

@@ -1947,3 +1947,30 @@ flows:
     crosses_process: false
     risk: [data-loss]
     docs: [architecture/workflow.md]
+
+  - id: workflow-open-editor
+    title: 시작 전 또는 실행 중 workflow를 대화로 수정할 lophn 세션을 on-demand로 열거나 기존 세션을 돌려준다
+    actor: person
+    entries: [route:workflows/open-editor]
+    boundary: [workflows, lophn-agent, core-api]
+    code: [packages/core/main/daemon/wiring/workflows.ts, packages/core/workflows/service.ts, packages/core/workflows/commands.ts, packages/core/lophn-agent/run-loop/prepare.ts]
+    steps:
+      - instance가 있으면 기존 editor_session이 열려 있는지 확인해 재사용하고, 없으면 project의 lophn agent 세션을 열어 workflow_instances.editor_session에 연결한다
+      - instance가 없으면 시작 전 커스터마이즈용 lophn 세션을 열어 돌려주며, 그 세션이 workflows/run으로 시작한 instance에 editor_session이 자동 연결된다
+    outcomes:
+      - id: opened
+        observe: [ledger:sessions, ledger:workflow_instances, response]
+      - id: not-found
+        code: not_found
+        when: 지정한 instance가 없다
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: user 자격이 아니거나 다른 project의 instance다
+        observe: [response]
+      - id: conflict
+        code: conflict
+        when: instance 상태가 동시에 바뀌어 editor_session 연결이 충돌했다
+        observe: [response]
+    crosses_process: false
+    docs: [architecture/workflow.md]

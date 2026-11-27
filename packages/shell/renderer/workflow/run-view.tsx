@@ -22,7 +22,6 @@ import { lineBy, textOf } from "./lines.ts";
 import {
   assigneeText,
   buildSessionTree,
-  cellsOfRun,
   type FaceOf,
   headLines,
   instanceTitle,
@@ -31,6 +30,9 @@ import {
   refsOf,
   refsOfStep,
   runInputsOf,
+  runStagesOf,
+  type RunStepEntry,
+  runStepEntries,
   STEP_KEY,
   type StepCell,
   type StepRow,
@@ -38,8 +40,6 @@ import {
   sessionSummaryText,
   sessionsByStep,
   shownOfRun,
-  stagesOf,
-  stepRows,
   summarizeSessions,
   whenOf,
 } from "./model.ts";
@@ -76,6 +76,7 @@ interface Shared {
   readonly openerOf: (session: string) => (() => void) | null;
   readonly workspaceNameOf: (workspace: Workspace) => string | undefined;
   readonly onOpenFile: ((path: string) => void) | null;
+  readonly onRetryStep: ((step: string) => void) | null;
 }
 
 /** step의 상태 글. 넘기지 못했거나 stall된 step은 도는 중이 아니다. */
@@ -187,6 +188,7 @@ function SessionBlock({
 
 /** step 하나. 머리 줄(맡은 쪽, 이름, 상태)은 늘 보이고, 그 아래는 지금 step만 처음부터 펼쳐져 있다. */
 function StepCard({
+  entry,
   row,
   cell,
   sessions,
@@ -194,6 +196,7 @@ function StepCard({
   nowSession,
   shared,
 }: {
+  entry: RunStepEntry;
   row: StepRow;
   cell: StepCell;
   sessions: readonly WorkflowSessionNodeView[];
@@ -204,13 +207,21 @@ function StepCard({
   shared: Shared;
 }) {
   const { detail, faceOf } = shared;
-  // 사람이 고르기 전에는 지금 일이 있는 step(한 장이 선 step, 막힌 step)만 펼쳐져 있다.
+  // 사람이 고르기 전에는 지금 일이 있는 step(한 장이 선 step, 병렬 실행 중 step, 막힌 step)만 펼쳐져 있다.
   const [opened, setOpened] = useState<boolean | null>(null);
-  const open = opened ?? (now !== null || row.notice !== null);
+  const open =
+    opened ??
+    (now !== null ||
+      row.notice !== null ||
+      row.current ||
+      entry.checkpointError !== undefined);
   const refs = refsOfStep(detail.lines, row.step.name);
   const report = row.report;
   const hasMore =
     report !== undefined ||
+    entry.checkpointSummary !== undefined ||
+    entry.checkpointError !== undefined ||
+    entry.earlierReports.length > 0 ||
     sessions.length > 0 ||
     refs.length > 0 ||
     row.lines.length > 0 ||
@@ -230,6 +241,20 @@ function StepCard({
         {cell.who.kind === "program" ? null : (
           <span className={styles.stepWho}>{assigneeText(cell, faceOf)}</span>
         )}
+        {entry.roundCount > 1 ? (
+          <span className={styles.stepBadge} data-round={entry.roundCount}>
+            {t("workflow.label.round", { count: entry.roundCount })}
+          </span>
+        ) : null}
+        {row.step.join !== undefined ? (
+          <span className={styles.stepBadge} data-join={row.step.join}>
+            {t(
+              row.step.join === "any"
+                ? "workflow.label.join-any"
+                : "workflow.label.join-all",
+            )}
+          </span>
+        ) : null}
       </span>
       <span className={styles.stepStatus}>
         {statusText(row, cell)}
@@ -244,7 +269,11 @@ function StepCard({
       className={styles.step}
       data-step={row.step.name}
       data-shown={cell.heldThere === true ? "human" : row.shown}
-      data-blocked={row.notice === null ? undefined : ""}
+      data-blocked={
+        row.notice !== null || entry.checkpointError !== undefined
+          ? ""
+          : undefined
+      }
       data-open={open ? "" : undefined}
     >
       {hasMore ? (
@@ -266,18 +295,40 @@ function StepCard({
         <div className={styles.stepHead}>{head}</div>
       )}
       {!hasMore ? null : !open ? (
-        report === undefined ? null : (
+        report !== undefined ? (
           <p className={styles.reportPreview}>
             {textOf(detail, report, faceOf)}
           </p>
-        )
+        ) : entry.checkpointSummary !== undefined ? (
+          <p className={styles.reportPreview}>{entry.checkpointSummary}</p>
+        ) : null
       ) : (
         <div className={styles.stepBody}>
           {now}
           {row.notice === null || now !== null ? null : (
-            <p className={styles.notice} data-notice="">
+            <div className={styles.noticeRow} data-notice="">
+              <p className={styles.notice}>
+                <Icon icon={editorIcons.problem} pixels={iconPixels("base")} />
+                <span>{textOf(detail, row.notice, faceOf)}</span>
+              </p>
+              {shared.onRetryStep !== null &&
+              detail.instance.state === "running" ? (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon={actionIcons.retry}
+                  onClick={() => shared.onRetryStep?.(row.step.name)}
+                  data-step-retry={row.step.name}
+                >
+                  {t("workflow.button.retry")}
+                </Button>
+              ) : null}
+            </div>
+          )}
+          {entry.checkpointError === undefined || now !== null ? null : (
+            <p className={styles.notice} data-checkpoint-error="">
               <Icon icon={editorIcons.problem} pixels={iconPixels("base")} />
-              <span>{textOf(detail, row.notice, faceOf)}</span>
+              <span>{entry.checkpointError}</span>
             </p>
           )}
           {openReceiver === null ? null : (
@@ -303,7 +354,7 @@ function StepCard({
             nodes={sessions}
             shared={shared}
           />
-          {report === undefined ? null : (
+          {report !== undefined ? (
             <div className={styles.block} data-report="">
               <div className={styles.blockHead}>
                 <span className={styles.blockTitle}>
@@ -318,6 +369,36 @@ function StepCard({
               </div>
               <p className={styles.report}>{textOf(detail, report, faceOf)}</p>
             </div>
+          ) : entry.checkpointSummary !== undefined ? (
+            <div className={styles.block} data-report="">
+              <div className={styles.blockHead}>
+                <span className={styles.blockTitle}>
+                  {t("workflow.label.last-report")}
+                </span>
+              </div>
+              <p className={styles.report}>{entry.checkpointSummary}</p>
+            </div>
+          ) : null}
+          {entry.earlierReports.length === 0 ? null : (
+            <Fold
+              title={t("workflow.label.previous-rounds")}
+              summary={String(entry.earlierReports.length)}
+              data-earlier-rounds=""
+            >
+              <ol className={styles.lines}>
+                {entry.earlierReports.map((prev, idx) => (
+                  <li key={prev.seq} className={styles.line}>
+                    <span className={styles.lineWho}>
+                      {t("workflow.label.round", { count: idx + 1 })}
+                    </span>
+                    <span className={styles.lineText}>
+                      {textOf(detail, prev, faceOf)}
+                    </span>
+                    <span className={styles.lineWhen}>{whenOf(prev.at)}</span>
+                  </li>
+                ))}
+              </ol>
+            </Fold>
           )}
           {refs.length === 0 ? null : (
             <div className={styles.block} data-refs="">
@@ -375,6 +456,7 @@ export function RunView({
   onRetry,
   onResume,
   onRename,
+  onEdit,
   onSelectInstance,
   onOpenArtifact,
   onOpenSession,
@@ -397,6 +479,8 @@ export function RunView({
   onResume?: ((useLatestCode: boolean) => void) | null;
   /** instance 제목을 바꾼다. 없으면 이름 바꾸기 단추를 그리지 않는다. */
   onRename?: ((title: string) => void) | null;
+  /** 이 instance에 1:1 연결된 lophn 편집 세션을 split으로 연다. 없으면 단추를 그리지 않는다. */
+  onEdit?: (() => void) | null;
   /** 자식 sub-workflow나 부모 workflow instance로 이동한다. */
   onSelectInstance?: ((instance: string) => void) | null;
   onOpenArtifact: () => void;
@@ -423,6 +507,7 @@ export function RunView({
         ? undefined
         : workspaceNameOf?.(workspace.id),
     onOpenFile: onOpenFile ?? null,
+    onRetryStep: onRetry != null ? (step: string) => onRetry(step) : null,
   };
   const title = instanceTitle(instance);
   const [renaming, setRenaming] = useState(false);
@@ -434,17 +519,25 @@ export function RunView({
     row.report !== undefined &&
     row.notice === null &&
     nowStep !== null &&
-    nowStep !== row.step.name
+    nowStep !== row.step.name &&
+    !(instance.active_steps !== undefined && instance.active_steps.length > 1)
       ? { ...row, shown: "reported", current: false }
       : row;
-  const rows = stepRows(detail).map(settled);
-  const cells = cellsOfRun(detail).map((cell, index) =>
-    rows[index].shown === cell.shown
-      ? cell
-      : { ...cell, shown: rows[index].shown },
+  const entries = runStepEntries(detail).map((entry) => {
+    const nextRow = settled(entry.row);
+    const nextCell =
+      nextRow.shown === entry.cell.shown
+        ? entry.cell
+        : { ...entry.cell, shown: nextRow.shown };
+    return { ...entry, row: nextRow, cell: nextCell };
+  });
+  const rows = entries.map((entry) => entry.row);
+  const cells = entries.map((entry) => entry.cell);
+  const stages = runStagesOf(detail, entries);
+  const { byStep, rest } = sessionsByStep(
+    detail,
+    entries.map((entry) => entry.row.step.name),
   );
-  const stages = stagesOf(instance.steps);
-  const { byStep, rest } = sessionsByStep(detail);
   const stepRefs = new Set(
     rows.flatMap((row) => refsOfStep(detail.lines, row.step.name)),
   );
@@ -609,6 +702,16 @@ export function RunView({
           </div>
         </div>
         <span className={styles.actions}>
+          {onEdit != null && instance.state !== "stopped" ? (
+            <Button
+              variant="secondary"
+              icon={actionIcons.edit}
+              onClick={onEdit}
+              data-edit-with-lophn=""
+            >
+              {t("workflow.button.edit-run")}
+            </Button>
+          ) : null}
           {hasArtifact ? (
             <Button trailingIcon={actionIcons.open} onClick={onOpenArtifact}>
               {t("workflow.button.open-instance-artifact")}
@@ -674,13 +777,16 @@ export function RunView({
       )}
       {stages.length === 0 ? null : (
         <Rail label={t("workflow.label.steps")}>
-          {stages.map((members) => {
-            // 서로 대신하는 step 가운데 이 run이 지나간 것만 step으로 그린다. 아직 어느 쪽도 지나가지 않았으면 모두 그린다.
-            const used = members.filter(touched);
-            const shownMembers = used.length === 0 ? members : used;
-            const unused = members.filter(
-              (index) => !shownMembers.includes(index),
-            );
+          {stages.map((stage) => {
+            const { members, mode, join } = stage;
+            // 병렬 단계는 모든 step을 함께 보인다. 양자택일(choice)은 지나간 쪽만 step으로 그린다.
+            const used = mode === "choice" ? members.filter(touched) : [];
+            const shownMembers =
+              mode === "choice" && used.length > 0 ? used : members;
+            const unused =
+              mode === "choice"
+                ? members.filter((index) => !shownMembers.includes(index))
+                : [];
             const tone =
               TONE_ORDER.find((one) =>
                 shownMembers.some(
@@ -698,37 +804,81 @@ export function RunView({
                 data-stage={members
                   .map((index) => rows[index].step.name)
                   .join(" ")}
+                data-stage-mode={mode}
               >
-                {shownMembers.map((index, position) => (
-                  <div key={rows[index].step.name} className={styles.member}>
-                    {position === 0 || used.length > 0 ? null : (
-                      <span className={styles.or}>
-                        {t("workflow.label.choice-or")}
+                {mode === "parallel" ? (
+                  <div className={styles.parallelStage} data-parallel-stage="">
+                    <div className={styles.parallelHead}>
+                      <span className={styles.parallelLabel}>
+                        {t("workflow.label.parallel-stage")}
                       </span>
-                    )}
-                    <StepCard
-                      row={rows[index]}
-                      cell={cells[index]}
-                      sessions={byStep.get(rows[index].step.name) ?? []}
-                      now={index === nowRow ? nowCard : null}
-                      nowSession={index === nowRow ? nowSession : null}
-                      shared={shared}
-                    />
+                      {join !== undefined ? (
+                        <span className={styles.stepBadge} data-join={join}>
+                          {t(
+                            join === "any"
+                              ? "workflow.label.join-any"
+                              : "workflow.label.join-all",
+                          )}
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className={styles.parallelGrid}>
+                      {shownMembers.map((index) => (
+                        <div
+                          key={rows[index].step.name}
+                          className={styles.parallelCard}
+                        >
+                          <StepCard
+                            entry={entries[index]}
+                            row={rows[index]}
+                            cell={cells[index]}
+                            sessions={byStep.get(rows[index].step.name) ?? []}
+                            now={index === nowRow ? nowCard : null}
+                            nowSession={index === nowRow ? nowSession : null}
+                            shared={shared}
+                          />
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                ))}
-                {unused.length === 0 ? null : (
-                  <p className={styles.unused} data-unused="">
-                    {t("workflow.label.choice-unused", {
-                      steps: unused
-                        .map((index) =>
-                          t("workflow.label.step-of-who", {
-                            step: rows[index].step.name,
-                            who: assigneeText(cells[index], faceOf),
-                          }),
-                        )
-                        .join(", "),
-                    })}
-                  </p>
+                ) : (
+                  <>
+                    {shownMembers.map((index, position) => (
+                      <div
+                        key={rows[index].step.name}
+                        className={styles.member}
+                      >
+                        {position === 0 || used.length > 0 ? null : (
+                          <span className={styles.or}>
+                            {t("workflow.label.choice-or")}
+                          </span>
+                        )}
+                        <StepCard
+                          entry={entries[index]}
+                          row={rows[index]}
+                          cell={cells[index]}
+                          sessions={byStep.get(rows[index].step.name) ?? []}
+                          now={index === nowRow ? nowCard : null}
+                          nowSession={index === nowRow ? nowSession : null}
+                          shared={shared}
+                        />
+                      </div>
+                    ))}
+                    {unused.length === 0 ? null : (
+                      <p className={styles.unused} data-unused="">
+                        {t("workflow.label.choice-unused", {
+                          steps: unused
+                            .map((index) =>
+                              t("workflow.label.step-of-who", {
+                                step: rows[index].step.name,
+                                who: assigneeText(cells[index], faceOf),
+                              }),
+                            )
+                            .join(", "),
+                        })}
+                      </p>
+                    )}
+                  </>
                 )}
               </RailStage>
             );

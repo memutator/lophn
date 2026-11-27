@@ -113,6 +113,9 @@ export interface WorkflowEntryView {
         readonly by: string;
         readonly with: string | null;
         readonly next: readonly string[];
+        readonly parallel?: boolean;
+        readonly needs?: readonly string[];
+        readonly join?: "all" | "any";
         readonly open?: "tab" | "background";
       }[]
     | null;
@@ -253,6 +256,7 @@ export type WorkflowLineView = {
       readonly step: string;
       readonly text: string;
       readonly next: string | null;
+      readonly next_steps?: readonly string[];
       readonly session: "new" | "same";
       readonly refs?: readonly string[];
       readonly data?: unknown;
@@ -347,11 +351,19 @@ export interface WorkflowInstanceView {
     readonly in: string;
     readonly out: string;
     readonly next: readonly string[];
+    readonly parallel?: boolean;
+    readonly needs?: readonly string[];
+    readonly join?: "all" | "any";
   }[];
   readonly current: {
     readonly step: string;
     readonly human_turn: boolean;
   } | null;
+  readonly active_steps?: readonly {
+    readonly step: string;
+    readonly human_turn: boolean;
+  }[];
+  readonly editor_session?: string | null;
   readonly started_by: WorkflowStartedBy;
   readonly code_snapshot?: string | null;
   readonly one_off?: boolean;
@@ -505,6 +517,18 @@ export interface WorkspaceSource {
     instance: string,
     title: string,
   ): Promise<ReadResult<{ title: string }>>;
+  /** 시작 전(instance 생략) 또는 실행 중(instance 지정) workflow 편집용 lophn 세션을 열거나 기존 세션을 돌려준다. */
+  openWorkflowEditor?(input: {
+    readonly project: string;
+    readonly workflow: string;
+    readonly instance?: string;
+  }): Promise<
+    ReadResult<{
+      readonly session: string;
+      readonly agent: string;
+      readonly created: boolean;
+    }>
+  >;
   stopWorkflow(instance: string): Promise<ReadResult<null>>;
   /** 막힌 step을 같은 session에서 이어서 다시 시도한다. step을 빼면 current step이다. */
   retryWorkflowStep(instance: string, step?: string): Promise<ReadResult<null>>;

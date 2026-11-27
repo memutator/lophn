@@ -45,6 +45,13 @@ export {
 export { workflowLinesSchemaSteps } from "./lines-schema.ts";
 export { WORKFLOW_ONEOFF_OVERRIDE_SCHEMA_STEP } from "./oneoff-override-schema.ts";
 export { WORKFLOW_OPEN_MODE_SCHEMA_STEP } from "./open-mode-schema.ts";
+export {
+  activeStepsOf,
+  evaluateParallelTransition,
+  insertStepsInto,
+  reportTargetsOf,
+} from "./parallel.ts";
+export { WORKFLOW_PARALLEL_EDITOR_SCHEMA_STEP } from "./parallel-editor-schema.ts";
 export { WORKFLOW_PARTICIPANT_MODES_SCHEMA_STEP } from "./participant-modes-schema.ts";
 export type {
   DefinitionFile,

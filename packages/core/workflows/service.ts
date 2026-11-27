@@ -87,6 +87,12 @@ import {
   serializeInstanceToYaml,
   summarizeFileChanges,
 } from "./oneoff-override.ts";
+import {
+  activeStepsOf,
+  evaluateParallelTransition,
+  insertStepsInto,
+  reportTargetsOf,
+} from "./parallel.ts";
 import { planHandoff, retryContinueBody } from "./plan.ts";
 import type {
   FlowSdkInfo,
@@ -115,6 +121,7 @@ import {
 } from "./workflow-call.ts";
 import {
   isFlowInstance,
+  recordYamlCancelCheckpoint,
   recordYamlHandoffCheckpoint,
   recordYamlReportCheckpoint,
   recordYamlRetryCheckpoint,
@@ -165,23 +172,23 @@ function latestStatusKindFromLines(
 // stall/restart 기록도 없을 때 그 step 이름을 돌려준다. 사람 step은 대화가 turn 끝으로 멈추지 않으므로 제외한다.
 function stalledStepFor(state: State, session: Id<"ses">): string | null {
   const { instance, lines } = state;
-  if (
-    instance.state !== "running" ||
-    instance.current === null ||
-    instance.current.human_turn
-  ) {
-    return null;
-  }
-  const handedAt = lines.findLastIndex((l) => l.kind === "handed");
+  if (instance.state !== "running") return null;
+  const activeNonHuman = new Set(
+    activeStepsOf(instance)
+      .filter((a) => !a.human_turn)
+      .map((a) => a.step),
+  );
+  if (activeNonHuman.size === 0) return null;
+  const handedAt = lines.findLastIndex(
+    (l) =>
+      l.kind === "handed" &&
+      l.receiver === session &&
+      !l.human_turn &&
+      activeNonHuman.has(l.step),
+  );
+  if (handedAt < 0) return null;
   const handed = lines[handedAt];
-  if (
-    handed?.kind !== "handed" ||
-    handed.receiver !== session ||
-    handed.human_turn ||
-    handed.step !== instance.current.step
-  ) {
-    return null;
-  }
+  if (handed?.kind !== "handed") return null;
   // 같은 넘김(handed) 뒤에 사람이 retry로 이어 갔으면 그 retried를 새 시도로 본다.
   let attemptAt = handedAt;
   for (let i = lines.length - 1; i > handedAt; i--) {
@@ -194,8 +201,10 @@ function stalledStepFor(state: State, session: Id<"ses">): string | null {
   const afterAttempt = lines.slice(attemptAt + 1);
   const resolved = afterAttempt.some(
     (l) =>
-      (l.kind === "report" && l.step === handed.step && l.next !== null) ||
-      l.kind === "not_handed" ||
+      (l.kind === "report" &&
+        l.step === handed.step &&
+        reportTargetsOf(l).length > 0) ||
+      (l.kind === "not_handed" && l.step === handed.step) ||
       (l.kind === "step_stalled" && l.step === handed.step) ||
       (l.kind === "lophn_restarted" && l.step === handed.step),
   );
@@ -207,6 +216,11 @@ function stalledStepFor(state: State, session: Id<"ses">): string | null {
 function stalledToResumeFor(state: State, session: Id<"ses">): string | null {
   const { instance, lines } = state;
   if (instance.state !== "running") return null;
+  const activeHuman = new Set(
+    activeStepsOf(instance)
+      .filter((a) => a.human_turn)
+      .map((a) => a.step),
+  );
   const settledSteps = new Set<string>();
   for (let i = lines.length - 1; i >= 0; i--) {
     const line = lines[i]!;
@@ -215,7 +229,7 @@ function stalledToResumeFor(state: State, session: Id<"ses">): string | null {
     if (line.kind === "report") {
       if (
         (line.by.kind === "agent" && line.by.session === session) ||
-        line.next !== null
+        reportTargetsOf(line).length > 0
       ) {
         settledSteps.add(line.step);
       }
@@ -227,9 +241,7 @@ function stalledToResumeFor(state: State, session: Id<"ses">): string | null {
     }
     if (line.kind === "step_stalled" && line.session === session) {
       if (settledSteps.has(line.step)) return null;
-      if (instance.current?.step === line.step && instance.current.human_turn) {
-        return null;
-      }
+      if (activeHuman.has(line.step)) return null;
       return line.step;
     }
     if (
@@ -238,9 +250,7 @@ function stalledToResumeFor(state: State, session: Id<"ses">): string | null {
       line.step !== null
     ) {
       if (settledSteps.has(line.step)) return null;
-      if (instance.current?.step === line.step && instance.current.human_turn) {
-        return null;
-      }
+      if (activeHuman.has(line.step)) return null;
       return line.step;
     }
   }
@@ -264,6 +274,7 @@ function retryTargetOf(
   if (instance.state !== "running") {
     return fail("conflict", `workflow instance is ${instance.state}`);
   }
+  const active = activeStepsOf(instance);
   let step: string;
   if (explicitStep !== undefined) {
     const known =
@@ -281,13 +292,23 @@ function retryTargetOf(
         l.kind === "handed" ||
         l.kind === "not_handed" ||
         l.kind === "retried" ||
-        (l.kind === "report" && l.next !== null),
+        (l.kind === "report" && reportTargetsOf(l).length > 0),
     );
     const lastProgress = lines[lastProgressAt];
     if (lastProgress?.kind === "not_handed") {
       step = lastProgress.step;
-    } else if (instance.current !== null) {
-      step = instance.current.step;
+    } else if (active.length > 0) {
+      // 병렬 활성 step 중 막힌(step_stalled / lophn_restarted) step이 있으면 그것을 우선 고른다.
+      const blockedActive = active.find((a) => {
+        const lastForStep = lines.findLast(
+          (l) => "step" in l && l.step === a.step,
+        );
+        return (
+          lastForStep?.kind === "step_stalled" ||
+          lastForStep?.kind === "lophn_restarted"
+        );
+      });
+      step = blockedActive?.step ?? active[0]!.step;
     } else {
       return fail("conflict", "workflow instance has no active step to retry");
     }
@@ -301,22 +322,25 @@ function retryTargetOf(
     const afterNotHanded = lines.slice(lastNotHandedAt + 1);
     const movedOn = afterNotHanded.some(
       (l) =>
-        l.kind === "handed" ||
-        (l.kind === "report" && l.step === step && l.next !== null),
+        (l.kind === "handed" && l.step === step) ||
+        (l.kind === "report" &&
+          l.step === step &&
+          reportTargetsOf(l).length > 0),
     );
     if (!movedOn) {
       return ok({ mode: "re_handoff", step });
     }
   }
 
-  // 이미 local session으로 넘긴 현재 step: 기록된 같은 session에 이어서 하라는 입력을 넣는다.
-  const handedAt = lines.findLastIndex((l) => l.kind === "handed");
+  // 이미 local session으로 넘긴 활성 step: 기록된 같은 session에 이어서 하라는 입력을 넣는다.
+  const handedAt = lines.findLastIndex(
+    (l) => l.kind === "handed" && l.step === step,
+  );
   const handed = lines[handedAt];
   if (
     handed?.kind !== "handed" ||
-    handed.step !== step ||
     handed.receiver === null ||
-    instance.current?.step !== step
+    !active.some((a) => a.step === step)
   ) {
     return fail("conflict", "workflow step is not blocked");
   }
@@ -324,8 +348,10 @@ function retryTargetOf(
   if (
     afterHanded.some(
       (l) =>
-        (l.kind === "report" && l.step === step && l.next !== null) ||
-        l.kind === "not_handed",
+        (l.kind === "report" &&
+          l.step === step &&
+          reportTargetsOf(l).length > 0) ||
+        (l.kind === "not_handed" && l.step === step),
     )
   ) {
     return fail("conflict", "workflow step already moved on");
@@ -2600,6 +2626,7 @@ export function createWorkflowService(
               : {}),
             one_off: true,
             flow_agent: flowAgent!,
+            ...(by.kind === "agent" ? { editor_session: by.session } : {}),
             participants,
             steps: flowSteps,
             started_by: by,
@@ -2668,6 +2695,7 @@ export function createWorkflowService(
             ? { participant_modes: participantModes }
             : {}),
           one_off: true,
+          ...(by.kind === "agent" ? { editor_session: by.session } : {}),
           participants,
           steps: effectiveSteps,
           started_by: by,
@@ -2977,6 +3005,7 @@ export function createWorkflowService(
             : {}),
           ...(isOverridden ? { overridden: true } : {}),
           ...(flowAgent !== undefined ? { flow_agent: flowAgent } : {}),
+          ...(by.kind === "agent" ? { editor_session: by.session } : {}),
           participants,
           steps: flowSteps,
           started_by: by,
@@ -3054,6 +3083,7 @@ export function createWorkflowService(
           ? { participant_modes: participantModes }
           : {}),
         ...(isOverridden ? { overridden: true } : {}),
+        ...(by.kind === "agent" ? { editor_session: by.session } : {}),
         participants,
         steps,
         started_by: by,
@@ -3393,6 +3423,18 @@ export function createWorkflowService(
     },
 
     async report(input: z.output<typeof workflowReport.input>, by: LineBy) {
+      if (input.next !== undefined && input.next_steps !== undefined) {
+        return fail("invalid_input", "cannot specify both next and next_steps");
+      }
+      if (
+        input.insert_steps !== undefined &&
+        (input.next !== undefined || input.next_steps !== undefined)
+      ) {
+        return fail(
+          "invalid_input",
+          "cannot combine insert_steps with next or next_steps; use then_step to link after inserted steps",
+        );
+      }
       // 다른 컴퓨터에서 받은 step이면 이 컴퓨터에는 instance가 없다. 그 step을 받은 session의 report만 보낸 컴퓨터로 간다.
       if (by.kind === "agent") {
         const call = await remote.receivedStep(
@@ -3414,47 +3456,176 @@ export function createWorkflowService(
       }
       let wasYaml = false;
       let wasHumanTurn = false;
-      let nextRemoteCall: string | null = null;
+      let completedTargets = false;
+      let cancelledSteps: string[] = [];
+      let cancelledSessions: Id<"ses">[] = [];
       const done = await apply(input.instance, (state) => {
         const { instance, lines } = state;
         wasYaml = !isFlowInstance(instance, lines);
+        const activeList = activeStepsOf(instance);
         wasHumanTurn =
-          instance.current?.step === input.step && instance.current.human_turn;
+          activeList.some((a) => a.step === input.step && a.human_turn) ||
+          (instance.current?.step === input.step &&
+            instance.current.human_turn);
+        const session = input.session ?? "new";
+
+        if (input.insert_steps !== undefined) {
+          if (!wasYaml) {
+            return fail(
+              "conflict",
+              "insert_steps is only supported on YAML workflow instances",
+            );
+          }
+          if (instance.state === "stopped") {
+            return fail("conflict", "workflow instance is stopped");
+          }
+          const preview = insertStepsInto(instance.steps, {
+            steps: input.insert_steps,
+            sourceStep: input.step,
+            ...(input.then_step !== undefined
+              ? { thenStep: input.then_step }
+              : {}),
+            ...(input.join !== undefined ? { join: input.join } : {}),
+          });
+          if (!preview.ok) return preview;
+          const insertedNames = preview.value.inserted;
+          const nextSingle =
+            insertedNames.length === 1 ? insertedNames[0]! : null;
+          const nextMulti =
+            insertedNames.length > 1 ? insertedNames : undefined;
+          completedTargets = true;
+          cancelledSteps = [];
+          cancelledSessions = [];
+          const nextInstance = { ...instance, steps: preview.value.steps };
+          const handoffPlans = insertedNames.map((target) =>
+            planHandoff({
+              instance: nextInstance,
+              step: target,
+              cause: "report",
+              session,
+              received: input.text,
+              sameSession: sameSessionIn(state),
+              remote,
+            }),
+          );
+          return ok({
+            instance: instance.id,
+            change: {
+              kind: "report",
+              step: input.step,
+              text: input.text,
+              next: nextSingle,
+              ...(nextMulti !== undefined ? { next_steps: nextMulti } : {}),
+              insert_steps: {
+                steps: input.insert_steps,
+                after: input.step,
+                ...(input.then_step !== undefined
+                  ? { then_step: input.then_step }
+                  : {}),
+                ...(input.join !== undefined ? { join: input.join } : {}),
+              },
+              session,
+              ...(input.refs !== undefined ? { refs: input.refs } : {}),
+              ...(input.data !== undefined ? { data: input.data } : {}),
+            },
+            by,
+            handoff: handoffPlans[0] ?? null,
+            ...(handoffPlans.length > 0 ? { handoffs: handoffPlans } : {}),
+          });
+        }
+
         const next = input.next ?? null;
+        const nextSteps =
+          input.next_steps !== undefined && input.next_steps.length === 1
+            ? undefined
+            : input.next_steps;
+        const effectiveNext =
+          input.next_steps !== undefined && input.next_steps.length === 1
+            ? input.next_steps[0]!
+            : next;
+        const targets =
+          nextSteps !== undefined
+            ? nextSteps
+            : effectiveNext !== null
+              ? [effectiveNext]
+              : [];
+        completedTargets = targets.length > 0;
+        cancelledSteps = [];
+        cancelledSessions = [];
+
         // stopped·end·next 없음은 넘기지 않는다. stopped의 report는 줄만 남는다.
         // flow(program)의 report도 넘기지 않는다. next는 current를 옮기고 닫는 데만 쓴다.
-        const hands =
+        let handoffPlans: HandoffPlan[] = [];
+        if (
           by.kind !== "program" &&
           instance.state !== "stopped" &&
-          next !== null &&
-          next !== "end";
-        const session = input.session ?? "new";
+          targets.length > 0
+        ) {
+          const transition = evaluateParallelTransition({
+            instance,
+            lines,
+            completedStep: input.step,
+            completedText: input.text,
+            targets,
+          });
+          cancelledSteps = transition.cancelSteps;
+          for (const cancelStep of cancelledSteps) {
+            const handedLine = lines.findLast(
+              (l) =>
+                l.kind === "handed" &&
+                l.step === cancelStep &&
+                l.receiver !== null,
+            );
+            if (handedLine?.kind === "handed" && handedLine.receiver !== null) {
+              cancelledSessions.push(handedLine.receiver as Id<"ses">);
+            }
+          }
+          handoffPlans = transition.handoffs.map((h) =>
+            planHandoff({
+              instance,
+              step: h.step,
+              cause: "report",
+              session,
+              received: h.received,
+              sameSession: sameSessionIn(state),
+              remote,
+            }),
+          );
+        }
         return ok({
           instance: instance.id,
           change: {
             kind: "report",
             step: input.step,
             text: input.text,
-            next,
+            next: effectiveNext,
+            ...(nextSteps !== undefined ? { next_steps: nextSteps } : {}),
             session,
             ...(input.refs !== undefined ? { refs: input.refs } : {}),
             ...(input.data !== undefined ? { data: input.data } : {}),
           },
           by,
-          handoff: hands
-            ? planHandoff({
-                instance,
-                step: next,
-                cause: "report",
-                session,
-                received: input.text,
-                sameSession: sameSessionIn(state),
-                remote,
-              })
-            : null,
+          handoff: handoffPlans[0] ?? null,
+          ...(handoffPlans.length > 0 ? { handoffs: handoffPlans } : {}),
+          ...(cancelledSteps.length > 0
+            ? { cancel_steps: cancelledSteps }
+            : {}),
         });
       });
       if (!done.ok) return done;
+
+      // join: any 합류로 취소된 병렬 형제 step의 실행 중 turn을 멈추고 checkpoint를 취소로 닫는다.
+      for (const ses of cancelledSessions) {
+        await turns.stopSession(ses);
+      }
+      if (wasYaml && cancelledSteps.length > 0) {
+        for (const stepName of cancelledSteps) {
+          await recordYamlCancelCheckpoint(store, {
+            instance: input.instance as Id<"wfi">,
+            step: stepName,
+          });
+        }
+      }
 
       // flow의 agent(mode: "report") / human() 대기자에게 즉시 알린다.
       if (by.kind === "agent") {
@@ -3468,9 +3639,9 @@ export function createWorkflowService(
         });
       }
 
-      // YAML 내장 interpreter checkpoint 기록: 완료 report(next 있음)는 completed, 다음 넘김은 started.
+      // YAML 내장 interpreter checkpoint 기록: 완료 report는 completed, 다음 넘김은 모두 started.
       if (wasYaml && by.kind !== "program") {
-        if (input.next !== undefined) {
+        if (completedTargets) {
           await recordYamlReportCheckpoint(store, {
             instance: input.instance as Id<"wfi">,
             step: input.step,
@@ -3483,27 +3654,42 @@ export function createWorkflowService(
             },
           });
         }
-        if (done.value.handed?.outcome === "handed") {
-          if (done.value.handed.receiver === null) {
-            const after = await store.read(input.instance as Id<"wfi">);
-            if (after.ok) {
-              const lastHanded = after.value.lines.findLast(
-                (l) => l.kind === "handed",
+        const handedResults =
+          done.value.handed_all ??
+          (done.value.handed !== null ? [done.value.handed] : []);
+        const succeeded = handedResults.filter((h) => h.outcome === "handed");
+        if (succeeded.length > 0) {
+          let afterLines: State["lines"] | null = null;
+          for (const item of succeeded) {
+            let remoteCall: string | null = null;
+            if (item.receiver === null) {
+              if (afterLines === null) {
+                const after = await store.read(input.instance as Id<"wfi">);
+                afterLines = after.ok ? after.value.lines : [];
+              }
+              const lastHanded = afterLines.findLast(
+                (l) => l.kind === "handed" && l.step === item.step,
               );
               if (lastHanded?.kind === "handed") {
-                nextRemoteCall = lastHanded.remote?.call ?? null;
+                remoteCall = lastHanded.remote?.call ?? null;
               }
             }
+            await recordYamlHandoffCheckpoint(store, {
+              instance: input.instance as Id<"wfi">,
+              handed: item,
+              remoteCall,
+            });
           }
-          await recordYamlHandoffCheckpoint(store, {
-            instance: input.instance as Id<"wfi">,
-            handed: done.value.handed,
-            remoteCall: nextRemoteCall,
-          });
         }
       }
 
-      return ok({ line: done.value.line, handed: done.value.handed });
+      return ok({
+        line: done.value.line,
+        handed: done.value.handed,
+        ...(done.value.handed_all !== undefined
+          ? { handed_all: done.value.handed_all }
+          : {}),
+      });
     },
 
     // 다른 컴퓨터의 참가자가 낸 report(reply mail). mail 입구가 부른다. 그 call로 넘긴 step이 없으면 null이다(Router의 보통 길로 간다).
@@ -3528,6 +3714,8 @@ export function createWorkflowService(
       const machine = origin.machine as Id<"mch">;
       let wasYaml = false;
       let wasHumanTurn = false;
+      let cancelledSteps: string[] = [];
+      let cancelledSessions: Id<"ses">[] = [];
       const text =
         ended === undefined
           ? blocksText(mail.body!)
@@ -3535,11 +3723,46 @@ export function createWorkflowService(
       const done = await apply(id, (state) => {
         const { instance, lines } = state;
         wasYaml = !isFlowInstance(instance, lines);
+        const activeList = activeStepsOf(instance);
         wasHumanTurn =
-          instance.current?.step === step && instance.current.human_turn;
+          activeList.some((a) => a.step === step && a.human_turn) ||
+          (instance.current?.step === step && instance.current.human_turn);
         const next = ended === undefined ? report.next : null;
-        const hands =
-          instance.state !== "stopped" && next !== null && next !== "end";
+        cancelledSteps = [];
+        cancelledSessions = [];
+        let handoffPlans: HandoffPlan[] = [];
+        if (instance.state !== "stopped" && next !== null) {
+          const transition = evaluateParallelTransition({
+            instance,
+            lines,
+            completedStep: step,
+            completedText: text,
+            targets: [next],
+          });
+          cancelledSteps = transition.cancelSteps;
+          for (const cancelStep of cancelledSteps) {
+            const handedLine = lines.findLast(
+              (l) =>
+                l.kind === "handed" &&
+                l.step === cancelStep &&
+                l.receiver !== null,
+            );
+            if (handedLine?.kind === "handed" && handedLine.receiver !== null) {
+              cancelledSessions.push(handedLine.receiver as Id<"ses">);
+            }
+          }
+          handoffPlans = transition.handoffs.map((h) =>
+            planHandoff({
+              instance,
+              step: h.step,
+              cause: "report",
+              session: report.session,
+              received: h.received,
+              sameSession: sameSessionIn(state),
+              remote,
+            }),
+          );
+        }
         return ok({
           instance: instance.id,
           change: {
@@ -3558,21 +3781,26 @@ export function createWorkflowService(
                   name: mail.from.name,
                 }
               : { kind: "remote_lophn", machine, computer: origin.computer },
-          handoff: hands
-            ? planHandoff({
-                instance,
-                step: next,
-                cause: "report",
-                session: report.session,
-                received: text,
-                sameSession: sameSessionIn(state),
-                remote,
-              })
-            : null,
+          handoff: handoffPlans[0] ?? null,
+          ...(handoffPlans.length > 0 ? { handoffs: handoffPlans } : {}),
+          ...(cancelledSteps.length > 0
+            ? { cancel_steps: cancelledSteps }
+            : {}),
           mail: { mail, origin },
         });
       });
       if (done.ok) {
+        for (const ses of cancelledSessions) {
+          await turns.stopSession(ses);
+        }
+        if (wasYaml && cancelledSteps.length > 0) {
+          for (const stepName of cancelledSteps) {
+            await recordYamlCancelCheckpoint(store, {
+              instance: id,
+              step: stepName,
+            });
+          }
+        }
         if (ended === undefined && mail.from.session !== undefined) {
           emitReport({
             instance: id,
@@ -3590,11 +3818,16 @@ export function createWorkflowService(
               output: { summary: text },
             });
           }
-          if (done.value.handed?.outcome === "handed") {
-            await recordYamlHandoffCheckpoint(store, {
-              instance: id,
-              handed: done.value.handed,
-            });
+          const handedResults =
+            done.value.handed_all ??
+            (done.value.handed !== null ? [done.value.handed] : []);
+          for (const item of handedResults) {
+            if (item.outcome === "handed") {
+              await recordYamlHandoffCheckpoint(store, {
+                instance: id,
+                handed: item,
+              });
+            }
           }
         }
         return ok({ line: done.value.line });
@@ -3608,47 +3841,174 @@ export function createWorkflowService(
     async edit(input: z.output<typeof workflowEdit.input>, by: LineBy) {
       const { instance: id, ...edit } = input;
       let wasYaml = false;
+      let stoppedSessions: Id<"ses">[] = [];
+      let cancelledSteps: string[] = [];
       const done = await apply(id, (state) => {
         const { instance, lines } = state;
         wasYaml = !isFlowInstance(instance, lines);
         if (instance.state === "stopped") {
           return fail("conflict", "workflow instance is stopped");
         }
-        let handoff = null;
+        stoppedSessions = [];
+        cancelledSteps = [];
+        let handoffPlans: HandoffPlan[] = [];
         if (edit.op === "hand_now") {
           const session = edit.session ?? "new";
           const lastReport = lines.findLast(
             (l): l is ReportLine => l.kind === "report",
           );
-          handoff = planHandoff({
-            instance,
-            step: edit.step,
-            cause: "edit",
-            session,
-            received: edit.text ?? lastReport?.text ?? instance.input,
-            sameSession: sameSessionIn(state),
-            remote,
+          const targetNames =
+            edit.steps !== undefined && edit.steps.length > 0
+              ? edit.steps
+              : [edit.step];
+          handoffPlans = targetNames.map((stepName) =>
+            planHandoff({
+              instance,
+              step: stepName,
+              cause: "edit",
+              session,
+              received: edit.text ?? lastReport?.text ?? instance.input,
+              sameSession: sameSessionIn(state),
+              remote,
+            }),
+          );
+        } else if (edit.op === "insert_steps" && edit.hand_now === true) {
+          const preview = insertStepsInto(instance.steps, {
+            steps: edit.steps,
+            ...(edit.after !== undefined ? { after: edit.after } : {}),
+            ...(edit.then_step !== undefined
+              ? { thenStep: edit.then_step }
+              : {}),
+            ...(edit.join !== undefined ? { join: edit.join } : {}),
           });
+          if (!preview.ok) return preview;
+          const session = edit.session ?? "new";
+          const lastReport = lines.findLast(
+            (l): l is ReportLine => l.kind === "report",
+          );
+          const nextInstance = { ...instance, steps: preview.value.steps };
+          handoffPlans = preview.value.inserted.map((stepName) =>
+            planHandoff({
+              instance: nextInstance,
+              step: stepName,
+              cause: "edit",
+              session,
+              received: edit.text ?? lastReport?.text ?? instance.input,
+              sameSession: sameSessionIn(state),
+              remote,
+            }),
+          );
+        } else if (edit.op === "remove_step") {
+          const removedDef = instance.steps.find((s) => s.name === edit.name);
+          if (removedDef === undefined) {
+            return fail("not_found", "step not found");
+          }
+          const wasActive = activeStepsOf(instance).some(
+            (a) => a.step === edit.name,
+          );
+          if (wasActive) {
+            const handedLine = lines.findLast(
+              (l) =>
+                l.kind === "handed" &&
+                l.step === edit.name &&
+                l.receiver !== null,
+            );
+            if (handedLine?.kind === "handed" && handedLine.receiver !== null) {
+              stoppedSessions.push(handedLine.receiver as Id<"ses">);
+            }
+            // 제거된 병렬 형제를 기다리던 join 대상 step이 이제 조건을 채우면 즉시 합류한다.
+            const remainingSteps = instance.steps.filter(
+              (s) => s.name !== edit.name,
+            );
+            const candidateTargets = new Set<string>(
+              removedDef.next.filter((n) => n !== "end"),
+            );
+            for (const s of remainingSteps) {
+              if (s.needs?.includes(edit.name)) candidateTargets.add(s.name);
+            }
+            if (candidateTargets.size > 0) {
+              const transition = evaluateParallelTransition({
+                instance: {
+                  ...instance,
+                  steps: remainingSteps,
+                },
+                lines,
+                completedStep: edit.name,
+                completedText: null,
+                targets: [...candidateTargets],
+              });
+              cancelledSteps = transition.cancelSteps;
+              handoffPlans = transition.handoffs.map((h) =>
+                planHandoff({
+                  instance: { ...instance, steps: remainingSteps },
+                  step: h.step,
+                  cause: "edit",
+                  session: "new",
+                  received: h.received,
+                  sameSession: sameSessionIn(state),
+                  remote,
+                }),
+              );
+            }
+          }
         }
         return ok({
           instance: id,
           change: { kind: "edit", edit },
           by,
-          handoff,
+          handoff: handoffPlans[0] ?? null,
+          ...(handoffPlans.length > 0 ? { handoffs: handoffPlans } : {}),
+          ...(cancelledSteps.length > 0
+            ? { cancel_steps: cancelledSteps }
+            : {}),
         });
       });
       if (!done.ok) return done;
-      if (
-        wasYaml &&
-        edit.op === "hand_now" &&
-        done.value.handed?.outcome === "handed"
-      ) {
-        await recordYamlHandoffCheckpoint(store, {
+      for (const ses of stoppedSessions) {
+        await turns.stopSession(ses);
+      }
+      if (wasYaml && edit.op === "remove_step") {
+        await recordYamlCancelCheckpoint(store, {
           instance: id as Id<"wfi">,
-          handed: done.value.handed,
+          step: edit.name,
+          message: "step removed from workflow instance",
         });
       }
-      return ok({ line: done.value.line, handed: done.value.handed });
+      if (wasYaml) {
+        const handedResults =
+          done.value.handed_all ??
+          (done.value.handed !== null ? [done.value.handed] : []);
+        for (const item of handedResults) {
+          if (item.outcome === "handed") {
+            await recordYamlHandoffCheckpoint(store, {
+              instance: id as Id<"wfi">,
+              handed: item,
+            });
+          }
+        }
+      }
+      return ok({
+        line: done.value.line,
+        handed: done.value.handed,
+        ...(done.value.handed_all !== undefined
+          ? { handed_all: done.value.handed_all }
+          : {}),
+      });
+    },
+
+    async setEditorSession(
+      instanceId: Id<"wfi">,
+      session: Id<"ses"> | null,
+    ): Promise<Result<State["instance"]>> {
+      const done = await apply(instanceId, ({ instance }) =>
+        ok({
+          instance: instance.id,
+          change: { kind: "set_editor_session", session },
+          by: { kind: "user" },
+          handoff: null,
+        }),
+      );
+      return done.ok ? ok(done.value.instance) : done;
     },
 
     async retry(input: z.output<typeof workflowRetry.input>) {
@@ -3826,7 +4186,10 @@ export function createWorkflowService(
         message = event.outcome.reason.replaceAll("_", " ");
       }
       for (const item of running.value) {
-        if (item.current === null || item.current.human_turn) continue;
+        const hasActiveNonHuman = activeStepsOf(item).some(
+          (a) => !a.human_turn,
+        );
+        if (!hasActiveNonHuman) continue;
         const read = await store.read(item.id as Id<"wfi">);
         if (!read.ok) {
           skip(item.id, read.error.code);

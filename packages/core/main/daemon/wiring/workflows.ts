@@ -19,6 +19,8 @@ import {
   type TurnOutcome,
   turnList,
   turnRead,
+  lophnIdOf,
+  workspaceSessionOpen,
   workspaceSessionRead,
 } from "../../../../protocol/lophn-agent/mod.ts";
 import type {
@@ -45,6 +47,7 @@ import {
   workflowInstanceRename,
   workflowInstanceSetAiTitle,
   workflowList,
+  workflowOpenEditor,
   workflowOverrideCode,
   workflowRename,
   workflowReport,
@@ -259,6 +262,9 @@ export function withStepText(
           ? { inputs: safeJson(raw.inputs) as Record<string, unknown> }
           : {}),
         handoff: raw.handoff === null ? null : safeHandoff(raw.handoff),
+        ...(raw.handoffs !== undefined
+          ? { handoffs: raw.handoffs.map(safeHandoff) }
+          : {}),
       };
     } else {
       const raw = envelope.input as Input<typeof workflowInstanceApply>;
@@ -269,6 +275,19 @@ export function withStepText(
           nextChange = {
             ...change,
             text: safe(change.text),
+            ...(change.insert_steps !== undefined
+              ? {
+                  insert_steps: {
+                    ...change.insert_steps,
+                    steps: change.insert_steps.steps.map((s) => ({
+                      ...s,
+                      prompt: safe(s.prompt),
+                      ...(s.in !== undefined ? { in: safe(s.in) } : {}),
+                      ...(s.out !== undefined ? { out: safe(s.out) } : {}),
+                    })),
+                  },
+                }
+              : {}),
             ...(change.refs !== undefined
               ? { refs: change.refs.map(safe) }
               : {}),
@@ -282,6 +301,22 @@ export function withStepText(
             nextChange = {
               ...change,
               edit: { ...change.edit, text: safe(change.edit.text) },
+            };
+          } else if (change.edit.op === "insert_steps") {
+            nextChange = {
+              ...change,
+              edit: {
+                ...change.edit,
+                steps: change.edit.steps.map((s) => ({
+                  ...s,
+                  prompt: safe(s.prompt),
+                  ...(s.in !== undefined ? { in: safe(s.in) } : {}),
+                  ...(s.out !== undefined ? { out: safe(s.out) } : {}),
+                })),
+                ...(change.edit.text !== undefined
+                  ? { text: safe(change.edit.text) }
+                  : {}),
+              },
             };
           }
           break;
@@ -309,6 +344,9 @@ export function withStepText(
         ...raw,
         change: nextChange,
         handoff: raw.handoff === null ? null : safeHandoff(raw.handoff),
+        ...(raw.handoffs !== undefined
+          ? { handoffs: raw.handoffs.map(safeHandoff) }
+          : {}),
       };
     }
     if (unfinished) {
@@ -1552,6 +1590,90 @@ export const workflowsWiring: WiringFactory = () => {
               if (!scoped.ok) return scoped;
               return built.save(i, { scopedProject: scoped.value });
             }),
+          ],
+          [
+            route(workflowOpenEditor),
+            handler(
+              async (
+                i: {
+                  project: Id<"prj">;
+                  workflow: string;
+                  instance?: Id<"wfi">;
+                },
+                who,
+              ) => {
+                if (parseActor(who.actor)?.kind !== "user") {
+                  return err({
+                    code: "forbidden",
+                    message: "only the user opens a workflow editor session",
+                  });
+                }
+                const agent = lophnIdOf({ kind: "project", id: i.project });
+                if (i.instance !== undefined) {
+                  const found = await read<Output<typeof workflowInstanceRead>>(
+                    workflowInstanceRead,
+                    { instance: i.instance },
+                  );
+                  if (!found.ok) return found;
+                  const inst = found.value.instance;
+                  if (inst.project !== i.project) {
+                    return err({
+                      code: "forbidden",
+                      message: "workflow instance belongs to another project",
+                    });
+                  }
+                  const existingId = inst.editor_session;
+                  if (existingId !== undefined && existingId !== null) {
+                    const ses = await read<Output<typeof workspaceSessionRead>>(
+                      workspaceSessionRead,
+                      { session: existingId },
+                    );
+                    if (ses.ok && ses.value.session.lifecycle === "open") {
+                      return ok({
+                        session: existingId,
+                        agent: ses.value.session.agent,
+                        created: false,
+                      });
+                    }
+                  }
+                  const sessionId = ids.newId("ses") as Id<"ses">;
+                  const opened = await ctx.writer.command(who, {
+                    command: workspaceSessionOpen.name,
+                    idempotency_key: `wf-editor:${sessionId}`,
+                    input: {
+                      id: sessionId,
+                      agent,
+                      workspace: { kind: "project", id: i.project },
+                      title: `Edit workflow: ${inst.workflow} (${inst.id})`,
+                    },
+                    compare: {},
+                    prepared: [],
+                  });
+                  if (!opened.ok) return opened;
+                  const linked = await built.setEditorSession(
+                    inst.id as Id<"wfi">,
+                    sessionId,
+                  );
+                  if (!linked.ok) return linked;
+                  return ok({ session: sessionId, agent, created: true });
+                }
+                const sessionId = ids.newId("ses") as Id<"ses">;
+                const opened = await ctx.writer.command(who, {
+                  command: workspaceSessionOpen.name,
+                  idempotency_key: `wf-editor:${sessionId}`,
+                  input: {
+                    id: sessionId,
+                    agent,
+                    workspace: { kind: "project", id: i.project },
+                    title: `Customize workflow: ${i.workflow}`,
+                  },
+                  compare: {},
+                  prepared: [],
+                });
+                if (!opened.ok) return opened;
+                return ok({ session: sessionId, agent, created: true });
+              },
+            ),
           ],
           [
             route(workflowReport),

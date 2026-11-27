@@ -137,3 +137,29 @@ export async function recordYamlRetryCheckpoint(
     handle_ref: input.session,
   });
 }
+
+// join: any 합류 등으로 취소된 병렬 형제 YAML step의 활성 checkpoint를 interrupted(cancelled)로 닫는다.
+export async function recordYamlCancelCheckpoint(
+  store: WorkflowStore,
+  input: {
+    instance: Id<"wfi">;
+    step: string;
+    message?: string;
+  },
+): Promise<void> {
+  if (store.upsertCheckpoint === undefined) return;
+  const existing = await loadCurrentCheckpoints(store, input.instance);
+  const active = activeYamlCheckpointForStep(existing, input.step);
+  if (active === null) return;
+  await store.upsertCheckpoint({
+    instance: input.instance,
+    key: active.key,
+    kind: active.kind,
+    state: "interrupted",
+    handle_ref: active.handle_ref,
+    error: {
+      reason: "cancelled",
+      message: input.message ?? "superseded by parallel join (any)",
+    },
+  });
+}

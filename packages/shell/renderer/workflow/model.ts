@@ -325,6 +325,262 @@ export function stagesOf(
   return stages;
 }
 
+export interface RunStepEntry {
+  readonly row: StepRow;
+  readonly cell: StepCell;
+  /** flow checkpoint에서 동적으로 올라온 step의 출력 요약·오류(YAML report가 없을 때 카드에 보인다). */
+  readonly checkpointSummary?: string;
+  readonly checkpointError?: string;
+  /** 같은 step이 여러 라운드(예: 리뷰 1차 → 수정 → 리뷰 2차)로 돌았을 때의 이전 report들. */
+  readonly earlierReports: readonly Line<"report">[];
+  readonly roundCount: number;
+  readonly startedAt?: string;
+  readonly finishedAt?: string | null;
+}
+
+export interface RunStage {
+  readonly members: readonly number[];
+  readonly mode: "single" | "choice" | "parallel";
+  readonly join?: "all" | "any";
+}
+
+function checkpointSummaryOf(output: unknown): string | undefined {
+  if (typeof output === "string" && output.trim() !== "") return output;
+  if (
+    output !== null &&
+    typeof output === "object" &&
+    "summary" in output &&
+    typeof (output as { summary?: unknown }).summary === "string" &&
+    (output as { summary: string }).summary.trim() !== ""
+  ) {
+    return (output as { summary: string }).summary;
+  }
+  return undefined;
+}
+
+/**
+ * Run 화면에 그릴 1급 step 목록. 선언·동적 편집된 `instance.steps`와 함께,
+ * flow 실행에서 동적으로 호출된 `step(key, ...)`(build/tool/병렬 step 포함) checkpoint도 1급 step으로 올린다.
+ */
+export function runStepEntries(
+  detail: WorkflowInstanceDetailView,
+): RunStepEntry[] {
+  const baseRows = stepRows(detail);
+  const baseCells = cellsOfRun(detail);
+  const entries: RunStepEntry[] = baseRows.map((row, index) => {
+    const reports = detail.lines.filter(
+      (line): line is Line<"report"> =>
+        line.kind === "report" && line.step === row.step.name,
+    );
+    const hands = detail.lines.filter(
+      (line) => line.kind === "handed" && line.step === row.step.name,
+    ).length;
+    const roundCount = Math.max(hands, reports.length);
+    return {
+      row,
+      cell: baseCells[index],
+      earlierReports: reports.length > 1 ? reports.slice(0, -1) : [],
+      roundCount,
+    };
+  });
+
+  const checkpoints = detail.checkpoints ?? [];
+  if (checkpoints.length === 0) return entries;
+  const isFlow =
+    hasFlowExecution(detail) || checkpoints.some((cp) => cp.kind === "step");
+  if (!isFlow) return entries;
+
+  const knownNames = new Set(entries.map((e) => e.row.step.name));
+  const stepCheckpoints = checkpoints.filter(
+    (cp) =>
+      cp.kind === "step" || (!cp.key.includes("/") && !knownNames.has(cp.key)),
+  );
+  // 이미 kind === "step"으로 잡힌 key는 같은 key의 하위 primitive checkpoint와 중복시키지 않는다.
+  const seenCpKeys = new Set<string>();
+  for (const cp of stepCheckpoints) {
+    if (knownNames.has(cp.key) || seenCpKeys.has(cp.key)) continue;
+    seenCpKeys.add(cp.key);
+    const stepLines = detail.lines.filter(
+      (line) => "step" in line && line.step === cp.key,
+    );
+    const reports = stepLines.filter(
+      (line): line is Line<"report"> => line.kind === "report",
+    );
+    const shown: StepShown =
+      cp.state === "started"
+        ? cp.kind === "human"
+          ? "human"
+          : detail.instance.state === "stopped"
+            ? "stopped"
+            : "current"
+        : cp.state === "completed"
+          ? "reported"
+          : "stopped";
+    const syntheticStep: WorkflowInstanceView["steps"][number] = {
+      name: cp.key,
+      by: FLOW_STEP_BY,
+      with: null,
+      prompt: "",
+      in: "",
+      out: "",
+      next: [],
+    };
+    const errorText =
+      cp.error !== null
+        ? cp.error.message.trim() === ""
+          ? cp.error.reason
+          : `${cp.error.reason}: ${cp.error.message}`
+        : undefined;
+    entries.push({
+      row: {
+        step: syntheticStep,
+        shown,
+        report: detail.last_reports[cp.key],
+        lines: stepLines,
+        notice: null,
+        current: cp.state === "started",
+      },
+      cell: {
+        name: cp.key,
+        who: cp.kind === "human" ? { kind: "human" } : { kind: "program" },
+        with: null,
+        shown,
+        ...(cp.state === "failed" || cp.state === "interrupted"
+          ? { blocked: true }
+          : {}),
+      },
+      checkpointSummary: checkpointSummaryOf(cp.output),
+      checkpointError: errorText,
+      earlierReports: reports.length > 1 ? reports.slice(0, -1) : [],
+      roundCount: Math.max(1, reports.length),
+      startedAt: cp.started_at,
+      finishedAt: cp.finished_at,
+    });
+  }
+  return entries;
+}
+
+/**
+ * Run 화면의 step들을 단계(single | choice | parallel)로 묶는다.
+ * - 병렬 선언(`parallel: true`, `needs`), 병렬 실행(`next_steps`, 복수 `active_steps`),
+ *   또는 flow `Promise.all`처럼 실행 시간이 겹친 checkpoint들은 `parallel` 단계로 묶여 나란히 보인다.
+ * - 그 밖에 같은 `next`를 공유하며 서로 넘기지 않는 이웃 step은 기존처럼 양자택일(`choice`)이다.
+ */
+export function runStagesOf(
+  detail: WorkflowInstanceDetailView,
+  entries: readonly RunStepEntry[],
+): RunStage[] {
+  const steps = entries.map((e) => e.row.step);
+  // 함께 병렬로 묶여야 하는 step 이름 쌍을 모은다.
+  const parallelGroups: Set<string>[] = [];
+  const addGroup = (names: readonly string[]) => {
+    if (names.length < 2) return;
+    parallelGroups.push(new Set(names));
+  };
+  for (const s of steps) {
+    if (s.parallel === true && s.next.length > 1) {
+      addGroup(s.next.filter((n) => n !== "end"));
+    }
+    if (s.needs !== undefined && s.needs.length > 1) {
+      addGroup(s.needs);
+    }
+  }
+  if (
+    detail.instance.active_steps !== undefined &&
+    detail.instance.active_steps.length > 1
+  ) {
+    addGroup(detail.instance.active_steps.map((a) => a.step));
+  }
+  for (const line of detail.lines) {
+    if (
+      line.kind === "report" &&
+      line.next_steps !== undefined &&
+      line.next_steps.length > 1
+    ) {
+      addGroup(line.next_steps);
+    }
+  }
+  const areDeclaredParallel = (a: string, b: string): boolean =>
+    parallelGroups.some((g) => g.has(a) && g.has(b));
+  const areOverlappingCheckpoints = (
+    left: RunStepEntry,
+    right: RunStepEntry,
+  ): boolean => {
+    if (left.startedAt === undefined || right.startedAt === undefined) {
+      return false;
+    }
+    const aStart = Date.parse(left.startedAt);
+    const bStart = Date.parse(right.startedAt);
+    const aEnd =
+      left.finishedAt != null
+        ? Date.parse(left.finishedAt)
+        : Number.POSITIVE_INFINITY;
+    const bEnd =
+      right.finishedAt != null
+        ? Date.parse(right.finishedAt)
+        : Number.POSITIVE_INFINITY;
+    if (Number.isNaN(aStart) || Number.isNaN(bStart)) return false;
+    return aStart < bEnd && bStart < aEnd;
+  };
+
+  const stages: Array<{
+    members: number[];
+    mode: "single" | "choice" | "parallel";
+  }> = [];
+  entries.forEach((entry, index) => {
+    const prevStage = stages.at(-1);
+    if (prevStage !== undefined) {
+      const firstIdx = prevStage.members[0]!;
+      const firstEntry = entries[firstIdx]!;
+      const first = firstEntry.row.step;
+      const cur = entry.row.step;
+      const isParallelWithPrev =
+        prevStage.members.some((m) =>
+          areDeclaredParallel(entries[m]!.row.step.name, cur.name),
+        ) ||
+        prevStage.members.some((m) =>
+          areOverlappingCheckpoints(entries[m]!, entry),
+        );
+      if (isParallelWithPrev && prevStage.mode !== "choice") {
+        prevStage.members.push(index);
+        prevStage.mode = "parallel";
+        return;
+      }
+      const alternative =
+        prevStage.mode !== "parallel" &&
+        cur.next.length > 0 &&
+        cur.next.length === first.next.length &&
+        cur.next.every((name) => first.next.includes(name)) &&
+        !prevStage.members.some((m) =>
+          cur.next.includes(entries[m]!.row.step.name),
+        ) &&
+        !first.next.includes(cur.name);
+      if (alternative) {
+        prevStage.members.push(index);
+        prevStage.mode = "choice";
+        return;
+      }
+    }
+    stages.push({ members: [index], mode: "single" });
+  });
+
+  // 병렬 stage가 합류하는 다음 step의 join 규칙(all | any)을 찾아 배지에 싣는다.
+  return stages.map((stage) => {
+    if (stage.mode !== "parallel") return stage;
+    const names = stage.members.map((i) => entries[i]!.row.step.name);
+    const joinStep = steps.find(
+      (s) => s.needs !== undefined && names.every((n) => s.needs!.includes(n)),
+    );
+    const sharedNext = entries[stage.members[0]!]!.row.step.next[0];
+    const nextStep =
+      joinStep ??
+      (sharedNext !== undefined
+        ? steps.find((s) => s.name === sharedNext)
+        : undefined);
+    const join = nextStep?.join;
+    return join === undefined ? stage : { ...stage, join };
+  });
+}
 export interface RunGroups {
   /** 사람 차례이거나 판단을 기다리는 run. */
   readonly needsYou: readonly WorkflowInstanceSummaryView[];
@@ -796,12 +1052,20 @@ export function summarizeSessions(
  * session을 step마다 가른다. session은 `workflow_origin.step`(가장 나중에 받은 step, 자식은 태어난 때 부모의 step)과
  * 그 session에 넘긴 줄(handed)의 step에 붙는다. 어느 것도 없으면 부모를 따르고, 선언에 없는 step이면 `rest`다.
  */
-export function sessionsByStep(detail: WorkflowInstanceDetailView): {
+export function sessionsByStep(
+  detail: WorkflowInstanceDetailView,
+  knownStepNames?: readonly string[],
+): {
   readonly byStep: ReadonlyMap<string, readonly WorkflowSessionNodeView[]>;
   readonly rest: readonly WorkflowSessionNodeView[];
 } {
-  const sessions = detail.sessions ?? [];
-  const declared = new Set(detail.instance.steps.map((step) => step.name));
+  const editorId = detail.instance.editor_session ?? null;
+  const sessions = (detail.sessions ?? []).filter(
+    (node) => editorId === null || node.session !== editorId,
+  );
+  const declared = new Set(
+    knownStepNames ?? detail.instance.steps.map((step) => step.name),
+  );
   const byId = new Map(sessions.map((node) => [node.session, node]));
   const own = new Map<string, Set<string>>();
   for (const node of sessions) {
@@ -814,6 +1078,12 @@ export function sessionsByStep(detail: WorkflowInstanceDetailView): {
   for (const line of detail.lines) {
     if (line.kind !== "handed" || line.receiver === null) continue;
     if (declared.has(line.step)) own.get(line.receiver)?.add(line.step);
+  }
+  // flow checkpoint의 handle_ref로 열린 session도 해당 동적 step 카드에 붙인다.
+  for (const cp of detail.checkpoints ?? []) {
+    if (cp.handle_ref === null || !own.has(cp.handle_ref)) continue;
+    const stepKey = cp.key.includes("/") ? cp.key.split("/")[0]! : cp.key;
+    if (declared.has(stepKey)) own.get(cp.handle_ref)?.add(stepKey);
   }
   const stepsOf = (node: WorkflowSessionNodeView): ReadonlySet<string> => {
     const seen = new Set<string>();

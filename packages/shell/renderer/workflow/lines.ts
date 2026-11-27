@@ -80,6 +80,8 @@ function editText(line: Extract<WorkflowLineView, { kind: "edit" }>): string {
   switch (line.op) {
     case "add_step":
       return t("workflow.label.line-edit-add-step", { step });
+    case "insert_steps":
+      return t("workflow.label.line-edit-insert-steps", { step });
     case "update_step":
       return t("workflow.label.line-edit-update-step", { step });
     case "remove_step":

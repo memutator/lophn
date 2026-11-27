@@ -1,0 +1,30 @@
+id: workflow-parallel-dynamic-editor
+version: 0.23.186
+platform_note: none
+title: workflow 병렬 단계(join all|any), 동적 step 삽입, flow 1급 타임라인, split lophn 편집 세션을 추가한다
+modules:
+  - packages/protocol
+  - packages/core/workflows
+  - packages/core/lophn-agent
+  - packages/core/main
+  - packages/cli
+  - packages/design
+  - packages/shell/renderer
+change: |
+  - `workflow_instances`에 복수 활성 step(`active_steps_json`)과 1:1 on-demand 편집 세션(`editor_session`) 열을 추가한다(schema step `workflows.instances-parallel-editor`).
+  - YAML 선언과 instance step에 `parallel`, `needs`, `join`(`all | any`)을 더하고, `ReportWorkflow`(`--next a,b` / `--next-steps` / `--insert-steps` + `--then-step` + `--join`)와 `EditWorkflow`(`insert_steps`, 병렬 `hand_now`, `remove_step` 합류 재평가)로 병렬 fan-out·합류(`join: any` 시 미완료 형제 step 취소)와 원샷 동적 step 삽입을 지원한다.
+  - `<lophn-step>` 안내와 `write-workflow` skill에서 step 내부 보조(`lophn team spawn`)와 1급 workflow 후속 step 삽입(`--insert-steps`)을 구분해 안내한다.
+  - Run 화면(`run-view.tsx`, `model.ts`, `rules.ts`)이 병렬 stage, 라운드별 이전 report 이력, `flow.ts`의 동적·programmatic `step()` checkpoint를 1급 step 카드로 표시하고, 막힌 병렬 step별 개별 `[Retry]`를 제공한다.
+  - `OpenWorkflowEditor`(`workflows/open-editor`)를 추가해 StartBox(`[Customize with lophn]`)와 Run 화면(`[Edit with lophn]`)에서 버튼 하나로 화면을 split해 instance에 연결된 lophn 세션을 열고(시작 전 커스터마이즈 세션이 `workflow.run`으로 시작한 instance에 `editor_session` 자동 연결), `prepare.ts`가 해당 세션에 workflow/instance 편집 맥락을 주입한다.
+why: |
+  기존 workflow는 단일 `current` 직렬 relay 전제여서 병렬 단계 선언과 리뷰 후 동적 수정 step 추가(단일·병렬)가 `team spawn` 자식 세션으로만 묻히고, `flow.ts`의 programmatic·병렬 `step()`도 Run 화면에서 접힌 checkpoint로 밀렸다. 또한 시작 전·실행 중 run 전용 수정을 복잡한 폼 대신 instance에 1:1 연결된 on-demand lophn 세션 split 대화로 통합해 상시 coordinator 없이도 유연하게 조정할 수 있게 했다.
+decisions:
+  - text: |
+      step은 agent 내부 작업(`team spawn`)보다 넓은 상위 개념(`agent`·`human`·`program` 포함)으로 구분해 `team spawn`을 자동 step화하지 않고, 전용 원샷 동적 step 삽입(`report --insert-steps` / `edit insert_steps`)과 병렬 합류 `join: all | any` 둘 다를 지원한다.
+    by: person
+  - text: |
+      시작 전 커스터마이즈와 실행 중 편집은 별도 step/prompt 폼 대신 버튼 하나로 화면을 split해 instance에 1:1 연결된 on-demand lophn 세션을 여는 방식으로 통합하되, 상시 coordinator는 강제하지 않고 참여 agent 누구든 CLI로 직접 step을 추가·편집할 수 있게 유지한다.
+    by: person
+checklist:
+  - "YAML workflow에서 리뷰 step이 `--insert-steps`로 병렬 수정 step 2개를 끼워 넣고 `join: all` / `join: any`로 합류·형제 취소되는지 확인한다"
+  - "Run 화면에서 병렬 stage, 재방문 라운드 이력, flow의 programmatic `step()` 카드가 1급 step으로 보이고, StartBox·Run 화면의 `[Customize/Edit with lophn]` 버튼이 split으로 lophn 세션을 여는지 확인한다"

@@ -285,14 +285,37 @@ interact with the session:
   also override tab vs background per run in the workflow Start box or via
   `lophn workflow start --open tab|background`.
 
-## Sub-agents inside a step
+## Sub-agents inside a step vs. dynamic workflow steps
 
-When a workflow step fans out parallel or sub-agent work from inside a step
-session, instruct the step agent to spawn workers with
-`lophn team spawn <handle> --body <text>` rather than harness-native sub-agent
-tools. Workers spawned via `lophn team spawn` inherit `workflow_origin`, appear
-as children in the Run screen's `sessions` tree and workflow desk, and keep
-stall detection aware of open outgoing `agent_calls` while the parent waits.
+Keep **internal helper work** and **workflow steps** distinct:
+
+- **Internal helper work (`lophn team spawn`)**: When a step delegates helper
+  sub-tasks inside its own turn (e.g., searching files or reading logs), spawn
+  workers with `lophn team spawn <handle> --body <text>` rather than
+  harness-native sub-agent tools. They inherit `workflow_origin`, appear under
+  that step's `sessions` tree and workflow desk, and keep stall detection aware
+  of open outgoing `agent_calls`.
+- **Dynamic follow-up workflow steps (`--insert-steps` / `workflow edit`)**:
+  When a step discovers follow-up work that belongs in the workflow itself (for
+  example, a reviewer spawning one or more fix steps before re-review or land),
+  insert them as real workflow steps when reporting:
+  `lophn workflow report <instance> <step> "<summary>" --insert-steps '<json array>' --then-step <next-step> [--join all|any]`.
+  When 2+ steps are inserted, they run in parallel and join into `--then-step`
+  (`all` waits for every branch and merges their reports; `any` hands off on the
+  first completion and cancels the remaining siblings).
+
+## Parallel steps and joins (`parallel`, `needs`, `join`)
+
+YAML shorthand steps can also declare parallel fan-out and join:
+
+- Set `parallel: true` on a step with multiple `next` entries (or pass
+  `--next step_a,step_b` / `--next-steps` when reporting) to run multiple next
+  steps concurrently.
+- On the downstream join step, optionally set `needs: [step_a, step_b]` and
+  `join: all | any` (default `all`). Even without `needs`, active siblings
+  targeting the same step join automatically. With `join: all`, lophn combines
+  all upstream reports; with `join: any`, lophn hands off on the first report
+  and cancels the remaining active siblings.
 
 ## A step message is all a participant gets
 
@@ -393,7 +416,7 @@ single-run tweak:
      - `agent`: override the flow's app-tool creator agent handle
 
 3. **Live instance overrides (without changing the base workflow)**:
-   - YAML instance: `lophn workflow edit <instance> --op add_step|update_step|remove_step|set_participant|remove_participant|hand_now|end ...`
+   - YAML instance: `lophn workflow edit <instance> --op add_step|insert_steps|update_step|remove_step|set_participant|remove_participant|hand_now|end ...`
    - Flow instance (running/blocked, no in-flight `agent`/`tool` step):
      `lophn workflow override-code <instance> --files '{"flow.ts": "..."}' [--agent <handle>] [--resume true|false]`
      Patches only that instance's `code_snapshot` (type-checked and approved by the

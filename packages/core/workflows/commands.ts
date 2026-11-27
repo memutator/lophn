@@ -8,6 +8,7 @@ import type {
   Tx,
 } from "../../protocol/server/mod.ts";
 import {
+  type ActiveStep,
   type HandoffPlan,
   type HandResult,
   type InstanceStep,
@@ -29,6 +30,7 @@ import {
   WORKFLOW_SNAPSHOT_BLOB_PURPOSE,
 } from "./checkpoint-schema.ts";
 import { upsertCheckpointRow } from "./checkpoints.ts";
+import { activeStepsOf, insertStepsInto } from "./parallel.ts";
 import { remoteCallsOf } from "./remote.ts";
 import type { NewLine } from "./rows.ts";
 import { EMPTY_FILE_SHA256, parseSnapshotManifest } from "./snapshot.ts";
@@ -119,9 +121,11 @@ const LOPHN = { kind: "lophn" } as const;
 type Draft = {
   state: WorkflowState;
   current: Current;
+  active_steps: ActiveStep[];
   participants: Record<string, Participant>;
   steps: InstanceStep[];
   finished_at: string | null;
+  editor_session?: Id<"ses"> | null;
 };
 
 type Scope = {
@@ -138,11 +142,32 @@ type Scope = {
 const addLine = (scope: Scope, line: NewLine) =>
   appendLine(scope.tx.sql, scope.instance, scope.at, line);
 
+function syncCurrent(draft: Draft): void {
+  draft.current = draft.active_steps[0] ?? null;
+}
+
+function addActiveStep(draft: Draft, step: string, humanTurn: boolean): void {
+  const idx = draft.active_steps.findIndex((a) => a.step === step);
+  if (idx >= 0) {
+    draft.active_steps[idx] = { step, human_turn: humanTurn };
+  } else {
+    draft.active_steps.push({ step, human_turn: humanTurn });
+  }
+  syncCurrent(draft);
+}
+
+function removeActiveStep(draft: Draft, step: string): void {
+  const next = draft.active_steps.filter((a) => a.step !== step);
+  draft.active_steps = next;
+  syncCurrent(draft);
+}
+
 // running이었을 때만 끝을 기록한다. 같은 끝을 두 번 남기지 않는다.
 function endDraft(scope: Scope): void {
   if (scope.draft.state !== "running") return;
   addLine(scope, { kind: "ended", by: LOPHN });
   scope.draft.state = "ended";
+  scope.draft.active_steps = [];
   scope.draft.current = null;
   scope.draft.finished_at = scope.at;
 }
@@ -259,7 +284,7 @@ function handed(
     session: plan.session,
     remote,
   });
-  scope.draft.current = { step: plan.step, human_turn: plan.human_turn };
+  addActiveStep(scope.draft, plan.step, plan.human_turn);
   // ended는 넘긴 뒤에만 running으로 돌아온다. 못 넘긴 고치기가 아무도 일하지 않는 running을 만들지 않는다.
   if (scope.draft.state === "ended") {
     scope.draft.state = "running";
@@ -304,22 +329,50 @@ function editInstance(
         in: added.in ?? "",
         out: added.out ?? "",
         next: added.next ?? [],
+        ...(added.parallel !== undefined ? { parallel: added.parallel } : {}),
+        ...(added.needs !== undefined ? { needs: added.needs } : {}),
+        ...(added.join !== undefined ? { join: added.join } : {}),
         ...(added.open !== undefined ? { open: added.open } : {}),
       });
       return ok({ participants, steps: next, step: added.name });
+    }
+    case "insert_steps": {
+      const inserted = insertStepsInto(steps, {
+        steps: edit.steps,
+        ...(edit.after !== undefined ? { after: edit.after } : {}),
+        ...(edit.then_step !== undefined ? { thenStep: edit.then_step } : {}),
+        ...(edit.join !== undefined ? { join: edit.join } : {}),
+      });
+      if (!inserted.ok) return inserted;
+      return ok({
+        participants,
+        steps: inserted.value.steps,
+        step: inserted.value.inserted[0] ?? null,
+      });
     }
     case "update_step": {
       const at = index(edit.name);
       if (at < 0) return fail("not_found", "step not found");
       const next = [...steps];
-      // undefined는 덮지 않는다. with: null은 비운다. open: null은 지운다.
+      // undefined는 덮지 않는다. with: null은 비운다. open·parallel·needs·join: null은 지운다.
       const patch = Object.fromEntries(
         Object.entries(edit.patch).filter(
-          ([k, v]) => v !== undefined && !(k === "open" && v === null),
+          ([k, v]) =>
+            v !== undefined &&
+            !(
+              (k === "open" ||
+                k === "parallel" ||
+                k === "needs" ||
+                k === "join") &&
+              v === null
+            ),
         ),
       );
       const updated = { ...next[at]!, ...patch };
       if (edit.patch.open === null) delete updated.open;
+      if (edit.patch.parallel === null) delete updated.parallel;
+      if (edit.patch.needs === null) delete updated.needs;
+      if (edit.patch.join === null) delete updated.join;
       next[at] = updated;
       return ok({ participants, steps: next, step: edit.name });
     }
@@ -394,6 +447,12 @@ export function createWorkflowCommands(
         );
         if (!registered.ok) return registered;
         const at = tx.now();
+        const initialPlans: HandoffPlan[] =
+          input.handoffs !== undefined && input.handoffs.length > 0
+            ? input.handoffs
+            : input.handoff !== null
+              ? [input.handoff]
+              : [];
         insertInstance(tx.sql, {
           id: input.id as Id<"wfi">,
           project: input.project as Id<"prj">,
@@ -415,9 +474,13 @@ export function createWorkflowCommands(
           ...(input.flow_agent !== undefined
             ? { flow_agent: input.flow_agent }
             : {}),
+          ...(input.editor_session !== undefined
+            ? { editor_session: input.editor_session as Id<"ses"> | null }
+            : {}),
           participants: input.participants,
           steps: input.steps,
           current: null,
+          active_steps: [],
           started_by: input.started_by,
           created_at: at,
         });
@@ -433,6 +496,7 @@ export function createWorkflowCommands(
           draft: {
             state: "running",
             current: null,
+            active_steps: [],
             participants: input.participants,
             steps: input.steps,
             finished_at: null,
@@ -441,17 +505,22 @@ export function createWorkflowCommands(
         addLine(scope, {
           kind: "started",
           by: input.started_by,
-          step: input.handoff?.step ?? null,
+          step: initialPlans[0]?.step ?? null,
           text: input.input,
         });
-        const handed =
-          input.handoff === null
-            ? ok(null)
-            : handOff(scope, router, input.handoff);
-        if (!handed.ok) return handed;
+        const handedAll: HandResult[] = [];
+        for (const p of initialPlans) {
+          const one = handOff(scope, router, p);
+          if (!one.ok) return one;
+          handedAll.push(one.value);
+        }
         const instance = finish(tx, scope);
         return instance.ok
-          ? ok({ instance: instance.value, handed: handed.value })
+          ? ok({
+              instance: instance.value,
+              handed: handedAll[0] ?? null,
+              ...(handedAll.length > 0 ? { handed_all: handedAll } : {}),
+            })
           : instance;
       },
     },
@@ -482,6 +551,7 @@ export function createWorkflowCommands(
           draft: {
             state: current.state,
             current: current.current,
+            active_steps: activeStepsOf(current),
             participants: current.participants,
             steps: current.steps,
             finished_at: current.finished_at,
@@ -489,15 +559,54 @@ export function createWorkflowCommands(
         };
         const stopped = current.state === "stopped";
         // stopped면 넘기지 않는다. 늦게 온 report의 줄만 남긴다.
-        const plan = stopped ? null : input.handoff;
+        const plans: HandoffPlan[] = stopped
+          ? []
+          : input.handoffs !== undefined && input.handoffs.length > 0
+            ? input.handoffs
+            : input.handoff !== null
+              ? [input.handoff]
+              : [];
         const change = input.change;
         let line: string;
-        let handed: HandResult | null = null;
-        const hand = (): Result<void> => {
-          if (plan === null) return ok(undefined);
-          const done = handOff(scope, router, plan);
-          if (!done.ok) return done;
-          handed = done.value;
+        const handedAll: HandResult[] = [];
+        const handAll = (): Result<void> => {
+          for (const p of plans) {
+            const done = handOff(scope, router, p);
+            if (!done.ok) return done;
+            handedAll.push(done.value);
+          }
+          return ok(undefined);
+        };
+        const cancelStepNames = (
+          stepsToCancel: readonly string[],
+        ): Result<void> => {
+          if (stepsToCancel.length === 0) return ok(undefined);
+          const cancelSet = new Set(stepsToCancel);
+          for (const s of cancelSet) removeActiveStep(scope.draft, s);
+          // 취소된 병렬 형제 step에 열린 원격 call이 있으면 함께 취소한다.
+          const remoteRows = tx.sql.all(
+            `SELECT data ->> '$.remote.call' AS call_id FROM workflow_lines
+             WHERE instance = ? AND kind = 'handed' AND step IN (${stepsToCancel
+               .map(() => "?")
+               .join(",")}) AND json_type(data, '$.remote.call') = 'text'`,
+            [input.instance, ...stepsToCancel],
+          );
+          const openRemote = new Set(remoteCallsOf(tx.sql, input.instance));
+          const toWithdraw = remoteRows
+            .map((r) => String(r["call_id"]))
+            .filter((callId) => openRemote.has(callId));
+          if (toWithdraw.length > 0) {
+            const made = router(tx);
+            if (!made.ok) return made;
+            for (const call of toWithdraw) {
+              const withdrawn = made.value.cancel(
+                tx,
+                { kind: "human" },
+                { call },
+              );
+              if (!withdrawn.ok) return withdrawn;
+            }
+          }
           return ok(undefined);
         };
         switch (change.kind) {
@@ -509,12 +618,51 @@ export function createWorkflowCommands(
               const accepted = made.value.acceptStepReport(tx, input.mail);
               if (!accepted.ok) return accepted;
             }
+            if (change.insert_steps !== undefined && !stopped) {
+              const inserted = insertStepsInto(scope.draft.steps, {
+                steps: change.insert_steps.steps,
+                after: change.insert_steps.after,
+                sourceStep: change.step,
+                thenStep: change.insert_steps.then_step,
+                join: change.insert_steps.join,
+              });
+              if (!inserted.ok) return inserted;
+              scope.draft.steps = inserted.value.steps;
+              if (hasColumn(tx.sql, "workflow_instances", "overridden")) {
+                tx.sql.run(
+                  "UPDATE workflow_instances SET overridden = 1 WHERE id = ?",
+                  [input.instance],
+                );
+              }
+              addLine(scope, {
+                kind: "edit",
+                by: input.by,
+                op: "insert_steps",
+                step: inserted.value.inserted[0] ?? null,
+                detail: {
+                  op: "insert_steps",
+                  steps: change.insert_steps.steps,
+                  ...(change.insert_steps.after !== undefined
+                    ? { after: change.insert_steps.after }
+                    : { after: change.step }),
+                  ...(change.insert_steps.then_step !== undefined
+                    ? { then_step: change.insert_steps.then_step }
+                    : {}),
+                  ...(change.insert_steps.join !== undefined
+                    ? { join: change.insert_steps.join }
+                    : {}),
+                },
+              });
+            }
             line = addLine(scope, {
               kind: "report",
               by: input.by,
               step: change.step,
               text: change.text,
               next: change.next,
+              ...(change.next_steps !== undefined
+                ? { next_steps: change.next_steps }
+                : {}),
               session: change.session,
               ...(change.refs !== undefined ? { refs: change.refs } : {}),
               ...(change.data !== undefined ? { data: change.data } : {}),
@@ -522,21 +670,41 @@ export function createWorkflowCommands(
             if (input.by.kind === "program") {
               // flow는 넘기지 않는다. stopped나 ended 뒤의 report는 줄만 남고 다시 running이 되지 않는다.
               if (scope.draft.state === "running") {
-                scope.draft.current = {
-                  step: change.step,
-                  human_turn: false,
-                };
+                scope.draft.active_steps = [
+                  { step: change.step, human_turn: false },
+                ];
+                syncCurrent(scope.draft);
                 if (change.next === "end") endDraft(scope);
               }
               break;
             }
-            if (stopped || change.next === null) break;
+            const hasTargets =
+              change.next !== null ||
+              (change.next_steps !== undefined && change.next_steps.length > 0);
+            if (stopped || !hasTargets) break;
             if (change.next === "end") {
-              endDraft(scope);
+              removeActiveStep(scope.draft, change.step);
+              if (scope.draft.active_steps.length === 0) {
+                endDraft(scope);
+              }
               break;
             }
-            const done = hand();
+            const beforeActive = [...scope.draft.active_steps];
+            const cancelled = cancelStepNames(input.cancel_steps ?? []);
+            if (!cancelled.ok) return cancelled;
+            removeActiveStep(scope.draft, change.step);
+            const done = handAll();
             if (!done.ok) return done;
+            // 단일 직렬 step에서 다음 넘김이 전부 not_handed이면 기존 계약대로 current를 직전 step에 남긴다.
+            const anyHanded = handedAll.some((r) => r.outcome === "handed");
+            if (
+              plans.length > 0 &&
+              !anyHanded &&
+              scope.draft.active_steps.length === 0
+            ) {
+              scope.draft.active_steps = beforeActive;
+              syncCurrent(scope.draft);
+            }
             break;
           }
           case "edit": {
@@ -570,9 +738,29 @@ export function createWorkflowCommands(
             });
             if (change.edit.op === "end") {
               endDraft(scope);
-            } else if (change.edit.op === "hand_now") {
-              const done = hand();
+            } else if (change.edit.op === "remove_step") {
+              removeActiveStep(scope.draft, change.edit.name);
+              const cancelled = cancelStepNames(input.cancel_steps ?? []);
+              if (!cancelled.ok) return cancelled;
+              if (plans.length > 0) {
+                const done = handAll();
+                if (!done.ok) return done;
+              }
+            } else if (
+              change.edit.op === "hand_now" ||
+              (change.edit.op === "insert_steps" &&
+                change.edit.hand_now === true)
+            ) {
+              const beforeActive = [...scope.draft.active_steps];
+              scope.draft.active_steps = [];
+              syncCurrent(scope.draft);
+              const done = handAll();
               if (!done.ok) return done;
+              const anyHanded = handedAll.some((r) => r.outcome === "handed");
+              if (!anyHanded) {
+                scope.draft.active_steps = beforeActive;
+                syncCurrent(scope.draft);
+              }
             }
             break;
           }
@@ -599,10 +787,11 @@ export function createWorkflowCommands(
               }
             }
             scope.draft.state = "stopped";
-            scope.draft.current = scope.draft.current && {
-              step: scope.draft.current.step,
+            scope.draft.active_steps = scope.draft.active_steps.map((a) => ({
+              step: a.step,
               human_turn: false,
-            };
+            }));
+            syncCurrent(scope.draft);
             scope.draft.finished_at ??= scope.at;
             break;
           }
@@ -686,8 +875,11 @@ export function createWorkflowCommands(
                   step: change.step,
                 },
                 unattended: !(
-                  scope.draft.current?.step === change.step &&
-                  scope.draft.current.human_turn
+                  scope.draft.active_steps.some(
+                    (a) => a.step === change.step && a.human_turn,
+                  ) ||
+                  (scope.draft.current?.step === change.step &&
+                    scope.draft.current.human_turn)
                 ),
               });
               if (!routed.ok) return routed;
@@ -698,7 +890,7 @@ export function createWorkflowCommands(
                 );
               }
             } else if (change.session === null) {
-              const done = hand();
+              const done = handAll();
               if (!done.ok) return done;
             }
             break;
@@ -756,11 +948,20 @@ export function createWorkflowCommands(
             if (stopped) {
               return fail("conflict", "workflow instance is stopped");
             }
-            if (plan === null) {
+            if (plans.length === 0) {
               return fail("conflict", "handoff plan is required");
             }
-            const done = hand();
+            const done = handAll();
             if (!done.ok) return done;
+            const lastSeq = tx.sql.get(
+              "SELECT max(seq) AS seq FROM workflow_lines WHERE instance = ?",
+              [input.instance],
+            );
+            line = String(lastSeq?.["seq"] ?? 1);
+            break;
+          }
+          case "set_editor_session": {
+            scope.draft.editor_session = change.session as Id<"ses"> | null;
             const lastSeq = tx.sql.get(
               "SELECT max(seq) AS seq FROM workflow_lines WHERE instance = ?",
               [input.instance],
@@ -771,7 +972,12 @@ export function createWorkflowCommands(
         }
         const instance = finish(tx, scope);
         return instance.ok
-          ? ok({ instance: instance.value, line, handed })
+          ? ok({
+              instance: instance.value,
+              line,
+              handed: handedAll[0] ?? null,
+              ...(handedAll.length > 0 ? { handed_all: handedAll } : {}),
+            })
           : instance;
       },
     },

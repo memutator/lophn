@@ -62,6 +62,8 @@ export interface WorkflowPageProps {
     | null;
   /** 산출물 파일 경로를 편집기로 연다. 없으면 클릭할 수 없는 경로 글로만 보인다. */
   onOpenFile?: ((path: string) => void) | null;
+  /** 시작 전(instance 생략) 또는 실행 중(instance 지정) workflow 편집용 lophn 세션을 split으로 연다. */
+  onOpenEditor?: ((instance?: string) => void) | null;
   /** 이 창이 열 수 있는 session인가. 없으면 모두 연다. */
   canOpenSession?: (session: string) => boolean;
   /** 참가자 agent의 얼굴. 없으면 선언에 적힌 이름만 보인다. */
@@ -149,6 +151,11 @@ export function WorkflowPage(props: WorkflowPageProps): ReactElement {
                 props.source.renameWorkflowInstance === undefined
                   ? null
                   : state.rename
+              }
+              onEdit={
+                props.onOpenEditor != null
+                  ? () => props.onOpenEditor?.(detail.instance.id)
+                  : null
               }
               onSelectInstance={(next) => onInstance(next)}
               onOpenArtifact={() =>
@@ -271,6 +278,11 @@ export function WorkflowPage(props: WorkflowPageProps): ReactElement {
               participantModes={state.participantModes}
               faceOf={faceOf}
               onStart={state.start}
+              onCustomize={
+                props.onOpenEditor != null
+                  ? () => props.onOpenEditor?.(undefined)
+                  : null
+              }
               onSaveDefault={state.saveDefaults}
               onSaveStepModeDefault={state.saveStepModeDefault}
               onSaveParticipantModeDefault={state.saveParticipantModeDefault}

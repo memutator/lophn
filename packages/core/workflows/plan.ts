@@ -258,7 +258,11 @@ export function stepBody({
   lines.push("Received:", received);
   if (step.out !== "") lines.push(`Produces: ${step.out}`);
   if (step.next.length > 0) {
-    lines.push(`Next candidates: ${step.next.join(", ")}`);
+    lines.push(
+      step.parallel === true && step.next.length > 1
+        ? `Next (parallel — hand off together with --next ${step.next.join(",")}): ${step.next.join(", ")}`
+        : `Next candidates: ${step.next.join(", ")}`,
+    );
   }
   return lines.join("\n");
 }

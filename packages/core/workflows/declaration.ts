@@ -169,6 +169,9 @@ export function stepsOf(declaration: WorkflowDeclaration): InstanceStep[] {
       in: s.in ?? "",
       out: s.out ?? "",
       next: s.next ?? [],
+      ...(s.parallel !== undefined ? { parallel: s.parallel } : {}),
+      ...(s.needs !== undefined ? { needs: s.needs } : {}),
+      ...(s.join !== undefined ? { join: s.join } : {}),
       ...(s.open !== undefined ? { open: s.open } : {}),
     };
   });
@@ -282,6 +285,9 @@ export function entryOf(
         by: s.by,
         with: s.with,
         next: s.next,
+        ...(s.parallel !== undefined ? { parallel: s.parallel } : {}),
+        ...(s.needs !== undefined ? { needs: s.needs } : {}),
+        ...(s.join !== undefined ? { join: s.join } : {}),
         ...(open !== undefined ? { open } : {}),
       };
     }),

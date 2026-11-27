@@ -87,6 +87,10 @@ interface Detail<S extends { readonly name: string }, L extends Line, R> {
     readonly state: RunState;
     readonly steps: readonly S[];
     readonly current: Current;
+    readonly active_steps?: readonly {
+      readonly step: string;
+      readonly human_turn: boolean;
+    }[];
   };
   readonly last_reports: Readonly<Record<string, R>>;
   readonly lines: readonly L[];
@@ -110,12 +114,20 @@ export function stepRows<
   R,
 >(detail: Detail<S, L, R>): StepRow<S, L, R>[] {
   const { instance, last_reports, lines } = detail;
+  const activeList =
+    instance.active_steps !== undefined
+      ? instance.active_steps
+      : instance.current === null
+        ? []
+        : [instance.current];
+  const activeByStep = new Map(activeList.map((a) => [a.step, a]));
   return instance.steps.map((step) => {
     const stepLines = lines.filter((line) => line.step === step.name);
     const report = last_reports[step.name];
-    const current = instance.current?.step === step.name;
+    const active = activeByStep.get(step.name);
+    const current = active !== undefined;
     const shown: StepShown = current
-      ? instance.current?.human_turn === true
+      ? active.human_turn === true
         ? "human"
         : instance.state === "stopped"
           ? "stopped"

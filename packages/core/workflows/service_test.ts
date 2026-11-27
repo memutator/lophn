@@ -25,7 +25,7 @@ import {
   removeWorkflowFromLayoutText,
   renameWorkflowInLayoutText,
 } from "../main/daemon/wiring/workflows-files.ts";
-import { createRouter } from "../router/mod.ts";
+import { createRouter, type Router } from "../router/mod.ts";
 import type { RoutedInput } from "../router/ports.ts";
 import { createSql } from "../storage/ledger/sqlite.ts";
 import { WORKFLOW_CHECKPOINTS_SCHEMA_STEP } from "./checkpoint-schema.ts";
@@ -34,6 +34,7 @@ import { entryOf } from "./declaration.ts";
 import { WORKFLOW_INPUTS_SCHEMA_STEP } from "./inputs-schema.ts";
 import { workflowLinesSchemaSteps } from "./lines-schema.ts";
 import { WORKFLOW_ONEOFF_OVERRIDE_SCHEMA_STEP } from "./oneoff-override-schema.ts";
+import { WORKFLOW_PARALLEL_EDITOR_SCHEMA_STEP } from "./parallel-editor-schema.ts";
 import { WORKFLOW_OPEN_MODE_SCHEMA_STEP } from "./open-mode-schema.ts";
 import { WORKFLOW_PARTICIPANT_MODES_SCHEMA_STEP } from "./participant-modes-schema.ts";
 import { redactJsonValues, stepBody } from "./plan.ts";
@@ -44,6 +45,8 @@ import type {
   WorkflowFiles,
   WorkflowFlows,
   WorkflowRemote,
+  WorkflowStore,
+  WorkflowTurns,
 } from "./ports.ts";
 import { createWorkflowReads, deriveWorkflowStatus } from "./reads.ts";
 import { workflowsSchemaSteps } from "./schema.ts";
@@ -2753,6 +2756,331 @@ test("one-off workflows, per-instance start overrides, live edits/override-code,
       oneOffFlow.value.instance.id,
     );
     assert.equal(oneOffList.value.instances[0]!.one_off, true);
+  } finally {
+    db.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("parallel fan-out, join all/any with sibling cancellation, dynamic reviewer --insert-steps, and editor_session linking", async () => {
+  const root = await mkdtemp(join(tmpdir(), "lophn-wf-parallel-"));
+  const db = new DatabaseSync(":memory:");
+  try {
+    for (const step of workflowsSchemaSteps) db.exec(step.sql);
+    for (const step of workflowLinesSchemaSteps) db.exec(step.sql);
+    db.exec(WORKFLOW_INPUTS_SCHEMA_STEP.sql);
+    db.exec(WORKFLOW_CHECKPOINTS_SCHEMA_STEP.sql);
+    db.exec(WORKFLOW_OPEN_MODE_SCHEMA_STEP.sql);
+    db.exec(WORKFLOW_TITLE_SCHEMA_STEP.sql);
+    db.exec(WORKFLOW_PARTICIPANT_MODES_SCHEMA_STEP.sql);
+    db.exec(WORKFLOW_ONEOFF_OVERRIDE_SCHEMA_STEP.sql);
+    db.exec(WORKFLOW_PARALLEL_EDITOR_SCHEMA_STEP.sql);
+
+    const sql = createSql(db, () => true);
+    let seq = 0;
+    const tx = {
+      sql,
+      now: () => `2026-11-27T12:00:${String(seq++).padStart(2, "0")}.000Z`,
+      emit: () => {},
+      registerBlobRef: () => ok(undefined),
+    } as unknown as Tx;
+    let nextSes = 1;
+    const routedBodies: Array<{ step: string; body: string; session: string }> =
+      [];
+    const fakeRouter = () =>
+      ok({
+        route: (
+          _tx: Tx,
+          input: {
+            step?: { step: string };
+            body: Array<{ text?: string }>;
+          },
+        ) => {
+          const id = `ses_01m7s25z3ytk6jx231s7x7e${String(nextSes++).padStart(3, "0")}`;
+          const text = Array.isArray(input.body)
+            ? input.body.map((p) => p.text ?? "").join("\n")
+            : "";
+          routedBodies.push({
+            step: input.step?.step ?? "",
+            body: text,
+            session: id,
+          });
+          return ok({ state: "done" as const, session: id });
+        },
+        sendStep: () => ok({ call: "cal_1" }),
+        acceptStepReport: () => ok(undefined),
+        cancel: () => ok(undefined),
+      } as unknown as Router);
+
+    const commands = createWorkflowCommands(fakeRouter);
+    const reads = createWorkflowReads();
+    const readSnapshot = { sql, as_of_seq: "1" } as unknown as Parameters<
+      typeof reads.read.handle
+    >[0];
+    const machineCtx = {
+      principal: "machine:workflows",
+      actor: "machine",
+      scope: { operations: [], targets: {} },
+      conditions: {},
+      credential_ref: "machine:workflows",
+    } as Parameters<typeof commands.create.handle>[1];
+    const store: WorkflowStore = {
+      create: async (input) =>
+        commands.create.handle(tx, machineCtx, input, {}),
+      apply: async (input, compare) =>
+        commands.apply.handle(tx, machineCtx, input, compare),
+      read: async (instance) =>
+        reads.read.handle(readSnapshot, machineCtx, { instance }),
+      running: async () => ok([]),
+      upsertCheckpoint: async (input) =>
+        commands.upsertCheckpoint.handle(tx, machineCtx, input, {}),
+      checkpoints: async (instance) => {
+        const r = reads.read.handle(readSnapshot, machineCtx, { instance });
+        return r.ok ? ok(r.value.checkpoints ?? []) : r;
+      },
+    };
+    const stoppedSessions: string[] = [];
+    const turns: WorkflowTurns = {
+      stopSession: async (session) => {
+        stoppedSessions.push(session);
+        return ok(undefined);
+      },
+      stepTurn: async () => ok(null),
+      openOutgoingCalls: async () => ok(0),
+    };
+    const remote: WorkflowRemote = {
+      computer: () => err({ code: "not_found", message: "none" }),
+      workspace: () => err({ code: "not_found", message: "none" }),
+      isPrivate: () => false,
+      receivedStep: async () => ok(null),
+      report: async () => ok(undefined),
+      handOf: () => ok(null),
+    };
+    const wfDir = join(root, "projects", PRJ, "workflows", "impl-review-land");
+    await mkdir(wfDir, { recursive: true });
+    await writeFile(
+      join(wfDir, "workflow.yaml"),
+      [
+        "participants:",
+        "  coder: { agent: claude }",
+        "  reviewer: { agent: codex }",
+        "steps:",
+        "  implement:",
+        "    by: coder",
+        "    prompt: Implement feature",
+        "    next: [review]",
+        "  review:",
+        "    by: reviewer",
+        "    prompt: Review code",
+        "    next: [land]",
+        "  land:",
+        "    by: coder",
+        "    prompt: Land changes",
+        "    next: [end]",
+      ].join("\n"),
+    );
+    const raceDir = join(root, "projects", PRJ, "workflows", "race-any");
+    await mkdir(raceDir, { recursive: true });
+    await writeFile(
+      join(raceDir, "workflow.yaml"),
+      [
+        "participants:",
+        "  a: { agent: claude }",
+        "  b: { agent: codex }",
+        "steps:",
+        "  start:",
+        "    by: a",
+        "    prompt: Split work",
+        "    parallel: true",
+        "    next: [fast, slow]",
+        "  fast:",
+        "    by: a",
+        "    prompt: Fast attempt",
+        "    next: [finish]",
+        "  slow:",
+        "    by: b",
+        "    prompt: Slow attempt",
+        "    next: [finish]",
+        "  finish:",
+        "    by: a",
+        "    needs: [fast, slow]",
+        "    join: any",
+        "    prompt: Wrap up winner",
+        "    next: [end]",
+      ].join("\n"),
+    );
+
+    const files = createWorkflowFiles(root);
+    let nextWfi = 1;
+    const svc = createWorkflowService({
+      files,
+      projects: {
+        resolve: async () => ok({ id: PRJ as Id<"prj">, name: "demo" }),
+        nameOf: async () => ok("demo"),
+      },
+      turns,
+      store,
+      flows: {
+        launch: async () => ok(undefined),
+        stop: async () => ok(undefined),
+      },
+      remote,
+      ids: {
+        newId: (prefix: string) =>
+          `${prefix}_01m7s25z3ytk6jx231s7x7w${String(nextWfi++).padStart(3, "0")}`,
+      } as never,
+      logger: {
+        debug: () => {},
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+      } as never,
+    });
+
+    // 1) Implement -> Review -> reviewer dynamically inserts 2 parallel fix steps joining back into Review (join: all) -> Round 2 Review -> Land.
+    const started = await svc.start(
+      { workflow: "demo/impl-review-land", text: "Build auth + cache" },
+      { kind: "user" },
+    );
+    assert.ok(started.ok);
+    const wfi = started.value.instance.id as Id<"wfi">;
+    assert.deepEqual(
+      started.value.instance.active_steps?.map((a) => a.step),
+      ["implement"],
+    );
+
+    const r1 = await svc.report(
+      { instance: wfi, step: "implement", text: "Implemented", next: "review" },
+      { kind: "user" },
+    );
+    assert.ok(r1.ok);
+
+    const r2 = await svc.report(
+      {
+        instance: wfi,
+        step: "review",
+        text: "Found 2 independent bugs",
+        insert_steps: [
+          { name: "fix_auth", by: "coder", prompt: "Fix auth race" },
+          { name: "fix_cache", by: "coder", prompt: "Fix cache TTL" },
+        ],
+        then_step: "review",
+        join: "all",
+      },
+      { kind: "user" },
+    );
+    assert.ok(r2.ok);
+    assert.equal(
+      "handed_all" in r2.value ? r2.value.handed_all?.length : undefined,
+      2,
+    );
+
+    const afterInsert = await store.read(wfi);
+    assert.ok(afterInsert.ok);
+    assert.deepEqual(
+      afterInsert.value.instance.active_steps?.map((a) => a.step),
+      ["fix_auth", "fix_cache"],
+    );
+    assert.equal(afterInsert.value.instance.overridden, true);
+
+    // Completing fix_auth alone waits for fix_cache (join: all).
+    const rFix1 = await svc.report(
+      {
+        instance: wfi,
+        step: "fix_auth",
+        text: "Auth fixed",
+        next: "review",
+      },
+      { kind: "user" },
+    );
+    assert.ok(rFix1.ok);
+    assert.equal(rFix1.value.handed, null);
+    const midRead = await store.read(wfi);
+    assert.ok(midRead.ok);
+    assert.deepEqual(
+      midRead.value.instance.active_steps?.map((a) => a.step),
+      ["fix_cache"],
+    );
+
+    // Completing fix_cache satisfies join: all and hands combined report back to review (round 2).
+    const rFix2 = await svc.report(
+      {
+        instance: wfi,
+        step: "fix_cache",
+        text: "Cache fixed",
+        next: "review",
+      },
+      { kind: "user" },
+    );
+    assert.ok(rFix2.ok);
+    assert.equal(rFix2.value.handed?.outcome, "handed");
+    assert.equal(rFix2.value.handed?.step, "review");
+    const reviewRound2Body = routedBodies.at(-1)?.body ?? "";
+    assert.ok(reviewRound2Body.includes("### fix_auth"));
+    assert.ok(reviewRound2Body.includes("Auth fixed"));
+    assert.ok(reviewRound2Body.includes("### fix_cache"));
+    assert.ok(reviewRound2Body.includes("Cache fixed"));
+
+    // 2) Parallel join: any hands off on first winner, cancels slow sibling session, and ignores late report from slow sibling.
+    const startedRace = await svc.start(
+      { workflow: "demo/race-any", text: "Solve fast" },
+      { kind: "user" },
+    );
+    assert.ok(startedRace.ok);
+    const raceWfi = startedRace.value.instance.id as Id<"wfi">;
+    const fanOut = await svc.report(
+      {
+        instance: raceWfi,
+        step: "start",
+        text: "Go",
+        next_steps: ["fast", "slow"],
+      },
+      { kind: "user" },
+    );
+    assert.ok(fanOut.ok);
+    const slowSession = routedBodies.findLast(
+      (b) => b.step === "slow",
+    )?.session;
+    assert.ok(slowSession);
+
+    const fastWin = await svc.report(
+      {
+        instance: raceWfi,
+        step: "fast",
+        text: "Fast answer",
+        next: "finish",
+      },
+      { kind: "user" },
+    );
+    assert.ok(fastWin.ok);
+    assert.equal(fastWin.value.handed?.step, "finish");
+    assert.ok(stoppedSessions.includes(slowSession!));
+
+    const raceAfterWin = await store.read(raceWfi);
+    assert.ok(raceAfterWin.ok);
+    assert.deepEqual(
+      raceAfterWin.value.instance.active_steps?.map((a) => a.step),
+      ["finish"],
+    );
+
+    // Late report from cancelled slow sibling must NOT re-handoff finish.
+    const lateSlow = await svc.report(
+      {
+        instance: raceWfi,
+        step: "slow",
+        text: "Too late",
+        next: "finish",
+      },
+      { kind: "user" },
+    );
+    assert.ok(lateSlow.ok);
+    assert.equal(lateSlow.value.handed, null);
+
+    // 3) editor_session persists on instance via setEditorSession and auto-links from agent-started run().
+    const editorSes = "ses_01m7s25z3ytk6jx231s7x7ed01" as Id<"ses">;
+    const linked = await svc.setEditorSession(wfi, editorSes);
+    assert.ok(linked.ok);
+    assert.equal(linked.value.editor_session, editorSes);
   } finally {
     db.close();
     await rm(root, { recursive: true, force: true });

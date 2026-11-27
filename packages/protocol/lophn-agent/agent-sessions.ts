@@ -96,6 +96,7 @@ export const workspaceSessionOpen = defineCommand({
     id: idSchema("ses"),
     agent: agentIdSchema,
     workspace: workspaceSchema.nullable(),
+    title: sessionTitleSchema.optional(),
   }),
   output: z.object({
     id: idSchema("ses"),

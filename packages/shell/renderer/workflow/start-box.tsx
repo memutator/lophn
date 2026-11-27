@@ -169,6 +169,7 @@ export function StartBox({
   participantModes = [],
   faceOf,
   onStart,
+  onCustomize,
   onSaveDefault,
   onSaveStepModeDefault,
   onSaveParticipantModeDefault,
@@ -193,6 +194,8 @@ export function StartBox({
       readonly participantModes?: Record<string, PermissionMode>;
     },
   ) => Promise<boolean>;
+  /** 이번 run에 한해 대화로 수정해 시작할 lophn 세션을 split으로 연다. 없으면 단추를 그리지 않는다. */
+  onCustomize?: (() => void) | null;
   /** 바뀐 항목 하나를 workflow.yaml 기본값으로 저장한다. */
   onSaveDefault?: (patch: {
     readonly default_step?: string | null;
@@ -1007,6 +1010,16 @@ export function StartBox({
       ) : null}
       <div className={styles.row}>
         <span className={styles.actions}>
+          {onCustomize != null && entry.startable ? (
+            <Button
+              variant="secondary"
+              icon={actionIcons.edit}
+              onClick={onCustomize}
+              data-customize-with-lophn=""
+            >
+              {t("workflow.button.customize-run")}
+            </Button>
+          ) : null}
           {entry.startable ? (
             button
           ) : (

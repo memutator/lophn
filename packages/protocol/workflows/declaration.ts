@@ -4,6 +4,7 @@ import { workflowInputsSchema, workflowOutputsSchema } from "./inputs.ts";
 import {
   participantKeySchema,
   sessionOpenModeSchema,
+  stepJoinModeSchema,
   stepNameSchema,
   stepNextSchema,
 } from "./values.ts";
@@ -30,6 +31,11 @@ export const declarationStepSchema = z.looseObject({
   in: z.string().optional(),
   out: z.string().optional(),
   next: z.array(stepNextSchema).optional(),
+  // next 후보들을 병렬로 동시에 넘기는 단계인지.
+  parallel: z.boolean().optional(),
+  // 병렬 선행 step들이 합류할 때 기다리는 선행 step 이름 목록과 합류 규칙(all | any).
+  needs: z.array(stepNameSchema).optional(),
+  join: stepJoinModeSchema.optional(),
   open: sessionOpenModeSchema.optional(),
 });
 

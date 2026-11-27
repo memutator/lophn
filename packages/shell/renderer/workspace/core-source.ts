@@ -21,6 +21,7 @@ import { workflowInstanceRename } from "../../../protocol/workflows/commands.ts"
 import {
   workflowDelete,
   workflowList,
+  workflowOpenEditor,
   workflowRename,
   workflowResume,
   workflowRetry,
@@ -623,6 +624,28 @@ export function coreWorkspaceSource(core: CoreSource): WorkspaceSource {
         ok: true,
         value: { title: (reply.value as { title: string }).title },
       };
+    },
+
+    async openWorkflowEditor({ project: projectId, workflow, instance }) {
+      const reply = await core.call({
+        kind: workflowOpenEditor.kind,
+        resource: workflowOpenEditor.resource,
+        method: workflowOpenEditor.method,
+        body: {
+          project: projectId,
+          workflow,
+          ...(instance === undefined ? {} : { instance }),
+        },
+      });
+      if (!reply.ok) {
+        return { ok: false, message: reply.error?.code ?? "internal" };
+      }
+      const value = reply.value as {
+        session: string;
+        agent: string;
+        created: boolean;
+      };
+      return { ok: true, value };
     },
 
     async stopWorkflow(instance) {

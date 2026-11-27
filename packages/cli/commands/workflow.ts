@@ -8,10 +8,12 @@ import { idSchema } from "../../protocol/base/ids.ts";
 import { WORKSPACE_KINDS } from "../../protocol/lophn-agent/workspaces.ts";
 import {
   type HandResult,
+  newStepSchema,
   participantKeySchema,
   participantSchema,
   sessionChoiceSchema,
   sessionOpenModeSchema,
+  stepJoinModeSchema,
   stepNameSchema,
   stepNextSchema,
   workflowCheck,
@@ -59,15 +61,34 @@ function handedText(handed: HandResult | null): string {
 
 function handedSummary(
   verb: string,
-  value: { line: string | null; handed: HandResult | null },
+  value: {
+    line: string | null;
+    handed: HandResult | null;
+    handed_all?: HandResult[];
+  },
 ): string {
-  const { line, handed } = value;
+  const { line, handed, handed_all } = value;
   // 다른 컴퓨터에서 받은 step의 report는 그 컴퓨터로 간다. 이 컴퓨터에는 줄이 없다.
   if (line === null) return `${verb} to the computer that started the workflow`;
-  if (handed === null) return `${verb} (line ${line})`;
-  return handed.outcome === "handed"
-    ? `${verb}; step ${handed.step} handed`
-    : `${verb}; step ${handed.step} was not handed: ${handed.reason}`;
+  const list =
+    handed_all !== undefined && handed_all.length > 0
+      ? handed_all
+      : handed !== null
+        ? [handed]
+        : [];
+  if (list.length === 0) return `${verb} (line ${line})`;
+  if (list.length === 1) {
+    const one = list[0]!;
+    return one.outcome === "handed"
+      ? `${verb}; step ${one.step} handed`
+      : `${verb}; step ${one.step} was not handed: ${one.reason}`;
+  }
+  const parts = list.map((one) =>
+    one.outcome === "handed"
+      ? `${one.step} handed`
+      : `${one.step} not handed (${one.reason})`,
+  );
+  return `${verb}; ${parts.join(", ")}`;
 }
 
 const list = defineCommand({
@@ -147,12 +168,40 @@ const get = defineCommand({
 const report = defineCommand({
   name: "workflow.report",
   summary: "Report a step's result and hand over to the next step",
-  description: `Report a step result. --next hands a step or ends the instance (end); omit it for a progress note. --session new|same chooses whether the next step opens a new session. --refs lists output file paths (repeat the flag for multiple paths) and --data attaches optional structured JSON. The report stays even if handing fails; the summary explains why. For a step that came from another computer, the same command sends the report back to that computer (only the session that got the step; a report with --next ends the step there). ${TEXT_NOTE} ${STATE_NOTE}`,
+  description: `Report a step result. --next hands a step, comma-separated steps in parallel, or ends the instance (end); omit it for a progress note. --next-steps hands multiple steps in parallel. --insert-steps dynamically inserts one or more follow-up workflow steps (running in parallel when 2+) right after this step, links them to --then-step (with optional --join all|any, default all), and hands them off immediately. --session new|same chooses whether the next step opens a new session. --refs lists output file paths (repeat the flag for multiple paths) and --data attaches optional structured JSON. The report stays even if handing fails; the summary explains why. For a step that came from another computer, the same command sends the report back to that computer (only the session that got the step; a report with --next ends the step there). ${TEXT_NOTE} ${STATE_NOTE}`,
   input: z.strictObject({
     instance,
     step: stepNameSchema,
     text: workflowTextSchema,
-    next: stepNextSchema.optional().describe("next step name or end"),
+    next: z
+      .string()
+      .min(1)
+      .optional()
+      .describe(
+        "next step name, comma-separated step names for parallel fan-out, or end",
+      ),
+    next_steps: z
+      .array(stepNameSchema)
+      .min(1)
+      .optional()
+      .describe("multiple next step names to run in parallel"),
+    insert_steps: z
+      .array(newStepSchema)
+      .min(1)
+      .optional()
+      .describe(
+        "dynamically insert one or more follow-up workflow steps right after this step and hand off to them",
+      ),
+    then_step: stepNextSchema
+      .optional()
+      .describe(
+        "step to run after --insert-steps finish (default: current step's next)",
+      ),
+    join: stepJoinModeSchema
+      .optional()
+      .describe(
+        "join rule on --then-step when inserting parallel steps (all | any, default all)",
+      ),
     session: sessionChoiceSchema.optional(),
     refs: workflowRefsSchema
       .optional()
@@ -166,31 +215,84 @@ const report = defineCommand({
   routes: [workflowReport],
   workspaces: WORKSPACE_KINDS,
   run: async (input, ctx) => {
-    const reported = await ctx.core.read(workflowReport, input);
+    let next: z.output<typeof stepNextSchema> | undefined;
+    let nextSteps = input.next_steps;
+    if (input.next !== undefined) {
+      if (input.next.includes(",")) {
+        const parts = input.next
+          .split(",")
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0);
+        const parsed = z.array(stepNameSchema).min(1).safeParse(parts);
+        if (!parsed.success) {
+          return {
+            ok: false,
+            error: {
+              code: "invalid_input" as const,
+              message: `invalid parallel next steps: ${input.next}`,
+            },
+          };
+        }
+        nextSteps = parsed.data;
+      } else {
+        const parsed = stepNextSchema.safeParse(input.next);
+        if (!parsed.success) {
+          return {
+            ok: false,
+            error: {
+              code: "invalid_input" as const,
+              message: parsed.error.issues[0]?.message ?? "invalid next step",
+            },
+          };
+        }
+        next = parsed.data;
+      }
+    }
+    const { next: _rawNext, next_steps: _rawNextSteps, ...rest } = input;
+    const reported = await ctx.core.read(workflowReport, {
+      ...rest,
+      ...(next !== undefined ? { next } : {}),
+      ...(nextSteps !== undefined ? { next_steps: nextSteps } : {}),
+    });
     if (!reported.ok) return reported;
-    const { line, handed } = reported.value;
+    const { line, handed, handed_all } = reported.value;
+    const allHanded =
+      handed_all !== undefined && handed_all.length > 0
+        ? handed_all
+        : handed !== null
+          ? [handed]
+          : [];
     return ok({
       summary: handedSummary("reported", reported.value),
-      content: { line, handed },
+      content: {
+        line,
+        handed,
+        ...(handed_all !== undefined ? { handed_all } : {}),
+      },
       text:
         line === null
           ? "sent to the computer that started the workflow"
-          : `line: ${line}\nhanded: ${handedText(handed)}`,
+          : `line: ${line}\nhanded: ${
+              allHanded.length === 0
+                ? "none"
+                : allHanded.map(handedText).join("; ")
+            }`,
     });
   },
 });
 
 // EditWorkflow 입력은 op로 가르는 합이라 flag로 못 만든다. 칸이 평평한 입력을 받아 합의 variant로 옮긴다.
 // 칸 모양은 합의 variant에서 가져와 복사본을 만들지 않는다. 칸이 op에 안 맞는 경우는 route의 검사가 돌려준다.
-const [addStep, updateStep] = workflowEditInputSchema.options;
+const [addStep, insertStepsOp, updateStep] = workflowEditInputSchema.options;
 const edit = defineCommand({
   name: "workflow.edit",
   summary: "Edit a workflow instance",
-  description: `Edit an instance. add_step: --new-step object, optional --after. update_step: --name and --patch. remove_step: --name. set_participant: --key and --participant. remove_participant: --key. end: no extra fields. hand_now: --step name, optional --text/--session. ${TEXT_NOTE} ${STATE_NOTE}`,
+  description: `Edit an instance. add_step: --new-step object, optional --after. insert_steps: --steps array (1 or parallel 2+), optional --after/--then-step/--join/--hand-now/--text/--session. update_step: --name and --patch. remove_step: --name. set_participant: --key and --participant. remove_participant: --key. end: no extra fields. hand_now: --step name (or --hand-steps array for parallel), optional --text/--session. ${TEXT_NOTE} ${STATE_NOTE}`,
   input: z.strictObject({
     instance,
     op: z.enum([
       "add_step",
+      "insert_steps",
       "update_step",
       "remove_step",
       "set_participant",
@@ -199,12 +301,17 @@ const edit = defineCommand({
       "hand_now",
     ]),
     new_step: addStep.shape.step.optional(),
+    steps: insertStepsOp.shape.steps.optional(),
     after: addStep.shape.after,
+    then_step: insertStepsOp.shape.then_step,
+    join: insertStepsOp.shape.join,
+    hand_now: insertStepsOp.shape.hand_now,
     name: stepNameSchema.optional(),
     patch: updateStep.shape.patch.optional(),
     key: participantKeySchema.optional(),
     participant: participantSchema.optional(),
     step: stepNameSchema.optional(),
+    hand_steps: z.array(stepNameSchema).min(1).optional(),
     text: workflowTextSchema.optional(),
     session: sessionChoiceSchema.optional(),
   }),
@@ -213,11 +320,18 @@ const edit = defineCommand({
   routes: [workflowEdit],
   workspaces: WORKSPACE_KINDS,
   run: async (input, ctx) => {
-    const { new_step, ...rest } = input;
-    const done = await ctx.core.read(workflowEdit, {
-      ...rest,
-      ...(new_step === undefined ? {} : { step: new_step }),
-    });
+    const { new_step, hand_steps, ...rest } = input;
+    const payload =
+      rest.op === "hand_now" && hand_steps !== undefined
+        ? { ...rest, steps: hand_steps }
+        : {
+            ...rest,
+            ...(new_step === undefined ? {} : { step: new_step }),
+          };
+    const done = await ctx.core.read(
+      workflowEdit,
+      payload as z.input<typeof workflowEdit.input>,
+    );
     if (!done.ok) return done;
     return ok({
       summary: handedSummary("edited", done.value),

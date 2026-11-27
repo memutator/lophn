@@ -47,6 +47,18 @@ export function instanceFromRow(
     typeof row.flow_agent === "string" && row.flow_agent.length > 0
       ? row.flow_agent
       : undefined;
+  let activeSteps: unknown;
+  if (row.active_steps_json !== undefined && row.active_steps_json !== null) {
+    try {
+      activeSteps = JSON.parse(String(row.active_steps_json));
+    } catch {
+      return err({ code: "internal", message: "invalid stored workflow" });
+    }
+  }
+  const editorSession =
+    typeof row.editor_session === "string" && row.editor_session.length > 0
+      ? row.editor_session
+      : undefined;
   const parsed = workflowInstanceSchema.safeParse({
     id: row.id,
     project: row.project,
@@ -61,6 +73,8 @@ export function instanceFromRow(
       row.current_step === null
         ? null
         : { step: row.current_step, human_turn: Number(row.human_turn) === 1 },
+    ...(activeSteps !== undefined ? { active_steps: activeSteps } : {}),
+    ...(editorSession !== undefined ? { editor_session: editorSession } : {}),
     started_by: JSON.parse(String(row.started_by)),
     ...(codeSnapshot !== undefined ? { code_snapshot: codeSnapshot } : {}),
     ...(openMode !== undefined ? { open_mode: openMode } : {}),

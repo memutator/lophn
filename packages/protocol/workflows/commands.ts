@@ -11,6 +11,7 @@ import {
   handResultSchema,
   instanceStepSchema,
   lineBySchema,
+  newStepSchema,
   notHandedReasonSchema,
   startedBySchema,
   workflowCheckpointSchema,
@@ -22,6 +23,7 @@ import {
   participantSchema,
   sessionChoiceSchema,
   sessionOpenModeSchema,
+  stepJoinModeSchema,
   stepNameSchema,
   stepNextSchema,
   workflowCheckpointKindSchema,
@@ -104,11 +106,14 @@ export const workflowInstanceCreate = defineCommand({
     one_off: z.boolean().optional(),
     overridden: z.boolean().optional(),
     flow_agent: z.string().min(1).nullable().optional(),
+    editor_session: idSchema("ses").nullable().optional(),
     handoff: handoffPlanSchema.nullable(), // null이면 flow다. 넘기지 않는다
+    handoffs: z.array(handoffPlanSchema).optional(),
   }),
   output: z.object({
     instance: workflowInstanceSchema,
     handed: handResultSchema.nullable(),
+    handed_all: z.array(handResultSchema).optional(),
   }),
   actors: ["machine"],
   errors: [
@@ -127,6 +132,16 @@ const changeSchema = z.discriminatedUnion("kind", [
     step: stepNameSchema,
     text: z.string().min(1),
     next: stepNextSchema.nullable(),
+    next_steps: z.array(stepNameSchema).min(1).optional(),
+    // report와 동시에 현재 step 뒤에 단일 또는 병렬 동적 step을 끼워 넣는다.
+    insert_steps: z
+      .strictObject({
+        steps: z.array(newStepSchema).min(1),
+        after: stepNameSchema.optional(),
+        then_step: stepNextSchema.optional(),
+        join: stepJoinModeSchema.optional(),
+      })
+      .optional(),
     session: sessionChoiceSchema,
     refs: workflowRefsSchema.optional(),
     data: workflowDataSchema.optional(),
@@ -180,6 +195,11 @@ const changeSchema = z.discriminatedUnion("kind", [
   z.strictObject({
     kind: z.literal("handoff"),
   }),
+  // 이 instance에 1:1 연결되는 on-demand lophn 편집 session을 기록한다.
+  z.strictObject({
+    kind: z.literal("set_editor_session"),
+    session: idSchema("ses").nullable(),
+  }),
 ]);
 
 export const workflowInstanceApply = defineCommand({
@@ -192,6 +212,10 @@ export const workflowInstanceApply = defineCommand({
     change: changeSchema,
     by: lineBySchema,
     handoff: handoffPlanSchema.nullable(),
+    // 병렬 fan-out 시 한 transaction에서 여러 step을 동시에 넘긴다.
+    handoffs: z.array(handoffPlanSchema).optional(),
+    // join: any 합류 등으로 더 이상 필요 없어진 활성 형제 step을 active_steps에서 내리고 열린 원격 call을 취소한다.
+    cancel_steps: z.array(stepNameSchema).optional(),
     // 다른 컴퓨터의 참가자가 낸 report가 실려 온 reply mail. 같은 tx에서 본 것으로 적는다(한 번만 적용한다).
     mail: z
       .strictObject({
@@ -207,6 +231,7 @@ export const workflowInstanceApply = defineCommand({
     instance: workflowInstanceSchema,
     line: seqSchema,
     handed: handResultSchema.nullable(),
+    handed_all: z.array(handResultSchema).optional(),
   }),
   compare: z.strictObject({ state_seq: seqSchema }),
   actors: ["machine"],

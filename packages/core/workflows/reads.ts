@@ -97,6 +97,7 @@ export function truncatePreview(text: string, max = PREVIEW_MAX_CHARS): string {
 export function deriveWorkflowStatus(input: {
   state: WorkflowState;
   current: WorkflowInstance["current"];
+  activeSteps?: WorkflowInstance["active_steps"];
   latestStatusLine: StatusLineKind | null;
   sessions: readonly Pick<WorkflowSessionNode, "waiting_for">[];
   remoteSteps: readonly Pick<RemoteStep, "delivery">[];
@@ -130,9 +131,12 @@ export function deriveWorkflowStatus(input: {
       input.latestStatusLine === "escalated";
     if (!progressedAfter) return "blocked";
   }
+  const hasHumanActive =
+    input.current?.human_turn === true ||
+    (input.activeSteps?.some((a) => a.human_turn) ?? false);
   if (
     input.latestStatusLine === "escalated" ||
-    input.current?.human_turn === true ||
+    hasHumanActive ||
     checkpoints.some((cp) => cp.kind === "human" && cp.state === "started") ||
     input.remoteSteps.some((step) => step.delivery === "held")
   ) {
@@ -295,6 +299,7 @@ function deriveSummaryStatus(
   return deriveWorkflowStatus({
     state: instance.state,
     current: instance.current,
+    activeSteps: instance.active_steps,
     latestStatusLine,
     sessions: waiting ? [{ waiting_for: "approval" }] : [],
     remoteSteps,
@@ -359,6 +364,7 @@ export function createWorkflowReads(deps: WorkflowReadDeps = {}): {
         const derivedStatus = deriveWorkflowStatus({
           state: found.value.state,
           current: found.value.current,
+          activeSteps: found.value.active_steps,
           latestStatusLine:
             found.value.state === "running"
               ? lastStatusLineKind(snapshot.sql, input.instance)

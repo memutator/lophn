@@ -8,6 +8,7 @@ import {
 } from "../../protocol/lophn-agent/mod.ts";
 import type { Sql } from "../../protocol/server/mod.ts";
 import type {
+  ActiveStep,
   InstanceStep,
   Participant,
   ReportLine,
@@ -85,13 +86,19 @@ export function insertInstance(
     one_off?: boolean;
     overridden?: boolean;
     flow_agent?: string | null;
+    editor_session?: Id<"ses"> | null;
     participants: Record<string, Participant>;
     steps: InstanceStep[];
     current: Current;
+    active_steps?: ActiveStep[];
     started_by: StartedBy;
     created_at: string;
   },
 ): void {
+  const activeSteps =
+    instance.active_steps ??
+    (instance.current === null ? [] : [instance.current]);
+  const primaryCurrent = activeSteps[0] ?? instance.current;
   const cols = [
     "id",
     "project",
@@ -114,8 +121,8 @@ export function insertInstance(
     "running",
     JSON.stringify(instance.participants),
     JSON.stringify(instance.steps),
-    instance.current?.step ?? null,
-    instance.current?.human_turn ? 1 : 0,
+    primaryCurrent?.step ?? null,
+    primaryCurrent?.human_turn ? 1 : 0,
     JSON.stringify(instance.started_by),
     instance.created_at,
     nextStateSeq(sql),
@@ -170,6 +177,18 @@ export function insertInstance(
     cols.push("flow_agent");
     values.push(instance.flow_agent);
   }
+  if (hasColumn(sql, "workflow_instances", "active_steps_json")) {
+    cols.push("active_steps_json");
+    values.push(JSON.stringify(activeSteps));
+  }
+  if (
+    instance.editor_session !== undefined &&
+    instance.editor_session !== null &&
+    hasColumn(sql, "workflow_instances", "editor_session")
+  ) {
+    cols.push("editor_session");
+    values.push(instance.editor_session);
+  }
   const placeholders = cols.map(() => "?").join(", ");
   sql.run(
     `INSERT INTO workflow_instances (${cols.join(", ")}) VALUES (${placeholders})`,
@@ -206,42 +225,52 @@ export function updateInstance(
   change: {
     state: WorkflowState;
     current: Current;
+    active_steps?: ActiveStep[];
     participants?: Record<string, Participant>;
     steps: InstanceStep[];
     finished_at: string | null;
+    editor_session?: Id<"ses"> | null;
   },
 ): Result<void> {
-  const changed =
-    change.participants !== undefined
-      ? sql.run(
-          `UPDATE workflow_instances SET state = ?, current_step = ?, human_turn = ?,
-             participants = ?, steps = ?, finished_at = ?, state_seq = ?
-           WHERE id = ?`,
-          [
-            change.state,
-            change.current?.step ?? null,
-            change.current?.human_turn ? 1 : 0,
-            JSON.stringify(change.participants),
-            JSON.stringify(change.steps),
-            change.finished_at,
-            nextStateSeq(sql),
-            id,
-          ],
-        )
-      : sql.run(
-          `UPDATE workflow_instances SET state = ?, current_step = ?, human_turn = ?,
-             steps = ?, finished_at = ?, state_seq = ?
-           WHERE id = ?`,
-          [
-            change.state,
-            change.current?.step ?? null,
-            change.current?.human_turn ? 1 : 0,
-            JSON.stringify(change.steps),
-            change.finished_at,
-            nextStateSeq(sql),
-            id,
-          ],
-        );
+  const activeSteps =
+    change.active_steps ?? (change.current === null ? [] : [change.current]);
+  const primaryCurrent = activeSteps[0] ?? change.current;
+  const sets = [
+    "state = ?",
+    "current_step = ?",
+    "human_turn = ?",
+    "steps = ?",
+    "finished_at = ?",
+    "state_seq = ?",
+  ];
+  const params: (string | number | null)[] = [
+    change.state,
+    primaryCurrent?.step ?? null,
+    primaryCurrent?.human_turn ? 1 : 0,
+    JSON.stringify(change.steps),
+    change.finished_at,
+    nextStateSeq(sql),
+  ];
+  if (change.participants !== undefined) {
+    sets.push("participants = ?");
+    params.push(JSON.stringify(change.participants));
+  }
+  if (hasColumn(sql, "workflow_instances", "active_steps_json")) {
+    sets.push("active_steps_json = ?");
+    params.push(JSON.stringify(activeSteps));
+  }
+  if (
+    change.editor_session !== undefined &&
+    hasColumn(sql, "workflow_instances", "editor_session")
+  ) {
+    sets.push("editor_session = ?");
+    params.push(change.editor_session);
+  }
+  params.push(id);
+  const changed = sql.run(
+    `UPDATE workflow_instances SET ${sets.join(", ")} WHERE id = ?`,
+    params,
+  );
   return Number(changed.changes) === 1
     ? ok(undefined)
     : err({ code: "not_found", message: "workflow instance not found" });

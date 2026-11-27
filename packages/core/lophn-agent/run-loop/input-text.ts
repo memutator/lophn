@@ -193,7 +193,7 @@ export function inputParts(
       const { instance, step } = input.step ?? { instance: "", step: "" };
       return assemble(
         wrapped(INPUT_TAGS.step, { instance, step }, input.body, [
-          "This was sent by lophn for a workflow instance. If you delegate work to sub-agents, use `lophn team spawn` so lophn tracks them under this workflow. When your step is done, report it with `lophn workflow report`.",
+          "This was sent by lophn for a workflow instance. Use `lophn team spawn` for internal helper sub-agents within this step. When follow-up work should be a tracked workflow step (single or parallel), insert it when reporting with `lophn workflow report --insert-steps '<json>' --then-step <step> [--join all|any]`. When your step is done, report it with `lophn workflow report`.",
         ]),
       );
     }

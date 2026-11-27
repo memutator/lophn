@@ -458,5 +458,9 @@
   {
     "id": "workflows.instances-oneoff-override",
     "sha256": "fcb4071dcc084822ad581967bb52cff0c9b26cbc8d6a09e598d50d7ad809ca91"
+  },
+  {
+    "id": "workflows.instances-parallel-editor",
+    "sha256": "8796294d5c49594cbe86708c4a98741ceffd83c17542f1062279baafc3fc1f08"
   }
 ]

@@ -9,6 +9,7 @@ import { workflowInputValuesSchema } from "./inputs.ts";
 import {
   handResultSchema,
   listWorkflowsResponseSchema,
+  newStepSchema,
   remoteStepSchema,
   reportLineSchema,
   workflowCheckpointSchema,
@@ -26,6 +27,7 @@ import {
   participantSchema,
   sessionChoiceSchema,
   sessionOpenModeSchema,
+  stepJoinModeSchema,
   stepNameSchema,
   stepNextSchema,
   workflowDataSchema,
@@ -110,6 +112,14 @@ export const workflowReport = defineMemory({
     step: stepNameSchema,
     text: workflowTextSchema,
     next: stepNextSchema.optional(),
+    // 병렬 fan-out으로 여러 다음 step을 동시에 넘길 때 사용한다(next와 동시에 주지 않는다).
+    next_steps: z.array(stepNameSchema).min(1).optional(),
+    // report와 동시에 현재 step 뒤에 단일 또는 병렬 동적 step을 끼워 넣고 바로 넘긴다.
+    insert_steps: z.array(newStepSchema).min(1).optional(),
+    // insert_steps로 끼워 넣은 step들이 끝난 뒤 이어갈 step(생략하면 현재 step의 기존 next).
+    then_step: stepNextSchema.optional(),
+    // insert_steps가 2개 이상(병렬)일 때 then_step의 합류 규칙(기본 all).
+    join: stepJoinModeSchema.optional(),
     session: sessionChoiceSchema.optional(),
     // 산출물 경로(명시한 것만 모은다)와 선택적 구조화 값.
     refs: workflowRefsSchema.optional(),
@@ -118,6 +128,7 @@ export const workflowReport = defineMemory({
   output: z.object({
     line: seqSchema.nullable(),
     handed: handResultSchema.nullable(),
+    handed_all: z.array(handResultSchema).optional(),
   }),
   actors: ["user", "agent"],
   errors: [...readErrors, "conflict"],
@@ -133,6 +144,7 @@ export const workflowEdit = defineMemory({
   output: z.object({
     line: seqSchema,
     handed: handResultSchema.nullable(),
+    handed_all: z.array(handResultSchema).optional(),
   }),
   actors: ["user", "agent"],
   errors: [...readErrors, "conflict"],
@@ -389,6 +401,9 @@ const inlineStepInputSchema = z.strictObject({
   in: z.string().optional(),
   out: z.string().optional(),
   next: z.array(stepNextSchema).optional(),
+  parallel: z.boolean().optional(),
+  needs: z.array(stepNameSchema).optional(),
+  join: stepJoinModeSchema.optional(),
   open: sessionOpenModeSchema.optional(),
 });
 
@@ -399,6 +414,9 @@ const overrideStepPatchSchema = z.strictObject({
   in: z.string().optional(),
   out: z.string().optional(),
   next: z.array(stepNextSchema).optional(),
+  parallel: z.boolean().nullable().optional(),
+  needs: z.array(stepNameSchema).nullable().optional(),
+  join: stepJoinModeSchema.nullable().optional(),
   open: sessionOpenModeSchema.nullable().optional(),
 });
 
@@ -509,12 +527,33 @@ export const workflowSave = defineMemory({
   errors: [...readErrors, "conflict"],
 });
 
+// 시작 전(instance 생략) 또는 실행 중(instance 지정) workflow를 대화로 수정할 lophn 세션을 on-demand로 열거나 기존 세션을 돌려준다.
+export const workflowOpenEditor = defineMemory({
+  resource: "workflows",
+  method: "open-editor",
+  name: "OpenWorkflowEditor",
+  changes: ["sessions", "workflow_instances"],
+  input: z.strictObject({
+    project: idSchema("prj"),
+    workflow: workflowNameSchema,
+    instance: idSchema("wfi").optional(),
+  }),
+  output: z.object({
+    session: idSchema("ses"),
+    agent: z.string().min(1),
+    created: z.boolean(),
+  }),
+  actors: ["user"],
+  errors: [...readErrors, "conflict"],
+});
+
 export const WORKFLOW_ROUTES = [
   workflowList,
   workflowStart,
   workflowRun,
   workflowOverrideCode,
   workflowSave,
+  workflowOpenEditor,
   workflowCheck,
   workflowRename,
   workflowDelete,

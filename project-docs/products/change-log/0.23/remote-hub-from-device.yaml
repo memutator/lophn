@@ -1,5 +1,5 @@
 id: remote-hub-from-device
-version: 0.23.181
+version: 0.23.182
 title: 다른 컴퓨터의 My computers에서 그 컴퓨터의 Hub 역할을 켠다
 modules:
   - packages/core/config

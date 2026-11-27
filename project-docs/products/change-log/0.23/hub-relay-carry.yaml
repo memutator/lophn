@@ -1,5 +1,5 @@
 id: hub-relay-carry
-version: 0.23.182
+version: 0.23.183
 platform_note: none
 title: Hub relay가 공개 relay 한도를 떼고, 나르기가 공개 relay에서 속도를 맞추고, 끊긴 전송을 관측할 수 있게 한다
 modules:

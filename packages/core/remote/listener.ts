@@ -127,6 +127,8 @@ export function openRemoteListener(options: {
             ws.on("close", handler);
           },
           bufferedAmount: () => ws.bufferedAmount,
+          pause: () => ws.pause(),
+          resume: () => ws.resume(),
         },
         ip,
       );

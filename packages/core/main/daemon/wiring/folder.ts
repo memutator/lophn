@@ -164,7 +164,11 @@ import { writeRosterFile } from "../../../folder/export/roster.ts";
 import { carryRoutes } from "../../../folder/carry-routes.ts";
 import { carryStatusHandler } from "../../../folder/carry-status.ts";
 import { createMirror } from "../../../folder/mirror.ts";
-import { CARRY_STAGING_DIR, createReplica } from "../../../folder/replica.ts";
+import {
+  CARRY_STAGING_DIR,
+  createReplica,
+  parseManifestText,
+} from "../../../folder/replica.ts";
 import { createSettingsExportService } from "../../../folder/settings-export.ts";
 import { createTransfersService } from "../../../folder/transfers.ts";
 import {
@@ -199,6 +203,7 @@ import {
   COMPUTERS_DESTINATION,
   carryStatus,
   COMPUTERS_DIR,
+  manifestPath,
   SHARED_FOLDER_KEY,
 } from "../../../../protocol/remote/carry.ts";
 import { openWriteLink, type WriteLink } from "../../../apps/write-link.ts";
@@ -1564,6 +1569,26 @@ export const folderWiring: WiringFactory = () => {
         onlineMachines,
         isHub: () => facts().hub,
         holds: (machine, path) => replica.holds(machine, path),
+        async listedTransferFiles() {
+          const listed = await replica.manifests();
+          if (!listed.ok) return [];
+          const out: { machine: Id<"mch">; paths: string[] }[] = [];
+          for (const each of listed.value) {
+            if (each.machine === me()) continue;
+            const text = await replica.read(
+              each.machine,
+              manifestPath(each.machine),
+              0,
+              each.size,
+            );
+            const body = text.ok
+              ? parseManifestText(new TextDecoder().decode(text.value))
+              : null;
+            const paths = (body?.transfers ?? []).map((file) => file.path);
+            if (paths.length > 0) out.push({ machine: each.machine, paths });
+          }
+          return out;
+        },
         async workspaceRoots(auth) {
           if (parseActor(auth.actor)?.kind !== "agent") return null;
           const sessionId = auth.conditions.session as Id<"ses"> | undefined;

@@ -39,7 +39,10 @@ and arrive when that computer comes back.
   computer).
 - **Sending files between computers**: Use `lophn send <path...> --on <computer> [--note "..."]`.
   Files arrive in the target computer's inbox (never auto-extracted or executed);
-  if the target is offline, a Hub computer holds them until it wakes up. Do not
+  if the target is offline, a Hub computer picks them up and delivers them when it
+  wakes up. `held_at_hub` on the sender only means the target was offline and a
+  Hub was online; it does not confirm the Hub has the files. On the receiving
+  computer, `lophn send status <trf_...>` says how many files have arrived. Do not
   drop user files into internal sync folder paths (`machines/<id>/…`).
 
 ## What lophn does by itself

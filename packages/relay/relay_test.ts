@@ -30,7 +30,7 @@ function memorySocket() {
     message?: (data: Uint8Array | string) => void;
     close: (() => void)[];
   } = { close: [] };
-  const end = { sent, closed: false, buffered: 0 };
+  const end = { sent, closed: false, buffered: 0, paused: false };
   const socket: RelaySocket = {
     send: (data) => void sent.push(data),
     ping: () => undefined,
@@ -43,6 +43,8 @@ function memorySocket() {
     onPong: () => undefined,
     onClose: (handler) => void handlers.close.push(handler),
     bufferedAmount: () => end.buffered,
+    pause: () => void (end.paused = true),
+    resume: () => void (end.paused = false),
   };
   return {
     socket,
@@ -220,4 +222,72 @@ test("한 IP는 host 자리와 socket을 한도까지만 열고, 한도를 넘�
   other.receive(Uint8Array.of(1));
   assert.equal(data.end.sent.length, 2);
   assert.equal(other.end.closed, true);
+});
+
+test("Hub relay는 명단의 컴퓨터만 host로 받고, 대역을 넘겨도 닫지 않으며 받는 쪽이 밀리면 보내는 쪽을 기다리게 한다", () => {
+  // 다시 볼 timer만 돌린다(열기·ping timer는 이 test가 보지 않는다).
+  const timers = new Map<number, { run: () => void; ms: number }>();
+  let next = 0;
+  const drain = () => {
+    for (const [id, t] of [...timers]) {
+      if (t.ms > 100) continue;
+      timers.delete(id);
+      t.run();
+    }
+  };
+  const ended: string[] = [];
+  const mine = generateKeyPair(random);
+  const relay = createRelay({
+    random,
+    timers: {
+      set: (run, ms) => {
+        timers.set(++next, { run, ms });
+        return next;
+      },
+      clear: (id) => void timers.delete(id as number),
+    },
+    now: () => 0,
+    owner: { allowsHost: (key) => key === remoteKeyText(mine.publicKey) },
+    ended: (reason) => void ended.push(reason),
+  });
+  const hub = {
+    accept: (url: string, socket: RelaySocket, ip = IP) =>
+      relay.accept(url, socket, ip),
+  };
+
+  const stranger = memorySocket();
+  hub.accept(
+    path(relayHostUrl(RELAY, remoteKeyText(generateKeyPair(random).publicKey))),
+    stranger.socket,
+  );
+  assert.equal(stranger.end.closed, true);
+  assert.deepEqual(ended, ["host_not_allowed"]);
+
+  const { host, key } = connectHost(hub, mine, mine.secretKey);
+  const phone = memorySocket();
+  hub.accept(path(relayPhoneUrl(RELAY, key)), phone.socket);
+  const conn = host
+    .control()
+    .flatMap((f) => (f.type === "connected" ? [f.conn] : []))[0]!;
+  const data = memorySocket();
+  hub.accept(path(relayDataUrl(RELAY, conn)), data.socket);
+
+  // 공개 relay라면 닫힐 양(한꺼번의 한도 두 번)을 넘겨도 짝은 그대로다.
+  phone.receive(new Uint8Array(RELAY_BURST_BYTES));
+  phone.receive(new Uint8Array(RELAY_BURST_BYTES));
+  assert.equal(data.end.sent.length, 2);
+  assert.equal(phone.end.closed, false);
+
+  // 받는 쪽이 밀리면 넘긴 뒤 보내는 쪽을 멈추고, 비우면 다시 연다.
+  data.end.buffered = RELAY_BUFFER_MAX_BYTES + 1;
+  phone.receive(Uint8Array.of(1));
+  assert.equal(data.end.sent.length, 3);
+  assert.equal(phone.end.paused, true);
+  drain();
+  assert.equal(phone.end.paused, true);
+  data.end.buffered = 0;
+  drain();
+  assert.equal(phone.end.paused, false);
+  assert.equal(phone.end.closed, false);
+  assert.deepEqual(ended, ["host_not_allowed"]);
 });

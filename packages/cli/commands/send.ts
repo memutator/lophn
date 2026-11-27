@@ -66,10 +66,11 @@ function formatState(
   state: TransferDeliveryState,
   heldBy?: readonly string[],
 ): string {
+  // 보낼 때 대상이 꺼져 있고 Hub가 켜져 있었다는 뜻이다. Hub가 file을 받았다는 확인이 아니다.
   if (state === "held_at_hub") {
     return heldBy !== undefined && heldBy.length > 0
-      ? `held_at_hub via @Hub (${heldBy.join(", ")})`
-      : "held_at_hub via @Hub";
+      ? `held_at_hub (target offline; Hub ${heldBy.join(", ")} picks it up)`
+      : "held_at_hub (target offline; a Hub picks it up)";
   }
   return state;
 }
@@ -102,7 +103,8 @@ const send = defineCommand({
   description:
     "Send local files or folders to another computer of the person (`--on <computer>`, name or id from `lophn machine computers`). " +
     "Files arrive in that computer's inbox and are never auto-extracted or executed. " +
-    "If the target computer is offline, a Hub computer holds the transfer (`held_at_hub`) and delivers it when the target comes online (transfers expire after 7 days). " +
+    "If the target computer is offline while a Hub computer is online, the state is `held_at_hub`: the Hub picks the files up and delivers them when the target comes online (transfers expire after 7 days). " +
+    "`held_at_hub` does not confirm the Hub already has the files; on the target computer, `lophn send status <trf_...>` says how many files have arrived. " +
     "Relative paths resolve from the current workspace folder (or current directory in a terminal). " +
     "Use `lophn send list`, `lophn send status <trf_...>`, and `lophn send clear <trf_...>` to inspect or clean up transfers.",
   input: z.strictObject({

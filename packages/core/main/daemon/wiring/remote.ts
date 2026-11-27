@@ -889,6 +889,22 @@ export function remoteWiring(
           random: ctx.random,
           timers: systemTimers,
           now: () => ctx.clock.nowMs(),
+          owner: {
+            allowsHost: (key) =>
+              key === hostText ||
+              roster
+                .view()
+                .devices.some(
+                  (each) =>
+                    each.body.kind === "computer" && each.body.key === key,
+                ),
+          },
+          ended: (reason) =>
+            ctx.telemetry.logger.warn({
+              component: "remote",
+              event: "hub_relay_ended",
+              fields: { reason },
+            }),
         }))
       : undefined;
     if (keys === undefined) {
@@ -1234,6 +1250,7 @@ export function remoteWiring(
             .filter((each) => each.status === "connected")
             .map((each) => each.machine),
         replica: () => ctx.peek.folderReplica,
+        throughPublicRelay: (machine) => links.throughPublicRelay(machine),
         clock: ctx.clock,
         wait,
         logger: ctx.telemetry.logger,

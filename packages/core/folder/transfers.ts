@@ -269,6 +269,8 @@ export type TransfersDeps = {
   onlineMachines(): { machine: Id<"mch">; status: string; hub: boolean }[];
   isHub(): boolean;
   holds(machine: Id<"mch">, path: string): Promise<boolean>;
+  // 이 컴퓨터가 믿는 다른 컴퓨터의 manifest가 싣는 transfer file의 path.
+  listedTransferFiles(): Promise<{ machine: Id<"mch">; paths: string[] }[]>;
   /**
    * agent 호출일 때 허용된 workspace 절대 경로 목록을 돌려준다.
    * user 호출이고 특정 workspace에 묶여 있지 않으면 null을 돌려줄 수 있다.
@@ -377,6 +379,25 @@ export function createTransfersService(deps: TransfersDeps) {
         transfers: unique,
       }),
     );
+  }
+
+  // 보낸 컴퓨터의 manifest가 싣지만 아직 내려놓지 않은 transfer. 몇 조각이 여기 왔는지 알려 준다.
+  async function arriving(
+    id: Id<"trf">,
+  ): Promise<Result<z.infer<typeof transfersStatus.output>>> {
+    for (const { machine, paths } of await deps.listedTransferFiles()) {
+      const prefix = `${transferDir(machine, id)}/files/`;
+      const parts = paths.filter((path) => path.startsWith(prefix));
+      if (parts.length === 0) continue;
+      let here = 0;
+      for (const path of parts) if (await deps.holds(machine, path)) here += 1;
+      const from = deps.resolveMachine(machine);
+      return err({
+        code: "unavailable",
+        message: `transfer ${id} from ${from.ok ? from.value.name : machine} is on its way: ${here} of ${parts.length} files have reached this computer. They come over the link from the sender or a Hub computer that holds them`,
+      });
+    }
+    return err({ code: "not_found", message: `transfer ${id} not found` });
   }
 
   return {
@@ -628,9 +649,7 @@ export function createTransfersService(deps: TransfersDeps) {
       const found =
         (await readRecordFile(recordPath(outgoingDir, id))) ??
         (await readRecordFile(recordPath(incomingDir, id)));
-      if (found === null) {
-        return err({ code: "not_found", message: `transfer ${id} not found` });
-      }
+      if (found === null) return await arriving(id);
       return ok({ transfer: found });
     },
 

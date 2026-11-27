@@ -98,7 +98,10 @@ test("lophn send resolves relative paths and formats held_at_hub delivery and ex
     },
   ]);
   assert.match(ran.value.text ?? "", new RegExp(TRF));
-  assert.match(ran.value.text ?? "", /held_at_hub via @Hub/);
+  assert.match(
+    ran.value.text ?? "",
+    /held_at_hub \(target offline; Hub .* picks it up\)/,
+  );
   assert.match(ran.value.text ?? "", /2026-12-03T00:00:00\.000Z/);
   assert.match(ran.value.text ?? "", /a\.txt \(12 bytes\)/);
 });

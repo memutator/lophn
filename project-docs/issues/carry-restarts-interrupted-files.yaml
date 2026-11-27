@@ -1,0 +1,15 @@
+id: carry-restarts-interrupted-files
+title: 나르기가 끊긴 file을 처음 조각부터 다시 받는다
+kind: defect
+status: open
+topic: folder-sync
+modules: [packages/core/remote, packages/core/folder, packages/mobile]
+now: |
+  link pull(`packages/core/remote/carry.ts`)은 file 하나의 조각을 받는 자리(`replica.receive`)에 한 흐름으로 흘리고, 끊기면 staging의 받다 만 file을 버린다. 다음 pass는 그 file을 offset 0부터 다시 받는다. 공개 relay에서는 512 KiB 조각과 1초 쉼(계획 밖 수정 `hub-relay-carry`)으로 relay가 짝을 닫지 않게 했지만, link가 다른 까닭(잠든 노트북, 바뀐 network)으로 끊기면 64 MiB file을 처음부터 다시 받는다.
+  폰의 `carry/put`도 8 MiB 조각을 쉬지 않고 보낸다. 폰이 공개 relay로 컴퓨터에 붙으면 같은 한도(초당 1 MiB, 한꺼번에 17 MiB)에 걸릴 수 있다(확인하지 않음).
+impact: |
+  자주 끊기는 길에서 큰 file(`lophn send` 64 MiB까지)이 늦게 오거나, 끊기는 간격이 file을 다 받는 시간보다 짧으면 오지 않는다. 폰이 나르는 큰 앱 file도 같을 수 있다.
+fix: |
+  - 받는 자리가 (machine, path, sha256)마다 받다 만 staging file을 남기고 다음 pass가 그 크기부터 이어 받는다. 지금 목록이 그 file을 더 싣지 않으면 지운다(중간).
+  - 폰 `carry/put`이 공개 relay 길에서 조각을 줄이고 쉰다(작음).
+  추천: 끊겨 오지 않는 사례가 다시 보이면 둘 다 한다.

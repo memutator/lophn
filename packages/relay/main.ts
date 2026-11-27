@@ -13,6 +13,7 @@ const server = await openRelayServer({
     random: cryptoRandom,
     now: () => Date.now(),
     log: (line) => console.log(line),
+    ended: (reason) => console.log(`relay ended: ${reason}`),
     timers: {
       set: (run, ms) => setTimeout(run, ms),
       clear: (handle) => clearTimeout(handle as NodeJS.Timeout),

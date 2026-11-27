@@ -342,7 +342,9 @@ const unset = defineCommand({
 });
 
 function formatDelivery(state: "queued" | "held_at_hub" | "delivered"): string {
-  return state === "held_at_hub" ? "held_at_hub via @Hub" : state;
+  return state === "held_at_hub"
+    ? "held_at_hub (target offline; a Hub picks it up)"
+    : state;
 }
 
 function formatStagedBatch(batch: StagedSettingsBatch): string {

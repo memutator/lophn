@@ -1738,6 +1738,7 @@ test("transfers: agent workspace 경계를 강제하고, offline 대상은 held_
       ],
       isHub: () => false,
       holds: (m, p) => senderReplica.holds(m, p),
+      listedTransferFiles: async () => [],
       workspaceRoots: async (auth) =>
         auth.actor.startsWith("agent:") ? [workspace] : null,
       clock,
@@ -1821,6 +1822,7 @@ test("transfers: agent workspace 경계를 강제하고, offline 대상은 held_
       onlineMachines: () => [],
       isHub: () => false,
       holds: (m, p) => targetReplica.holds(m, p),
+      listedTransferFiles: async () => [],
       workspaceRoots: async () => null,
       clock,
       random,

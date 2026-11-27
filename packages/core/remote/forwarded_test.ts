@@ -16,11 +16,13 @@ import { appGet, appList } from "../../protocol/apps/apps.ts";
 import { appTools } from "../../protocol/apps/declaration/read.ts";
 import { appViewsLogError } from "../../protocol/apps/views.ts";
 import { carryWants } from "../../protocol/remote/carry.ts";
+import { codingSessionsForget } from "../../protocol/coding-agent/relay.ts";
 import {
   terminalsInput,
   terminalsName,
   terminalsOpen,
   terminalsRenameSaved,
+  terminalsSavedSessions,
 } from "../../protocol/coding-agent/terminals.ts";
 import {
   instructionsReadGlobal,
@@ -235,6 +237,8 @@ function setup() {
     terminalsOpen,
     terminalsName,
     terminalsRenameSaved,
+    terminalsSavedSessions,
+    codingSessionsForget,
     instructionsReadGlobal,
     instructionsWriteGlobal,
     pageViewInput,
@@ -270,6 +274,13 @@ function setup() {
           return ok({ sessions: [], as_of_seq: "1", next_cursor: null });
         },
       ],
+      [
+        "terminals/saved_sessions",
+        () => {
+          reached.push("terminals/saved_sessions");
+          return ok({ sessions: [] });
+        },
+      ],
     ]),
     memory: new Map<string, MemoryHandler>([
       ["settings/update", reach("settings/update")],
@@ -288,6 +299,13 @@ function setup() {
         () => {
           reached.push("terminals/rename_saved");
           return ok({ sessions: [] });
+        },
+      ],
+      [
+        "coding_sessions/forget",
+        () => {
+          reached.push("coding_sessions/forget");
+          return ok({ archived: 0 });
         },
       ],
       [
@@ -724,7 +742,38 @@ test("다른 컴퓨터에서 온 event가 부른 앱 handler가 broker로 다른
   assert.deepEqual(second, ["forbidden", "internal"]);
 });
 
-test("terminals/name·rename_saved와 instructions/read_global·write_global은 허락받은 컴퓨터의 screen 요청만 받는다", async () => {
+test("terminals/saved_sessions는 폰과 컴퓨터의 screen 요청은 받지만 agent 요청은 거절한다", async () => {
+  const s = setup();
+  const body = { project: PROJECT };
+  assert.equal(
+    code(await (await s.as(PHONE, "terminals", "saved_sessions"))(body)),
+    "ok",
+  );
+  assert.equal(
+    code(
+      await (await s.as(BARE, "terminals", "saved_sessions"))(
+        body,
+        requesters.screen,
+      ),
+    ),
+    "ok",
+  );
+  assert.equal(
+    code(
+      await (await s.as(GRANTED, "terminals", "saved_sessions"))(
+        body,
+        requesters.agent,
+      ),
+    ),
+    "forbidden",
+  );
+  assert.deepEqual(s.reached, [
+    "terminals/saved_sessions",
+    "terminals/saved_sessions",
+  ]);
+});
+
+test("terminals/name·rename_saved, coding_sessions/forget과 instructions/read_global·write_global은 허락받은 컴퓨터의 screen 요청만 받는다", async () => {
   const s = setup();
   const cases: [string, string, unknown][] = [
     ["terminals", "name", { terminal: "trm_1", name: "API server" }],
@@ -736,6 +785,15 @@ test("terminals/name·rename_saved와 instructions/read_global·write_global은 
         harness: "claude",
         external_session: "ext-1",
         name: "API server",
+      },
+    ],
+    [
+      "coding_sessions",
+      "forget",
+      {
+        project: PROJECT,
+        harness: "claude",
+        cli_session: "ext-1",
       },
     ],
     ["instructions", "read_global", {}],
@@ -781,6 +839,7 @@ test("terminals/name·rename_saved와 instructions/read_global·write_global은 
   assert.deepEqual(s.reached, [
     "terminals/name",
     "terminals/rename_saved",
+    "coding_sessions/forget",
     "instructions/read_global",
     "instructions/write_global",
   ]);

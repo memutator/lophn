@@ -3209,6 +3209,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     terminal,
     isHome ? HOME_TERMINAL_PROJECT : projectId,
     terminalTabs,
+    workspaceId,
   );
 
   // 이름은 탭 화면이 아니라 여기서 모든 터미널 탭에 맞춘다. 그려진 탭만 맞추면 숨은 탭의 이름이 갈라진다.

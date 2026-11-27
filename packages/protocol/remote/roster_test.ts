@@ -13,6 +13,7 @@ import {
   type RosterInvitedStatement,
   type RosterStatement,
   rosterPending,
+  rosterReachSchema,
   rosterStatementSchema,
   rosterView,
   signRoster,
@@ -1085,4 +1086,18 @@ test("두 명단을 어느 순서로 합쳐도 같은 명단이 된다", () => {
       assert.deepEqual(viewOf(view.keep, roots), view, `round ${round}`);
     }
   }
+});
+
+test("서명하지 않는 rosterReachSchema는 모르는 칸을 버려 다음 판의 reach 확장에 끊기지 않는다", () => {
+  const parsed = rosterReachSchema.parse({
+    device: "dev_00000000000000000000000001",
+    addresses: ["192.168.0.3"],
+    port: 7432,
+    relay: "wss://lophn-relay.fly.dev",
+    hub: true,
+    relays: ["wss://lophn-relay.fly.dev"],
+    future_reach_field: "ignored",
+  });
+  assert.equal(parsed.hub, true);
+  assert.equal("future_reach_field" in parsed, false);
 });

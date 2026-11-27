@@ -143,7 +143,8 @@ export const rosterStatementSchema = z.union([
 export type RosterStatement = z.infer<typeof rosterStatementSchema>;
 
 // 서명하지 않는다. 틀린 주소는 Noise가 key로 막아 못 닿을 뿐이고, 주소는 자주 바뀐다.
-export const rosterReachSchema = z.strictObject({
+// hello처럼 모르는 칸을 버린다(z.object): 다음 판이 reach 칸을 더해도 옛 판이 join·roster 파싱에서 조용히 끊기지 않게 한다.
+export const rosterReachSchema = z.object({
   device: deviceIdSchema,
   addresses: remoteAddressesSchema,
   port: z.number().int().min(1).max(65535),

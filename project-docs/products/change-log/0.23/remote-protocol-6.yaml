@@ -1,0 +1,16 @@
+id: remote-protocol-6
+version: 0.23.182
+title: remote protocol 판을 6으로 올리고 rosterReachSchema가 모르는 칸을 버리게 한다
+modules:
+  - packages/protocol
+platform_note: none
+change: |
+  전: REMOTE_PROTOCOL_VERSION과 REMOTE_PROTOCOL_MIN_VERSION이 5였고, 서명하지 않는 rosterReachSchema가 z.strictObject였다. computer-hub(0.23.181)에서 reach에 hub·relays가 더해지고 폰 항목의 signing_key가 열렸지만 판이 그대로여서, 이전 폰 build는 hello를 통과한 뒤 join 응답의 reach 검증에 실패해 업데이트 안내 없이 무한 재접속했다.
+  후: REMOTE_PROTOCOL_VERSION과 REMOTE_PROTOCOL_MIN_VERSION을 6으로 올려 판 5 이하 구빌드가 hello 단계에서 conflict(update: client/host)로 업데이트 안내를 받게 했다. 또한 rosterReachSchema를 hello처럼 z.object로 바꿔 이후 reach에 새 칸을 더해도 구빌드가 join·roster에서 조용히 끊기지 않게 했다.
+why: |
+  0.23.181 이후 구빌드 폰이 모든 컴퓨터에 조용히 연결 실패하는 원인을 막고, 이후 reach 필드를 확장할 때 같은 문제가 재발하지 않게 하기 위해서다.
+decisions:
+  - text: "REMOTE_PROTOCOL_VERSION/MIN_VERSION을 6으로 올리고 rosterReachSchema를 z.object로 완화한다. 버린 길: protocol 5를 유지한 채 reach만 완화(이미 설치된 0.23.181 이전 폰이 여전히 업데이트 안내 없이 조용히 끊긴다)."
+    by: person
+checklist:
+  - "해야: 내 모든 컴퓨터와 폰 앱을 이 판으로 함께 올린다 (remote protocol 판 6이라 판 5 이하 build와 붙지 않는다)"

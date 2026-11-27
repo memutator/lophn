@@ -1321,3 +1321,146 @@ test("workflow_origin이 있는 session의 coding 탭 열기는 실행 project�
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+// UI 닫기(reported_closed) 시 agent가 연 터미널의 headless Screen/PTY 정리를 빼먹으면 메모리·고아 프로세스가 누수되고,
+// 넘긴 터미널 재알리기 시 personControlling을 false로 덮으면 UI와 HostQueue의 take control 상태가 어긋난다.
+test("hostQueueWiring은 reported_closed에서 agentOpened 터미널만 close하고, tabs/hand 재알리기 시 personControlling을 지킨다", async () => {
+  const clock = manualClock(1_700_000_000_000);
+  const closed: { ref: string; gen: number }[] = [];
+  const patched: { ref: string; held: boolean | null }[] = [];
+  let queue: HostQueueService | undefined;
+  const runtimes = new Map<string, { generation: number; state: string }>([
+    ["trm_agent", { generation: 2, state: "exited" }],
+    ["trm_handed", { generation: 1, state: "running" }],
+  ]);
+  const ctx = {
+    clock,
+    random: seededRandom(1),
+    provide(name: string, value: unknown) {
+      if (name === "hostQueue") queue = value as HostQueueService;
+    },
+    telemetry: { logger: undefined },
+    options: {},
+    root: { path: "/nonexistent" },
+    bus: { publish() {}, subscribe() {} },
+    peek: { terminalInputGrant: () => false, deviceKind: () => "phone" },
+    terminals: {
+      runtime: (ref: string) => runtimes.get(ref) ?? null,
+      patch(ref: string, patch: { agent_control?: { held: boolean } | null }) {
+        if ("agent_control" in patch) {
+          patched.push({
+            ref,
+            held: patch.agent_control?.held ?? null,
+          });
+        }
+      },
+      close(ref: string, gen: number) {
+        closed.push({ ref, gen });
+        return Promise.resolve(ok(undefined));
+      },
+      onHumanInput: () => () => {},
+    },
+  };
+  const wiring = hostQueueWiring();
+  const built = await wiring.build!(ctx as never);
+  assert.ok(built.ok && queue !== undefined);
+  try {
+    const agentTab = queue.openTab({
+      owner: id("ses", 5) as Id<"ses">,
+      workspace: { kind: "home" },
+      target: { terminal: { terminal_ref: "trm_agent" } },
+      relation: null,
+      source: id("ses", 5) as Id<"ses">,
+      drivableTerminal: true,
+    });
+    const handed = queue.handTerminal(
+      {
+        owner: id("ses", 5) as Id<"ses">,
+        workspace: { kind: "home" },
+        terminal: "trm_handed",
+      },
+      () => true,
+    );
+    assert.ok(handed.ok);
+    queue.report(agentTab, "closed");
+    queue.report(handed.value, "closed");
+    assert.deepStrictEqual(closed, [{ ref: "trm_agent", gen: 2 }]);
+    assert.deepStrictEqual(patched, [
+      { ref: "trm_agent", held: null },
+      { ref: "trm_handed", held: null },
+    ]);
+  } finally {
+    await wiring.closeWork?.();
+  }
+
+  // tabs/hand 재알리기 시 personControlling=true이면 patchTerminalControl도 held: true를 유지한다.
+  const controlPatches: { ref: string; held: boolean | null }[] = [];
+  const q2 = createHostQueue({
+    clock,
+    ids: createIdSource({ clock, random: seededRandom(3) }),
+  });
+  const handlers = createTabHandlers({
+    queue: q2,
+    sessionRow: (session) =>
+      rows[session] === undefined
+        ? undefined
+        : ({ runs_on: null, ...rows[session] } as AgentSessionRow),
+    app: async () => ok(null),
+    preview: async () => ok(null),
+    screens: async () => ok([]),
+    primaryDeviceName: async () => ok(null),
+    artifactExists: async () => false,
+    deviceNames: () => [],
+    harnessHold: { open: () => ok({ harness: "x", external_session: "y" }) },
+    codingAgents: () => ({ favorites: [], commands: {} }),
+    codingDetected: async () => [],
+    handoffs: fileHandoffs("/nonexistent"),
+    openTerminal: async () => ok("trm_x"),
+    terminalRuntime: (ref) =>
+      ref === "trm_rehand"
+        ? ({
+            terminal_ref: ref,
+            project: "home",
+            folder_ref: "home_0",
+            cwd_at_start: "/tmp",
+            program_path: "/bin/sh",
+            state: "running",
+            generation: 1,
+            columns: 80,
+            rows: 24,
+            exit_code: null,
+            failure_reason: null,
+            output_seq: 0,
+            dropped_output: false,
+          } as const)
+        : null,
+    patchTerminalControl: (ref, control) =>
+      controlPatches.push({ ref, held: control?.held ?? null }),
+    holdTui: () => {},
+    login: async () => ok(undefined),
+    browserProfile: () => ok(null),
+    redact: (text) => text,
+    previewViews: () => [],
+    phoneCall: async () => ok(null),
+    agentName: () => null,
+    shown: () => {},
+  });
+  const first = (await handlers.hand(person, {
+    session: id("ses", 5),
+    workspace: { kind: "home" },
+    terminal: "trm_rehand",
+  })) as { ok: true; value: { tab: string } };
+  assert.ok(first.ok);
+  assert.equal(q2.setTerminalControl("trm_rehand", true), true);
+  const rehand = await handlers.hand(person, {
+    tab: first.value.tab,
+    session: id("ses", 5),
+    workspace: { kind: "home" },
+    terminal: "trm_rehand",
+  });
+  assert.ok(rehand.ok);
+  assert.deepStrictEqual(controlPatches, [
+    { ref: "trm_rehand", held: false },
+    { ref: "trm_rehand", held: true },
+  ]);
+});

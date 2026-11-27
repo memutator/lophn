@@ -560,8 +560,8 @@ export function createTabHandlers(deps: TabDeps) {
         owner: caller.value,
         workspace: where,
         target: { terminal: { terminal_ref: opened.value } },
-        // agent가 연 터미널 탭은 --url browser 탭처럼 기본이 접힌 work 탭이다(--as로 바꾼다).
-        relation: input.relation ?? "work",
+        // relation은 renderer의 `openAt()`이 target `"terminal"` 기본값(`work`)으로 푼다.
+        relation: input.relation ?? null,
         source: caller.value === "person" ? null : caller.value,
         drivableTerminal: true,
         ...sameProjectDeskOf(where, origin),
@@ -648,7 +648,7 @@ export function createTabHandlers(deps: TabDeps) {
         workspace:
           origin === null ? here : { kind: "project", id: origin.project },
         target: { terminal: { terminal_ref: terminal.value } },
-        relation: input.relation ?? null,
+        relation: input.relation ?? "aside",
         source: caller.value as Id<"ses">,
         tab,
         ...workflowDeskOf(origin),
@@ -692,7 +692,7 @@ export function createTabHandlers(deps: TabDeps) {
               ? hostWorkspaceOf(there!)
               : { kind: "project", id: origin.project },
           target: { terminal: { terminal_ref: terminal.value } },
-          relation: input.relation ?? null,
+          relation: input.relation ?? "aside",
           source: caller.value === "person" ? null : caller.value,
           ...workflowDeskOf(origin),
         });
@@ -873,7 +873,12 @@ export function createTabHandlers(deps: TabDeps) {
         isOpenLocal,
       );
       if (handed.ok) {
-        deps.patchTerminalControl?.(input.terminal, { held: false });
+        const current = queue
+          .terminalTabs()
+          .find((item) => item.tab === handed.value);
+        deps.patchTerminalControl?.(input.terminal, {
+          held: current?.personControlling ?? false,
+        });
       }
       return handed.ok ? ok({ tab: handed.value }) : handed;
     }
@@ -894,10 +899,10 @@ export function createTabHandlers(deps: TabDeps) {
   const NOT_BELOW =
     "You can give a tab only to a session you opened with `lophn team spawn` or one below it.";
   const NO_TABS =
-    "That session is a coding agent chat tab; it cannot drive browser tabs.";
+    "That session is a coding agent chat tab; it cannot drive browser or terminal tabs.";
   const ELSEWHERE =
-    "That team member runs on another computer; it cannot drive browser tabs on this one.";
-  // 자기가 든 browser 탭을 자기 밑의 열린 lophn session에 주거나(`session`), 준 탭을 되찾는다(`session`이 없거나 자기).
+    "That team member runs on another computer; it cannot drive browser or terminal tabs on this one.";
+  // 자기가 든 browser·터미널 탭을 자기 밑의 열린 lophn session에 주거나(`session`), 준 탭을 되찾는다(`session`이 없거나 자기).
   const give: MemoryHandler = (who, body) => {
     const caller = agentSession(who);
     if (!caller.ok) return caller;
@@ -913,9 +918,9 @@ export function createTabHandlers(deps: TabDeps) {
       if (!withinTeam(caller.value, to, parentOf)) {
         return err({ code: "forbidden", message: NOT_BELOW });
       }
-      // GUI 탭 팀원의 turn은 그 터미널 탭의 coding agent가 돌려 lophn browser를 쓰지 않는다.
+      // GUI 탭 팀원의 turn은 그 터미널 탭의 coding agent가 돌려 lophn browser·terminal을 쓰지 않는다.
       if (row.harness_gui) return err({ code: "conflict", message: NO_TABS });
-      // 다른 컴퓨터에서 도는 팀원의 자리도 이 컴퓨터의 browser를 쓰지 않는다.
+      // 다른 컴퓨터에서 도는 팀원의 자리도 이 컴퓨터의 browser·terminal을 쓰지 않는다.
       if (row.runs_on !== null) {
         return err({ code: "conflict", message: ELSEWHERE });
       }
@@ -1303,11 +1308,8 @@ export const hostQueueWiring: WiringFactory = () => {
         },
         terminalRemoved(info) {
           ctx.terminals?.patch(info.ref, { agent_control: null });
-          // agent가 연 터미널이 닫히거나 주인 session이 끝나면 창이 없어도 즉시 프로세스 그룹을 정리한다.
-          if (
-            info.agentOpened &&
-            (info.reason === "closed" || info.reason === "session_ended")
-          ) {
+          // agent가 연 터미널이 닫히거나(tab close, UI 닫기) 주인 session이 끝나면 PTY와 headless Screen을 즉시 정리한다.
+          if (info.agentOpened) {
             const rt = ctx.terminals?.runtime(info.ref) ?? null;
             if (rt !== null) void ctx.terminals.close(info.ref, rt.generation);
           }

@@ -157,6 +157,7 @@ export function openTerminal(
     key,
     kind: "terminal",
     title,
+    ...(options.open?.owner === undefined ? {} : { owner: options.open.owner }),
     fields: {
       auto,
       ...(options.terminal === undefined ? {} : { terminal: options.terminal }),

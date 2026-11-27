@@ -22,7 +22,13 @@ export type OpenIntent = "show" | "run";
 /** agent가 연 탭. relation은 agent가 말한 뜻이고 null이면 말하지 않은 것이다. target은 무엇을 여는가이다. */
 export interface AgentOpen {
   readonly relation: TabRelation | null;
-  readonly target: "browser" | "session" | "tui" | "preview" | "artifact";
+  readonly target:
+    | "browser"
+    | "session"
+    | "tui"
+    | "preview"
+    | "artifact"
+    | "terminal";
 }
 
 /**
@@ -43,7 +49,7 @@ export type OpenAt =
  * 연 탭(source)이 있는 자리로 새 탭의 자리를 정한다. agent는 자리가 아니라 뜻(relation)만 말하고 자리는 여기서만 정한다.
  * - run은 floated다. 실행을 보고 닫는 잠깐의 터미널이라 tab 배치를 바꾸지 않는다.
  * - float이 상한(20)이면 float 대신 desk 끝 tab이다.
- * - agent가 연 탭(`agent`)은 relation이 먼저다. 말하지 않았으면 browser는 work, 나머지는 aside다.
+ * - agent가 연 탭(`agent`)은 relation이 먼저다. 말하지 않았으면 browser·terminal은 work, 나머지는 aside다.
  *   work는 접힌 float, glance는 펴진 float이다. peer·stage·aside는 source가 이 desk의 tab 줄에 있거나 다른 desk에 있으면
  *   `after: source`와 relation을 주고(칸 규칙은 `openTab`, 다른 desk면 그 desk에서 풀린다), source가 floated·detached이거나
  *   없으면 끝이다.
@@ -64,7 +70,10 @@ export function openAt(
   const relation =
     agent === undefined
       ? undefined
-      : (agent.relation ?? (agent.target === "browser" ? "work" : "aside"));
+      : (agent.relation ??
+        (agent.target === "browser" || agent.target === "terminal"
+          ? "work"
+          : "aside"));
   if (relation === "work" || relation === "glance") {
     if (full) return { kind: "tab" };
     return relation === "work"

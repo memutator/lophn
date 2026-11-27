@@ -109,7 +109,7 @@ modules:
 
   - path: packages/core/host-queue
     boundary: core
-    notes: core가 host(desktop 앱의 shell main, display 없는 Linux의 page host)에 시킬 일(탭 열기·닫기·보이기, browser 호출)의 메모리 queue와 탭 표(agent가 연 탭, 사람이 넘긴 browser 탭). host가 붙은 `/host-link` 연결(core/server/host-link.ts)이 queue의 요청을 받아 frame으로 민다. 다른 module을 import하지 않고 base와 protocol만 쓴다. handler는 core/main의 wiring/host-queue.ts가 붙인다. phone 탭(`phone.ts`)은 shell에 가지 않고 폰 link(`drive.*`)로 간다. 멀리서 보기(`page-view.ts`, `page_view/*`)는 보는 principal의 lease와 browser 탭마다 host가 민 마지막 frame(메모리)을 들고 연결 요청(`callLink`)으로 host에 frame 켜기·입력·take control을 시킨다.
+    notes: core가 host(desktop 앱의 shell main, display 없는 Linux의 page host)에 시킬 일(탭 열기·닫기·보이기·주인 갱신, browser 호출)의 메모리 queue와 탭 표(agent가 연 탭, 사람이 넘긴 browser·터미널 탭), 그리고 대화형 터미널 실행기(`terminal-use.ts`, 소유권·take control 판정, 모드 기반 입력, 이벤트 구동 wait, known-value redaction). host가 붙은 `/host-link` 연결(core/server/host-link.ts)이 queue의 요청을 받아 frame으로 민다. base, protocol과 core/terminals(입력 인코더와 port·화면 type)만 쓴다. handler는 core/main의 wiring/host-queue.ts가 붙인다. phone 탭(`phone.ts`)은 shell에 가지 않고 폰 link(`drive.*`)로 간다. 멀리서 보기(`page-view.ts`, `page_view/*`)는 보는 principal의 lease와 browser 탭마다 host가 민 마지막 frame(메모리)을 들고 연결 요청(`callLink`)으로 host에 frame 켜기·입력·take control을 시킨다.
 
   - path: packages/core/terminal-agents
     boundary: core
@@ -121,7 +121,7 @@ modules:
 
   - path: packages/core/terminals
     boundary: core
-    notes: 사람의 터미널. PTY host(host/, core가 자식으로 띄운다), 그 감독, 터미널 service(열기 순서, 출력 lease, route handler), 사람의 login env와 `lophn` 경로. 다른 module을 import하지 않고 base와 protocol만 쓴다. 다른 쪽은 ports.ts의 `Terminals`·`PersonEnv`로 닿고 core/main의 wiring/terminals.ts가 끼운다.
+    notes: 사람과 agent의 터미널. PTY host(host/, core가 자식으로 띄운다; `@xterm/headless` 기반 TUI 모드 추적·붙은 창 없을 때 DA/DSR/OSC 10·11 질의 회신·모델용 평문/반전 구간 snapshot 포함), 순수 입력 인코더(`input-encoder.ts`, type·paste·press·SGR mouse), 그 감독, 터미널 service(열기 순서, 출력 lease, 사람 입력 hook, route handler), 사람의 login env와 `lophn` 경로. 다른 module을 import하지 않고 base와 protocol만 쓴다. 다른 쪽은 ports.ts의 `Terminals`·`PersonEnv`로 닿고 core/main의 wiring/terminals.ts가 끼운다.
 
   - path: packages/core/harness-gui
     boundary: harness-host-core

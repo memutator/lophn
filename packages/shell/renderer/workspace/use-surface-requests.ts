@@ -323,7 +323,6 @@ export function useSurfaceRequests(args: Args): void {
         }
         const opened = openTerminal(host(), { open, terminal: ref });
         if (opened === null) return;
-        if (owner !== undefined) host().patchTab(opened, { owner });
         done();
         return;
       }

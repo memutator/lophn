@@ -165,7 +165,7 @@ export const terminalsWiring: WiringFactory = () => {
                 ? { kind: "home" }
                 : { kind: "project", id: project },
             target: { terminal: { terminal_ref: terminal } },
-            relation,
+            relation: relation ?? "aside",
             source: null,
           });
         },

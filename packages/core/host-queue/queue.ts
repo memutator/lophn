@@ -892,13 +892,13 @@ export function createHostQueue(deps: {
         err({ code: "not_found" as const, message: "session not found" });
       if (found === undefined) {
         if (!open()) return closed();
-        // 이미 agent가 직접 연 터미널은 넘길 수 없다.
+        // 이미 tab open(`--terminal`, `--tui`, `--coding` 등)으로 core 표에 오른 터미널은 소유자와 무관하게 넘길 수 없다.
         for (const existing of tabs.values()) {
           if (
-            existing.kind === "terminal" &&
-            existing.terminal?.ref === input.terminal &&
             !existing.handed &&
-            existing.owner !== "person"
+            (existing.terminal?.ref === input.terminal ||
+              ("terminal" in existing.target &&
+                existing.target.terminal.terminal_ref === input.terminal))
           ) {
             return err({
               code: "conflict" as const,
@@ -929,19 +929,13 @@ export function createHostQueue(deps: {
       }
       if (
         found.kind !== "terminal" ||
-        found.terminal?.ref !== input.terminal ||
-        (!found.handed && found.owner !== "person")
+        !found.handed ||
+        found.terminal?.ref !== input.terminal
       ) {
         return err({
           code: "conflict" as const,
           message: "Only a terminal tab the person opened can be handed over.",
         });
-      }
-      if (!found.handed) {
-        if (!open()) return closed();
-        found.owner = input.owner;
-        found.givers = [];
-        found.handed = true;
       }
       found.workspace = input.workspace;
       return ok(input.tab!);

@@ -390,3 +390,92 @@ test("넘긴 터미널 탭은 agent가 닫지 못하고(forbidden), session 종�
     ],
   );
 });
+
+test("UI 닫기(reported_closed)도 agentOpened 터미널 정리 대상으로 알리고, handTerminal은 tab open 터미널 우회를 막고 재알리기 시 personControlling을 지킨다", () => {
+  const clock = manualClock(1_700_000_000_000);
+  const ids = createIdSource({ clock, random: seededRandom(5) });
+  const removed: { ref: string; agentOpened: boolean; reason: string }[] = [];
+  const queue = createHostQueue({
+    clock,
+    ids,
+    terminalRemoved: (info) =>
+      removed.push({
+        ref: info.ref,
+        agentOpened: info.agentOpened,
+        reason: info.reason,
+      }),
+  });
+
+  // 사람 token이 `tab open --terminal`로 연 탭과 `--tui`/`--coding`으로 연 탭은 handTerminal로 넘길 수 없다.
+  const personOpened = queue.openTab({
+    owner: "person",
+    workspace: HOME,
+    target: { terminal: { terminal_ref: "trm_person_cli" } },
+    relation: null,
+    source: null,
+    drivableTerminal: true,
+  });
+  const codingTab = queue.openTab({
+    owner: OWNER,
+    workspace: HOME,
+    target: { terminal: { terminal_ref: "trm_coding" } },
+    relation: "aside",
+    source: OWNER,
+  });
+
+  for (const attempt of [
+    queue.handTerminal(
+      { owner: OWNER, workspace: HOME, terminal: "trm_person_cli" },
+      () => true,
+    ),
+    queue.handTerminal(
+      {
+        tab: personOpened,
+        owner: OWNER,
+        workspace: HOME,
+        terminal: "trm_person_cli",
+      },
+      () => true,
+    ),
+    queue.handTerminal(
+      { owner: OTHER, workspace: HOME, terminal: "trm_coding" },
+      () => true,
+    ),
+    queue.handTerminal(
+      { tab: codingTab, owner: OTHER, workspace: HOME, terminal: "trm_coding" },
+      () => true,
+    ),
+  ]) {
+    assert.ok(!attempt.ok && attempt.error.code === "conflict");
+  }
+
+  // 사람이 연 일반 터미널을 넘기고 take control한 뒤 재알리기해도 personControlling=true가 유지된다.
+  const handed = queue.handTerminal(
+    { owner: OWNER, workspace: HOME, terminal: "trm_ui" },
+    () => true,
+  );
+  assert.ok(handed.ok);
+  assert.equal(queue.setTerminalControl("trm_ui", true), true);
+  const rehanded = queue.handTerminal(
+    { tab: handed.value, owner: OWNER, workspace: HOME, terminal: "trm_ui" },
+    () => true,
+  );
+  assert.ok(rehanded.ok);
+  const state = queue.terminalTab(handed.value, OWNER);
+  assert.ok(state.ok && state.value.personControlling === true);
+
+  // 이미 넘긴 탭을 다른 session에 새 id로 다시 넘기기는 허용된다.
+  const handedAgain = queue.handTerminal(
+    { owner: OTHER, workspace: HOME, terminal: "trm_ui" },
+    () => true,
+  );
+  assert.ok(handedAgain.ok && handedAgain.value !== handed.value);
+
+  // UI 닫기(reported_closed): tab open --terminal 탭은 agentOpened=true, 넘긴 탭은 agentOpened=false로 알린다.
+  queue.report(personOpened, "closed");
+  queue.report(handed.value, "closed");
+  assert.deepEqual(removed, [
+    { ref: "trm_person_cli", agentOpened: true, reason: "reported_closed" },
+    { ref: "trm_ui", agentOpened: false, reason: "reported_closed" },
+  ]);
+});

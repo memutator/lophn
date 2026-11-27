@@ -29,7 +29,7 @@ import { workspaceSchema } from "./workspaces.ts";
 // host는 화면 있는 기계에서는 shell main(desktop 앱), display가 없는 Linux에서는 core가 띄운 page host다.
 // shell이 없거나 그 workspace를 보이는 창이 없으면 요청은 대기하고(연결 요청은 빼고), core가 다시 뜨면 사라진다.
 //
-// tabs/*와 browser/*는 agent session이나 사람 token이 `lophn tab`·`lophn browser` 명령으로 부른다. 부른 session은 자격의
+// tabs/*·browser/*·terminal/*는 agent session이나 사람 token이 `lophn tab`·`lophn browser`·`lophn terminal` 명령으로 부른다. 부른 session은 자격의
 // session 조건에서 읽고 입력으로 받지 않는다. 탭의 주인은 그 session이고, 사람 token은 모두 같은 주인 "person"이다.
 
 const errors = [
@@ -53,7 +53,7 @@ export type HostWorkspace = z.infer<typeof hostWorkspaceSchema>;
 // - peer: source와 같은 일을 나눠 하는 동료(병렬 팀원). source의 group에 같이 선다.
 // - stage: 다음 단계나 다른 일을 맡는 coordinator. source 뒤에 새 group을 시작할 자리에 선다.
 // - aside: 사람에게 보여 주려는 것(결과 page, artifact, preview, TUI). source 옆 칸이다.
-// - work: agent가 혼자 쓰는 작업 탭(browser-use). 접힌 float이고 사람이 펴서 지켜보거나 take control한다.
+// - work: agent가 혼자 쓰는 작업 탭(browser-use·terminal-use). 접힌 float이고 사람이 펴서 지켜보거나 take control한다.
 // - glance: 잠깐 보여 주는 것. 펴진 float이고 사람이 밖을 누르면 접힌다.
 export const TAB_RELATIONS = [
   "peer",
@@ -388,7 +388,7 @@ const acceptedSchema = z.strictObject({
 // adapter에 TUI 첫 prompt 인자(`session.prompt`)가 없으면 `invalid_input`이고 message에 열 수 있는 harness id가 있다. 글은 최대 64 KiB다.
 // `phone`은 그 앱 workspace의 session과 사람 token만 연다(남의 앱이면 `not_found`). 도는 preview가 없으면 `conflict`(`preview`와 같은 문장),
 // 폰이 그 preview를 보이지 않으면 `unavailable`이다(`PHONE_TAB_TEXT.notShowing`). 앱마다 phone 탭은 하나다.
-// 사람 token은 `browser`·`preview`·`artifact`만 연다(session·tui·coding은 `invalid_input`). 앱마다 preview 탭은 하나라 이미 있으면 그 탭을 돌려주고 주인이 새로 연 쪽이 된다.
+// 사람 token은 `browser`·`terminal`·`preview`·`phone`·`artifact`만 연다(session·tui·coding은 `invalid_input`). 앱마다 preview 탭은 하나라 이미 있으면 그 탭을 돌려주고 주인이 새로 연 쪽이 된다.
 // `artifact`는 agent면 자기 session의 workspace, 사람 token이면 입력의 workspace의 것이다. home이면 `invalid_input`, 입구 `index.html`이
 // 없으면 `not_found`다. artifact마다 host 탭은 하나라 preview처럼 이미 있으면 그 탭을 돌려주고 주인이 바뀐다.
 // `tui`는 harness agent session을 터미널 탭에서 CLI의 resume으로 연다. harness가 아니거나 project workspace의 session이 아니면
@@ -594,7 +594,7 @@ export const tabsShow = defineMemory({
 
 // 자기 탭과 `team spawn`으로 연 자기 밑 session(`spawned_by`를 거슬러 닿는)의 탭이다. 사람 token은 사람 token이 연 탭만 본다.
 // 사람이 손으로 연 탭은 사람이 넘겨야(`tabs/hand`) 나온다. title·url은 page가 정한 글이라 redaction을 거친다.
-// title은 session 탭이면 session 제목, browser는 page 제목, preview·phone은 앱 id, artifact는 이름, terminal은 ""이다.
+// title은 session 탭이면 session 제목, browser는 page 제목, preview·phone은 앱 id, artifact는 이름, terminal은 터미널 탭 이름(`tab_name`, 없으면 `agent.screen_title`, 없으면 "")이다.
 export const TAB_LIST_KINDS = [
   "session",
   "terminal",
@@ -629,10 +629,10 @@ export const tabsList = defineMemory({
   errors,
 });
 
-// 사람이 창의 browser 탭을 열린 session에 넘긴다. 탭은 그 자리에 그대로 있고 core 표의 주인만 그 session이 된다. 넘겨받은 탭은
-// 그 session이 browser 호출로 다루지만 닫지 못한다(`tabs/close`가 `forbidden`). session이 없거나 열려 있지 않거나 다른 컴퓨터에서 도는 팀원의 자리면 `not_found`,
-// agent가 연 탭(넘겨받은 탭 밖)이거나 browser 탭이 아니면 `conflict`다. 창이 core에 다시 붙을 때 같은 `tab`으로 다시 부른다.
-// core 표에 이미 있는 넘긴 탭을 다시 알리면 주인은 core 표의 것을 그대로 둔다(그 사이 `tabs/give`가 옮겼을 수 있다).
+// 사람이 창의 browser 탭 또는 이 컴퓨터의 일반 터미널 탭(`dedicated` 제외)을 열린 session에 넘긴다. 탭은 그 자리에 그대로 있고 core 표의 주인만 그 session이 된다. 넘겨받은 탭은
+// 그 session이 browser·terminal 호출로 다루지만 닫지 못한다(`tabs/close`가 `forbidden`). session이 없거나 열려 있지 않거나 다른 컴퓨터에서 도는 팀원의 자리면 `not_found`,
+// 이미 `tabs/open`으로 core 표에 오른 탭이거나 `dedicated` 터미널이거나 종류가 안 맞으면 `conflict`다. 창이 core에 다시 붙을 때 같은 `tab`으로 다시 부른다.
+// core 표에 이미 있는 넘긴 탭을 다시 알리면 주인과 take control 상태는 core 표의 것을 그대로 둔다(그 사이 `tabs/give`가 옮겼거나 사람이 take control했을 수 있다).
 export const tabsHand = defineMemory({
   resource: "tabs",
   method: "hand",
@@ -661,11 +661,11 @@ export const tabsHand = defineMemory({
   errors,
 });
 
-// session이 지금 든 browser 탭(자기가 연 탭, 사람이 넘겨준 탭, 받은 탭)을 `team spawn`으로 연 자기 밑 session(엄격한 자손)에게 준다.
+// session이 지금 든 browser·대화형 터미널 탭(자기가 연 탭, 사람이 넘겨준 탭, 받은 탭)을 `team spawn`으로 연 자기 밑 session(엄격한 자손)에게 준다.
 // 받는 session은 이 컴퓨터의 열린 lophn session이어야 하고 coding agent 채팅 탭 팀원은 받지 못한다. 받은 session은 그 탭을 다루지만
 // 닫지 못한다. `session`이 없거나 자기 session이면 되찾기다: 그 탭을 준 사슬에 있는 session만 자기에게 되돌린다. 받은 session이
-// 끝나면 탭은 준 session에게(끝났으면 사람에게) 돌아간다. 사슬은 core 메모리에만 있다.
-// 없는 탭이나 볼 수 없는 탭은 `not_found`, 보이지만 든 session이 아니면 `forbidden`, browser 탭이 아니면 `invalid_input`,
+// 끝나면 탭은 준 session에게(사슬에 열린 session이 없으면 넘긴 탭은 사람에게, agent가 연 터미널 탭은 닫고 PTY 종료, agent가 연 browser 탭은 끝난 원 주인에게) 돌아간다. 사슬은 core 메모리에만 있다.
+// 없는 탭이나 볼 수 없는 탭은 `not_found`, 보이지만 든 session이 아니면 `forbidden`, browser·대화형 터미널 탭이 아니면 `invalid_input`,
 // 받을 session이 없거나 열려 있지 않으면 `not_found`, 자기 밑이 아니면 `forbidden`, 탭을 다룰 수 없는 session이면 `conflict`다.
 export const tabsGive = defineMemory({
   resource: "tabs",

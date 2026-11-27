@@ -691,7 +691,7 @@ export const terminalAgentsWiring: WiringFactory = () => {
                 ? { kind: "home" }
                 : { kind: "project", id: targetProject as Id<"prj"> },
             target: { terminal: { terminal_ref: terminal } },
-            relation: null,
+            relation: "aside",
             source: null,
             ...(tab === undefined ? {} : { desk: tab.desk, group: tab.group }),
           });

@@ -24,10 +24,12 @@ const desk = ["agent", "other"].reduce(
 
 test("agent가 말하지 않은 relation은 target으로 정해지고, source가 float이나 없으면 끝이다", () => {
   const folded = { kind: "float", minimized: true };
-  assert.deepEqual(
-    openAt(desk, "agent", "show", { relation: null, target: "browser" }),
-    folded,
-  );
+  for (const target of ["browser", "terminal"] as const) {
+    assert.deepEqual(
+      openAt(desk, "agent", "show", { relation: null, target }),
+      folded,
+    );
+  }
   for (const target of ["session", "tui", "preview", "artifact"] as const) {
     assert.deepEqual(
       openAt(desk, "agent", "show", { relation: null, target }),
@@ -58,11 +60,12 @@ test("float이 상한이면 agent의 work·glance 탭은 버려지지 않고 des
       rect,
     );
   }
-  for (const relation of [null, "glance"] as const) {
-    assert.deepEqual(
-      openAt(full, "agent", "show", { relation, target: "browser" }),
-      { kind: "tab" },
-    );
+  for (const target of ["browser", "terminal"] as const) {
+    for (const relation of [null, "glance"] as const) {
+      assert.deepEqual(openAt(full, "agent", "show", { relation, target }), {
+        kind: "tab",
+      });
+    }
   }
 });
 

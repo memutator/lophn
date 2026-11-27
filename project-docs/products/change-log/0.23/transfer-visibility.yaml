@@ -1,5 +1,5 @@
 id: transfer-visibility
-version: 0.23.183
+version: 0.23.184
 platform_note: none
 title: 받은 file을 Inbox에 알리고 기다리던 session을 깨우며, 보낸 쪽이 Hub가 다 받았는지 보고, 끊긴 나르기를 잇는다
 modules:

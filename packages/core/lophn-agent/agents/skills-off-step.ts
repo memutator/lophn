@@ -3,6 +3,7 @@ import { parse, stringify } from "yaml";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { AgentId } from "../../../protocol/lophn-agent/mod.ts";
 import { createFileSettingsReader } from "../../config/mod.ts";
+import { platformEntryUrl } from "../../install-and-update/mod.ts";
 import type { DataStep } from "../../storage/migration/mod.ts";
 import { skillFoldersSetting } from "../extensions/settings.ts";
 import { discoverSkills, type SkillFiles } from "../extensions/skills.ts";
@@ -22,8 +23,7 @@ const STRINGIFY_OPTIONS = {
 } as const;
 
 // 동기 file 눈은 core 프로세스의 module graph에 둘 수 없어 쓸 때 URL로 연다.
-const NODE_FS = new URL("../extensions/adapters/node-fs.ts", import.meta.url)
-  .href;
+const NODE_FS = platformEntryUrl(import.meta.url, "extensionNodeFs").href;
 
 type Plain = Record<string, unknown>;
 

@@ -4,12 +4,12 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { fileURLToPath } from "node:url";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   appFolder,
   RELEASE_PREPARATION_LIMIT_MS,
 } from "../../../protocol/apps/mod.ts";
+import { platformEntry } from "../../install-and-update/mod.ts";
 import type {
   PreparationFailure,
   PreparationJob,
@@ -23,7 +23,7 @@ import {
   treeSpawnOptions,
 } from "../../supervision/security/tree-kill.ts";
 
-const JOB = fileURLToPath(new URL("../worker/release-job.ts", import.meta.url));
+const JOB = platformEntry(import.meta.url, "releaseJob");
 
 export function createChildPreparationRunner(options: {
   dataRoot: string;

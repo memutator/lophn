@@ -6,14 +6,12 @@ import { chmod, mkdir, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { delimiter, dirname, join } from "node:path";
 import process from "node:process";
-import { fileURLToPath } from "node:url";
 import { err, ok, type Result } from "../../../base/mod.ts";
+import { platformEntry } from "../../install-and-update/mod.ts";
 
 const SHIM_FOLDER = "run/bin";
 // shim의 `npm`은 npm 앞에 앱의 SDK 사본을 맞추는 entry를 거친다.
-const NPM_ENTRY = fileURLToPath(
-  new URL("../../apps/packages/npm-entry.ts", import.meta.url),
-);
+const NPM_ENTRY = platformEntry(import.meta.url, "npmEntry");
 
 // npm의 exports는 bin을 내보내지 않아 package.json 옆에서 찾는다.
 export function platformNpmCliPath(): string {

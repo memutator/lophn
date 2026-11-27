@@ -26,15 +26,19 @@ import {
   workflowsFolder,
 } from "../../../../protocol/workflows/mod.ts";
 import { compareVersion } from "../../../workflows/declaration.ts";
+import { platformUrl } from "../../../install-and-update/mod.ts";
 import type {
   DefinitionFile,
   FlowSdkInfo,
   WorkflowFiles,
 } from "../../../workflows/ports.ts";
 
-const BUNDLED_FLOW_PACKAGE = new URL(
-  "../../../../sdk/flow/package.json",
+const BUNDLED_FLOW_PACKAGE = platformUrl(
   import.meta.url,
+  "packages",
+  "sdk",
+  "flow",
+  "package.json",
 );
 
 async function isFile(path: string): Promise<boolean> {

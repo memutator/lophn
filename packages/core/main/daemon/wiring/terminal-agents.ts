@@ -16,7 +16,6 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import process from "node:process";
-import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import { isGuiHarness } from "../../../../protocol/acp/gui-session.ts";
@@ -112,6 +111,7 @@ import {
   SHELL_INIT_ENV,
   writeShellInit,
 } from "../../../terminals/host/shell-integration.ts";
+import { platformRootFrom } from "../../../install-and-update/mod.ts";
 import { installedLayout } from "../entry-layout.ts";
 import { redactDeep } from "./acp-build.ts";
 import { createProductRedactor, type WiringFactory } from "./context.ts";
@@ -120,9 +120,7 @@ const key = (route: { resource: string; method: string }) =>
   `${route.resource}/${route.method}`;
 
 // 설치본은 platform/ 폴더, 개발은 저장소 root다.
-const PLATFORM_ROOT = fileURLToPath(
-  new URL("../../../../../", import.meta.url),
-);
+const PLATFORM_ROOT = platformRootFrom(import.meta.url);
 // resume으로 연 터미널의 hold를 갱신하는 간격. hold 갱신(10초)보다 넉넉히 짧다.
 const BEAT_MS = 3000;
 // bridge가 browser 탭이 열리기를 기다리는 시간. shim의 socket 기한(3초)보다 짧아야 declined 답이 그 안에 간다.

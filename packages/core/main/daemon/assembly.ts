@@ -1,6 +1,7 @@
 // core 조립 목록. lead가 고치는 유일한 조립 file이다. main.ts는 이 세 목록만 core에 넘긴다.
 
 // 최상위 팀마다 등록 파일 하나.
+import { platformEntryUrl } from "../../install-and-update/mod.ts";
 import { createCoreRegistration as createApprovalsRegistration } from "../../approvals/registration.ts";
 import { createCoreRegistration as createAnnotationsRegistration } from "../../apps/annotations/register.ts";
 import { createLedgerRegistration as createAppsRegistration } from "../../apps/register.ts";
@@ -141,36 +142,11 @@ export const TEAMS = [
   { createCoreRegistration: createProjectCommandsRegistration },
 ];
 
-// writer·reader Worker가 다시 import할 등록 파일.
-// - 팀 등록 파일들
-// - session 되돌리기 읽기(rewind reader)와 LOPHN.md·agent 정의 본문 읽기(instruction files)의 reader 등록.
-//   동기 file API는 reader Worker 안에서만 쓰므로 core가 정적으로 import하지 않는다.
+// writer·reader Worker가 다시 import할 등록 묶음.
+// 팀 등록과 rewind·instruction reader 등록을 `team-modules.ts` 한 파일에 모아 설치본에서는 한 번의 bundle 로드로 끝낸다.
+// 동기 file API는 reader Worker 안에서만 쓰므로 core가 정적으로 import하지 않는다.
 export const TEAM_MODULES = [
-  new URL("../../projects/register.ts", import.meta.url).href,
-  new URL("../../apps/register.ts", import.meta.url).href,
-  new URL("../../runs/register.ts", import.meta.url).href,
-  new URL("../../workflows/register.ts", import.meta.url).href,
-  new URL("../../jobs/register.ts", import.meta.url).href,
-  new URL("./wiring/jobs-registration.ts", import.meta.url).href,
-  new URL("./wiring/lophn-agent-team.ts", import.meta.url).href,
-  new URL("../../lophn-agent/session/rewind/reader.ts", import.meta.url).href,
-  new URL("./wiring/instructions-registration.ts", import.meta.url).href,
-  new URL("../../approvals/registration.ts", import.meta.url).href,
-  new URL("../../host-queue/register.ts", import.meta.url).href,
-  new URL("./wiring/router-registration.ts", import.meta.url).href,
-  new URL("../../apps/annotations/register.ts", import.meta.url).href,
-  new URL("./wiring/lophn-agent-registration.ts", import.meta.url).href,
-  new URL("./wiring/rewind-registration.ts", import.meta.url).href,
-  new URL("./wiring/apps-usage.ts", import.meta.url).href,
-  new URL("./wiring/assignment-file.ts", import.meta.url).href,
-  new URL("./wiring/share-requests.ts", import.meta.url).href,
-  new URL("./wiring/acp-registration.ts", import.meta.url).href,
-  new URL("./wiring/apps-delete.ts", import.meta.url).href,
-  new URL("./wiring/agent-delete.ts", import.meta.url).href,
-  new URL("./wiring/attention.ts", import.meta.url).href,
-  new URL("./wiring/remote.ts", import.meta.url).href,
-  new URL("./wiring/project-clone.ts", import.meta.url).href,
-  new URL("./wiring/project-commands.ts", import.meta.url).href,
+  platformEntryUrl(import.meta.url, "teamModules").href,
 ];
 
 // module마다의 wiring. 순서가 뜻을 가진다.

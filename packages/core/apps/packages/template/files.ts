@@ -1,8 +1,8 @@
 // 앱 템플릿의 파일 묶음. 템플릿은 상대 경로와 byte의 묶음이고 별도 상태가 없다.
 import { readdir, readFile } from "node:fs/promises";
 
-import { fileURLToPath } from "node:url";
 import { err, type LophnError, ok, type Result } from "../../../../base/mod.ts";
+import { platformPath } from "../../../install-and-update/mod.ts";
 import type { SourceFile } from "../vendor.ts";
 
 export type TemplateFile = SourceFile;
@@ -11,8 +11,14 @@ export type TemplateFailure = LophnError;
 
 // 저장소의 템플릿 원본 폴더. 파일 이름 끝의 `.tmpl`은 저장소 도구(fmt·lint·check·test)가 템플릿 소스를
 // 앱으로 읽지 않게 하는 표시이고, 설치와 앱 만들기는 이 접미를 뗀다.
-export const BUILTIN_TEMPLATE_DIRECTORY = fileURLToPath(
-  new URL("./app/", import.meta.url),
+export const BUILTIN_TEMPLATE_DIRECTORY = platformPath(
+  import.meta.url,
+  "packages",
+  "core",
+  "apps",
+  "packages",
+  "template",
+  "app",
 );
 
 const SUFFIX = ".tmpl";

@@ -2,6 +2,7 @@ import { Worker } from "node:worker_threads";
 import { err, type Logger, ok, type Result } from "../../../base/mod.ts";
 import type { ReadRoute } from "../../../protocol/base/mod.ts";
 import type { RequestContext } from "../../../protocol/server/mod.ts";
+import { platformEntryUrl } from "../../install-and-update/mod.ts";
 import type { KnownSecretChannel } from "./known-secrets.ts";
 import { READ_TIMEOUT_MS, readKey } from "./reads.ts";
 
@@ -270,7 +271,7 @@ export async function createReaderPool(
   }
 
   function newWorker(): Worker {
-    return new Worker(new URL("./reader-worker.ts", import.meta.url), {
+    return new Worker(platformEntryUrl(import.meta.url, "readerWorker"), {
       workerData: { path, modules },
     });
   }

@@ -1,6 +1,7 @@
 // Windows 설치 root(`lophn-desktop.exe`가 있는 폴더)의 배치. platform/, desktop/, extensions/, skills/는 root 바로 아래에,
 // launcher는 `bin\`에 `lophn.cmd`(PowerShell·cmd용)와 `lophn`(Git Bash용 sh script)을 같이 둔다.
 import { cliScript, type HookStdoutRow, headOf } from "./linux-install.ts";
+import { PLATFORM_ENTRIES } from "./platform-entries.ts";
 
 // 설치 root 기준 launcher 위치.
 export const WIN_CLI_LAUNCHER = "bin/lophn.cmd";
@@ -39,7 +40,7 @@ export function winCliLauncher(
   return cmdLauncher(
     "lophn launcher",
     `%~dp0..\\${WIN_DESKTOP_BINARY}`,
-    "%~dp0..\\platform\\packages\\cli\\main.ts",
+    `%~dp0..\\platform\\${PLATFORM_ENTRIES.cli.dist.replaceAll("/", "\\")}`,
     hookStdout,
   );
 }

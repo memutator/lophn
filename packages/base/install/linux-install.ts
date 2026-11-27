@@ -2,6 +2,8 @@
 // 묶음의 위치는 /opt/lophn/ 하나다. 순수 값이라 build 도구(tools/package/linux.ts)와 설치 검사
 // (tools/verify-linux-install.ts), core 조립이 같은 값을 쓴다.
 
+import { PLATFORM_ENTRIES } from "./platform-entries.ts";
+
 const LINUX_INSTALL_ROOT = "/opt/lophn";
 
 // 설치 묶음 안의 위치. 모두 root 소유 읽기 전용이고 사람 데이터 root(H)와 겹치지 않는다.
@@ -84,7 +86,11 @@ export function cliLauncher(
   layout: LinuxInstallLayout,
   hookStdout: readonly HookStdoutRow[],
 ): string {
-  return cliScript(launcherHead(layout, "lophn"), hookStdout);
+  return cliScript(
+    launcherHead(layout, "lophn"),
+    hookStdout,
+    PLATFORM_ENTRIES.cli.dist,
+  );
 }
 
 // 개발 실행(`npm run dev`)의 `lophn`. 설치된 launcher와 같은 본문에 경로만 저장소 source로 바꾼다.
@@ -93,7 +99,11 @@ export function devCliLauncher(
   paths: DevCliPaths,
   hookStdout: readonly HookStdoutRow[],
 ): string {
-  return cliScript(devLauncherHead(paths), hookStdout);
+  return cliScript(
+    devLauncherHead(paths),
+    hookStdout,
+    PLATFORM_ENTRIES.cli.source,
+  );
 }
 
 // hook이 stdout에 써야 하는 글이다(`HARNESS_ADAPTERS[id].stdout`). event `*`는 그 harness의 나머지 전부다.
@@ -114,6 +124,7 @@ function hookStdoutCase(rows: readonly HookStdoutRow[]): string[] {
 export function cliScript(
   head: string,
   hookStdout: readonly HookStdoutRow[],
+  cliEntry: string = PLATFORM_ENTRIES.cli.dist,
 ): string {
   return [
     head,
@@ -127,7 +138,7 @@ export function cliScript(
     "fi",
     "# CLI는 lophn 자신의 코드라 권한을 좁히지 않는다. shell main과 같은 Node runtime으로 돈다.",
     'ELECTRON_RUN_AS_NODE=1 exec "$ELECTRON_BIN" \\',
-    '  "$PLATFORM/packages/cli/main.ts" "$@"',
+    `  "$PLATFORM/${cliEntry}" "$@"`,
     "",
   ].join("\n");
 }

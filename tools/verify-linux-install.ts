@@ -94,7 +94,7 @@ async function checkLayout(): Promise<void> {
     layout.chromeSandbox,
     `${layout.platform}/package.json`,
     `${layout.platform}/package-lock.json`,
-    `${layout.platform}/packages/core/main/daemon/main.ts`,
+    `${layout.platform}/dist/daemon.mjs`,
     `${layout.desktop}/desktop/index.html`,
   ]) {
     if (!(await isFile(file))) missing.push(file);
@@ -218,7 +218,7 @@ function firstLine(stream: NodeJS.ReadableStream): Promise<string> {
 async function startCore(home: string, data: string): Promise<CoreRun> {
   const child = spawn(
     layout.desktopBinary,
-    [`${layout.platform}/packages/core/main/daemon/main.ts`, "--port=0"],
+    [`${layout.platform}/dist/daemon.mjs`, "--port=0"],
     {
       cwd: layout.platform,
       // 빈 PATH로 시작한다. core는 묶음의 node_modules만 읽고 설치본 밖의 도구를 부르지 않는다.
@@ -365,7 +365,7 @@ async function checkCoreOffline(): Promise<void> {
 // 처음 import하는 module이고, 풀리지 않으면 모든 앱이 "exited before ready"로 끝난다.
 // import만 하고 `run`은 부르지 않는다. 대상은 `--root`로 정한 설치본이라 자식 process에서 경로로 불러온다.
 async function checkAppEntrypoint(): Promise<void> {
-  const entry = `${layout.platform}/packages/core/apps/runtime/entrypoint/main.ts`;
+  const entry = `${layout.platform}/dist/app-entrypoint.mjs`;
   const script = `await import(${JSON.stringify(entry)});`;
   const loaded = await run(
     layout.desktopBinary,

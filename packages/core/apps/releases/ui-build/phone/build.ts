@@ -25,6 +25,7 @@ import {
   PHONE_HOST_MODULES,
   phoneManifestSchema,
 } from "../../../../../protocol/apps/phone-screen.ts";
+import { platformUrl } from "../../../../install-and-update/mod.ts";
 import { stagingGuard } from "../staging-guard.ts";
 import { WEB_SHIMS } from "./web-shims.ts";
 
@@ -156,7 +157,9 @@ const KIT_FONTS = [
   { family: "Pretendard", file: "PretendardVariable.woff2" },
   { family: "JetBrainsMono", file: "JetBrainsMonoVariable.woff2" },
 ] as const;
-const DESIGN_FONTS = new URL("../../../../../design/fonts/", import.meta.url);
+const DESIGN_FONTS = new URL(
+  `${platformUrl(import.meta.url, "packages", "design", "fonts").href}/`,
+);
 
 const FONT_FACES = KIT_FONTS.map(
   (font) => `      @font-face {

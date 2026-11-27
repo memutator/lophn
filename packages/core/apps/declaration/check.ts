@@ -6,10 +6,10 @@ import { spawn } from "node:child_process";
 import { readFile, realpath, stat } from "node:fs/promises";
 import { relative } from "node:path";
 import process from "node:process";
-import { fileURLToPath } from "node:url";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { validateDeclaration } from "../../../protocol/apps/declaration/mod.ts";
 import type { DeclarationCheckOutput } from "../../../protocol/apps/mod.ts";
+import { platformEntry } from "../../install-and-update/mod.ts";
 import type { MemoryHandler } from "../../server/mod.ts";
 import { windowsEnvironment } from "../../supervision/security/child-env.ts";
 import { nodeCommand } from "../../supervision/security/node-command.ts";
@@ -25,9 +25,7 @@ type DeclarationCheckDeps = {
   slugOf: (app: string) => Promise<Result<string>>;
 };
 
-const EVAL_DECLARATION = fileURLToPath(
-  new URL("../releases/ui-build/eval-declaration.ts", import.meta.url),
-);
+const EVAL_DECLARATION = platformEntry(import.meta.url, "evalDeclaration");
 const LIMIT_MS = 10_000;
 
 function failed(...errors: string[]): Result<DeclarationCheckOutput> {

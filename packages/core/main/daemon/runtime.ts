@@ -15,6 +15,7 @@ import {
   platformStatusReads,
   type StatusSource,
 } from "../../diagnostics/mod.ts";
+import { platformEntryUrl } from "../../install-and-update/mod.ts";
 import { authorize } from "../../server/identity/mod.ts";
 import type { ReadHandler } from "../../server/mod.ts";
 import { createWorkspaceRelay, type WorkspaceRelay } from "../../server/mod.ts";
@@ -201,10 +202,9 @@ function openProductWriter(
   notePrepared(prepared: PreparedBlob): Promise<Result<void>>;
   prunePrepared(): Promise<Result<void>>;
 } {
-  const worker = new Worker(
-    new URL("../../storage/ledger/writer-worker.ts", import.meta.url),
-    { workerData: { path, ...extra } },
-  );
+  const worker = new Worker(platformEntryUrl(import.meta.url, "writerWorker"), {
+    workerData: { path, ...extra },
+  });
   let nextId = 1;
   const pending = new Map<
     number,

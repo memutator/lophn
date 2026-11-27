@@ -12,3 +12,10 @@ export {
   linuxInstallLayout,
   postinstScript,
 } from "../../base/install/linux-install.ts";
+export {
+  platformEntry,
+  platformEntryUrl,
+  platformPath,
+  platformRootFrom,
+  platformUrl,
+} from "./platform-paths.ts";

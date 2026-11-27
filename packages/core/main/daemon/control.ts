@@ -2,7 +2,6 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import process from "node:process";
-import { fileURLToPath } from "node:url";
 import {
   err,
   ok,
@@ -36,13 +35,12 @@ import {
   userOperations,
 } from "../../server/control/handler.ts";
 import { startControlServer } from "../../server/control/server.ts";
+import { platformPath } from "../../install-and-update/mod.ts";
 import type { CoreRuntime } from "./runtime.ts";
 
 // 제품 판은 root package.json 하나다. 이 file 위치에서 본 repo root(개발)이거나 설치본의 platform/(tools/package가
 // root package.json을 싣는다)다. notices wiring도 같은 file을 읽는다.
-const PRODUCT_PACKAGE_JSON = fileURLToPath(
-  new URL("../../../../package.json", import.meta.url),
-);
+const PRODUCT_PACKAGE_JSON = platformPath(import.meta.url, "package.json");
 
 async function readProductVersion(): Promise<Result<string>> {
   try {

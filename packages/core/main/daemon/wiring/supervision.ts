@@ -1,10 +1,10 @@
 import { join } from "node:path";
 import process from "node:process";
-import { fileURLToPath } from "node:url";
 import { err, ok, type Result } from "../../../../base/mod.ts";
 import type { KindLaunchSpec } from "../../../../protocol/supervision/mod.ts";
 import { APPS_SUPERVISOR_KIND } from "../../../apps/control.ts";
 import { npmConfigEnvironment } from "../../../apps/releases/prepare/environment.ts";
+import { platformEntry } from "../../../install-and-update/mod.ts";
 import { createSupervisor } from "../../../supervision/responsiveness/mod.ts";
 import { windowsEnvironment } from "../../../supervision/security/child-env.ts";
 import type { IoListener, Supervisor, WiringFactory } from "./context.ts";
@@ -105,7 +105,7 @@ function ioListeners(listeners: readonly IoListener[]): Required<IoListener> {
 function platformIoSpec(): KindLaunchSpec {
   return {
     kind: "platform/io",
-    entry: fileURLToPath(new URL("../io-entry.ts", import.meta.url)),
+    entry: platformEntry(import.meta.url, "io"),
     policy: "always",
     memory_limit_bytes: 256 * 1024 * 1024,
   };

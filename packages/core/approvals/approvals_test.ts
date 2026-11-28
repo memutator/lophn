@@ -21,7 +21,8 @@ function makeApprovals() {
   const clock = manualClock(Date.UTC(2026, 0, 1));
   const published: AgentEvent[] = [];
   const approvals = createApprovals({
-    assignmentOf: (agent) => Promise.resolve(ok({ agent, entries: [] })),
+    appAccessOf: () =>
+      Promise.resolve(ok({ reached: false, slug: "ledger", skills: [] })),
     permissionRules: () => ({
       floor: PRODUCT_FLOOR_RULES,
       global: [],

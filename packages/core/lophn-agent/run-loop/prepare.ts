@@ -19,6 +19,7 @@ import {
   isHarnessRuntime,
   type McpServer,
   type ModelChoice,
+  type SkillDeployment,
   startTurn,
   TURN_BLOB_PURPOSES,
   type TurnLimits,
@@ -65,7 +66,7 @@ import {
 import type { AppToolkit, RemoteMemo } from "../tools/app-toolkit.ts";
 import { dispatchTarget } from "../tools/dispatch.ts";
 import { commandTools } from "../tools/lophn/command-tool.ts";
-import { mayBeAppCall, resolveAppCall } from "../tools/lophn/resolve.ts";
+import { appWordOf, resolveAppCall } from "../tools/lophn/resolve.ts";
 import {
   type AppCommandLookup,
   describeLophn,
@@ -212,13 +213,13 @@ type PreparerDeps = {
   }): Promise<Result<ModelBinding>>;
   toolkit: Toolkit;
   // ToolContext의 바깥 연결. 끼우지 않으면 tool 호출은 닫힌 채 실패한다.
-  // `core`는 이 turn의 agent 자격 loopback이고 `skills`는 resolved agent가 켠 skill 이름, `apps`는 그 agent에게 할당한 앱 slug다.
+  // `core`는 이 turn의 agent 자격 loopback이고 `skills`는 resolved agent가 켠 skill 이름, `deployed`는 그 agent 정의가 배포받은 앱 skill이다.
   toolPorts(
     session: WorkspaceSession,
     turn: {
       core: CoreCall;
       skills: readonly string[];
-      apps: readonly string[];
+      deployed: readonly SkillDeployment[];
     },
   ): ToolPorts;
   // agent event를 Bus로 보내는 길(감독 pipe).
@@ -257,11 +258,11 @@ type PreparerDeps = {
   // turn 근거·결과와 model·tool 기록의 본문을 blob으로 먼저 저장하는 통로.
   blobs: BlobPort;
   // 그 agent가 여는 자리에서 발견하는 skill이다: 전역 층에 그 자리 층을 더한다. 내장 skill은 그 workspace 종류에 선언된 것만이다.
-  // `apps`는 그 agent 정의에 할당된 앱 slug이고, 그 앱들의 public skill이 공유 층으로 더해진다.
+  // `agent`는 그 agent 정의가 배포받은 앱 skill이고, 전역·workspace 층의 배포와 합쳐 가리킨 앱 skill이 공유 층으로 더해진다.
   skills?(
     workspace: AgentWorkspace | null,
     kind: WorkspaceKind,
-    apps: readonly string[],
+    agent: readonly SkillDeployment[],
   ): Promise<readonly SkillEntry[]>;
   // 파일 기반 로컬 tool이다: 전역(`<LOPHN_HOME>/tools/`), workspace repo(`<folder>/.lophn/tools/`), workspace data(`<data>/.../tools/`).
   localTools?(
@@ -552,7 +553,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     agent: ResolvedAgent,
     mcp: LoadedMcp,
     turn: string,
-    apps: readonly string[],
+    deployed: readonly SkillDeployment[],
   ) {
     // 외부 MCP tool 등록이다. 사람의 registry(mcp_servers 설정)와 agent의 켜진 MCP만이 출처이며,
     // 목록을 다시 읽지 못하면 그 server tool 정의가 없는 것과 같다.
@@ -604,7 +605,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       seat,
       mcpKit,
       session,
-      apps,
+      deployed,
     });
   }
 
@@ -622,14 +623,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     instructions: TurnPromptInput["instructions"],
     mode: TurnMode,
   ) {
-    const {
-      seat,
-      model,
-      agent: resolved,
-      external,
-      session,
-      apps: assigned,
-    } = m;
+    const { seat, model, agent: resolved, external, session, deployed } = m;
     const toolkit = deps.toolkit;
     const externalByName = new Map(
       external.map((tool) => [tool.definition.name, tool]),
@@ -655,8 +649,8 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     const who = { agent: session.agent, workspace: session.workspace };
     // 다른 컴퓨터의 목록은 한 turn에 한 번만 읽는다.
     const remoteMemo: RemoteMemo = {};
-    const apps: AppCommandLookup = async () => {
-      const loaded = await toolkit.appTool?.load(who, remoteMemo);
+    const apps: AppCommandLookup = async (slug) => {
+      const loaded = await toolkit.appTool?.load(who, remoteMemo, slug);
       return loaded?.ok ? appCommands(loaded.value) : NO_APP_COMMANDS;
     };
     // `lophn` tool이 명령으로 풀리는 호출을 실행할 정의도 여기 든다. model에 보이는 tools[]에는 없고 이 session의 workspace 종류가
@@ -691,8 +685,9 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       const target = dispatchTarget(name, input);
       if (target.name !== LOPHN_TOOL_NAME) return target;
       // 내장 명령은 앱 목록을 읽지 않는다.
-      if (!mayBeAppCall(input)) return target;
-      const found = await apps();
+      const slug = appWordOf(input);
+      if (slug === undefined) return target;
+      const found = await apps(slug);
       const hit = resolveAppCall(input, found.entries, found.machines);
       if (hit === undefined) return target;
       const definition = appCommandTool(hit.entry);
@@ -728,7 +723,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       ...deps.toolPorts(session, {
         core: agentCall,
         skills: resolved.skills,
-        apps: assigned,
+        deployed,
       }),
       scope,
     };
@@ -849,7 +844,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
             (await deps.skills?.(
               resolved.workspace,
               workspaceKindOf(resolved.workspace),
-              assigned,
+              deployed,
             )) ?? [],
             resolved,
           ),
@@ -1035,10 +1030,13 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
 
     // 이번 turn의 resolved agent. 층을 합친 값을 turn 기준에 고정한다. model이 어느 층에도 없거나 정의가
     // 틀렸으면 필수 선택이 비었다는 뜻이라 이 turn만 시작하지 않는다.
-    // 정의를 못 읽으면 할당이 없는 것이다. 정의 오류는 아래 resolveTurnAgent가 turn을 시작하지 않는 쪽으로 알린다.
+    // 정의를 못 읽으면 배포받은 skill이 없는 것이다. 정의 오류는 아래 resolveTurnAgent가 turn을 시작하지 않는 쪽으로 알린다.
     const defined = await readOf(machine, agentRead, { agent: session.agent });
-    const apps = defined.ok ? (defined.value.definition?.apps ?? []) : [];
-    const skills = (await deps.skills?.(session.workspace, kind, apps)) ?? [];
+    const deployed = defined.ok
+      ? (defined.value.definition?.deployed_skills ?? [])
+      : [];
+    const skills =
+      (await deps.skills?.(session.workspace, kind, deployed)) ?? [];
     let mcp: LoadedMcp | undefined;
     const made = await resolveTurnAgent(machine, {
       session: start.session,
@@ -1112,7 +1110,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       agent,
       mcp ?? (await loadMcp(start.session, { workspace: agent.workspace })),
       turn,
-      apps,
+      deployed,
     );
     if (!found.ok) {
       // model을 쓸 수 없으면 그 turn만 시작하지 않는다. 다른 일은 그대로다.

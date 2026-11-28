@@ -4,6 +4,7 @@ import type {
   AgentId,
   McpTool,
   ModelChoice,
+  SkillDeployment,
   Workspace,
 } from "../../../protocol/lophn-agent/mod.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
@@ -52,13 +53,17 @@ export type AgentLookups = {
   // 발견·등록 순서다. home(workspace 없음)은 전역 층만이다. 그 workspace 종류에
   // 선언된 내장 skill과 켜진 skill만이다.
   skills(workspace: Workspace | null): readonly AvailableSkill[];
-  // 할당한 앱(slug)이 내놓은 public skill이다. slug 순에 같은 이름은 앞의 것만이다.
-  shared(apps: readonly string[]): readonly AvailableSkill[];
+  // 그 workspace의 session에 닿는 배포 기록이다: 전역과 workspace 층에 그 agent 층을 더해 합친다.
+  reaching(
+    workspace: Workspace | null,
+    agent: readonly SkillDeployment[],
+  ): readonly SkillDeployment[];
+  // 배포 기록이 가리킨 앱 skill이다(그 앱의 active release가 내놓은 public skill 가운데 배포한 이름). slug 순에 같은 이름은 앞의 것만이다.
+  shared(deployed: readonly SkillDeployment[]): readonly AvailableSkill[];
   mcp(workspace: Workspace | null): McpTool[];
-  // 할당한 앱(slug)의 public command에서 deny로 뺀 것을 제외한 목록이다. 명함의 차이가 쓴다.
+  // 배포 기록이 가리킨 앱(slug)의 public command 목록이다. 명함의 차이가 쓴다.
   sharedCommands(
-    apps: readonly string[],
-    deny: readonly string[],
+    deployed: readonly SkillDeployment[],
   ): { slug: string; name: string }[];
   // model의 provider 이름과 catalog 사실(받는 입력 종류, 가격 첫 요율). provider가 없으면 null이고 catalog가 모르는 model은 inputMedia·price가 null이다.
   modelInfo(model: ModelChoice): {
@@ -81,16 +86,15 @@ export type WorkspaceLookups = {
   appArchived(sql: ReadSql, id: string): boolean;
   // project의 첫 등록 폴더나 앱의 source 폴더다. 폴더가 없으면 null이다. 그 폴더의 `.lophn/skills`가 skill 층이다.
   sourceFolder(sql: ReadSql, workspace: Workspace): string | null;
-  // 할당한 앱(slug)의 active release bundle 사본과 선언의 public skill 이름이다. 공유 skill의 동기 목록 재료다.
+  // 배포한 앱 skill의 active release bundle 사본과 선언의 public skill 이름이다. 공유 skill의 동기 목록 재료다.
   sharedSkills(
     sql: ReadSql,
     dataRoot: string,
-    slugs: readonly string[],
+    deployed: readonly SkillDeployment[],
   ): SharedFolder[];
   sharedCommands(
     sql: ReadSql,
     slugs: readonly string[],
-    deny: readonly string[],
   ): { slug: string; name: string }[];
 };
 

@@ -6,7 +6,7 @@ import {
   appSkills,
   appTools,
 } from "../../../protocol/apps/declaration/read.ts";
-import { appGet, appRuntime } from "../../../protocol/apps/mod.ts";
+import { appGet, appList, appRuntime } from "../../../protocol/apps/mod.ts";
 import { settingsList } from "../../../protocol/config/mod.ts";
 import { eventsList } from "../../../protocol/events/mod.ts";
 import { askWait } from "../../../protocol/lophn-agent/ask-tool.ts";
@@ -49,6 +49,7 @@ import {
   turnList,
   turnRead,
   userModelInfoRead,
+  workspaceExtensionSettingsRead,
   workspaceModelRead,
   workspaceSessionCompactRequests,
   workspaceSessionRead,
@@ -95,6 +96,8 @@ export const RUNTIME_MACHINE_ROUTES = [
   // 제목으로 남는다.
   setSessionAiTitle,
   settingsList,
+  // workspace 층 설정(MCP server, 끈 이름, 배포한 앱 skill). 이 route가 없으면 workspace 층은 말없이 빠진다.
+  workspaceExtensionSettingsRead,
   // 사람 지침(LOPHN.md)과 agent 지침. turn을 시작할 때 층마다 한 번 읽는다.
   instructionsGet,
   startTurn,
@@ -124,9 +127,10 @@ export const RUNTIME_MACHINE_ROUTES = [
   // "Summarize from here"의 요약 요청을 가져가고 끝난 요약 call을 돌려준다.
   takeRewindSummaryRequest,
   finishRewindSummary,
-  // tool의 정의 재료(활성 release 선언과 agent 할당)를 읽는다.
+  // tool의 정의 재료(활성 release 선언과 다른 컴퓨터 앱 할당)를 읽는다. `lophn <slug> <command>`가 slug를 앱으로 풀 때 활성 앱 목록도 읽는다.
   appTools,
-  // 할당한 앱이 내놓은 public skill(공유 skill). turn마다 읽는다.
+  appList,
+  // 배포 기록이 가리킨 앱의 public skill(공유 skill). turn마다 읽는다.
   appSkills,
   appGet,
   assignmentGet,

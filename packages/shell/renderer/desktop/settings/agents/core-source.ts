@@ -27,6 +27,7 @@ import type { OpenExternalApi } from "../../../../ipc/open-external.ts";
 import type { SecretInputOpenApi } from "../../../../ipc/secret-input.ts";
 import {
   cancelMcpSignIn,
+  readDeployable,
   readGlobalModel,
   signInMcpServer,
   windowFiles,
@@ -48,6 +49,7 @@ import { chooseSetting } from "../declared.ts";
 import {
   type AuthStateValue,
   applySetting,
+  DEPLOYED_SKILLS,
   MCP_SERVERS,
   type McpServerValue,
   readExtensionSettings,
@@ -366,6 +368,13 @@ export function coreAgentsSettingsSource(
       if (!current.ok) return current;
       return applySetting(core, SKILLS_OFF, off, random);
     },
+
+    async deployable() {
+      const read = await readDeployable(link);
+      return read.ok ? read : { ok: false, code: read.message };
+    },
+
+    setDeployed: (next) => applySetting(core, DEPLOYED_SKILLS, next, random),
 
     async createServer(server) {
       const current = await readExtensionSettings(core);

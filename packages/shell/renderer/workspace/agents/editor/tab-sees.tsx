@@ -1,5 +1,5 @@
-// Sees 탭(무엇을 보나): 범위 · Browser profile · MCP servers · custom이 고르는 tool · Permission mode · 앱 할당.
-// 앱 할당은 바로 저장되고(editor가 그린 apps 조각) 나머지는 [Save]로 저장한다. harness는 자기 tool과 MCP를 써서
+// Sees 탭(무엇을 보나): 범위 · Browser profile · MCP servers · 배포받은 앱 skill · custom이 고르는 tool · Permission mode · 다른 컴퓨터 앱 할당.
+// 다른 컴퓨터 앱 할당은 바로 저장되고(editor가 그린 apps 조각) 나머지는 [Save]로 저장한다. harness는 자기 tool과 MCP를 써서
 // 그 두 칸 대신 그렇다는 한 줄이 선다.
 
 import { t } from "@lophn/i18n";
@@ -23,7 +23,7 @@ import { scopeLabel } from "../agent-card.tsx";
 import { runtimeLabel } from "../agent-glance.tsx";
 import { secretsOf } from "../mcp-secrets.ts";
 import type { AgentDraft } from "../source.ts";
-import type { McpLogin, McpRow, McpSecret } from "../views.ts";
+import type { DeployableSkill, McpLogin, McpRow, McpSecret } from "../views.ts";
 import styles from "./agent-editor.module.css";
 import {
   type AgentFacts,
@@ -31,6 +31,7 @@ import {
   issuesOf,
   withField,
 } from "./editor-model.ts";
+import { DeployedSkills } from "./deployed-skills.tsx";
 import { Group, Issues } from "./form-kit.tsx";
 import { McpList } from "./parts.tsx";
 import { ServerForm } from "./server-form.tsx";
@@ -71,8 +72,10 @@ export function ownServers(
 
 interface SeesTabProps extends FormProps {
   readonly facts: AgentFacts;
-  /** 앱 할당 조각. 바로 저장되므로 editor가 그 상태를 쥐고 그린다. */
+  /** 다른 컴퓨터 앱 할당 조각. 바로 저장되므로 editor가 그 상태를 쥐고 그린다. */
   readonly apps: ReactNode;
+  /** 배포할 수 있는 앱 skill 전부. 읽는 중이거나 읽지 못했으면 null이다. */
+  readonly deployable: readonly DeployableSkill[] | null;
   /** OAuth MCP server의 [Sign in]. */
   readonly onSignIn: (row: McpRow) => void;
   /** 기다리는 로그인의 [Cancel]. */
@@ -260,6 +263,29 @@ export function SeesTab(props: SeesTabProps) {
           </>
         )}
         <Issues issues={issues("mcp")} />
+      </Group>
+
+      <Group
+        name="deployed_skills"
+        heading={t("agents.heading.deployed-skills")}
+      >
+        {harness ? (
+          <p className={styles.note} data-own="deployed_skills">
+            {ownNote}
+          </p>
+        ) : (
+          <>
+            <DeployedSkills
+              entries={definition.deployed_skills ?? []}
+              deployable={props.deployable}
+              onChange={(next) => set("deployed_skills", next)}
+            />
+            <p className={styles.note}>
+              {t("agents.notice.deployed-skills-agent")}
+            </p>
+          </>
+        )}
+        <Issues issues={issues("deployed_skills")} />
       </Group>
 
       {custom || harness ? (

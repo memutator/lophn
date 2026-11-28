@@ -3,6 +3,7 @@ import { z } from "zod";
 import { declareSetting } from "../../../protocol/config/mod.ts";
 import { mcpServerSchema } from "../../../protocol/lophn-agent/mcp-settings.ts";
 import {
+  deployedSkillsSchema,
   skillNameSchema,
   SKILLS_OFF_MAX,
 } from "../../../protocol/lophn-agent/skill-settings.ts";
@@ -37,8 +38,19 @@ export const globalMcpServersSetting = declareSetting({
   locked: true,
 });
 
+// 모든 agent에게 배포한 앱 skill. project·agent 층과 같은 배포 기록 배열이다. 바꾸는 길은 Settings와 `lophn skill deploy --to global`이다.
+export const globalDeployedSkillsSetting = declareSetting({
+  key: "lophn-agent.extensions.deployed_skills",
+  type: deployedSkillsSchema,
+  default: [],
+  description:
+    "App skills deployed to every agent (app slug and skill name). A deployed skill tells agents an app exists and lets them call its commands without asking. Only the person changes it here; `lophn skill deploy` changes it under rules.",
+  locked: true,
+});
+
 export const extensionSettings = [
   skillFoldersSetting,
   skillsOffSetting,
   globalMcpServersSetting,
+  globalDeployedSkillsSetting,
 ] as const;

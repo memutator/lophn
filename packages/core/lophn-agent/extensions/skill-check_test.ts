@@ -412,7 +412,7 @@ test("skills/list exposes skipped skills and skills/check enforces agent read sc
           workspaceOfFolder: () => null,
           workspaceSkillsFolder: (folder) => join(folder, ".lophn", "skills"),
         },
-        globalSettings: () => ({ roots: [], off: [] }),
+        globalSettings: () => ({ roots: [], off: [], deployed: [] }),
         sessionInfo: (session) =>
           session === "ses_01000000000000000000000001"
             ? ok({
@@ -433,7 +433,7 @@ test("skills/list exposes skipped skills and skills/check enforces agent read sc
             : err({ code: "not_found", message: "project not found" }),
         resolveApp: () => err({ code: "not_found", message: "app not found" }),
         sourceFolder: () => ok(projectFolder),
-        agentOwn: () => ok({ skills_off: [], apps: [] }),
+        agentOwn: () => ok({ skills_off: [], deployed: [] }),
         sharedFolders: () => ok([]),
       }),
     );

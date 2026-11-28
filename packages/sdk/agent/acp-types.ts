@@ -59,7 +59,6 @@ type DenyReasonKind =
   | "mode"
   | "scope"
   | "unassigned"
-  | "removed"
   | "untrusted"
   | "no_person"
   | "locked"
@@ -69,7 +68,6 @@ type RecoveryAction = {
   kind:
     | "none"
     | "edit_rule"
-    | "assign_app"
     | "change_mode"
     | "trust_local_tool"
     | "trust_mcp"

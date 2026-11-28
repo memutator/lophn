@@ -120,6 +120,7 @@ async function readWorkspaceData(
   call: CoreCall,
   agent: ResolvedAgent,
   files: WorkspaceFiles,
+  deployed: ReadonlySet<string>,
   worktreeId?: string | null,
 ): Promise<Result<WorkspaceRead>> {
   const { workspace } = agent;
@@ -309,11 +310,14 @@ async function readWorkspaceData(
         slug: a.slug,
         purpose: a.description,
         packages: packagesOf.get(a.id) ?? [],
-        commands: tools.map((t) => ({
-          key: t.name,
-          effect: t.effect,
-          description: t.description,
-        })),
+        // 앱의 command는 그 skill이 이 session에 닿을 때만 싣는다(배포). 닿지 않은 앱은 이름만 있고 command는 부를 때 푼다.
+        commands: deployed.has(a.slug)
+          ? tools.map((t) => ({
+              key: t.name,
+              effect: t.effect,
+              description: t.description,
+            }))
+          : [],
         usedBy: uses.map((u) => ({
           tool: u.tool,
           workspace:
@@ -469,6 +473,8 @@ export async function workspaceData(
   call: CoreCall,
   agent: ResolvedAgent,
   files: WorkspaceFiles,
+  // 이 session에 닿는 배포(전역, workspace, agent 층)의 앱 slug다.
+  deployedApps: ReadonlySet<string>,
   worktreeId?: string | null,
 ): Promise<
   Result<{
@@ -476,7 +482,13 @@ export async function workspaceData(
     scope: WorkspaceRead["scope"];
   }>
 > {
-  const read = await readWorkspaceData(call, agent, files, worktreeId);
+  const read = await readWorkspaceData(
+    call,
+    agent,
+    files,
+    deployedApps,
+    worktreeId,
+  );
   if (!read.ok) return read;
   const { workspace, scope, team } = read.value;
   return ok({

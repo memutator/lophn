@@ -71,6 +71,7 @@ export type ToolGateApprovals = {
       allowedChoices?: readonly TurnRequestChoiceKind[];
       reason?: string | null;
       outsideRewind?: boolean;
+      alwaysPatterns?: readonly string[];
     },
   ): Result<TurnRequest>;
   waitTurnDecision(request: string): Promise<TurnRequestOutcome>;
@@ -135,6 +136,9 @@ export function createToolGate(deps: ToolGateDeps): ToolGate {
           allowedChoices: judgment.allowed_choices,
           reason: judgment.reason,
           outsideRewind: judgment.outside_rewind,
+          ...(judgment.always_patterns === undefined
+            ? {}
+            : { alwaysPatterns: judgment.always_patterns }),
         },
       );
       if (!opened.ok) return opened;

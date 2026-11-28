@@ -73,6 +73,7 @@ import {
   type Compactor,
   createCompactor,
 } from "../../lophn-agent/session/compactor.ts";
+import { deploymentsOf } from "../../lophn-agent/extensions/deployments.ts";
 import { withPublicOnly } from "../../lophn-agent/tools/app-public.ts";
 import { createAppToolkit } from "../../lophn-agent/tools/app-toolkit.ts";
 import { loadLocalTools } from "../../lophn-agent/tools/local-tools.ts";
@@ -108,11 +109,12 @@ function productToolkit(options: {
   return {
     ...createBuiltinToolkit(),
     definitions: options.definitions,
-    // 허락된 앱의 command를 `lophn <slug> <command>`를 부를 때 푸는 재료. 할당은 machine 자격의 loopback으로 읽는다.
+    // 앱 command를 `lophn <slug> <command>`를 부를 때 푸는 재료. 배포와 다른 컴퓨터 앱 할당은 machine 자격의 loopback으로 읽는다.
     // 다른 앱의 비공개 command는 뺀다.
     appTool: withPublicOnly(
       createAppToolkit({
         machine: options.machine,
+        deployments: (who) => deploymentsOf(options.machine, who),
         async assignment(agent: AgentId) {
           const read = await readOf(options.machine, assignmentGet, {
             agent,
@@ -242,7 +244,7 @@ export function productDriver(
           {
             id: session.id,
             workspace: session.workspace,
-            apps: turn.apps,
+            deployed: turn.deployed,
           },
           turn.skills,
         ),
@@ -252,7 +254,20 @@ export function productDriver(
       workspacePrompt,
       workspaceData: async (call, agent, session, worktreeId) =>
         withToolResults(
-          await workspaceData(call, agent, workspaceFiles(), worktreeId),
+          await workspaceData(
+            call,
+            agent,
+            workspaceFiles(),
+            new Set(
+              (
+                await deploymentsOf(calls.machine, {
+                  agent: agent.agent,
+                  workspace: agent.workspace,
+                })
+              ).map((entry) => entry.app),
+            ),
+            worktreeId,
+          ),
           session,
         ),
       workspaceTools: workspaceToolNames,
@@ -286,12 +301,12 @@ export function productDriver(
       redact: calls.redact,
       // 그 agent 자리의 skill 폴더와 등록한 skill 폴더만 검사한다. 내장 skill은 그 workspace 종류에 선언된 것만이다. 설정이 없으면
       // 빈 목록이다.
-      skills: (workspace, kind, apps) =>
+      skills: (workspace, kind, agent) =>
         registeredSkillEntries(
           calls.machine,
           productSkillStores(workspace, SKILL_WORKSPACES),
           kind,
-          apps,
+          agent,
         ),
       localTools: async (workspace) => {
         const home = process.env.LOPHN_HOME;

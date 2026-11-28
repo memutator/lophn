@@ -1,20 +1,15 @@
-// 할당 화면의 순수한 계산. entries(계약의 AssignmentEntry 배열)에서 앱 줄의 상태를 읽고, 줄을 바꾼 새 entries를 만든다.
-// 줄은 앱뿐이고 뺀 tool만 removed_tools에 든다.
+// 다른 컴퓨터 앱 할당 화면의 순수한 계산. entries(계약의 AssignmentEntry 배열)에서 앱 줄의 상태를 읽고, 줄을 바꾼 새 entries를 만든다.
+// 줄은 (컴퓨터, 앱)이고 뺀 tool만 removed_tools에 든다.
 import type { AssignmentEntry } from "../../../../../protocol/approvals/assignment.ts";
 import type { GrantApp } from "../source.ts";
 
 /**
- * 붙일 수 있는 앱 목록. agent가 일하는 자리가 그 앱이면 tool은 모두, 다른 앱은 public만 남기고, 남은 tool이
- * 없는 앱은 뺀다. 이미 붙은 entry는 건드리지 않는다: 실행 때 목록에서 빠질 뿐이다.
+ * 다른 컴퓨터의 앱 가운데 붙일 수 있는 것. public tool만 남기고, 남은 tool이 없는 앱은 뺀다(받는 컴퓨터가 비공개 command를 거절한다).
+ * 이미 붙은 entry는 건드리지 않는다: 실행 때 목록에서 빠질 뿐이다.
  */
-export function appsFor(
-  apps: readonly GrantApp[],
-  workspace: string | null,
-): GrantApp[] {
+export function appsFor(apps: readonly GrantApp[]): GrantApp[] {
   return apps.flatMap((app) => {
-    const tools = app.tools.filter(
-      (tool) => tool.public || app.app === workspace,
-    );
+    const tools = app.tools.filter((tool) => tool.public);
     return tools.length === 0 ? [] : [{ ...app, tools }];
   });
 }

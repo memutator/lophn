@@ -1,4 +1,8 @@
-import { err, ok } from "../../../../base/mod.ts";
+import { err, ok, type Result } from "../../../../base/mod.ts";
+import {
+  type ToolGateResult,
+  toolGateCheck,
+} from "../../../../protocol/approvals/mod.ts";
 import { BUNDLED_SKILLS_ROOT } from "../../../agent-workspaces/skills/root.ts";
 import { PROJECT_LAYER } from "../../../agent-workspaces/workspace/project-layer.ts";
 import { appSourcePath, sharedSkillFolders } from "../../../apps/lookups.ts";
@@ -11,6 +15,7 @@ import { createMcpToolRequests } from "../../../lophn-agent/extensions/mcp-tool-
 import {
   createMcpOAuthVault,
   createSkillCommandHandlers,
+  globalDeployedSkillsSetting,
   skillFoldersSetting,
   skillsOffSetting,
 } from "../../../lophn-agent/extensions/mod.ts";
@@ -25,6 +30,10 @@ import { workspaceReadScopeOf } from "../workspace-folders-glue.ts";
 import { readAgentMcp } from "./agent-mcp.ts";
 import type { McpAuthControl, WiringFactory } from "./context.ts";
 import { agentSkillAccess } from "./lophn-agent-team.ts";
+import {
+  createSkillDeployHandlers,
+  createSkillDeployments,
+} from "./skill-deploy.ts";
 
 export const lophnAgentExtensionsWiring: WiringFactory = () => {
   let control: McpAuthControl | undefined;
@@ -62,6 +71,7 @@ export const lophnAgentExtensionsWiring: WiringFactory = () => {
         globalSettings: () => ({
           roots: ctx.settings.get(skillFoldersSetting) ?? [],
           off: ctx.settings.get(skillsOffSetting) ?? [],
+          deployed: ctx.settings.get(globalDeployedSkillsSetting) ?? [],
         }),
         sessionInfo: (session) =>
           ledgerSnapshot(ctx.ledgerPath, (lookup) => {
@@ -107,13 +117,33 @@ export const lophnAgentExtensionsWiring: WiringFactory = () => {
           ledgerSnapshot(ctx.ledgerPath, (lookup) =>
             agentSkillAccess(lookup.sql, agent),
           ),
-        sharedFolders: (apps) =>
+        sharedFolders: (deployed) =>
           ledgerSnapshot(ctx.ledgerPath, (lookup) =>
-            sharedSkillFolders(lookup.sql, ctx.root.path, apps),
+            sharedSkillFolders(lookup.sql, ctx.root.path, deployed),
           ),
       });
+      // `lophn skill deploy|undeploy|deployments`. 묻는 길은 `tool_gate/check`다(agent가 설정을 바꿀 때 사람에게 묻는 것과 같다).
+      const deploy = createSkillDeployHandlers({
+        deployments: createSkillDeployments(ctx),
+        ledgerPath: ctx.ledgerPath,
+        sessionOf: (session) =>
+          ledgerSnapshot(ctx.ledgerPath, (lookup) => {
+            const row = loadSession(lookup, session);
+            return row === undefined
+              ? null
+              : { agent: row.agent, workspace: workspaceOf(row) };
+          }),
+        askPerson: async (who, input) => {
+          const gate = ctx.runtime.memory.handlers.get(
+            `${toolGateCheck.resource}/${toolGateCheck.method}`,
+          );
+          return gate === undefined
+            ? err({ code: "unavailable", message: "route unavailable" })
+            : ((await gate(who, input)) as Result<ToolGateResult>);
+        },
+      });
       return ok({
-        memory: [...created.handlers, ...tools.handlers, ...skills],
+        memory: [...created.handlers, ...tools.handlers, ...skills, ...deploy],
       });
     },
     // 기다리는 MCP 로그인은 사람이 돌아오기를 기다리는 요청이라 서버 정지 전에 끝낸다.

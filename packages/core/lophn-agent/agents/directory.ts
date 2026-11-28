@@ -6,6 +6,7 @@ import type {
   HarnessConfig,
   PermissionMode,
   SessionOpenMode,
+  SkillDeployment,
   Workspace,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { cardByHandle } from "./card.ts";
@@ -32,10 +33,8 @@ export type AgentInfo = {
   permissionMode?: PermissionMode;
   // 정의의 runtime. 없으면 lophn이다.
   runtime: AgentRuntime;
-  // 할당: 앱 slug와 permissions.deny·permissions.ask 규칙. 사람만 쓰는 칸이다.
-  apps: readonly string[];
-  deny: readonly string[];
-  ask?: readonly string[];
+  // 이 agent에게 배포한 앱 skill(agent 층의 배포 기록).
+  deployedSkills: readonly SkillDeployment[];
   /** harness runtime의 model·option 설정. 없거나 비면 CLI 기본이다. */
   harnessConfig?: HarnessConfig;
   /** session을 여는 기본 방식(tab | background). 없으면 내장 규칙을 따른다. */
@@ -72,9 +71,7 @@ function infoOf(loaded: Loaded): AgentInfo {
       ? {}
       : { permissionMode: loaded.definition.permission_mode }),
     runtime: loaded.definition?.runtime ?? "lophn",
-    apps: loaded.definition?.apps ?? [],
-    deny: loaded.definition?.permissions?.deny ?? [],
-    ask: loaded.definition?.permissions?.ask ?? [],
+    deployedSkills: loaded.definition?.deployed_skills ?? [],
     ...(loaded.definition?.harness_config === undefined
       ? {}
       : { harnessConfig: loaded.definition.harness_config }),

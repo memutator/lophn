@@ -42,6 +42,7 @@ const lookups: AgentLookups = {
   workspaceExists: () => false,
   workspaceArchived: () => false,
   skills: () => [],
+  reaching: () => [],
   shared: () => [],
   mcp: () => [],
   sharedCommands: () => [],
@@ -50,7 +51,7 @@ const lookups: AgentLookups = {
   workspaceModel: () => null,
 };
 
-test("lophn은 지우거나 handle·avatar를 바꿀 수 없고, handle은 전역에 하나이고 바뀌지 않으며, agent 자격은 mcp_servers·skip·apps·remote_apps·extensions·permissions을 넣지 못한다", async () => {
+test("lophn은 지우거나 handle·avatar를 바꿀 수 없고, handle은 전역에 하나이고 바뀌지 않으며, agent 자격은 mcp_servers·skip·deployed_skills·remote_apps·extensions를 넣지 못한다", async () => {
   const root = await mkdtemp(join(tmpdir(), "lophn-agent-commands-"));
   try {
     const files = createNodeAgentFiles();
@@ -143,7 +144,7 @@ test("lophn은 지우거나 handle·avatar를 바꿀 수 없고, handle은 전�
     const humanOnly: Record<string, unknown> = {
       permission_mode: "full",
       mcp_servers: [],
-      apps: ["notes"],
+      deployed_skills: [{ app: "notes", skill: "notes-guide" }],
       remote_apps: [
         {
           machine: "mch_00000000000000000000000001",
@@ -152,7 +153,6 @@ test("lophn은 지우거나 handle·avatar를 바꿀 수 없고, handle은 전�
           removed: [],
         },
       ],
-      permissions: { deny: ["lophn(notes read)"] },
     };
     for (const field of Object.keys(humanOnly)) {
       const refused = create(
@@ -177,7 +177,7 @@ test("lophn은 지우거나 handle·avatar를 바꿀 수 없고, handle은 전�
           handle: "lophn",
           name: "lophn",
           body: "x",
-          apps: ["notes"],
+          deployed_skills: [{ app: "notes", skill: "notes-guide" }],
         },
       } as never,
       { hash: beforeHash },

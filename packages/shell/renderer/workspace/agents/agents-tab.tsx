@@ -26,9 +26,11 @@ import {
   type InstructionsPort,
 } from "./editor/instructions-editor.tsx";
 import { ModelField, type ModelFieldSource } from "./editor/model-field.tsx";
+import { DeployedSkills } from "./editor/deployed-skills.tsx";
 import { McpList, SkillList } from "./editor/parts.tsx";
+import type { SkillDeployment } from "../../../../protocol/lophn-agent/skill-settings.ts";
 import type { AgentListRow, AgentsOverview, ModelsView } from "./source.ts";
-import type { ImageSrc } from "./views.ts";
+import type { DeployableSkill, ImageSrc } from "./views.ts";
 
 interface AgentsTabProps {
   /** 이 탭의 workspace 열쇠: "home", project id, 앱 id. */
@@ -53,6 +55,10 @@ interface AgentsTabProps {
   readonly onWorkspaceModel: (choice: ModelChoice | null) => void;
   readonly onToggleSkill: (name: string, on: boolean) => void;
   readonly onAddSkill: () => void;
+  /** 배포할 수 있는 앱 skill 전부. 읽는 중이거나 읽지 못했으면 null이다. */
+  readonly deployable: readonly DeployableSkill[] | null;
+  /** 이 workspace에 배포한 skill을 새 목록으로 바꾼다. */
+  readonly onDeployedChange: (next: readonly SkillDeployment[]) => void;
   readonly onToggleMcp: (name: string, on: boolean) => void;
   readonly onAddServer: () => void;
 }
@@ -354,6 +360,17 @@ export function AgentsTab(props: AgentsTabProps): ReactElement {
         )}
         <p className={styles.note}>
           {t("agents.notice.skills-workspace", { kind })}
+        </p>
+        <h3 className={styles.subheading}>
+          {t("agents.heading.deployed-skills")}
+        </h3>
+        <DeployedSkills
+          entries={overview.deployed}
+          deployable={props.deployable}
+          onChange={props.onDeployedChange}
+        />
+        <p className={styles.note}>
+          {t("agents.notice.deployed-skills-workspace", { kind })}
         </p>
       </Section>
 

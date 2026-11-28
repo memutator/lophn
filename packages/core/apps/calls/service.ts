@@ -160,6 +160,10 @@ const DENIAL_MESSAGES: Record<ToolDenial["code"], string> = {
   not_declared: "the app does not declare this operation or command",
 };
 
+// agent와 flow의 호출이 막힌 이유는 그 앱의 skill이 닿지 않은 것이다(비공개 command를 빼면). 어떻게 닿게 하는지를 알린다.
+const UNDEPLOYED_MESSAGE =
+  "the call is not granted: no skill of this app is deployed to this agent, and the person did not allow this call. Deploy one of the app's public skills (`lophn skill deploy <app> <skill> --to agent:<handle>`, `workspace` or `global`), or call the command from a session where the person can allow it";
+
 type Phase = "gate" | "queued" | "sent";
 
 // 앱 호출과 event 전달은 부른 invocation이 있을 수 있고, 그 사슬로 루프·깊이를 본다.
@@ -199,14 +203,19 @@ export function createAppCalls(deps: AppCallsDeps): {
   function denied(
     code: ToolDenial["code"],
     invocation: Id<"inv"> | null,
+    message?: string,
   ): ToolCallOutput {
-    return { invocation, outcome: deniedOutcome(code, DENIAL_MESSAGES[code]) };
+    return {
+      invocation,
+      outcome: deniedOutcome(code, message ?? DENIAL_MESSAGES[code]),
+    };
   }
 
   // handler까지 가지 못한 호출을 한 번에 남긴다.
   async function recordDenied(
     base: CallRecordBase,
     code: ToolDenial["code"],
+    message?: string,
   ): Promise<Result<ToolCallOutput>> {
     const recorded = await deps.ledger.recordOnce(
       closedRow(base, {
@@ -217,7 +226,7 @@ export function createAppCalls(deps: AppCallsDeps): {
       }),
     );
     if (!recorded.ok) return recorded;
-    return ok(denied(code, base.id));
+    return ok(denied(code, base.id, message));
   }
 
   // preview 호출은 release가 없을 수 있어 기록 base가 아니라 보내는 값만 쥔다.
@@ -467,7 +476,15 @@ export function createAppCalls(deps: AppCallsDeps): {
         );
         if (abandoned) return null;
         if (!allowed.ok) return allowed;
-        if (!allowed.value) return recordDenied(base, "gate_blocked");
+        if (!allowed.value) {
+          return recordDenied(
+            base,
+            "gate_blocked",
+            caller.kind === "agent" || caller.kind === "flow"
+              ? UNDEPLOYED_MESSAGE
+              : undefined,
+          );
+        }
       }
 
       // write와 external은 앱마다 줄을 선다. read는 바로 간다.

@@ -24,8 +24,9 @@ const USAGE =
   "Fields are flags: --field-name value (the field field_name); repeat a flag for a list; a boolean is --flag or --no-flag; --input '<JSON object>' sets several fields at once and takes JSON values for fields that need one.\n" +
   'Run ["help"] for the groups, ["<group>", "--help"] for the commands of a group and ["<group>", "<command>", "--help"] for the fields of a command.';
 
-// 지금 부를 수 있는 앱 command다. 부를 때마다 읽는다(`apps`가 지금 할당, 활성 release 선언, 비공개 규칙으로 정한다).
-export type AppCommandLookup = () => Promise<AppCommands>;
+// 지금 부를 수 있는 앱 command다. 부를 때마다 읽는다(`apps`가 지금 배포, 활성 release 선언, 비공개 규칙으로 정한다). `slug`는 부르는 앱이다:
+// 배포받지 않은 앱도 그 이름으로 부르면 읽혀 Gate가 묻는다.
+export type AppCommandLookup = (slug?: string) => Promise<AppCommands>;
 
 // 다른 기계의 앱을 `lophn help`에 덧붙인다. 읽지 못한 앱은 "not reachable now"다.
 function remoteAppsText(apps: AppCommands): string {
@@ -73,7 +74,11 @@ function lophnHandler(apps?: AppCommandLookup): ToolCallHandler {
     const wantsApps =
       apps !== undefined &&
       (argv.length === 0 || argv[0] === "help" || !isBuiltinWord(argv[0]));
-    const found = wantsApps ? await apps() : undefined;
+    const found = wantsApps
+      ? await apps(
+          argv.length === 0 || argv[0] === "help" ? undefined : argv[0],
+        )
+      : undefined;
     const scope = appScopeOf(args, found?.machines ?? []);
     if (!scope.ok) return scope;
     const { machine } = scope.value;

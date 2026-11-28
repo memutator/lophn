@@ -3,6 +3,7 @@ import { test } from "node:test";
 import type { Id } from "../../../protocol/base/ids.ts";
 import type {
   AgentWorkspace,
+  SkillDeployment,
   WorkspaceKind,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { createSkillSnapshot, type SkillSnapshotDeps } from "./skill-read.ts";
@@ -165,12 +166,14 @@ for (const one of CASES) {
       builtin_root: "/b",
       personal_store: null,
       shared: () => Promise.resolve([]),
-      global: () => Promise.resolve({ roots: ["/g"], off: globalOff }),
+      global: () =>
+        Promise.resolve({ roots: ["/g"], off: globalOff, deployed: [] }),
       workspace: () =>
         Promise.resolve({
           workspace_skills: null,
           workspace_data: "/p",
           off: projectOff,
+          deployed: [],
         }),
     };
     const snapshot = await createSkillSnapshot(deps, {
@@ -178,7 +181,7 @@ for (const one of CASES) {
       kind: one.kind,
       workspace: WORKSPACE,
       off: agentOff,
-      apps: [],
+      deployed: [],
     });
 
     const listed = snapshot.skills.find(
@@ -244,12 +247,13 @@ test("the agent gets every skill except the ones it turned off, and a built-in t
     builtin_root: "/b",
     personal_store: null,
     shared: () => Promise.resolve([]),
-    global: () => Promise.resolve({ roots: ["/g"], off: [] }),
+    global: () => Promise.resolve({ roots: ["/g"], off: [], deployed: [] }),
     workspace: () =>
       Promise.resolve({
         workspace_skills: null,
         workspace_data: null,
         off: [],
+        deployed: [],
       }),
   };
   const receivedOf = async (off: string[]) => {
@@ -258,7 +262,7 @@ test("the agent gets every skill except the ones it turned off, and a built-in t
       kind: "project",
       workspace: WORKSPACE,
       off,
-      apps: [],
+      deployed: [],
     });
     const code = async (name: string) => {
       const read = await snapshot.reader.read(SESSION, name);
@@ -357,6 +361,7 @@ test("내장 skill은 선언한 workspace 종류의 prompt와 `/` 메뉴에만 �
       servers: [],
       skills: { bundled: "/b", registered: ["/g"], personal: null },
       skillsOff: [],
+      deployed: [],
     },
   });
   const project: AgentWorkspace = { kind: "project", id: "prj_01" };
@@ -415,15 +420,22 @@ test("skill.read는 path가 없거나 SKILL.md면 본문을 주고, 모르는 pa
       builtin_root: null,
       personal_store: null,
       shared: () => Promise.resolve([]),
-      global: () => Promise.resolve({ roots: ["/g"], off: [] }),
+      global: () => Promise.resolve({ roots: ["/g"], off: [], deployed: [] }),
       workspace: () =>
         Promise.resolve({
           workspace_skills: null,
           workspace_data: null,
           off: [],
+          deployed: [],
         }),
     },
-    { id: SESSION, kind: "project", workspace: WORKSPACE, off: [], apps: [] },
+    {
+      id: SESSION,
+      kind: "project",
+      workspace: WORKSPACE,
+      off: [],
+      deployed: [],
+    },
   );
   const read = (name: string, path?: string) =>
     snapshot.reader.read(SESSION, name, path);
@@ -452,9 +464,9 @@ test("skill.read는 path가 없거나 SKILL.md면 본문을 주고, 모르는 pa
   );
 });
 
-// 앱을 할당받지 않은 agent는 그 앱의 public skill을 목록에서도 skill.read로도 받지 않는다. 할당받아도 같은 이름의
-// 전역 skill이 이기고(공유 층은 내장 바로 위), 앱 자기 workspace에서는 `app` 층이 있어 공유로 또 싣지 않는다.
-test("shared skills reach only the agents the app is assigned to", async () => {
+// 앱의 skill을 배포받지 않은 agent는 그 앱의 public skill을 목록에서도 skill.read로도 받지 않는다. 전역, workspace, agent 어느 층에 배포하든
+// 이름을 적은 skill만 받는다. 배포받아도 같은 이름의 전역 skill이 이기고(공유 층은 내장 바로 위), 앱 자기 workspace에서는 `app` 층이 있어 공유로 또 싣지 않는다.
+test("shared skills reach only the agents an app skill is deployed to, at any of the three layers, and only the named skills", async () => {
   const slug = "notes";
   const shared = {
     app: "app_01h455vb4pex5v6nkc6gd5fd01",
@@ -466,7 +478,7 @@ test("shared skills reach only the agents the app is assigned to", async () => {
     files: [{ name: "extra.md", text: "EXTRA" }],
   };
   const clash = { ...shared, name: "x", skill_md: skillFile("x", "FROM_APP") };
-  // route처럼 요청한 slug의 것만 준다.
+  // route처럼 요청한 slug의 public skill 전부를 준다. 배포한 이름으로 거르는 것은 받는 쪽의 일이다.
   const machine = (path: string, body: unknown) => {
     assert.strictEqual(path, "/apps/skills");
     const { apps } = body as { apps: string[] };
@@ -474,29 +486,40 @@ test("shared skills reach only the agents the app is assigned to", async () => {
       ok({ skills: apps.includes(slug) ? [shared, clash] : [] }),
     );
   };
-  const deps: SkillSnapshotDeps = {
-    port: treeOf({ "/g/x/SKILL.md": skillFile("x", "GLOBAL") }),
-    builtin_root: null,
-    personal_store: null,
-    shared: (apps, workspace) => sharedSkillsOf(machine, apps, workspace),
-    global: () => Promise.resolve({ roots: ["/g"], off: [] }),
-    workspace: () =>
-      Promise.resolve({
-        workspace_skills: null,
-        workspace_data: null,
-        off: [],
-      }),
+  type Layers = {
+    global?: SkillDeployment[];
+    workspace?: SkillDeployment[];
+    agent?: SkillDeployment[];
   };
   const outcome = async (
-    apps: string[],
+    layers: Layers,
     workspace: AgentWorkspace = WORKSPACE,
   ) => {
+    const deps: SkillSnapshotDeps = {
+      port: treeOf({ "/g/x/SKILL.md": skillFile("x", "GLOBAL") }),
+      builtin_root: null,
+      personal_store: null,
+      shared: (deployed, where) => sharedSkillsOf(machine, deployed, where),
+      global: () =>
+        Promise.resolve({
+          roots: ["/g"],
+          off: [],
+          deployed: layers.global ?? [],
+        }),
+      workspace: () =>
+        Promise.resolve({
+          workspace_skills: null,
+          workspace_data: null,
+          off: [],
+          deployed: layers.workspace ?? [],
+        }),
+    };
     const snapshot = await createSkillSnapshot(deps, {
       id: SESSION,
       kind: workspace.kind,
       workspace,
       off: [],
-      apps,
+      deployed: layers.agent ?? [],
     });
     const text = async (name: string, path?: string) => {
       const read = await snapshot.reader.read(SESSION, name, path);
@@ -509,24 +532,33 @@ test("shared skills reach only the agents the app is assigned to", async () => {
       clash: await text("x"),
     };
   };
+  const named = [{ app: slug, skill: "share-me" }];
 
-  assert.deepStrictEqual(await outcome([slug]), {
+  const received = {
     listed: ["share-me", "x"],
     body: "SHARED_BODY",
     file: "EXTRA",
     clash: "GLOBAL",
-  });
-  assert.deepStrictEqual(await outcome([]), {
+  };
+  for (const layer of ["global", "workspace", "agent"] as const) {
+    assert.deepStrictEqual(await outcome({ [layer]: named }), received, layer);
+  }
+  assert.deepStrictEqual(await outcome({}), {
     listed: ["x"],
     body: "not_found",
     file: "not_found",
     clash: "GLOBAL",
   });
+  // 이름을 적지 않은 skill은 같은 앱이어도 가지 않는다.
+  assert.deepStrictEqual(
+    await outcome({ agent: [{ app: slug, skill: "x" }] }),
+    { listed: ["x"], body: "not_found", file: "not_found", clash: "GLOBAL" },
+  );
   const own: AgentWorkspace = {
     kind: "app",
     id: "app_01h455vb4pex5v6nkc6gd5fd01",
   };
-  assert.deepStrictEqual((await outcome([slug], own)).listed, ["x"]);
+  assert.deepStrictEqual((await outcome({ agent: named }, own)).listed, ["x"]);
 });
 
 // `/` 메뉴와 개수가 쓰는 동기 목록도 선언한 public skill만, bundle 안의 평범한 폴더에서만 읽는다.

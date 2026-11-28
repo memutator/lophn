@@ -152,7 +152,7 @@ agent가 누구를 부를지 고르는 길이다. system prompt에 싣지 않고
 - `lophn machine computers`: 사람의 컴퓨터(id, 이름, 상태, 이 컴퓨터 표시, 늘 켜 둠). agent도 읽는다.
 - `lophn agent list [--workspace] [--on <컴퓨터>]`, `lophn agent card <handle> --on <컴퓨터>`, `lophn session list --on <컴퓨터>`, `lophn call send --on <컴퓨터>`. `agent list`는 `--on` 없이도 이 기계의 한 workspace에 정의된 agent의 명함을 읽는다(agent는 이 기계에서 private인 다른 workspace를 읽지 못한다).
 - 보내는 쪽 `machines/sessions`, `machines/agents`(agent만): 부른 session이 private workspace나 mail이 연 session이면 `forbidden`, 그 컴퓨터의 `a2a/sessions`·`a2a/agents`를 요청한 쪽 `agent`로 부르고 5초 안에 답이 없으면 `unavailable`("not reachable now")이다. 그 컴퓨터가 `not_found`면 옛 판이라고(`unavailable`), 그 밖의 오류는 "<컴퓨터> refused: <글>" 꼴로 다시 쓰고 details는 싣지 않는다. 답은 output schema로 다시 보고 모든 글 칸의 제어 문자를 빼고 길이와 개수를 줄인다(항목 200개, 한 줄 칸 256자, 글 칸 1,024자, 명함 하나의 차이 50줄과 note 20개, 시각이 아닌 `last_active_at`은 버린다). 다른 컴퓨터의 글이기 때문이다.
-- 받는 쪽 `a2a/sessions`, `a2a/agents`(명단의 컴퓨터만, 폰은 `forbidden`). session 목록은 그 컴퓨터의 mail이 연 열린 session 가운데 private이 아닌 workspace의 것뿐이다(목록에 있는 것은 모두 부를 수 있다). 명함은 workspace(`pri_`, 앱 id, Home)를 풀어 내고, 없는 workspace, 보관한 것, private인 것은 똑같이 `{found: false, cards: []}`다(있는지를 알리지 않는다). 다른 컴퓨터에 내주는 명함은 이 기계에서 private인 앱을 할당하지 않은 것처럼 만들어 그 앱의 이름, command, skill이 나가지 않는다. 명함의 `callable`은 싣지 않는다.
+- 받는 쪽 `a2a/sessions`, `a2a/agents`(명단의 컴퓨터만, 폰은 `forbidden`). session 목록은 그 컴퓨터의 mail이 연 열린 session 가운데 private이 아닌 workspace의 것뿐이다(목록에 있는 것은 모두 부를 수 있다). 명함은 workspace(`pri_`, 앱 id, Home)를 풀어 내고, 없는 workspace, 보관한 것, private인 것은 똑같이 `{found: false, cards: []}`다(있는지를 알리지 않는다). 다른 컴퓨터에 내주는 명함은 이 기계에서 private인 앱을 배포하지 않은 것처럼 만들어 그 앱의 이름, command, skill이 나가지 않는다. 명함의 `callable`은 싣지 않는다.
 - 두 받는 route는 `not_found`를 내지 않는다. 보내는 쪽은 `not_found`를 "그 route를 모르는 옛 판"으로 읽는다.
 - `--on`의 자리: 사람의 터미널의 `--on`은 그대로 `machines/call`(`terminal`)이다. agent의 `lophn` tool과 harness agent의 binary(agent 자격)에서는 `on` 칸을 가진 네 명령(`call send`, `session list`, `agent list`, `agent card`)만 `--on`을 그 명령의 칸으로 받아 그 명령의 route로 보내고(명령 낱말 앞에 써도 된다), 다른 내장 명령의 `--on`은 거절한다. 앱 command의 `--on`은 그대로다(`app-call.md`).
 
@@ -248,7 +248,7 @@ agent가 누구를 부를지 고르는 길이다. system prompt에 싣지 않고
 - **늘 실패하는 맨 앞 mail은 timer의 다섯 번 뒤 버린다.** 이유: 그 하나가 그 기계로 가는 모든 mail을 막는다. 짧은 고장 동안 몰려오는 깨움은 세지 않는다. call은 옛 판도 아는 이유 `expired`로 닫는다. (agent)
 - **폴더 길의 mail은 outbox에 60초 남은 것만 file이 된다.** 이유: link로 곧 닿을 mail마다 manifest를 다시 서명하고 나르면 낭비다. 받은 기계가 받은 id를 file로 알리는 것(acks)은 폴더 길에 답이 없어서다. 버린 안: 보낸 기계가 state mail로만 알기(state mail도 폴더로 와 보낸 줄을 언제 지울지 모른다). (agent)
 - **옛 판의 상대.** 새 route를 모르는 컴퓨터는 `not_found`(또는 꼴을 모르는 `invalid_input`)로 답하고 보내는 쪽은 그 call을 `old_version`으로 닫는다. 받는 쪽 route는 그래서 `not_found`를 내지 않는다. 버린 안: remote protocol 판을 올려 옛 컴퓨터와 붙지 않기(mail 말고 다른 길까지 끊긴다). (agent, 2026-11-21)
-- **다른 컴퓨터의 목록과 명함은 받는 쪽이 private을 빼고 보내는 쪽이 글을 다시 거른다.** 다른 컴퓨터에 내주는 명함은 private인 앱을 할당하지 않은 것처럼 만든다. 이유: 명함의 차이(할당한 앱의 command, skill)가 private 앱의 이름을 알린다. (agent)
+- **다른 컴퓨터의 목록과 명함은 받는 쪽이 private을 빼고 보내는 쪽이 글을 다시 거른다.** 다른 컴퓨터에 내주는 명함은 private인 앱을 배포하지 않은 것처럼 만든다. 이유: 명함의 차이(배포로 닿은 앱의 command, skill)가 private 앱의 이름을 알린다. (agent)
 - **harness agent의 binary도 네 명령의 `--on`을 그 명령의 칸으로 보낸다.** 이유: `machines/call`은 사람 자격만 받아 harness agent는 다른 컴퓨터에 닿지 못했다. 다른 명령의 `--on`은 거절한다. (agent)
 - **handoff note의 글은 agent가 쓰고 언제 쓸지는 지침이 정한다.** program은 사실만 붙인다. (agent, `PRODUCT.md` §3)
 - **handoff note는 ledger 표가 아니라 session마다 file 하나다.** 이유: 폴더 길이 file을 나르고, 다시 쓰면 바꾸는 값이라 기록이 필요 없다. 버린 안: 표에 두고 내보내기(같은 것을 두 곳에 둔다). (agent)

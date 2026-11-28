@@ -1,5 +1,5 @@
-// `lophn agent list|card|create|update`: 부를 수 있는 agent 목록과 명함을 읽고(`--on`이면 다른 컴퓨터의 것), 정의를 만들고 고친다. agent는 handle(주소)로 가리킨다. 할당(권한)은 주지 못한다: 사람이 정한다.
-// `mcp_servers`·`permission_mode`·`apps`·`extensions`·`permissions`을 받지 않는 것은 입력 schema의 몫이고, core route도 agent 자격이면 거절한다.
+// `lophn agent list|card|create|update`: 부를 수 있는 agent 목록과 명함을 읽고(`--on`이면 다른 컴퓨터의 것), 정의를 만들고 고친다. agent는 handle(주소)로 가리킨다. MCP, 권한 단계, 앱 skill 배포는 주지 못한다: 앞의 둘은 사람이 정하고 배포는 `lophn skill deploy`다.
+// `mcp_servers`·`permission_mode`·`deployed_skills`·`extensions`를 받지 않는 것은 입력 schema의 몫이고, core route도 agent 자격이면 거절한다.
 import { z } from "zod";
 import { err, ok, type Result } from "../../base/mod.ts";
 import type { Id } from "../../protocol/base/ids.ts";
@@ -177,14 +177,13 @@ const create = defineCommand({
   name: "agent.create",
   summary: "Create an agent",
   description:
-    "Create an agent. Give its handle (the address others use as `to.agent`; lowercase letters, digits, - and _, up to 40; unique, cannot change later; `lophn`, `claude`, `codex`, `opencode`, `omp` and `antigravity` are reserved), name (the display name; defaults to the handle), description (one line), runtime (`lophn` by default; `custom` loads only the instructions body and the tools and skills you pick, `claude-code`, `codex`, `opencode`, `omp` or `antigravity` run that coding agent CLI through its structured adapter), tools (names to pick; custom only), skills (names to pick; custom only; picking one also gives skill.read), modality (input/output of text, image, file; all three by default), avatar, model (lophn/custom only), harness_config (harness runtimes only), skills_off, mcp_off and instructions (body). It is scoped to the workspace you run in (global when you run at home). Read agent.models before choosing a model and its option_values. Its assignments are given by the person. A favorite coding agent needs no definition: it is already callable by its handle (`claude`, `codex`, `opencode`, `omp` or `antigravity`).",
+    "Create an agent. Give its handle (the address others use as `to.agent`; lowercase letters, digits, - and _, up to 40; unique, cannot change later; `lophn`, `claude`, `codex`, `opencode`, `omp` and `antigravity` are reserved), name (the display name; defaults to the handle), description (one line), runtime (`lophn` by default; `custom` loads only the instructions body and the tools and skills you pick, `claude-code`, `codex`, `opencode`, `omp` or `antigravity` run that coding agent CLI through its structured adapter), tools (names to pick; custom only), skills (names to pick; custom only; picking one also gives skill.read), modality (input/output of text, image, file; all three by default), avatar, model (lophn/custom only), harness_config (harness runtimes only), skills_off, mcp_off and instructions (body). It is scoped to the workspace you run in (global when you run at home). Read agent.models before choosing a model and its option_values. Skills of apps are given to it with `lophn skill deploy`. A favorite coding agent needs no definition: it is already callable by its handle (`claude`, `codex`, `opencode`, `omp` or `antigravity`).",
   input: agentDefinitionSchema
     .omit({
       workspace: true,
       mcp_servers: true,
       permission_mode: true,
-      apps: true,
-      permissions: true,
+      deployed_skills: true,
     })
     .extend({ name: agentNameSchema.optional() })
     .strict(),
@@ -212,15 +211,14 @@ const update = defineCommand({
   name: "agent.update",
   summary: "Change an agent",
   description:
-    "Change an agent by handle (`lophn` is the lophn of the workspace you run in). Only the fields you send change (its handle and workspace never change; name is the display name). Read agent.models before choosing model.provider, model.model_name and model.option_values. Its assignments are given by the person.",
+    "Change an agent by handle (`lophn` is the lophn of the workspace you run in). Only the fields you send change (its handle and workspace never change; name is the display name). Read agent.models before choosing model.provider, model.model_name and model.option_values. Skills of apps are given to it with `lophn skill deploy`.",
   input: agentDefinitionSchema
     .omit({
       handle: true,
       workspace: true,
       mcp_servers: true,
       permission_mode: true,
-      apps: true,
-      permissions: true,
+      deployed_skills: true,
     })
     .partial()
     .extend({ agent: agentHandleSchema })

@@ -30,7 +30,6 @@ export const DENY_REASON_KINDS = [
   "mode",
   "scope",
   "unassigned",
-  "removed",
   "untrusted",
   "no_person",
   "locked",
@@ -42,7 +41,6 @@ export type DenyReasonKind = z.infer<typeof denyReasonKindSchema>;
 export const RECOVERY_ACTION_KINDS = [
   "none",
   "edit_rule",
-  "assign_app",
   "change_mode",
   "trust_local_tool",
   "trust_mcp",

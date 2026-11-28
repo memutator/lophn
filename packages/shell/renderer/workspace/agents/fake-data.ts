@@ -13,13 +13,8 @@ import type {
 import type { ToolEffect } from "../../../../protocol/lophn-agent/tool-values.ts";
 import { lophnIdOf } from "../../../../protocol/lophn-agent/workspaces.ts";
 import type { BrowserProfile } from "../../../../protocol/secrets/browser-vault.ts";
-import type {
-  AgentDraft,
-  CodingChoices,
-  GrantApp,
-  GrantCatalog,
-} from "./source.ts";
-import type { McpRow, SkillRow } from "./views.ts";
+import type { AgentDraft, CodingChoices, GrantApp } from "./source.ts";
+import type { DeployableSkill, McpRow, SkillRow } from "./views.ts";
 
 const id = (prefix: string, seed: string) =>
   `${prefix}_${seed.padStart(26, "0")}`;
@@ -33,8 +28,6 @@ export const PROJECT_LOPHN_ID = lophnIdOf({ kind: "project", id: PROJECT_ID });
 export const HOME_LOPHN_ID = lophnIdOf(null);
 export const APP_ID = id("app", "bt1");
 export const APP_NAME = "Budget tracker";
-const EVAL_BOARD_ID = id("app", "eb1");
-const NOTES_SYNC_ID = id("app", "ns1");
 // agent에게는 일하는 자리가 그 앱일 때 tool이 모두, 다른 앱의 tool은 public만 보인다.
 export const EVAL_ANALYST_ID = id("agt", "ea1");
 export const BUDGET_REVIEWER_ID = id("agt", "br1");
@@ -414,6 +407,7 @@ Explain what changed in the eval loop and why it matters.
 3. Link every claim to the document it came from.
 Keep answers short. Name the scenario for every regression.`,
       skills_off: ["cite-documents"],
+      deployed_skills: [{ app: "eval-board", skill: "read-eval-runs" }],
       mcp_off: [{ server_name: "fetch" }],
       mcp_servers: [
         {
@@ -709,47 +703,27 @@ function tool(
   return { tool: name, detail, effect, public: isPublic };
 }
 
-const APPS: readonly GrantApp[] = [
+/** 배포할 수 있는 앱 skill. 앱마다 active release의 public skill이다. */
+export const DEPLOYABLE: readonly DeployableSkill[] = [
   {
-    app: APP_ID,
-    name: APP_NAME,
-    tools: [
-      tool("list_expenses", "Lists the expenses of a month", "read", true),
-      tool("get_budget", "Reads the budget and what is left", "read", true),
-      tool("summarize_month", "Totals a month by category", "read"),
-      tool("add_expense", "Adds one expense", "write"),
-      tool(
-        "set_alert_threshold",
-        "Sets when the app warns about spending",
-        "write",
-      ),
-      tool("delete_expense", "Deletes one expense", "write"),
-      tool("export_to_sheet", "Sends a month to a spreadsheet", "external"),
-      tool("send_report_mail", "Mails the monthly report", "external"),
-      tool("tag_expense", "Puts a tag on an expense", "write"),
-    ],
+    app: "budget-tracker",
+    appName: APP_NAME,
+    skill: "track-expenses",
+    description: "How to add, tag and total expenses with the budget app.",
   },
   {
-    app: EVAL_BOARD_ID,
-    name: "Eval board",
-    tools: [
-      tool("list_runs", "Lists eval runs", "read", true),
-      tool("get_run", "Reads one run with its scores", "read", true),
-      tool("pin_run", "Pins a run to the board", "write"),
-      tool("post_to_chat", "Posts a run summary to the team chat", "external"),
-    ],
+    app: "budget-tracker",
+    appName: APP_NAME,
+    skill: "monthly-report",
+    description: "How to build and send the monthly spending report.",
   },
   {
-    app: NOTES_SYNC_ID,
-    name: "Notes sync",
-    tools: [
-      tool("list_notes", "Lists notes", "read", true),
-      tool("push_note", "Sends a note to the cloud", "external"),
-    ],
+    app: "eval-board",
+    appName: "Eval board",
+    skill: "read-eval-runs",
+    description: "How to list eval runs and read their scores.",
   },
 ];
-
-export const GRANT_CATALOG: GrantCatalog = { apps: APPS };
 
 /** gallery의 기계 목록(`sampleMachines`)에 있는 다른 컴퓨터. */
 export const HOME_SERVER = "mch_homeserver";
@@ -787,16 +761,11 @@ export const COMPUTER_APPS: Readonly<Record<string, readonly GrantApp[]>> = {
   ],
 };
 
-/** agent마다 처음에 붙어 있는 앱. */
+/** agent마다 처음에 붙어 있는 다른 컴퓨터의 앱. */
 export const FAKE_GRANTS: Readonly<Record<string, readonly AssignmentEntry[]>> =
   {
-    [EVAL_ANALYST_ID]: [
-      { app: APP_ID, removed_tools: ["delete_expense"] },
-      { app: EVAL_BOARD_ID, removed_tools: [] },
-    ],
     // 다른 컴퓨터의 앱 줄: Home server는 연결되어 있고 Work laptop은 꺼져 있어 저장된 이름으로 보인다.
     [EXPERIMENT_PLANNER_ID]: [
-      { app: EVAL_BOARD_ID, removed_tools: [] },
       {
         app: WEEKLY_REPORT_ID,
         machine: HOME_SERVER,
@@ -809,9 +778,5 @@ export const FAKE_GRANTS: Readonly<Record<string, readonly AssignmentEntry[]>> =
         name: "Sketch sync",
         removed_tools: [],
       },
-    ],
-    [PROJECT_LOPHN_ID]: [
-      { app: APP_ID, removed_tools: [] },
-      { app: EVAL_BOARD_ID, removed_tools: [] },
     ],
   };

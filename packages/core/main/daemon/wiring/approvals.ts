@@ -13,6 +13,7 @@ import {
   PERMISSION_RULES_SETTING_KEY,
   sessionGrantRevoke,
   sessionPermissionsRead,
+  type ToolGateResult,
   toolGateCheck,
   toolGateInputSchema,
   turnRequestDecide,
@@ -56,7 +57,6 @@ import {
   withTrustedLocalTool,
 } from "../../../approvals/mod.ts";
 import { appSourcePath } from "../../../apps/lookups.ts";
-import { agentAssignment } from "../../../apps/usage/users.ts";
 import type { Bus } from "../../../events/ports.ts";
 import { mergeMcpLayers } from "../../../lophn-agent/extensions/mcp-server.ts";
 import { registeredMcpServers } from "../../../lophn-agent/extensions/mcp-snapshot.ts";
@@ -79,6 +79,7 @@ import { sessionFoldersOf } from "../workspace-folders-glue.ts";
 import { readAgentMcp } from "./agent-mcp.ts";
 import { isDevicePrincipal } from "./app-principal.ts";
 import type { WiringFactory } from "./context.ts";
+import { createSkillDeployments } from "./skill-deploy.ts";
 
 // tool Gate가 session의 agent를 읽는 core 내부 machine 자격이다. 기동 때 ledger에 기록한다.
 const APPROVALS_PRINCIPAL = "machine:approvals";
@@ -284,16 +285,8 @@ export const approvalsWiring: WiringFactory = () => {
       // Bus는 events가 만들어 slot으로 낸다. slot이 비어 있으면 event를 버린다.
       const bus: Bus = ctx.peek.bus ?? DROPPING_BUS;
       const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
-      // 할당은 agent 정의 파일에서 그때그때 읽는다.
-      const assignmentOf = (agent: AgentId) => {
-        const connection = openConnection(ctx.ledgerPath);
-        if (!connection.ok) return Promise.resolve(connection);
-        try {
-          return Promise.resolve(agentAssignment(connection.value.sql, agent));
-        } finally {
-          connection.value.close();
-        }
-      };
+      // 앱 skill 배포는 세 층의 설정에서 그때그때 읽는다.
+      const deployments = createSkillDeployments(ctx);
       const permissionRulesNow = () =>
         ctx.peek.settings?.get(permissionRulesSetting) ??
         DEFAULT_PERMISSION_RULES_SETTING;
@@ -387,7 +380,7 @@ export const approvalsWiring: WiringFactory = () => {
       };
 
       const service = createApprovals({
-        assignmentOf,
+        appAccessOf: (who, app) => deployments.appAccess(who, app),
         // 판정마다 읽어 사람이 Settings에서 고친 값이 다음 호출부터 쓰인다.
         permissionRules: (workspace) =>
           permissionRuleLayers(permissionRulesNow(), workspace),
@@ -421,6 +414,15 @@ export const approvalsWiring: WiringFactory = () => {
               })
             : ok(undefined),
         );
+      });
+      // 배포되지 않은 앱 호출의 `always`는 그 앱의 public skill을 부른 session의 workspace 층에 배포한다.
+      service.remember("app_tool", async (request, workspace) => {
+        if (request.subject.kind !== "app_tool") return ok(undefined);
+        const done = await deployments.deployAll(
+          { layer: "workspace", workspace },
+          request.subject.app,
+        );
+        return done.ok ? ok(undefined) : done;
       });
       ctx.provide("approvals", service);
 
@@ -708,6 +710,21 @@ export const approvalsWiring: WiringFactory = () => {
         sessionOf: sessionInfo,
         modeOf,
       });
+      // 앱 command 호출이 Gate에서 run으로 끝나면(배포되어 있거나 사람이 허락했다) 그 tool call을 적어 둔다. 앱 호출 경로(core)가 배포되지 않은 앱의
+      // 호출을 이 기록으로 가린다: Gate를 지나지 않은 호출은 사람이 허락하지 않은 호출이다.
+      const toolGateRecorded: MemoryHandler = async (who, body) => {
+        const result = await toolGate(who, body);
+        const input = toolGateInputSchema.safeParse(body);
+        if (
+          result.ok &&
+          (result.value as ToolGateResult).kind === "run" &&
+          input.success &&
+          input.data.call.kind === "app_tool"
+        ) {
+          service.recordGateRun(input.data.session, input.data.tool_call);
+        }
+        return result;
+      };
       const askWaitRoute = askWaitHandler({
         ask: (call, questions, toParent) =>
           waits.ask(call, questions, toParent),
@@ -850,7 +867,7 @@ export const approvalsWiring: WiringFactory = () => {
       return ok({
         memory: [
           [key(turnRequestDecide), decideHandler],
-          [key(toolGateCheck), toolGate],
+          [key(toolGateCheck), toolGateRecorded],
           [key(sessionPermissionsRead), readPermissionsHandler],
           [
             key(sessionGrantRevoke),

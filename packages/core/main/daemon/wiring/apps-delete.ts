@@ -4,7 +4,11 @@
 import { deleteCallsSentByApp } from "../../../router/mod.ts";
 import { chmod, readdir, rm } from "node:fs/promises";
 import { err, ok, type Result } from "../../../../base/mod.ts";
-import { appDelete, appRemnantsEraser } from "../../../../protocol/apps/mod.ts";
+import {
+  appArchive,
+  appDelete,
+  appRemnantsEraser,
+} from "../../../../protocol/apps/mod.ts";
 import {
   appFolder,
   bundleFileStore,
@@ -28,7 +32,9 @@ import {
   trayOrderSetting,
 } from "../../../config/shell-settings.ts";
 import { sweepBundleFiles } from "../../../apps/releases/bundle/share.ts";
+import { loadApp } from "../../../apps/registration/store.ts";
 import { eraseJobsOfApp } from "../../../jobs/commands.ts";
+import { ledgerSnapshot } from "../../../lophn-agent/session/rewind/files.ts";
 import { eraseSyncLog } from "../../../apps/sync/log.ts";
 import {
   agentSlotOf,
@@ -42,7 +48,7 @@ import { platformEntryUrl } from "../../../install-and-update/mod.ts";
 import { defineTxPort } from "../../../storage/ledger/mod.ts";
 import type { WiringFactory } from "./context.ts";
 import { agentDirectory } from "./lophn-agent-team.ts";
-import { readAssignment, writeAssignment } from "./assignment-file.ts";
+import { createSkillDeployments } from "./skill-deploy.ts";
 
 // 동기 file API는 core 프로세스의 module graph에 정적으로 두지 않는다. adapter는 URL로 연다.
 const NODE_AGENT_FILES = platformEntryUrl(import.meta.url, "agentNodeFs").href;
@@ -70,7 +76,7 @@ function eraseRemnants(
   const sent = deleteCallsSentByApp(tx, app.id);
   if (!sent.ok) return sent;
 
-  // 그 앱에 범위가 있는 agent 정의(파일, 앱의 lophn 포함)와 다른 agent에 준 할당. 슬러그가 비면 같은 slug의 새 앱이 할당을 물려받으므로 지운다.
+  // 그 앱에 범위가 있는 agent 정의(파일, 앱의 lophn 포함). 다른 층에 한 배포는 commit 뒤에 거둔다(`cleanFiles`).
   const agents = agentDirectory(tx.sql);
   const root = dataRootOf(tx.sql, undefined);
   if (!root.ok) return root;
@@ -93,18 +99,6 @@ function eraseRemnants(
         { hash: file.value.hash },
       );
       if (!removed.ok) return removed;
-    } else if (info.apps.includes(app.slug)) {
-      const state = readAssignment(tx.sql, info.id);
-      if (!state.ok) return state;
-      const written = writeAssignment(
-        tx.sql,
-        info.id,
-        state.value.assignment.entries.filter(
-          (entry) => entry.machine !== undefined || entry.app !== app.id,
-        ),
-        state.value.revision,
-      );
-      if (!written.ok) return written;
     }
   }
 
@@ -259,8 +253,19 @@ export const appsDeleteWiring: WiringFactory = () => ({
       }
     }
 
+    // 그 앱의 skill 배포를 세 층에서 거둔다. 같은 slug의 새 앱이 배포를 물려받지 않게 하고, 보관한 앱을 가리키는 기록을 남기지 않는다.
+    const deployments = createSkillDeployments(ctx);
+    async function stripDeployments(slug: string): Promise<void> {
+      try {
+        await deployments.strip(slug);
+      } catch (thrown) {
+        log("deployments_not_stripped", thrown);
+      }
+    }
+
     async function cleanFiles(app: Deleted): Promise<void> {
       ctx.appsControl.forget(app.id);
+      await stripDeployments(app.slug);
       try {
         await removeFolder(appFolder(ctx.root.path, app.id));
       } catch (thrown) {
@@ -282,6 +287,22 @@ export const appsDeleteWiring: WiringFactory = () => ({
       writer: (inner) => ({
         ...inner,
         async command(auth, envelope) {
+          if (envelope.command === appArchive.name) {
+            const target = (envelope.input as { app?: unknown } | undefined)
+              ?.app;
+            const slug =
+              typeof target === "string"
+                ? ledgerSnapshot(ctx.ledgerPath, (lookup) => {
+                    const found = loadApp(lookup.sql, target);
+                    return found.ok ? found.value?.slug : undefined;
+                  })
+                : undefined;
+            const archived = await inner.command(auth, envelope);
+            if (archived.ok && slug?.ok === true && slug.value !== undefined) {
+              await stripDeployments(slug.value);
+            }
+            return archived;
+          }
           if (envelope.command !== appDelete.name) {
             return await inner.command(auth, envelope);
           }

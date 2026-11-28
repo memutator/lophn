@@ -3,7 +3,6 @@
 import type { Clock, IdSource } from "../../base/mod.ts";
 import { err, ok, type Result } from "../../base/mod.ts";
 import {
-  type Assignment,
   type IsolationBackend,
   type LocalToolTrustSetting,
   localToolTrust,
@@ -40,8 +39,19 @@ import {
 } from "./session-grants.ts";
 import { createTurnRequests } from "./turn-requests.ts";
 
+// app_tool 호출의 앱이 그 session에 닿는지다. 앱의 skill이 배포됐거나(전역, 그 workspace, 그 agent) 앱 자기 workspace의 session이면 닿는다.
+// `skills`는 그 앱의 public skill 이름이다. 조립이 apps와 배포 기록을 읽어 꽂는다.
+export type AppAccess = {
+  reached: boolean;
+  slug: string;
+  skills: readonly string[];
+};
+
 export type ApprovalsDeps = {
-  assignmentOf(agent: AgentId): Promise<Result<Pick<Assignment, "entries">>>;
+  appAccessOf(
+    who: { agent: AgentId; workspace: Workspace | null },
+    app: string,
+  ): Promise<Result<AppAccess>>;
   permissionRules(workspace: Workspace | null): PermissionRuleLayers;
   projectCommandPolicyOf?(
     project: string,
@@ -109,6 +119,10 @@ export type ApprovalsService = Approvals & {
   ): void;
   // Router가 ask call의 답을 알리는 입구다. 짝 표는 조립이 갖고 이 칸을 꽂는다.
   askReplies: AskReplies;
+  // Gate가 앱 command 호출(tool call)을 보내도 된다고 끝냈다(배포되어 있거나 사람이 허락했다). 앱 호출 경로(core)가 닿지 않은 앱의 호출을
+  // 그 호출을 Gate가 보낸 것인지로 본다: 사람이 허락하지 않은 배포 밖 호출은 Gate를 지나지 않은 호출이라 거절된다.
+  recordGateRun(session: string, toolCall: string): void;
+  gateRan(session: string, toolCall: string): boolean;
 };
 
 export function createApprovals(deps: ApprovalsDeps): ApprovalsService {
@@ -125,6 +139,7 @@ export function createApprovals(deps: ApprovalsDeps): ApprovalsService {
     ids: deps.ids,
   });
   const effects = new Map<string, AlwaysEffect>();
+  const gateRuns = new Map<string, Set<string>>();
   let customSessionEffect: SessionEffect | undefined;
 
   const applySessionEffect: SessionEffect = async (request, workspace) => {
@@ -147,11 +162,11 @@ export function createApprovals(deps: ApprovalsDeps): ApprovalsService {
     sessionGrants,
 
     async judge(call, who) {
-      let assignment: Pick<Assignment, "entries"> | null = null;
+      let appAccess: AppAccess | null = null;
       if (call.kind === "app_tool") {
-        const loaded = await deps.assignmentOf(who.agent);
+        const loaded = await deps.appAccessOf(who, call.app);
         if (!loaded.ok) return loaded;
-        assignment = loaded.value;
+        appAccess = loaded.value;
       }
       let projectCommand: ProjectCommandPolicy | undefined;
       if (
@@ -195,7 +210,7 @@ export function createApprovals(deps: ApprovalsDeps): ApprovalsService {
           {
             call,
             tool: who.tool,
-            assignment,
+            appAccess,
             projectCommand,
             mcpTrust,
             localToolTrusted,
@@ -214,7 +229,17 @@ export function createApprovals(deps: ApprovalsDeps): ApprovalsService {
     openTurnRequest: turns.open,
     waitTurnDecision: turns.wait,
 
+    recordGateRun(session, toolCall) {
+      const calls = gateRuns.get(session) ?? new Set<string>();
+      calls.add(toolCall);
+      gateRuns.set(session, calls);
+    },
+
+    gateRan: (session, toolCall) =>
+      gateRuns.get(session)?.has(toolCall) === true,
+
     cancelTurnRequests(session, cause) {
+      gateRuns.delete(session);
       turns.cancel(session, cause);
       // session이 닫히거나 재시작하면 메모리의 session grant와 최근 거부도 함께 비운다.
       if (cause === "session_closed" || cause === "restart") {

@@ -1,23 +1,21 @@
-// 할당(agent가 쓸 앱과 뺀 command)의 저장. 정의 파일의 `apps`(앱 slug)와 `permissions.deny`가 정본이다.
-// approvals는 정의 파일도 앱 표도 모르므로 읽고 쓰는 길을 이 조립이 port로 꽂는다.
-// writer·reader Worker가 팀 등록 file로 import하고, core는 data step을 낸다.
+// 다른 컴퓨터 앱 할당의 저장. 정의 파일의 `remote_apps`가 정본이다. 이 컴퓨터의 앱은 할당이 아니라 skill 배포가 닿게 한다(`skill-deploy.ts`).
+// approvals는 정의 파일을 모르므로 읽고 쓰는 길을 이 조립이 port로 꽂는다. writer·reader Worker가 팀 등록 file로 import하고, core는 data step을 낸다.
 import { createHash } from "node:crypto";
-import { readdir, readFile, rename, writeFile } from "node:fs/promises";
-import { parse, stringify } from "yaml";
 import { canonicalize, err, ok, type Result } from "../../../../base/mod.ts";
 import type { AssignmentEntry } from "../../../../protocol/approvals/mod.ts";
 import type { AgentId } from "../../../../protocol/lophn-agent/workspaces.ts";
 import type { SchemaStep, Sql } from "../../../../protocol/server/mod.ts";
 import {
   type AssignmentPorts,
+  type LocalAppLine,
   assignmentGetRead,
   assignmentPorts,
   assignmentSetCommand,
   type AssignmentState,
 } from "../../../approvals/assignment/mod.ts";
+import { publicSkillsOf } from "../../../apps/lookups.ts";
 import { loadApp } from "../../../apps/registration/store.ts";
-import { loadActiveDeclaration } from "../../../apps/releases/store.ts";
-import { agentAssignment, denyRuleOf } from "../../../apps/usage/users.ts";
+import { agentAssignment } from "../../../apps/usage/users.ts";
 import type {
   AgentInfo,
   RemoteAppLine,
@@ -26,16 +24,15 @@ import type { AgentFileSystem } from "../../../lophn-agent/agents/ports.ts";
 import {
   createAgentStore,
   dataRootOf,
-  writeAgentAssignment,
+  writeAgentDeployedSkills,
+  writeAgentRemoteApps,
 } from "../../../lophn-agent/agents/store.ts";
 import {
   defineTxPort,
-  openConnection,
   type ReaderRegistration,
   snapshotPort,
 } from "../../../storage/ledger/mod.ts";
 import type { DataStep } from "../../../storage/migration/mod.ts";
-import { assignmentSchema } from "../../../../protocol/approvals/mod.ts";
 import { platformEntryUrl } from "../../../install-and-update/mod.ts";
 import type { WiringFactory } from "./context.ts";
 import { agentDirectory } from "./lophn-agent-team.ts";
@@ -63,30 +60,11 @@ create table agent_assignments (
   },
 ];
 
-// 할당 내용(앱, 다른 기계의 앱, deny·ask 규칙)에서 정한 비교 값. 48 bit라 정수로 안전하다. 다른 기계의 앱이나 ask가 없으면 그 칸은 넣지 않아
-// 옛 할당의 값이 그대로다.
+// 다른 컴퓨터 앱 할당에서 정한 비교 값. 48 bit라 정수로 안전하다. 없으면 0이다.
 function revisionOf(info: AgentInfo | null): number {
-  const ask = info?.ask ?? [];
-  if (
-    info === null ||
-    (info.apps.length === 0 &&
-      info.deny.length === 0 &&
-      ask.length === 0 &&
-      info.remoteApps.length === 0)
-  ) {
-    return 0;
-  }
+  if (info === null || info.remoteApps.length === 0) return 0;
   const hash = createHash("sha256")
-    .update(
-      canonicalize({
-        apps: info.apps,
-        deny: info.deny,
-        ...(ask.length === 0 ? {} : { ask }),
-        ...(info.remoteApps.length === 0
-          ? {}
-          : { remote_apps: info.remoteApps }),
-      }),
-    )
+    .update(canonicalize({ remote_apps: info.remoteApps }))
     .digest("hex");
   return Number.parseInt(hash.slice(0, 12), 16);
 }
@@ -104,80 +82,26 @@ export function readAssignment(
   });
 }
 
-// 할당의 앱 id와 뺀·물을 command를 파일에 쓸 slug와 deny·ask 규칙으로 바꾼다. 없는 앱과 active 선언에 없는 command는 버린다.
-// 다른 기계의 앱(machine이 있는 줄)은 이 기계의 앱 표를 보지 않고 그대로 `remote_apps`로 간다(그 앱의 선언은 그 기계에 있다).
-function fileValuesOf(
-  sql: Query,
-  entries: readonly AssignmentEntry[],
-): Result<{
-  apps: string[];
-  deny: string[];
-  ask: string[];
-  remoteApps: RemoteAppLine[];
-}> {
-  const apps: string[] = [];
-  const deny: string[] = [];
-  const ask: string[] = [];
-  const remoteApps: RemoteAppLine[] = [];
-  for (const entry of entries) {
-    if (entry.machine !== undefined) {
-      remoteApps.push({
-        machine: entry.machine,
-        app: entry.app,
-        name: entry.name!,
-        removed: entry.removed_tools,
-        ...(entry.ask_tools && entry.ask_tools.length > 0
-          ? { ask: entry.ask_tools }
-          : {}),
-      });
-      continue;
-    }
-    const app = loadApp(sql, entry.app);
-    if (!app.ok) return app;
-    if (app.value === null) continue;
-    apps.push(app.value.slug);
-    const askTools = entry.ask_tools ?? [];
-    if (entry.removed_tools.length === 0 && askTools.length === 0) continue;
-    const active = loadActiveDeclaration(sql, entry.app);
-    if (!active.ok) return active;
-    for (const command of active.value?.declaration.commands ?? []) {
-      if (entry.removed_tools.includes(command.name)) {
-        deny.push(denyRuleOf(app.value.slug, command.name));
-      } else if (askTools.includes(command.name)) {
-        ask.push(denyRuleOf(app.value.slug, command.name));
-      }
-    }
-  }
-  return ok({ apps, deny, ask, remoteApps });
+function remoteLinesOf(entries: readonly AssignmentEntry[]): RemoteAppLine[] {
+  return entries.map((entry) => ({
+    machine: entry.machine,
+    app: entry.app,
+    name: entry.name,
+    removed: entry.removed_tools,
+    ...(entry.ask_tools && entry.ask_tools.length > 0
+      ? { ask: entry.ask_tools }
+      : {}),
+  }));
 }
 
-// 이 할당이 다루는 규칙은 옛 앱과 새 앱의 command 규칙이다. 그 밖의 deny 규칙은 그대로 둔다.
-function managedRules(
-  sql: Query,
-  apps: readonly string[],
-): Result<Set<string>> {
-  const rules = new Set<string>();
-  for (const id of apps) {
-    const app = loadApp(sql, id);
-    if (!app.ok) return app;
-    if (app.value === null) continue;
-    const active = loadActiveDeclaration(sql, id);
-    if (!active.ok) return active;
-    for (const command of active.value?.declaration.commands ?? []) {
-      rules.add(denyRuleOf(app.value.slug, command.name));
-    }
-  }
-  return ok(rules);
-}
-
+// 이 컴퓨터 앱의 줄(`machine`이 없는 줄)은 그 앱의 public skill 전부를 agent 층에 배포하는 것이다(공유 요청의 승인). 다른 컴퓨터 앱의 줄만 `remote_apps`로 쓴다.
 export function writeAssignment(
   sql: Query,
   agent: AgentId,
-  entries: readonly AssignmentEntry[],
+  entries: readonly (AssignmentEntry | LocalAppLine)[],
   revision: number,
 ): Result<AssignmentState> {
-  const agents = agentDirectory(sql);
-  const info = agents.agent(agent);
+  const info = agentDirectory(sql).agent(agent);
   if (info === null) {
     return err({ code: "not_found", message: "agent not found" });
   }
@@ -187,39 +111,52 @@ export function writeAssignment(
       message: "agent assignment revision changed",
     });
   }
-  const before = agentAssignment(sql, agent, agents);
-  if (!before.ok) return before;
-  const next = fileValuesOf(sql, entries);
-  if (!next.ok) return next;
-  const managed = managedRules(sql, [
-    ...before.value.entries
-      .filter((entry) => entry.machine === undefined)
-      .map((entry) => entry.app),
-    ...entries
-      .filter((entry) => entry.machine === undefined)
-      .map((entry) => entry.app),
-  ]);
-  if (!managed.ok) return managed;
   const root = dataRootOf(sql, undefined);
   if (!root.ok) return root;
-  const written = writeAgentAssignment(
+  const store = createAgentStore(createNodeAgentFiles(), root.value);
+  const remote = entries.filter(
+    (entry): entry is AssignmentEntry => "machine" in entry,
+  );
+  if (remote.length > 0 || info.remoteApps.length > 0) {
+    const written = writeAgentRemoteApps(store, agent, remoteLinesOf(remote));
+    if (!written.ok) return written;
+  }
+  for (const entry of entries) {
+    if ("machine" in entry) continue;
+    const deployed = deployApp(sql, agent, entry.app);
+    if (!deployed.ok) return deployed;
+  }
+  return readAssignment(sql, agent);
+}
+
+function deployApp(sql: Query, agent: AgentId, app: string): Result<void> {
+  const info = agentDirectory(sql).agent(agent);
+  if (info === null) {
+    return err({ code: "not_found", message: "agent not found" });
+  }
+  const loaded = loadApp(sql, app);
+  if (!loaded.ok) return loaded;
+  if (loaded.value === null) {
+    return err({ code: "not_found", message: "app not found" });
+  }
+  const slug = loaded.value.slug;
+  const added = publicSkillsOf(sql, app)
+    .filter(
+      (skill) =>
+        !info.deployedSkills.some(
+          (one) => one.app === slug && one.skill === skill,
+        ),
+    )
+    .map((skill) => ({ app: slug, skill }));
+  if (added.length === 0) return ok(undefined);
+  const root = dataRootOf(sql, undefined);
+  if (!root.ok) return root;
+  const written = writeAgentDeployedSkills(
     createAgentStore(createNodeAgentFiles(), root.value),
     agent,
-    {
-      apps: next.value.apps,
-      remoteApps: next.value.remoteApps,
-      deny: [
-        ...info.deny.filter((rule) => !managed.value.has(rule)),
-        ...next.value.deny,
-      ],
-      ask: [
-        ...(info.ask ?? []).filter((rule) => !managed.value.has(rule)),
-        ...next.value.ask,
-      ],
-    },
+    [...info.deployedSkills, ...added],
   );
-  if (!written.ok) return written;
-  return readAssignment(sql, agent);
+  return written.ok ? ok(undefined) : written;
 }
 
 function portsOf(sql: Query): AssignmentPorts {
@@ -248,136 +185,17 @@ export function createReaderRegistration(): ReaderRegistration {
   };
 }
 
-// 옛 표의 줄마다 그 agent 파일에 apps와 permissions.deny를 쓰고 표를 지운다.
-// 파일이 없거나 틀린 agent의 줄은 버린다(쓸 곳이 없다). 앱이 없는 줄과 active 선언에 없는 command도 버린다.
-// 다시 돌아도 같은 결과다(파일은 줄 값으로 덮는다).
-export const assignmentFileStep: DataStep = {
-  id: "approvals.assignment-file",
-  async run(root) {
-    const opened = openConnection(`${root}/lophn.db`);
-    if (!opened.ok) return opened;
-    const connection = opened.value;
-    try {
-      const table = connection.sql.get(
-        "select 1 as found from sqlite_master where type = 'table' and name = 'agent_assignments'",
-        [],
-      );
-      if (table === undefined) return ok(undefined);
-      const store = createAgentStore(createNodeAgentFiles(), root);
-      for (const row of connection.sql.all(
-        "select agent, entries from agent_assignments",
-        [],
-      )) {
-        let parsed;
-        try {
-          parsed = assignmentSchema.safeParse({
-            agent: row["agent"],
-            entries: JSON.parse(String(row["entries"])),
-          });
-        } catch {
-          continue;
-        }
-        if (!parsed.success) continue;
-        const values = fileValuesOf(connection.sql, parsed.data.entries);
-        if (!values.ok) return values;
-        if (values.value.apps.length === 0) continue;
-        const written = writeAgentAssignment(
-          store,
-          parsed.data.agent,
-          values.value,
-        );
-        if (!written.ok && written.error.code === "unavailable") return written;
-      }
-      connection.exec("drop table agent_assignments");
-      return ok(undefined);
-    } finally {
-      connection.close();
-    }
-  },
-};
-
-const DENY_RULE = /^lophn\(([^\s()]+)((?: [^()]*)?)\)$/;
-
-// 옛 규칙 `lophn(<domain> <낱말>)`의 domain이 앱이 가진 domain이면 그 앱 slug로 바꾼다. 못 찾은 규칙은 그대로다.
-export function rewriteDenyRule(
-  rule: string,
-  slugOf: (domain: string) => string | null,
-): string {
-  const match = DENY_RULE.exec(rule);
-  if (match === null) return rule;
-  const slug = slugOf(match[1]);
-  return slug === null ? rule : `lophn(${slug}${match[2]})`;
-}
-
-// 앱 command의 deny 규칙이 domain이 아니라 앱 slug를 가리키게 한다. 정의 파일은 schema 없이 YAML로 읽는다
-// (정의 schema가 바뀌어도 이 step은 같게 돈다). 이미 slug인 규칙은 같은 글로 남아 다시 돌아도 같은 결과다.
-export const denyRuleSlugStep: DataStep = {
-  id: "approvals.deny-rule-slug",
-  async run(root) {
-    const opened = openConnection(`${root}/lophn.db`);
-    if (!opened.ok) return opened;
-    const connection = opened.value;
-    try {
-      const slugOf = (domain: string): string | null => {
-        // domains 표는 마지막 data step(`domains.retire`)이 거둔다. 그 전이라 아직 있다.
-        const found = connection.sql.get(
-          "select owner_kind, owner_id from domains where name = ?",
-          [domain],
-        );
-        if (found === undefined || found["owner_kind"] !== "app") return null;
-        const app = loadApp(connection.sql, String(found["owner_id"]));
-        return app.ok && app.value !== null ? app.value.slug : null;
-      };
-      let files: string[];
-      try {
-        files = await readdir(`${root}/agents`);
-      } catch {
-        return ok(undefined);
-      }
-      for (const file of files) {
-        if (!file.endsWith(".md")) continue;
-        const path = `${root}/agents/${file}`;
-        const text = await readFile(path, "utf8");
-        const lines = text.split("\n");
-        const close = lines.findIndex(
-          (line, i) => i > 0 && line.replace(/\r$/, "") === "---",
-        );
-        if (lines[0].replace(/\r$/, "") !== "---" || close === -1) continue;
-        let fields;
-        try {
-          fields = parse(lines.slice(1, close).join("\n"), { schema: "core" });
-        } catch {
-          continue;
-        }
-        const deny = fields?.permissions?.deny;
-        if (!Array.isArray(deny)) continue;
-        const rewritten = deny.map((rule: unknown) =>
-          typeof rule === "string" ? rewriteDenyRule(rule, slugOf) : rule,
-        );
-        if (rewritten.every((rule, i) => rule === deny[i])) continue;
-        fields.permissions.deny = rewritten;
-        const front = stringify(fields, {
-          schema: "core",
-          lineWidth: 0,
-          aliasDuplicateObjects: false,
-        });
-        const body = lines.slice(close + 1).join("\n");
-        await writeFile(`${path}.tmp`, `---\n${front}---\n${body}`, "utf8");
-        await rename(`${path}.tmp`, path);
-      }
-      return ok(undefined);
-    } catch {
-      return err({
-        code: "unavailable",
-        message: "agent deny rules could not be moved to app slugs",
-      });
-    } finally {
-      connection.close();
-    }
-  },
-};
+// 옛 판의 data step 둘(`agent_assignments` 표를 정의 파일의 `apps`로 옮기기, deny 규칙을 앱 slug로 바꾸기)이다. 이미 적용한 data root가
+// id를 기록하고 있어 목록에서 뺄 수 없다. 할당(`apps`·`permissions`)은 `agents.drop-apps-permissions`가 지우므로 하는 일이 없다.
+const retired = (id: string): DataStep => ({
+  id,
+  run: () => Promise.resolve(ok(undefined)),
+});
 
 export const assignmentFileWiring: WiringFactory = () => ({
   name: "assignment-file",
-  dataSteps: [assignmentFileStep, denyRuleSlugStep],
+  dataSteps: [
+    retired("approvals.assignment-file"),
+    retired("approvals.deny-rule-slug"),
+  ],
 });

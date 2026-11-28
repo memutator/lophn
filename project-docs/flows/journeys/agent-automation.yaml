@@ -79,16 +79,13 @@ journeys:
       - {do: "고친 내용을 다시 저장한다", screen: agent-settings-agent, flow: agent-change:saved}
 
   - id: agent-change-human-only-by-agent
-    title: "agent가 자기 할당을 바꾸려다 막히고 사람에게 올린다"
+    title: "agent가 자기 배포 기록을 정의에 직접 쓰려다 막히고 deploy 명령으로 간다"
     actor: agent
-    goal: "agent가 agent.update로 자기 apps 할당을 바꾸려 하면 거절되고, 사람에게 질문으로 올린 뒤 사람이 할당을 정한다"
+    goal: "agent가 agent.update로 deployed_skills를 바꾸려 하면 거절되고, 배포는 누가 묻지 않고 할 수 있는지를 따지는 skill deploy 명령으로 한다"
     refs: [G1, G2, C25]
     steps:
-      - {do: "agent가 agent.update로 apps 칸을 바꾸려 한다", flow: agent-change:human-only-field}
-      - {do: "agent가 ask로 사람에게 할당을 청하고 사람이 답한다", screen: new-agent-question, flow: tool-ask:submitted}
-      - {do: "사람이 Grants에서 앱을 붙이고 뺄 tool을 고른다", screen: new-agent-grants-app, flow: assignment-set:saved}
-    gaps:
-      - "C25의 할당 제안 자체(이유와 함께 사람에게 제안하는 글)에 대응하는 flow가 없다. ask 질문 글로만 간다"
+      - {do: "agent가 agent.update로 deployed_skills 칸을 바꾸려 한다", flow: agent-change:human-only-field}
+      - {do: "agent가 skill deploy로 배포하려 한다. 앱 workspace의 agent나 Home의 lophn이 아니면 사람에게 묻는다", flow: skills-deploy:changed}
 
   - id: agent-avatar-image-change
     title: "사람이 agent의 프로필 이미지를 바꾼다"
@@ -224,14 +221,14 @@ journeys:
       - {do: "편집 카드를 펼쳐 unified diff를 본다", screen: new-agent-edit-diff, flow: tool-file-edit:edited}
       - {do: "머리의 단계 상세 menu에서 Everything을 고른다", screen: new-agent-detail, flow: session-snapshot-read:ok}
       - {do: "Messages 보기는 tool 줄을 숨기고 일하는 중 줄이 지금 하는 일을 붙인다", screen: new-agent-working-messages, flow: turn-pump-start:started}
-      - {do: "/permissions로 할당한 앱과 뺀 tool을 읽는다", screen: new-agent-permissions, flow: assignment-read:ok}
+      - {do: "/permissions로 이 session의 권한 상태를 읽는다", screen: new-agent-permissions, flow: permissions-read:ok}
 
   # ---- 앱 할당과 앱 tool 호출 ----
 
   - id: app-assign-to-agent
-    title: "사람이 agent에게 앱을 붙이고 뺄 tool을 고른다"
+    title: "사람이 agent에게 다른 컴퓨터의 앱을 붙이고 뺄 tool을 고른다"
     actor: person
-    goal: "사람이 agent editor의 Sees 탭 앱 할당에서 agent에게 앱을 할당하고, 그 앱에서 뺄 tool을 정해 저장한다"
+    goal: "사람이 agent editor의 Sees 탭 Other computers에서 agent에게 다른 컴퓨터의 앱을 할당하고, 그 앱에서 뺄 tool을 정해 저장한다"
     refs: [H3, P4, C25]
     steps:
       - {do: "Sees 탭의 앱 할당을 연다", screen: new-agent-grants, flow: assignment-read:ok}
@@ -248,21 +245,21 @@ journeys:
       - {do: "다시 고른 값을 저장한다", screen: new-agent-grants-app, flow: assignment-set:saved}
 
   - id: agent-app-tool-allowed
-    title: "할당한 앱 tool은 묻지 않고 실행된다"
+    title: "skill이 닿은 앱 tool은 묻지 않고 실행된다"
     actor: agent
-    goal: "agent가 할당받은 앱 tool을 부르면 승인 카드 없이 실행되고 결과를 받는다"
+    goal: "agent가 skill을 배포받은 앱의 tool을 부르면 승인 카드 없이 실행되고 결과를 받는다"
     refs: [H3]
     steps:
-      - {do: "agent가 할당된 앱 tool을 부른다", flow: tool-gate-check:run}
+      - {do: "agent가 skill이 닿은 앱 tool을 부른다", flow: tool-gate-check:run}
       - {do: "앱 tool의 결과를 받는다", flow: tool-call-execute:ok}
 
   - id: agent-app-tool-not-assigned
-    title: "할당하지 않은 앱 tool은 실행 없이 막힌다"
+    title: "skill이 닿지 않은 앱 tool은 사람이 없으면 실행 없이 막힌다"
     actor: agent
-    goal: "agent가 할당 밖의 앱 tool을 부르면 실행되지 않고 이유를 tool 결과로 받는다"
+    goal: "사람이 없는 실행에서 agent가 skill이 닿지 않은 앱 tool을 부르면 실행되지 않고 먼저 배포하라는 이유를 tool 결과로 받는다"
     refs: [H3]
     steps:
-      - {do: "agent가 할당 밖의 앱 tool을 부른다", flow: tool-gate-check:denied-not-assigned}
+      - {do: "agent가 skill이 닿지 않은 앱 tool을 부른다", flow: tool-gate-check:denied-no-person}
       - {do: "agent가 막힌 결과를 tool 결과로 받는다. 대화에 Denied 표시가 붙는다", screen: new-agent-tool-failed, flow: tool-call-execute:gate-denied}
 
   # ---- 앱 공유 요청 ----
@@ -778,7 +775,7 @@ journeys:
     steps:
       - {do: "입력 글을 적고 flow workflow를 Start한다", screen: workflow-start-dialog-flow, flow: workflow-start-flow:running}
       - {do: "flow code가 agent(...)로 run을 열고 답을 받는다", flow: workflow-flow-agent-run:answered}
-      - {do: "flow code가 앱 tool을 부르고 할당 판정을 통과한다", flow: app-call-assignment-judge:passed}
+      - {do: "flow code가 앱 tool을 부르고 creator에게 닿은 skill로 판정을 통과한다", flow: app-call-deployment-judge:passed}
       - {do: "flow code가 tool(...) 결과를 받는다", flow: workflow-flow-tool-run:answered}
       - {do: "flow code가 report를 next end로 남겨 끝낸다", screen: workflow-tab-flow, flow: workflow-flow-report:ended}
       - {do: "끝난 뒤 program의 끝 code가 줄로 남는다", flow: workflow-flow-exit:after-stop}
@@ -819,7 +816,7 @@ journeys:
     refs: [E11, J4]
     steps:
       - {do: "flow workflow를 Start한다", screen: workflow-start-dialog-flow, flow: workflow-start-flow:running}
-      - {do: "flow code가 다른 workspace의 비공개 command를 부른다", flow: app-call-assignment-judge:gate-blocked}
+      - {do: "flow code가 다른 workspace의 비공개 command를 부른다", flow: app-call-deployment-judge:gate-blocked}
       - {do: "tool run이 failed로 끝나 code가 실패를 받는다", flow: workflow-flow-tool-run:run-failed}
 
   # ---- job ----

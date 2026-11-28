@@ -54,6 +54,8 @@ import {
   readGlobalModel,
   readInstructions,
   readServers,
+  readDeployable,
+  readDeployed,
   readSkills,
   signInMcpServer,
   windowFiles,
@@ -491,7 +493,7 @@ export function coreAgentsSource(
     const read = await link.read<{
       definition:
         | (AgentDraft & {
-            apps?: readonly string[];
+            deployed_skills?: readonly unknown[];
             remote_apps?: readonly unknown[];
           })
         | null;
@@ -506,7 +508,7 @@ export function coreAgentsSource(
         ? {}
         : { harnessConfig: definition.harness_config }),
       instructions: definition.body.trim() !== "",
-      apps: definition.apps?.length ?? 0,
+      apps: definition.deployed_skills?.length ?? 0,
       remoteApps: definition.remote_apps?.length ?? 0,
       tools: definition.tools ?? [],
       ...(definition.permission_mode === undefined
@@ -576,6 +578,8 @@ export function coreAgentsSource(
       if (!skills.ok) return skills;
       const servers = await readServers(link, workspace);
       if (!servers.ok) return servers;
+      const deployed = await readDeployed(link, workspace);
+      if (!deployed.ok) return deployed;
       const global = await readGlobalModel(link);
       const chosen = await link.read<{ model: ModelChoice | null }>(
         "workspace-model",
@@ -608,6 +612,7 @@ export function coreAgentsSource(
           inherited: global.ok ? global.value : null,
         },
         skills: skills.value,
+        deployed: deployed.value,
         mcpServers: servers.value,
         memory: await readMemoryFile({ kind: "workspace", workspace }),
       };
@@ -873,6 +878,16 @@ export function coreAgentsSource(
       }));
     },
 
+    deployable: () => readDeployable(link),
+
+    // workspace 층의 배포를 새 내용으로 바꾼다. 앱의 skill 본문은 층에 복사하지 않고 기록만 바뀐다.
+    setDeployed(workspace, next) {
+      return changeWorkspaceSettings(link, workspace, (current) => ({
+        ...current,
+        deployed: next,
+      }));
+    },
+
     // workspace 층 server는 enabled를 바꾸고, 전역 server는 이 workspace에서 끈 이름(mcp_off)에 넣고 뺀다.
     setMcp(workspace, name, on) {
       return changeWorkspaceSettings(link, workspace, (current) => {
@@ -902,10 +917,10 @@ export function coreAgentsSource(
       await enterSecret(openSecret, { name, purpose: "mcp", subject: server });
     },
 
-    grants: (project, agent) => readGrants(link, project, agent),
+    grants: (_project, agent) => readGrants(link, agent),
 
-    setGrants: (project, agent, entries, revision) =>
-      saveGrants(link, project, agent, entries, revision),
+    setGrants: (_project, agent, entries, revision) =>
+      saveGrants(link, agent, entries, revision),
 
     readInstructions: (workspace) =>
       readInstructions(instructions, files, instructionsTargetOf(workspace)),

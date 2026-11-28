@@ -25,7 +25,6 @@ import {
   requesterName,
   resolveMachine,
 } from "../../../protocol/machine/requester.ts";
-import { evaluatePermission } from "../../approvals/gate/mod.ts";
 import type { VerifiedCaller } from "./caller.ts";
 import { type CallGateDeps, callAllowed } from "./gate.ts";
 import type { OutboundCalls } from "./outbound.ts";
@@ -67,6 +66,8 @@ export type RemoteMachines = {
 export const REMOTE_COMMAND_DEADLINE_MS = 10 * 60_000;
 
 export type RemoteForwardDeps = CallGateDeps & {
+  // 이 컴퓨터의 agent가 쓰는 다른 컴퓨터 앱 할당(`remote_apps`)이다.
+  assignmentOf(agent: AgentId): Result<Assignment>;
   machines(): RemoteMachines;
   // 이 기계의 call 정책(private workspace). 부른 쪽의 workspace가 private이면 다른 기계를 부르지 못한다.
   policy(): CallPolicy;
@@ -113,7 +114,7 @@ export function createRemoteForward(deps: RemoteForwardDeps): RemoteForward {
       const assignment = deps.assignmentOf(caller.agent);
       if (!assignment.ok) return assignment;
       const lines = assignment.value.entries.filter(
-        (entry) => entry.machine !== undefined && entry.app === target.app,
+        (entry) => entry.app === target.app,
       );
       if (lines.length === 0) return ok(blocked());
       assigned = assignment.value.entries;
@@ -143,29 +144,14 @@ export function createRemoteForward(deps: RemoteForwardDeps): RemoteForward {
       });
     }
     if (caller.kind === "agent") {
-      // 그 컴퓨터에 할당한 줄만(`machine`을 뺀 꼴로) 본다.
-      const entries: Assignment["entries"] = assigned
-        .filter((entry) => entry.machine === computer.machine)
-        .map((entry) => ({
-          app: entry.app,
-          removed_tools: entry.removed_tools,
-        }));
-      const judged = evaluatePermission(
-        {
-          call: {
-            kind: "app_tool",
-            app: target.app,
-            tool: name,
-            effect: "external",
-          },
-          assignment: { entries },
-        },
-        { floor: [], global: [], project: [] },
-        [],
-        "workspace",
-        "attended",
+      // 그 컴퓨터에 할당한 줄이 있고 그 command를 뺀 것이 아니어야 한다.
+      const line = assigned.find(
+        (entry) =>
+          entry.machine === computer.machine && entry.app === target.app,
       );
-      if (judged.kind === "deny") return ok(blocked());
+      if (line === undefined || line.removed_tools.includes(name)) {
+        return ok(blocked());
+      }
     }
 
     const by: Requester =

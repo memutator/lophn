@@ -66,7 +66,11 @@ files:
 
   - path: packages/core/lophn-agent/extensions/skills_test.ts
     covers: [skill-write-workflow:loaded, skill-write-workflow:not-available, tool-skill-read:read, tool-skill-read:not-enabled, tool-skill-read:not-found, tool-skill-read:unreadable, command-list-read:ok]
-    note: "내장 skill은 어느 층에서 꺼도 남고, skill.read는 본문과 딸린 file을 300줄이 넘어도 통째로 주며 실패 문장에 file 이름이나 크기 초과를 싣고, 공유 skill은 할당 앱에만 간다. mergeSkillLayers, discoverSkills, readSharedHeads는 순수 helper라 outcome이 없다"
+    note: "내장 skill은 어느 층에서 꺼도 남고, skill.read는 본문과 딸린 file을 300줄이 넘어도 통째로 주며 실패 문장에 file 이름이나 크기 초과를 싣고, 공유 skill은 앱의 skill을 배포받은 agent에게만 간다(전역·workspace·agent 세 층, 이름을 적은 skill만). mergeSkillLayers, discoverSkills, readSharedHeads는 순수 helper라 outcome이 없다"
+
+  - path: packages/core/lophn-agent/agents/drop-apps-permissions-step_test.ts
+    covers: [agent-drop-apps-permissions:dropped]
+    note: "옛 apps와 permissions만 지우고 remote_apps·다른 칸·본문은 그대로이며 lophn 정의 file의 apps만 있으면 비고 다시 돌려도 같다"
 
   - path: packages/core/lophn-agent/extensions/skill-check_test.ts
     covers: [skills-list:ok, skills-list:forbidden, skills-check:ok, skills-check:forbidden, tool-file-write:forbidden]

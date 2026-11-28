@@ -63,7 +63,7 @@ test("앱 workspace의 정보와 쓰기 범위에는 그 앱의 skills·artifact
     "/apps/get": { app },
     "/agents/list": { agents: [] },
   });
-  const read = await workspaceData(call, agent(appWorkspace), files);
+  const read = await workspaceData(call, agent(appWorkspace), files, new Set());
   assert.ok(read.ok);
   const text = read.value.workspace.text;
   assert.ok(text.includes(`Skills folder: ${SKILLS}\n`));
@@ -125,7 +125,12 @@ test("home의 앱 목록에는 공개 command와 쓰는 곳이 실리고 package
       ],
     },
   });
-  const read = await workspaceData(call, agent(null, "lophn"), files);
+  const read = await workspaceData(
+    call,
+    agent(null, "lophn"),
+    files,
+    new Set(["ledger"]),
+  );
   assert.ok(read.ok);
   const text = read.value.workspace.text;
   assert.ok(text.includes("Skills folder: /data/home/skills\n"));

@@ -17,7 +17,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
 - 목표: 받은 입력이 받은 turn에서도 뒤 turn의 이력에서도 같은 bytes로 사람의 글과 구별된다(prompt cache가 깨지지 않는다).
 - 목표: 시야(어느 workspace로 부를 수 있나)는 사람이 크게 정하고(private, 쌍 규칙) 기본은 모두 허용이다.
 - 비목표: 동기 호출, timeout, 자동 재시도, durable queue. 입력함은 메모리이고 잃은 것은 켤 때 정산한다.
-- 비목표: call 자체를 판정하거나 사람에게 묻기. 받은 agent가 자기 할당으로만 일하는 것이 이미 일을 거른다.
+- 비목표: call 자체를 판정하거나 사람에게 묻기. 받은 agent가 자기 배포와 권한으로만 일하는 것이 이미 일을 거른다.
 - 비목표: 도는 turn에 다른 agent의 입력을 끼우기, 보낸 쪽 대화 원문 넘기기, 이름 짐작, read grant, A2A식 polling·SSE·webhook.
 - 비목표: 사람에게 올리는 길. 그것은 call이 아니라 session 안의 질문과 승인이다(`architecture/approval.md`).
 
@@ -63,7 +63,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
 6. 받는 쪽의 앱(id, slug, 이름)과 project(id, 이름)는 정확히 맞아야 풀린다. 짐작하지 않는다. 앱은 id와 slug를 먼저 보고 표시 이름은 마지막에 본다(표시 이름만 unique가 아니고 이름 바꾸기로 겹칠 수 있다). 풀리지 않으면 `not_found`, 같은 이름이 여럿이면 `invalid_input`이고 오류에 후보 slug가 실린다. 지침은 앱을 slug로 가리키게 한다.
 7. agent가 archived 앱 workspace로 보내는 call은 없는 앱과 같은 `not_found`다(사람, 2026-11-07). archived 앱은 agent에게 보이지 않는 규칙의 한 부분이다(`architecture/app-call.md`). 사람과 program이 같은 workspace를 여는 길은 `conflict`(closed) 그대로다. 이미 열려 있던 session 주소로 보내는 call은 그 session이 입력을 받지 않아 `closed`다.
 8. 부르는 것 자체에는 묻지 않는다. call tool에 Gate가 없다. workspace 안에서 누구를 부를지는 지침과 workflow의 일이다(`products/AGENT.md` T5).
-9. 받은 메시지는 허락이 아니다. 받은 agent는 자기 할당으로만 일한다(`products/AGENT.md` T6). program이 막는 것은 이것 하나다. "거절당한 일을 다른 agent에게 돌려 시키지 않기"는 의미 판단이라 program이 막을 수 없고 agent 지침에 둔다.
+9. 받은 메시지는 허락이 아니다. 받은 agent는 자기 배포와 권한으로만 일한다(`products/AGENT.md` T6). program이 막는 것은 이것 하나다. "거절당한 일을 다른 agent에게 돌려 시키지 않기"는 의미 판단이라 program이 막을 수 없고 agent 지침에 둔다.
 
 ### 시야
 
@@ -187,7 +187,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
 - **dead letter를 버렸다.** 조용히 버리면 보낸 agent는 일이 진행 중인 줄 안다. Erlang monitor의 DOWN처럼 이유를 돌려준다.
 - **상태는 accepted, done, failed, cancelled 넷이다. `sent`와 `declined`가 없다.** Router가 행 만들기와 입력 넣기를 한 번에 해서 sent로 머무는 때가 없다. declined와 done을 나눠도 program이 다르게 하는 일이 없고 "맡지 않겠다"는 글은 보낸 agent가 읽을 의미다. 그래서 맡지 않을 때도 reply로 이유를 보낸다. 봉투의 여는 방식 칸(tab, tui, headless)도 transport마다 값이 하나뿐이라 뺐다. 되살리고 싶어지면 이 이유를 먼저 본다.
 - **주소는 session ID다.** 사람이 읽는 label은 표시용이다. 보이는 이름은 겹칠 수 있어 주소가 아니다(agent의 주소는 handle이다). 열린 session 목록은 prompt가 아니라 tool result(`session.list`)로만 주어 prompt cache를 깨지 않는다. workspace prompt의 "Agents you can call"은 session ID 없이 agent의 handle(이름이 다르면 함께)만 싣고(그 workspace에서 보이는 agent: 전역과 그 workspace의 범위 agent, 그 workspace의 lophn), session이 아직 없는 agent도 넣는다. call이 새 session을 열 수 있기 때문이다. 어느 workspace에서 열지는 보내는 쪽이 고른다.
-- **call을 판정하지 않는다.** 예전에는 call tool이 turn 안에서 묻고 Router가 tx 안에서 한 번 더 판정해 둘을 `gate_allowed`로 이었다. 부르는 것을 막아도 받은 agent의 할당이 이미 일을 거르고, 사람이 workflow에서 "call 금지 같은 딱딱한 규칙을 두지 않는다"고 정했다(`project-docs/products/roadmap/approval.md`). 0.6.0에서 판정을 없앴다.
+- **call을 판정하지 않는다.** 예전에는 call tool이 turn 안에서 묻고 Router가 tx 안에서 한 번 더 판정해 둘을 `gate_allowed`로 이었다. 부르는 것을 막아도 받은 agent의 배포와 권한이 이미 일을 거르고, 사람이 workflow에서 "call 금지 같은 딱딱한 규칙을 두지 않는다"고 정했다(`project-docs/products/roadmap/approval.md`). 0.6.0에서 판정을 없앴다.
 - **도는 turn에 끼우지 않는다.** 조사한 harness 대부분은 도는 turn을 끊지 않고 다음 model 요청 앞에 붙인다. lophn은 사람의 "그만"만 급하다고 보고 사람 메시지에만 steer를 열었다. 다른 agent의 입력까지 끼우면 입력 하나가 turn 하나라는 셈이 흐려진다.
 - **넘길 것은 값(content block)으로 싣고 읽기 grant를 만들지 않는다.** call 동안 file을 읽게 해 주는 장치를 두면 grant의 범위와 끝을 따로 관리해야 한다. 값으로 실으면 부른 쪽이 봉투에 실은 것이 곧 불린 agent에게 여는 시야다. block 꼴을 MCP ContentBlock에서 빌린 것은 ACP와 MCP tool 결과가 같은 꼴이라 harness 쪽과 그대로 이어지기 때문이다.
 - **원문 넘기기와 fuzzy 매칭을 버렸다.** OpenAI handoff의 history 전달은 맥락 비용과 오염이 크고, CrewAI식 비슷한 이름 짐작은 엉뚱한 agent에게 일을 맡긴다.

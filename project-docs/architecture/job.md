@@ -192,8 +192,8 @@ hold
 
 권한
 39. scheduler 쪽 route(`job.claim_due`, `job_run.open`, `job_run.started`, `job_run.ended`, `job.activity`)는 machine 자격만 받는다. 쓰는 command 셋은 handler도 한 번 더 본다. 사람 쪽 route(`job.pending`, `job.approve`, `job.holds`, `job.decide_hold`, `job_run.list`, `job.take_over`)는 user만 받는다. `job.take_over`는 handler도 한 번 더 본다.
-40. tool_run은 사람이 없는 호출이고 허락은 사람의 등록 승인이다. 앱 호출 경로는 program caller를 막지 않는다. 만든 agent의 할당과 비공개 규칙은 보지 않는다(`architecture/app-call.md`, `architecture/approval.md`).
-41. agent_run과 workflow_start의 non-human step이 연 turn은 `unattended`다. `unattended`에서 `ask` 판정은 실행되지 않고 `deny`(`no_person`)로 막히며 이유를 남긴다. 미리 둔 allow 규칙이나 해당 agent·participant의 권한 단계가 ④(`full`)인 것만 무인으로 통과한다(`architecture/approval.md`). 받은 agent는 자기 할당으로 일한다.
+40. tool_run은 사람이 없는 호출이고 허락은 사람의 등록 승인이다. 앱 호출 경로는 program caller를 막지 않는다. 만든 agent의 배포와 비공개 규칙은 보지 않는다(`architecture/app-call.md`, `architecture/approval.md`).
+41. agent_run과 workflow_start의 non-human step이 연 turn은 `unattended`다. `unattended`에서 `ask` 판정은 실행되지 않고 `deny`(`no_person`)로 막히며 이유를 남긴다. 미리 둔 allow 규칙이나 해당 agent·participant의 권한 단계가 ④(`full`)인 것만 무인으로 통과한다(`architecture/approval.md`). 받은 agent는 자기 배포와 권한 단계로 일한다.
 42. job이 연 agent run의 agent도 job 명령을 받아 job을 만들 수 있다. 막지 않는다. 고치기는 만든 agent만 하고 사람은 모든 job을 등록 때 보고 승인하며 화면에서 보고 끌 수 있다.
 
 주인 기계
@@ -253,7 +253,7 @@ hold
 ## 결정
 
 - scheduler를 기록 event나 Bus에 얹지 않는다. 이유: 뒤에 꼭 움직여야 하는 일은 그 일을 아는 command가 같은 tx에서 한다(`architecture/event.md`). job command는 표만 바꾸고 commit 뒤 "jobs changed"는 timer를 다시 걸라는 신호일 뿐이다. 신호를 놓쳐도 정본은 표라서 다음 timer나 최대 잠이 같은 표를 다시 읽는다. Reactor 같은 반응 장치(cursor, 멱등 key, backoff)를 지지 않는다. (agent)
-- job의 허락을 만든 agent의 할당에서 빌리지 않고 사람의 등록 승인으로 둔다. 이유: 할당으로 판정하면 job 하나를 돌리려고 만든 agent에게 그 앱 전체를 열어 줘야 한다. 그 agent는 다른 session에서도 그 앱의 모든 tool을 부른다. job을 만든 agent는 그 tool을 직접 쓸 이유가 없을 때가 많다(앱 workspace에서 앱을 만든 agent가 그 앱의 수집 job을 만드는 경우). 그 판정에서는 할당이 없어도 job이 만들어지고 차례마다 `gate_blocked`로 말없이 실패했다. 사람이 job 하나를 보고 승인하면 허락이 그 할 일 하나로 맞고, agent가 job으로 권한을 넓히는 길도 승인에서 막힌다. 버린 안: 앱 workspace에서 만든 job이 자기 앱 tool을 부를 때만 할당 검사를 건너뛰기(그 경우만 풀고 근본이 남는다), 만들 때 할당을 검사해 거절하기(필요 없는 할당을 강요한다). (사람)
+- job의 허락을 만든 agent의 배포에서 빌리지 않고 사람의 등록 승인으로 둔다. 이유: 배포로 판정하면 job 하나를 돌리려고 만든 agent에게 그 앱 전체를 열어 줘야 한다. 그 agent는 다른 session에서도 그 앱의 모든 tool을 부른다. job을 만든 agent는 그 tool을 직접 쓸 이유가 없을 때가 많다(앱 workspace에서 앱을 만든 agent가 그 앱의 수집 job을 만드는 경우). 그 판정에서는 배포가 없어도 job이 만들어지고 차례마다 `gate_blocked`로 말없이 실패했다. 사람이 job 하나를 보고 승인하면 허락이 그 할 일 하나로 맞고, agent가 job으로 권한을 넓히는 길도 승인에서 막힌다. 버린 안: 앱 workspace에서 만든 job이 자기 앱 tool을 부를 때만 배포 검사를 건너뛰기(그 경우만 풀고 근본이 남는다), 만들 때 배포를 검사해 거절하기(필요 없는 배포를 강요한다). (사람)
 - 승인은 job마다 한 번이고 다시 묻지 않는다. 할 일은 바꾸지 못하게 해 승인한 일과 도는 일이 어긋나지 않게 한다. (사람, agent)
 - [Reject]는 job을 지운다. 이유: 거절한 job을 남겨 둘 쓸모가 없다. (agent)
 - agent_run과 workflow_start도 승인을 받는다. 사람 없이 되풀이되는 것은 셋 다 같다. 받은 agent는 자기 할당으로 일한다. (agent)

@@ -42,7 +42,10 @@ import {
   DEFAULT_CALL_POLICY,
   isPrivate,
 } from "../../../../protocol/lophn-agent/call-policy.ts";
-import type { AgentId } from "../../../../protocol/lophn-agent/workspaces.ts";
+import type {
+  AgentId,
+  Workspace,
+} from "../../../../protocol/lophn-agent/workspaces.ts";
 import type { RequestContext } from "../../../../protocol/server/mod.ts";
 import type {
   BlobReadInput,
@@ -198,6 +201,7 @@ import {
   type WiringContext,
   type WiringFactory,
 } from "./context.ts";
+import { createSkillDeployments } from "./skill-deploy.ts";
 import { agentDirectory } from "./lophn-agent-team.ts";
 
 export const appsWiring: WiringFactory = () => {
@@ -400,7 +404,18 @@ export const appsWiring: WiringFactory = () => {
           kind: "app",
           id: app,
         });
+      // 다른 컴퓨터 앱 할당. 이 컴퓨터 앱은 skill 배포가 닿게 한다.
       const assignmentOf = (agent: AgentId) => agentAssignment(link.sql, agent);
+      const deployments = createSkillDeployments(ctx);
+      const appReached = async (
+        who: { agent: AgentId; workspace: Workspace | null },
+        app: Id<"app">,
+      ) => {
+        const access = await deployments.appAccess(who, app);
+        return access.ok ? ok(access.value.reached) : access;
+      };
+      const gateRan = (session: string, toolCall: string) =>
+        ctx.peek.approvals?.gateRan(session, toolCall) ?? false;
       const appGrantsOf = async (app: Id<"app">) => {
         const listed = await ctx.runtime.readers.read(
           appGrantsList,
@@ -417,13 +432,16 @@ export const appsWiring: WiringFactory = () => {
         apps: states,
         ledger,
         link: appsControl.link,
-        assignmentOf,
+        appReached,
+        gateRan,
         appGrantsOf,
         clock: ctx.clock,
         ids,
         // 다른 기계의 앱으로 넘기는 길. 컴퓨터 이름 풀기와 link는 remote wiring이 늦게 내는 machineLinks다.
         forward: createRemoteForward({
           assignmentOf,
+          appReached,
+          gateRan,
           appGrantsOf,
           isPrivate: appIsPrivate,
           machines: () => ctx.machineLinks,

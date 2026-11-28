@@ -1,5 +1,4 @@
 import type {
-  Assignment,
   GateCall,
   IsolationBackend,
   Judgment,
@@ -50,7 +49,13 @@ const DEFAULT_PROJECT_COMMAND_POLICY: ProjectCommandPolicy = {
 export type PermissionRequest = {
   readonly call: GateCall;
   readonly tool?: string;
-  readonly assignment?: Pick<Assignment, "entries"> | null;
+  // app_tool 호출의 앱이 이 session에 닿는지다. 닿으면(그 앱의 skill이 배포됐거나 앱 자기 workspace) 묻지 않는다.
+  // `skills`는 그 앱의 public skill 이름이고 비어 있으면 `always`(배포)를 열지 않는다.
+  readonly appAccess?: {
+    readonly reached: boolean;
+    readonly slug: string;
+    readonly skills: readonly string[];
+  } | null;
   readonly projectCommand?: ProjectCommandPolicy;
   readonly mcpTrust?: McpTrust;
   readonly localToolTrusted?: boolean;
@@ -217,6 +222,8 @@ type AskDecision = {
   readonly unattendedRecovery?: RecoveryAction | null;
   readonly unattendedHint?: string | null;
   readonly categoryOverride?: PermissionCategory;
+  // `always`가 하는 일의 줄(카드가 보인다). 있어야 always가 열린다.
+  readonly alwaysPatterns?: readonly string[];
 };
 
 function finalizeContext(
@@ -281,6 +288,9 @@ function finalizeContext(
     reason: ask.reason,
     outside_rewind: ask.outside_rewind,
     allowed_choices: ask.allowed_choices,
+    ...(ask.alwaysPatterns === undefined
+      ? {}
+      : { always_patterns: [...ask.alwaysPatterns] }),
   };
 }
 
@@ -846,41 +856,6 @@ export function evaluatePermission(
 
   // ---------- app_tool ----------
   if (call.kind === "app_tool") {
-    // 이 기계의 호출이라 다른 기계의 앱 줄(`machine`이 있는 줄)은 보지 않는다.
-    const entry = request.assignment?.entries.find(
-      (item) => item.app === call.app && item.machine === undefined,
-    );
-    if (!entry) {
-      return {
-        kind: "deny",
-        denial: buildPermissionDenial({
-          call,
-          tool: request.tool,
-          category: "app_tool",
-          reasonKind: "unassigned",
-          message: `App ${call.app} is not assigned to this agent.`,
-          recoveryHint:
-            "Assign this app to the agent in Settings > Agents or /permissions.",
-          recoveryAction: { kind: "assign_app", app: call.app },
-        }),
-      };
-    }
-    if (entry.removed_tools.includes(call.tool)) {
-      return {
-        kind: "deny",
-        denial: buildPermissionDenial({
-          call,
-          tool: request.tool,
-          category: "app_tool",
-          reasonKind: "removed",
-          message: `Tool "${call.tool}" is removed from this agent's app assignment.`,
-          recoveryHint:
-            "Re-enable this tool in the agent's app assignment settings.",
-          recoveryAction: { kind: "assign_app", app: call.app },
-        }),
-      };
-    }
-
     const userRule = evaluateNonShellUserRules(call, layers, request.homeDir);
     if (userRule.action === "deny") {
       return {
@@ -929,21 +904,34 @@ export function evaluatePermission(
       return { kind: "run" };
     }
 
-    const askTools = entry.ask_tools ?? [];
-    if (askTools.includes(call.tool) && mode !== "full") {
-      return finalizeContext(
-        {
-          kind: "ask",
-          reason: `App tool "${call.tool}" is configured to ask before running.`,
-          outside_rewind: call.effect !== "read",
-          allowed_choices: ["once", "session", "reject"],
-        },
-        request,
-        context,
-      );
-    }
-
-    return { kind: "run" };
+    // 그 앱의 skill이 이 session에 닿으면(배포) 묻지 않고, 앱 자기 workspace의 session도 묻지 않는다. 닿지 않은 앱은 사람이 허락해야 한다.
+    // 사람이 `full`을 골랐으면 맡긴 것이다(사람이 없는 실행은 아래에서 막힌다).
+    const access = request.appAccess;
+    if (access?.reached === true) return { kind: "run" };
+    if (mode === "full" && context !== "unattended") return { kind: "run" };
+    const slug = access?.slug ?? call.app;
+    // `always`는 그 앱의 public skill을 이 session의 workspace에 배포하는 일이라 배포할 skill이 있어야 연다.
+    const deployable = (access?.skills.length ?? 0) > 0;
+    return finalizeContext(
+      {
+        kind: "ask",
+        reason: `App ${slug} has no skill deployed to this agent, its workspace or globally.`,
+        outside_rewind: call.effect !== "read",
+        allowed_choices: deployable
+          ? ["once", "session", "always", "reject"]
+          : ["once", "session", "reject"],
+        ...(deployable
+          ? {
+              alwaysPatterns: access!.skills.map(
+                (skill) => `deploy ${slug}/${skill} to this workspace`,
+              ),
+            }
+          : {}),
+        unattendedHint: `Deploy a skill of app ${slug} first (\`lophn skill deploy ${slug} <skill> --to agent:<handle>\`, \`--to workspace\` or \`--to global\`), or ask the person to allow the call in a session they are in.`,
+      },
+      request,
+      context,
+    );
   }
 
   // ---------- mcp_tool ----------

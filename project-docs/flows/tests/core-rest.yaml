@@ -71,12 +71,12 @@ files:
       - tool-gate-check:run
       - tool-gate-check:denied-shell-rule
       - tool-gate-check:denied-not-assigned
-      - tool-gate-check:denied-removed
       - tool-gate-check:denied-no-person
       - tool-gate-check:denied-mode
       - tool-gate-check:denied-scope
       - tool-gate-check:denied-user-rule
-      - app-call-assignment-judge:gate-blocked
+      - app-call-deployment-judge:gate-blocked
+      - tool-gate-check:run-after-allow
     note: evaluatePermission 순수 함수의 4단계·범주·실행 맥락 판정표(floor, 자기 보호, 사용자 규칙 deny>ask>allow, 사람 전용 등급, 민감 파일, session grant, unattended no_person)
 
   - path: packages/core/approvals/gate/shell-match_test.ts
@@ -424,10 +424,9 @@ files:
       - artifacts-container:moved
     note: "artifact 옮기기 data step(domains에서 project 폴더로)은 artifacts-container:moved"
 
-  - path: packages/core/main/daemon/wiring/assignment-file_test.ts
-    covers:
-      - assignment-file-migrate:moved
-      - assignment-file-migrate:deny-rule-slugged
+  - path: packages/core/main/daemon/wiring/skill-deploy_test.ts
+    covers: [skills-deploy:changed, skills-deploy:forbidden, skills-deploy:invalid-input, app-call-deployment-judge:passed]
+    note: "묻지 않고 배포하는 자격(앱 자기 workspace의 agent, Home의 lophn)의 판정 함수, 앱에 닿는지가 전역·workspace·agent 세 층의 배포와 active release의 public skill로 정해지는 것(없음, 사라졌거나 비공개인 skill, 앱 자기 workspace), 배포 명령이 사람은 묻지 않고 하고 그 밖의 agent는 사람의 허락(거절, 물을 tool call 없음)이 있어야 층을 바꾸는 것. 실제 ledger 파일과 설정·extensions.json·정의 file을 임시 폴더에 둔다"
 
   - path: packages/core/main/daemon/wiring/gui-member_test.ts
     covers:

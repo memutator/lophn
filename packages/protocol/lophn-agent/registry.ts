@@ -13,7 +13,14 @@ import { PROVIDER_ROUTES } from "./providers.ts";
 import { TOOL_CALL_ROUTES } from "./tool-calls.ts";
 import { TRACE_ROUTES } from "./traces.ts";
 import { INSTRUCTION_ROUTES } from "./instructions.ts";
-import { skillsCheck, skillsList, skillsRead } from "./skill-settings.ts";
+import {
+  skillsCheck,
+  skillsDeploy,
+  skillsDeployments,
+  skillsList,
+  skillsRead,
+  skillsUndeploy,
+} from "./skill-settings.ts";
 import { TURN_COMMANDS } from "./turns.ts";
 import { TURN_READS } from "./turn-reads.ts";
 import { AGENT_CALL_ROUTES } from "./calls.ts";
@@ -73,6 +80,9 @@ export const ROUTES = [
   skillsRead,
   skillsList,
   skillsCheck,
+  skillsDeploy,
+  skillsUndeploy,
+  skillsDeployments,
   ...TURN_COMMANDS,
   ...TURN_READS,
   ...AGENT_CALL_ROUTES,

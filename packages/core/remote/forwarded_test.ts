@@ -198,7 +198,9 @@ function setup() {
         };
       },
     } as never,
-    assignmentOf: () => err({ code: "internal", message: "unused" }),
+    appReached: () =>
+      Promise.resolve(err({ code: "internal", message: "unused" })),
+    gateRan: () => false,
     appGrantsOf: () => Promise.resolve(ok([])),
     isPrivate: (app) => privateApps.has(app),
     clock,

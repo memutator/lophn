@@ -2,8 +2,16 @@ import { createHash } from "node:crypto";
 import { dirname, isAbsolute } from "node:path";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { idSchema } from "../../../protocol/base/ids.ts";
-import { type AgentId, isLophn } from "../../../protocol/lophn-agent/mod.ts";
-import { parseAgentFile, serializeAgentFile } from "./definition-file.ts";
+import {
+  type AgentId,
+  isLophn,
+  type SkillDeployment,
+} from "../../../protocol/lophn-agent/mod.ts";
+import {
+  type AgentFileDefinition,
+  parseAgentFile,
+  serializeAgentFile,
+} from "./definition-file.ts";
 import type { RemoteAppLine } from "./directory.ts";
 import type { AgentFileSystem, ReadSql } from "./ports.ts";
 
@@ -113,47 +121,52 @@ export function dataRootOf(
   return ok(dirname(file));
 }
 
-// 할당(`apps`, `remote_apps`, `permissions.deny`, `permissions.ask`)만 바꿔 정의 파일에 다시 쓴다. 다른 칸과 본문은 그대로다.
-// 파일이 없는 agent는 쓰지 않는다(할당은 정의가 있는 agent의 것이다). lophn은 파일이 없어도 기본 정의가 있다.
-export function writeAgentAssignment(
+// 정의 파일의 칸 몇 개만 바꿔 다시 쓴다. 다른 칸과 본문은 그대로다. 파일이 없는 agent는 쓰지 않는다. lophn은 파일이 없어도 기본 정의가 있다.
+function rewriteAgentFile(
   store: AgentStore,
   agent: AgentId,
-  assignment: {
-    apps: readonly string[];
-    deny: readonly string[];
-    ask?: readonly string[];
-    remoteApps: readonly RemoteAppLine[];
-  },
+  patch: (definition: AgentFileDefinition) => AgentFileDefinition,
 ): Result<string> {
   const slot = agentSlotOf(store.root, agent);
   const read = store.read(slot);
   if (!read.ok) return read;
-  // 파일이 없는 lophn은 기본 정의다.
   const current = read.value?.text ?? (isLophn(agent) ? "" : null);
   if (current === null) {
     return err({ code: "not_found", message: "agent not found" });
   }
   const parsed = parseAgentFile(current, { agent });
   if (!parsed.ok) return parsed;
-  const ask = assignment.ask ?? parsed.value.permissions?.ask ?? [];
-  const text = serializeAgentFile(
-    {
-      ...parsed.value,
-      apps: [...assignment.apps],
-      remote_apps: assignment.remoteApps.map((line) => ({
-        machine: line.machine,
-        app: line.app,
-        name: line.name,
-        removed: [...line.removed],
-        ...(line.ask && line.ask.length > 0 ? { ask: [...line.ask] } : {}),
-      })),
-      permissions: {
-        deny: [...assignment.deny],
-        ...(ask.length > 0 ? { ask: [...ask] } : {}),
-      },
-    },
-    { agent },
-  );
+  const text = serializeAgentFile(patch(parsed.value), { agent });
   if (!text.ok) return text;
   return store.write(slot, text.value);
+}
+
+// 다른 컴퓨터 앱 할당(`remote_apps`)만 바꿔 쓴다.
+export function writeAgentRemoteApps(
+  store: AgentStore,
+  agent: AgentId,
+  remoteApps: readonly RemoteAppLine[],
+): Result<string> {
+  return rewriteAgentFile(store, agent, (definition) => ({
+    ...definition,
+    remote_apps: remoteApps.map((line) => ({
+      machine: line.machine,
+      app: line.app,
+      name: line.name,
+      removed: [...line.removed],
+      ...(line.ask && line.ask.length > 0 ? { ask: [...line.ask] } : {}),
+    })),
+  }));
+}
+
+// agent 층의 배포 기록(`deployed_skills`)만 바꿔 쓴다.
+export function writeAgentDeployedSkills(
+  store: AgentStore,
+  agent: AgentId,
+  deployed: readonly SkillDeployment[],
+): Result<string> {
+  return rewriteAgentFile(store, agent, (definition) => ({
+    ...definition,
+    deployed_skills: [...deployed],
+  }));
 }

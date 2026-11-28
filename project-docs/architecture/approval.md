@@ -1,6 +1,6 @@
 # approval
 
-agent가 하는 동작마다 "해도 되나"를 정하는 장치다. 권한 4단계(`read_only` 보기만 / `ask` 다 묻기 / `workspace` 고치기는 알아서 / `full` 다 맡기기), 실행 맥락(`attended | unattended | team_child`), 그리고 순수 결정적 통합 판정 엔진(`evaluatePermission`)이 모든 tool 호출을 한 길로 판정한다. 기본 철학은 "앞에서 한 번 허락 + rewind로 복구"다: lophn이 rewind 기록을 남기는 등록 폴더 안 `file.*` 쓰기는 기본 ③(`workspace`)에서 묻지 않고, rewind 기록을 남기지 못하는 것(`shell.run` 비읽기 명령, 등록 폴더 밖 파일)과 민감·외부 동작(비신뢰 MCP 비읽기 tool, 미신뢰·변경된 로컬 tool, command별 묻기를 켠 앱 tool, 민감 workspace 파일, `approval: "person"` 설정)은 묻는다. 사람이 없는 실행(`unattended`)에서 `ask` 판정은 실행이 아니라 `deny`(`no_person`)다. 막힌 동작은 숨기지 않고 구조화된 `PermissionDenial`과 `PermissionDenied` event로 model과 사람 모두에게 이유·규칙·복구 길을 드러낸다. 이 문서는 통합 판정 엔진, 4단계와 실행 맥락, 통합 권한 규칙과 상태 기계 shell 스캐너, 안전한 `always`, `session` 선택지와 메모리 `SessionGrantStore`, 바깥 폴더와 민감·자기 보호 경로, 거부 언마스킹과 `/permissions`, 할당과 MCP·로컬 tool 신뢰, 팀 자식의 물음, 앱 공유 요청, 원격 기기 자격을 다룬다. 앱의 자원 허락(activation 동의)은 `architecture/activation.md`의 일이다.
+agent가 하는 동작마다 "해도 되나"를 정하는 장치다. 권한 4단계(`read_only` 보기만 / `ask` 다 묻기 / `workspace` 고치기는 알아서 / `full` 다 맡기기), 실행 맥락(`attended | unattended | team_child`), 그리고 순수 결정적 통합 판정 엔진(`evaluatePermission`)이 모든 tool 호출을 한 길로 판정한다. 기본 철학은 "앞에서 한 번 허락 + rewind로 복구"다: lophn이 rewind 기록을 남기는 등록 폴더 안 `file.*` 쓰기는 기본 ③(`workspace`)에서 묻지 않고, rewind 기록을 남기지 못하는 것(`shell.run` 비읽기 명령, 등록 폴더 밖 파일)과 민감·외부 동작(비신뢰 MCP 비읽기 tool, 미신뢰·변경된 로컬 tool, skill이 닿지 않은 앱의 tool, 민감 workspace 파일, `approval: "person"` 설정)은 묻는다. 사람이 없는 실행(`unattended`)에서 `ask` 판정은 실행이 아니라 `deny`(`no_person`)다. 막힌 동작은 숨기지 않고 구조화된 `PermissionDenial`과 `PermissionDenied` event로 model과 사람 모두에게 이유·규칙·복구 길을 드러낸다. 이 문서는 통합 판정 엔진, 4단계와 실행 맥락, 통합 권한 규칙과 상태 기계 shell 스캐너, 안전한 `always`, `session` 선택지와 메모리 `SessionGrantStore`, 바깥 폴더와 민감·자기 보호 경로, 거부 언마스킹과 `/permissions`, 앱 skill 배포(와 다른 컴퓨터 앱 할당)와 MCP·로컬 tool 신뢰, 팀 자식의 물음, 앱 공유 요청, 원격 기기 자격을 다룬다. 앱의 자원 허락(activation 동의)은 `architecture/activation.md`의 일이다.
 
 ## 문제
 
@@ -11,7 +11,7 @@ agent는 사람이 있을 때도 없을 때도 shell을 돌리고 file을 읽고
 
 ## 목표와 비목표
 
-- 목표: 하나의 결정적 통합 판정 엔진(`evaluatePermission`)이 모든 범주를 판정한다. 4단계 권한 모드와 실행 맥락을 분리해, 사람이 있을 때만 묻고 사람이 없는 실행에서 `ask`는 거절한다. 막힌 호출은 이유·규칙·복구 길을 model과 사람 양쪽에 투명하게 드러낸다. agent는 자기 권한 단계·할당·규칙·신뢰 목록을 스스로 넓히지 못한다.
+- 목표: 하나의 결정적 통합 판정 엔진(`evaluatePermission`)이 모든 범주를 판정한다. 4단계 권한 모드와 실행 맥락을 분리해, 사람이 있을 때만 묻고 사람이 없는 실행에서 `ask`는 거절한다. 막힌 호출은 이유·규칙·복구 길을 model과 사람 양쪽에 투명하게 드러낸다. agent는 자기 권한 단계·규칙·신뢰 목록을 스스로 넓히지 못하고, 앱 skill 배포는 누가 묻지 않고 할 수 있는지 규칙(앱 자기 workspace의 agent, Home의 lophn, 그 밖은 사람 승인)을 따른다.
 - 비목표:
   - OS sandbox는 이번 판에 두지 않는다. 판정 엔진 입력에 격리 슬롯(`IsolationBackend = "none"`)만 열어 둔다. 한 번 허락한 shell 스크립트 안에서 벌어지는 일은 OS 수준에서 막지 못하며 `shell.run`은 rewind 밖이다(이슈 `shell-run-bypasses-file-scope`).
   - 사용자 앱과 사람이 쓴 글은 공격자로 보지 않는다. 막는 것은 AI가 만든 코드와 agent의 실수(데이터 잃기, 폴더 밖 쓰기, 틀린 되돌리기)와 인터넷에서 온 것이다.
@@ -38,7 +38,7 @@ agent는 사람이 있을 때도 없을 때도 shell을 돌리고 file을 읽고
         │ memory route tool_gate/check (그 turn의 agent 자격만)
         ▼
  core가 session의 permission_mode·agent·workspace·spawned_by, turn의 mode(attended|unattended),
-        할당, 통합 권한 규칙 층, SessionGrantStore, MCP 신뢰, 로컬 tool 신뢰를 읽어 판정한다
+        앱 skill 배포(앱이 session에 닿는지), 통합 권한 규칙 층, SessionGrantStore, MCP 신뢰, 로컬 tool 신뢰를 읽어 판정한다
    evaluatePermission(request, layers, sessionGrants, mode, context)   (순수 함수, IsolationBackend = "none")
      ├ run  ─▶ 실행 (바깥 폴더 file_* 허락은 그 호출 한 번의 scope에 반영)
      ├ deny ─▶ PermissionDenial 반환 + SessionGrantStore 최근 거부 기록 + PermissionDenied event 발행
@@ -75,9 +75,9 @@ agent는 사람이 있을 때도 없을 때도 shell을 돌리고 file을 읽고
   - `unattended` turn에서 판정이 `ask`면 **실행하지 않고 `deny`(`no_person`)**로 막고 `PermissionDenial`과 `PermissionDenied` event를 남긴다. 미리 둔 사용자 `allow` 규칙이나 해당 session·participant의 단계가 ④(`full`)인 것만 무인으로 통과한다(floor·deny·사람 전용 등급·민감 파일은 ④에서도 막힌다).
   - unattended turn의 `ask` tool은 기다리지 않고 `unattended`를 바로 돌려준다. 팀 자식의 `ask`는 맥락과 상관없이 부모에게 간다.
 
-### 할당과 앱·MCP·로컬 tool 신뢰
+### 앱 skill 배포와 앱·MCP·로컬 tool 신뢰
 
-- **앱 할당**: 정본은 agent 정의 파일(`<data root>/agents/<agent id>.md`)의 `apps`(앱 slug), `remote_apps`({machine, app, name, removed}), `permissions.deny`(`lophn(<app> <command>)`), 그리고 command별 묻기 목록 `permissions.ask`(`ask_tools`)다. 할당한 내 앱 command는 기본으로 묻지 않고, 사람이 특정 command에 `ask_tools`를 켜 두면 `full` 미만에서 묻는다(`once | session | reject`). `read_only`에서는 `effect !== "read"`인 앱 command가 `mode` 거부된다. 다른 기계의 앱도 같은 사람이 부르는 기계에서 할당하며 할당 없는 agent는 부르지 못한다.
+- **앱 skill 배포**: 이 컴퓨터의 앱을 쓰게 하는 길은 skill 배포 하나다(`architecture/agent-definition.md`). 배포 기록은 전역 설정, workspace `extensions.json`, agent 정의의 `deployed_skills` 세 층에 `{app, skill}`로 있고 한 session에 닿는 배포는 세 층을 합친 것이다. 그 앱의 public skill이 하나라도 닿았거나 앱 자기 workspace의 session이면 그 앱의 public command를 묻지 않는다(앱 단위: command마다 따지지 않는다. 자기 앱의 비공개 command도 자기 workspace에서는 묻지 않는다). 닿지 않은 앱의 command는 Gate가 `once | session | always | reject`로 묻고(`always`는 그 앱의 public skill 전부를 부른 session의 workspace 층에 배포한다. 배포할 public skill이 없는 앱은 `always`가 없다), 사람이 `full`을 골랐으면 맡긴 것이라 묻지 않는다. `read_only`에서는 `effect !== "read"`인 앱 command가 `mode` 거부된다. 사람이 없는 실행은 `deny`(`no_person`)이고 hint가 먼저 그 앱의 skill을 배포하라고 알린다. 다른 컴퓨터의 앱은 아직 할당이다: 정본은 agent 정의 파일의 `remote_apps`({machine, app, name, removed, ask})이고 같은 사람이 부르는 기계에서 할당하며 할당 없는 agent는 부르지 못한다.
 - **MCP server 신뢰**: MCP server는 설정한 층(전역, workspace, agent 정의)이 곧 할당이고 끄기는 `mcp_off`다. 각 MCP server 설정에 사람만 쓰는 `trust: "trusted" | "untrusted"`(기본 `untrusted`) 칸을 둔다. 비신뢰 서버의 `readOnlyHint !== true` tool은 `full` 미만에서 묻고(`once | session | reject`), 신뢰된 서버이거나 `readOnlyHint === true`인 tool은 묻지 않는다. `read_only`에서는 비읽기 MCP tool이 `mode` 거부된다.
 - **로컬 tool 신뢰**: `<data root>/tools/`, `<workspace>/.lophn/tools/`, `<workspace data>/tools/`의 스크립트는 `(realpath, sha256)`이 data root 설정 `approvals.local_tool_trust`에 있을 때만 실행한다(`architecture/extension.md`). 미신뢰이거나 내용이 바뀐 스크립트는 사람 전용 등급 `ask`(`once | reject`, `once` 허락이 곧 신뢰 기록)이며 신뢰 전에는 `inspect`도 실행하지 않는다.
 - **shell extension tool**: 정의 칸 `extensions`가 할당이며 호출 route(`extension_tools/call`)가 `extension_tool`로 판정한다.
@@ -114,7 +114,7 @@ agent는 사람이 있을 때도 없을 때도 shell을 돌리고 file을 읽고
 
 ### 거부 계약(`PermissionDenial`), 언마스킹, `PermissionDenied` event, `/permissions`
 
-- 권한·범위·모드·정책 거부는 `PermissionDenial { tool, category, target_summary, reason_kind, rule_pattern, message, recovery_hint, recovery_action }` 계약으로 통합한다. `reason_kind`는 `floor | user_deny | mode | scope | unassigned | removed | untrusted | no_person | locked | policy` 열 종류다.
+- 권한·범위·모드·정책 거부는 `PermissionDenial { tool, category, target_summary, reason_kind, rule_pattern, message, recovery_hint, recovery_action }` 계약으로 통합한다. `reason_kind`는 `floor | user_deny | mode | scope | unassigned | untrusted | no_person | locked | policy` 아홉 종류다(`unassigned`는 허용 목록 밖 project command다).
 - **model 쪽 언마스킹**:
   - gate 거부(`tool_gate/check`의 `denied { denial }`)는 `reason_kind`, 걸린 `rule_pattern`, `message`, `recovery_hint`를 빠뜨리지 않고 tool 결과로 전달한다.
   - handler의 `forbidden` 오류도 "tool target is not available"로 덮지 않고 handler의 고정 문장을 그대로 싣는다. 존재를 감춰야 하는 대상(다른 session의 탭, private workspace의 것)은 handler가 `not_found`로 돌려 기존 공통 문장을 유지한다.
@@ -122,8 +122,8 @@ agent는 사람이 있을 때도 없을 때도 shell을 돌리고 file을 읽고
   - workspace 상한 밖 operation의 agent credential 요청도 빈 값(`undefined`) 대신 이유 있는 `forbidden` 거부를 돌려준다. MCP 401·다시 로그인 필요는 `details.missing`으로 `lophn ask secret` 안내를 붙인다.
 - **사람 쪽 가시성과 복구**:
   - 거부가 일어나면 core가 `SessionGrantStore`에 최근 거부를 기록하고 `PermissionDenied` event를 Bus(및 `REMOTE_ALLOWED_EVENTS`)로 발행한다.
-  - 대화 타임라인은 일반 tool 실패와 구별되는 "막힘" 표시와 한 줄 이유, 걸린 규칙, 그리고 `recovery_action`에 따른 복구 버튼을 보인다: floor·`locked`는 버튼 없음, 사용자 deny 규칙은 "규칙 고치기"(Settings 이동), 미할당 앱은 "할당하기", 단계 제약은 "단계 바꾸기", 미신뢰 로컬 tool은 "신뢰하기", 비신뢰 MCP는 "신뢰하기" 또는 "로그인", 무인 실행에서 막힌 shell은 "항상 허락 규칙 더하기". 버튼은 상태만 바꾸고 다시 실행은 사람의 다음 메시지다.
-  - `/permissions` 화면(`permissions/read`)은 다섯 칸으로 session의 권한 상태를 한눈에 보인다: ① 현재 권한 단계, ② 읽기·쓰기 폴더(이번 대화에 연 바깥 폴더 포함), ③ 규칙 요약(floor 수, 전역·project 규칙, 이번 대화 허락과 개별 해제), ④ 할당 앱·MCP 서버(신뢰 상태)·로컬 tool(신뢰 상태와 desktop 신뢰/해제), ⑤ 최근 거부 이력.
+  - 대화 타임라인은 일반 tool 실패와 구별되는 "막힘" 표시와 한 줄 이유, 걸린 규칙, 그리고 `recovery_action`에 따른 복구 버튼을 보인다: floor·`locked`는 버튼 없음, 사용자 deny 규칙은 "규칙 고치기"(Settings 이동), 단계 제약은 "단계 바꾸기", 미신뢰 로컬 tool은 "신뢰하기", 비신뢰 MCP는 "신뢰하기" 또는 "로그인", 무인 실행에서 막힌 shell은 "항상 허락 규칙 더하기". 버튼은 상태만 바꾸고 다시 실행은 사람의 다음 메시지다.
+  - `/permissions` 화면(`permissions/read`)은 다섯 칸으로 session의 권한 상태를 한눈에 보인다: ① 현재 권한 단계, ② 읽기·쓰기 폴더(이번 대화에 연 바깥 폴더 포함), ③ 규칙 요약(floor 수, 전역·project 규칙, 이번 대화 허락과 개별 해제), ④ MCP 서버(신뢰 상태)·로컬 tool(신뢰 상태와 desktop 신뢰/해제), ⑤ 최근 거부 이력.
 
 ### 사람의 허락이 드는 설정
 
@@ -157,27 +157,27 @@ spawn된 session(`spawned_by` 있음)의 `ask` tool(질문)과 일반 `ask`(승�
 
 ### 앱 공유 요청
 
-앱 workspace의 agent가 "이 앱을 agent A, B(와 coding agent)에게 할당"을 청한다(`lophn app share --agent <이름>... [--coding-agents] --reason <글>`, 앱 workspace 명령).
+앱 workspace의 agent가 "이 앱을 agent A, B(와 coding agent)에게 공유"를 청한다(`lophn app share --agent <이름>... [--coding-agents] --reason <글>`, 앱 workspace 명령).
 
 - 받을 agent도 coding agent도 없는 요청과 agent가 스무 명을 넘는 요청은 받지 않는다(`invalid_input`). 앱은 입력이 아니라 agent credential의 `conditions.app`이 고정하고, 앱 workspace가 아니면 `forbidden`이다. 이름은 명령이 `agent.list`로 id로 푼다.
 - 요청은 `share_requests` 표에 앱마다 한 줄이다. 같은 앱의 열린 요청이 있으면 새 요청이 대신한다. 승인이나 거절이면 줄을 지운다. 그래서 turn이 끝나도, 재시작해도 남는다(메모리 request는 재시작하면 비는 것과 다르다).
 - 결정은 사람 자격만 한다(`share_request.decide`). compare `requested_at`이 열린 요청과 다르거나 요청이 없으면 `conflict`다: 그 사이 새 요청이 대신했거나 이미 정해졌다. 거절은 이유를 싣지 않는다. 카드는 앱 이름, 받을 agent, agent가 쓴 이유(200자까지), 받게 되는 것(지금 active 선언의 public skill 수와 public command 수)을 보인다. 이유는 agent가 쓴 글이라 참고일 뿐이고 수는 program이 선언에서 센다.
-- 승인은 같은 tx에서 받을 agent마다 할당 쓰기 길로 앱을 더한다. 이미 있는 줄과 그 줄에서 뺀 command는 건드리지 않는다. 정의 파일은 tx 밖이라 쓰기 전에 받을 agent 모두의 할당을 먼저 읽고, 뒤 agent의 쓰기가 실패하면 먼저 쓴 agent의 파일을 전 값으로 되돌린다. 되돌리기 쓰기마저 실패하면 그 agent에 앱이 남는다. 다시 승인하면 이미 있는 줄은 건너뛰어 같은 결과가 된다.
+- 승인은 같은 tx에서 받을 agent마다 그 앱의 public skill 전부를 agent 층(정의의 `deployed_skills`)에 배포한다. 이미 배포한 skill은 건드리지 않는다. 정의 파일은 tx 밖이라 한 agent에서 실패하면 요청은 열린 채 오류를 돌려주고, 다시 승인하면 이미 배포한 agent는 건너뛰어 같은 결과가 된다. 공유 요청은 사라질 일(skill 배포로 대신한다)이라 이 길은 임시다.
 - coding agent를 골랐으면 commit 뒤에 core가 설정 `coding-agent.shared_apps`에 앱 slug를 더한다(이미 있으면 더하지 않는다). 설정 store가 writer Worker 밖이라 commit 뒤에 쓴다. 쓰기가 실패해도 승인은 이미 확정이라 log(`shared_apps_not_saved`)만 남는다. 이 설정은 사람이 승인할 때만 더하고, 듣는 쪽은 `architecture/coding-agent.md`다.
-- 그 앱의 activation 동의가 대기 중이면 사람은 한 번만 승인한다. 대기 목록(renderer waiting store)이 그 앱의 공유 요청을 동의 항목에 붙여 보이고 따로 줄을 세우지 않는다(요청이 먼저 열렸든 동의가 먼저 열렸든 같다). 동의를 허락하면 `activation.consent`가 카드가 본 요청의 `requested_at`을 `share_requested_at`으로 실어, core가 같은 tx에서 공유를 승인한다. 효과는 `share_request.decide`의 approve와 같고(할당, commit 뒤 coding agent 설정), `ShareRequestClosed {approve}`도 낸다. 공유가 먼저 적용되고, 그 사이 새 요청이 대신했거나 이미 정해졌으면 동의째 `conflict`라 사람이 보지 못한 내용은 승인되지 않는다. 요청이 하나라도 실패하면 동의도 허락되지 않고 대기로 남는다. 동의를 거절하면 공유 요청은 그대로라 대기 목록에 제 줄로 다시 보인다. 동의 대기가 없으면 위의 따로 승인과 같다. apps는 approvals를 import하지 않아 core/apps의 port로 이 승인을 꽂는다.
+- 그 앱의 activation 동의가 대기 중이면 사람은 한 번만 승인한다. 대기 목록(renderer waiting store)이 그 앱의 공유 요청을 동의 항목에 붙여 보이고 따로 줄을 세우지 않는다(요청이 먼저 열렸든 동의가 먼저 열렸든 같다). 동의를 허락하면 `activation.consent`가 카드가 본 요청의 `requested_at`을 `share_requested_at`으로 실어, core가 같은 tx에서 공유를 승인한다. 효과는 `share_request.decide`의 approve와 같고(배포, commit 뒤 coding agent 설정), `ShareRequestClosed {approve}`도 낸다. 공유가 먼저 적용되고, 그 사이 새 요청이 대신했거나 이미 정해졌으면 동의째 `conflict`라 사람이 보지 못한 내용은 승인되지 않는다. 요청이 하나라도 실패하면 동의도 허락되지 않고 대기로 남는다. 동의를 거절하면 공유 요청은 그대로라 대기 목록에 제 줄로 다시 보인다. 동의 대기가 없으면 위의 따로 승인과 같다. apps는 approvals를 import하지 않아 core/apps의 port로 이 승인을 꽂는다.
 
 ## 지키는 것
 
 판정
 1. 판정(`evaluatePermission`)은 IO 없는 순수 함수다. 시각, 상태, 전역을 읽지 않고 같은 입력은 같은 결과다. 격리 슬롯(`IsolationBackend`)은 이번 판에 `"none"`만 둔다.
-2. 할당하지 않은 앱의 tool은 `deny`(`unassigned`), 할당에서 뺀 tool은 `deny`(`removed`)다. 어느 단계에서나 막는다. tool 목록은 session 시작 때 고정하지만(`architecture/agent-definition.md`) 판정은 call 때 지금 할당을 읽어 session 도중 뺀 앱 tool도 바로 막는다. 사람이 `ask_tools`(`permissions.ask`)를 켠 앱 command는 `full` 미만에서 묻는다.
+2. skill이 닿지 않은 앱의 tool은 `ask`(`once | session | always | reject`)이고, 앱 자기 workspace의 session과 skill이 닿은 앱은 묻지 않는다. `always`는 그 앱의 public skill 전부를 부른 session의 workspace 층에 배포하는 일이라 배포할 skill이 있을 때만 열리고 카드가 더할 배포를 보인다. 사람이 없는 실행(`unattended`)은 묻지 못해 `deny`(`no_person`)이고 `full`이어도 같다. tool 목록은 session 시작 때 고정하지만(`architecture/agent-definition.md`) 판정은 call 때 지금 배포를 읽어 session 도중 더하거나 거둔 배포가 바로 쓰인다. Gate가 run으로 끝낸 앱 command 호출은 tool call id로 기록되고 앱 호출 경로(`architecture/app-call.md`)가 배포가 닿지 않은 호출을 그 기록으로 한 번 더 막는다: 묻지 못하는 호출이 사람이 허락하지 않은 앱을 부르지 못하게 하는 단 하나의 확인이다.
 3. 외부 MCP server는 설정에 사람만 쓰는 `trust: "trusted" | "untrusted"`(기본 `untrusted`)를 둔다. 비신뢰 서버의 `readOnlyHint !== true` tool은 `full` 미만에서 묻고, 신뢰된 서버나 `readOnlyHint === true` tool은 묻지 않는다. 연결 쪽 call은 부를 때마다 전역·workspace 층 server 설정을 다시 읽어 꺼진 server(`mcp_off`)나 읽기 실패면 `unavailable`로 거절한다. 401·다시 로그인 필요는 `details.missing`으로 `lophn ask secret` 안내를 붙인다.
 4. floor, 자기 보호 경로, 사용자 `deny` 규칙은 어느 단계(`full` 포함), 사용자 `allow` 규칙, `session` 허락으로도 풀리지 않는다. 사용자 규칙의 우선순위는 고정(`deny > ask > allow`)이다.
 5. `ask`는 실행 맥락(`context`)에 따라 갈린다: `attended`에서는 사람에게 묻고, `unattended`에서는 **`deny`(`no_person`)**로 막아 실행하지 않는다. `team_child`에서는 사람 전용 등급(`setting`, `project_command_definition`, 미신뢰·변경된 `local_tool`)을 `deny`(`no_person`)로 막고, 그 밖의 `ask`는 부모에게 `once | reject`로 올린다.
 6. 로컬 tool(`<data root>/tools/`, `<workspace>/.lophn/tools/`, `<workspace data>/tools/`)은 `(realpath, sha256)`이 data root의 `approvals.local_tool_trust`에 있을 때만 실행하며, 미신뢰·변경된 스크립트는 `inspect`도 실행하지 않고(fail-closed) 사람 전용 등급 `ask`(`once | reject`, `once`가 곧 신뢰 기록)로 묻는다(`architecture/extension.md`).
 7. 사람의 결정은 사람 자격만 받는다(`turn_requests/decide`, `permissions/revoke-grant`, `permissions/trust-local-tool`, `permissions/untrust-local-tool`의 actors와 handler가 한 번 더 본다). 명단에 든 기기도 사람 자격(actor user, principal `device:<id>`)이지만, 로컬 tool 신뢰 부여·해제와 권한 단계 올리기는 desktop 사람 전용이다. agent, 앱, MCP server가 스스로 허락하면 판정이 의미 없다. 팀 자식의 request는 부모가 이번 한 번만 풀고, 사람의 결정 route는 그 request를 `not_found`로 거절한다.
-8. agent는 자기 할당·권한 단계·규칙·신뢰 목록을 넓히지 못한다. 할당 쓰기(`assignment.set`)는 사람만 하고 읽기(`assignment.get`)는 사람과 machine뿐이다. agent 정의를 만들고 고치는 tool(`agent.create`, `agent.update`)은 `mcp_servers`, `permission_mode`, `apps`, `remote_apps`, `permissions`, `browser_profile`을 입력으로 받지 않는다. 앱 공유 요청도 agent가 여는 것은 요청뿐이고 `apps`를 더하는 것은 사람의 승인이다.
-9. 판정이 읽는 할당은 call 때마다 정의 파일에서 읽는다. 앱 호출 경로와 사용 관계도 같은 읽기다. 없는 앱 slug와 active 선언에 없는 command는 읽을 때 빠진다.
+8. agent는 자기 권한 단계·규칙·신뢰 목록과 다른 컴퓨터 앱 할당을 넓히지 못한다. 다른 컴퓨터 앱 할당 쓰기(`assignment.set`)는 사람만 하고 읽기(`assignment.get`)는 사람과 machine뿐이다. agent 정의를 만들고 고치는 tool(`agent.create`, `agent.update`)은 `mcp_servers`, `permission_mode`, `deployed_skills`, `remote_apps`, `browser_profile`을 입력으로 받지 않는다. 앱 skill 배포는 배포 명령(`skills/deploy|undeploy`)이 한다: 사람은 묻지 않고 하고, agent는 그 앱 자기 workspace의 session(그 앱의 skill을 어느 층에든)과 Home의 lophn(어느 앱이든 어느 층에든)만 묻지 않고 하며, 그 밖의 agent는 `setting` 종류의 승인 카드(`once | reject`)로 사람에게 묻고 사람이 없는 실행이나 묻지 못하는 호출은 `forbidden`이다(문장이 앱 command를 부르면 묻는다고 알린다). 앱 공유 요청도 agent가 여는 것은 요청뿐이고 배포는 사람의 승인이다.
+9. 판정이 읽는 배포는 call 때마다 세 층(전역 설정, workspace `extensions.json`, 정의 파일)에서 읽는다. 앱 호출 경로와 사용 관계도 같은 읽기다. 없는 앱 slug와 active release의 public이 아닌 skill은 읽을 때 빠진다(닿지 않은 것으로 본다). 층을 읽지 못하면 그 층이 없는 것이다.
 10. 선언(앱 선언의 효과, MCP `readOnlyHint`)은 믿는다.
 11. shell extension의 tool은 `extension_tool {extension, tool}`로 판정한다. 정의 칸 `extensions`에 없으면 `deny not_assigned`, 켜진 extension의 catalog에서 빠졌으면(꺼짐, tool 없어짐) `deny removed`, 아니면 `run`이다. 판정은 호출 route `extension_tools/call`이 한다.
 
@@ -192,7 +192,7 @@ spawn된 session(`spawned_by` 있음)의 `ask` tool(질문)과 일반 `ask`(승�
 
 권한 단계와 실행 맥락
 19. turn의 `turns.mode`(`attended | unattended`)는 시작 때 정해지고 그 turn 동안 바뀌지 않는다(저장소가 시작된 turn의 mode 변경을 막는다).
-20. session의 `permission_mode`는 사람만 바꾼다(`sessions/change-mode`, 로컬·원격 기기 모두 4단계 선택 허용). 단계를 바꾸면 다음 tool 호출부터 바로 적용된다. 정의의 `permission_mode`와 전역 기본 `approvals.default_mode`도 사람만 쓴다. fork는 단계를 가져가지 않고 agent/전역 기본값으로 시작한다. 팀 자식은 `min(부모 단계, 정의/전역 기본값)`으로 상한을 둔다. `unattended`는 call을 따라 가되 할당과 단계를 넓히지 않는다.
+20. session의 `permission_mode`는 사람만 바꾼다(`sessions/change-mode`, 로컬·원격 기기 모두 4단계 선택 허용). 단계를 바꾸면 다음 tool 호출부터 바로 적용된다. 정의의 `permission_mode`와 전역 기본 `approvals.default_mode`도 사람만 쓴다. fork는 단계를 가져가지 않고 agent/전역 기본값으로 시작한다. 팀 자식은 `min(부모 단계, 정의/전역 기본값)`으로 상한을 둔다. `unattended`는 call을 따라 가되 배포와 단계를 넓히지 않는다.
 
 거부 언마스킹과 가시성
 21. 모든 gate 거부와 handler `forbidden` 오류는 원문·규칙·복구 힌트를 숨기지 않고 model에 전달하며 끝에 우회 금지 지침을 붙인다. 존재를 감춰야 하는 대상은 handler가 `not_found`로 돌려 공통 문장을 유지한다.
@@ -201,12 +201,12 @@ spawn된 session(`spawned_by` 있음)의 `ask` tool(질문)과 일반 `ask`(승�
 팀 자식
 23. 팀 자식의 물음에는 사람 카드가 뜨지 않는다. 부모의 답은 구조(`--allow | --reject`)이고 허락은 `once`뿐이다. 사람 전용 등급은 부모가 대신하지 못한다(`deny no_person`). 명시하지 않은 허락은 없다(자동 답은 거절).
 
-할당 저장
-24. 할당 저장은 revision을 비교한다. 다른 창이 먼저 저장했으면 `conflict`이고 화면이 다시 읽는다. revision은 정의 파일 값 `{apps, deny, ask}`의 hash(sha256 앞 48 bit)에서 정한 값이고 할당이 비면 0이다. 정의 파일의 다른 칸(지침 본문, model)을 고쳐도 바뀌지 않는다.
-25. 쓰기는 정의 파일의 `apps`, `permissions.deny`, `permissions.ask`만 다시 쓴다. 다른 칸과 본문은 그대로다. 이 할당이 다루는 deny·ask 규칙은 옛 앱과 새 앱의 command 것뿐이고 그 밖의 규칙은 지킨다. 정의 파일이 없는 agent에는 쓰지 않는다(`not_found`).
+다른 컴퓨터 앱 할당 저장
+24. 할당 저장은 revision을 비교한다. 다른 창이 먼저 저장했으면 `conflict`이고 화면이 다시 읽는다. revision은 정의 파일의 `remote_apps` 값의 hash(sha256 앞 48 bit)에서 정한 값이고 할당이 비면 0이다. 정의 파일의 다른 칸(지침 본문, model)을 고쳐도 바뀌지 않는다.
+25. 쓰기는 정의 파일의 `remote_apps`만 다시 쓴다. 다른 칸과 본문은 그대로다. 정의 파일이 없는 agent에는 쓰지 않는다(`not_found`).
 
 앱 공유 요청
-26. 요청은 사람이 승인하기 전에는 아무 할당도 바꾸지 않고, 결정은 사람 자격만 낸다. 카드가 본 요청(`requested_at`)이 아닌 것은 승인되지 않는다(`conflict`). 승인과 동의의 같이 승인은 할당과 coding agent 설정에서 같은 효과를 낸다.
+26. 요청은 사람이 승인하기 전에는 아무 배포도 바꾸지 않고, 결정은 사람 자격만 낸다. 카드가 본 요청(`requested_at`)이 아닌 것은 승인되지 않는다(`conflict`). 승인과 동의의 같이 승인은 배포와 coding agent 설정에서 같은 효과를 낸다.
 
 ## 경계와 계약
 
@@ -218,7 +218,8 @@ route와 command
 - `permissions/trust-local-tool`, `permissions/untrust-local-tool`(memory, desktop 사람 전용 — 원격 기기 제외): `approvals.local_tool_trust`에 `(realpath, sha256)`을 더하거나 뺀다.
 - `sessions/change-mode`(command, 사람 자격, `REMOTE_ALLOWED_ROUTES`에 포함): session의 `permission_mode`를 바꾼다(로컬·원격 기기 모두 4단계 선택 허용).
 - `extension_tools/call`: shell extension tool의 판정과 shell host로 넘기기.
-- `assignment.get`(사람·machine), `assignment.set`(사람): `{agent, entries: [{app, removed_tools[], ask_tools[]}]}` 꼴과 revision compare.
+- `assignment.get`(사람·machine), `assignment.set`(사람): 다른 컴퓨터 앱 할당 `{agent, entries: [{app, machine, name, removed_tools[], ask_tools[]}]}` 꼴과 revision compare.
+- `skills/deploy`, `skills/undeploy`, `skills/deployments`(memory, 사람과 agent): 앱 skill 배포를 더하고 거두고 읽는다. `{app, skill, to, tool_call?}`이고 `to`는 `global | workspace[:<이름>] | agent:<handle>`이다. 승인 카드를 열어야 하는 agent는 `tool_call`로 그 카드를 연다.
 - `share_request.open`(agent, 앱 workspace), `share_request.decide`(사람, `approve | reject`, compare `requested_at`), `share_requests.list`(대기 목록).
 - `ask` 입구는 팀 자식 여부와 unattended 여부를 가른다. `ReplyCall.decision`이 부모의 승인 답이다.
 - 설정(`locked: true`, 사람만 쓰기): `approvals.permission_rules`(`{global, projects}`), `approvals.default_mode`(기본 `workspace`), `approvals.workflow_modes`, `approvals.local_tool_trust`, `coding-agent.shared_apps`. 설정 선언의 `approval: "person"`과 `describe`(`settings.md`), 그 거절 reason `needs_approval`.
@@ -227,12 +228,12 @@ event (남지 않는다. commit 뒤 Bus)
 - `TurnRequestOpened`(`to_parent` 표시, `allowed_choices`, `reason`, `outside_rewind`), `TurnRequestClosed {allow | reject | cancelled}`, `PermissionDenied { turn, tool_call, denial }` (`REMOTE_ALLOWED_EVENTS` 포함), `ShareRequestOpened`(새 요청이 대신해도 낸다), `ShareRequestClosed {outcome}`. 대기 목록은 snapshot의 `turn_requests`, `share_requests.list`를 읽고 이 event로 고친다. 대기 목록은 Inbox의 Now 탭 위쪽("답할 것")이다. 그 아래 휘발 알림과 따로 있는 History 탭(영구 기록)은 답할 것이 아니지만 안 읽은 영구 줄은 sidebar 배지에 센다(`architecture/app-notice.md`).
 
 저장
-- 할당의 정본은 agent 정의 파일의 `apps`와 `permissions.deny`·`permissions.ask`다. approvals는 정의 파일도 앱 표도 모르므로 읽고 쓰는 길은 조립이 꽂는 port다. 쓰기는 앱 id를 slug로, 뺀 command를 deny 규칙으로, 묻기 command를 ask 규칙으로 바꾼다.
+- 다른 컴퓨터 앱 할당의 정본은 agent 정의 파일의 `remote_apps`다. approvals는 정의 파일도 앱 표도 모르므로 읽고 쓰는 길은 조립이 꽂는 port다. 앱 skill 배포의 정본은 세 층의 설정이고(`architecture/agent-definition.md`) 표는 없다.
 - 옛 설정 `approvals.shell_rules`는 기동 시 data step `approvals.permission-rules-migrate`가 `approvals.permission_rules`(`category: "shell"`)로 보존 이전하고 옛 키를 지운다.
 - 옛 agent 정의 `skip`은 data step `agents.permission-mode`가 `skip: true` → `permission_mode: full`, `skip: false` → 삭제(전역 기본 상속)로 옮긴다. 옛 `sessions.skip`과 `turns.mode = 'skip'`은 schema step `lophn-agent.session-permission-mode`가 `sessions.permission_mode`(`skip = 1` → `'full'`, 기본 `'workspace'`)와 `turns.mode = 'attended'`로 옮긴다.
 - 옛 ledger 표 `agent_assignments`의 schema step(id `agent_assignments`)은 목록에 그대로 남는다. 이미 적용한 ledger가 id를 기록하고 있어 빼면 기동을 거절한다. 새 data root에는 data step이 돌지 않아 빈 표가 남고 쓰는 곳은 없다.
-- 옛 표의 줄은 data step `approvals.assignment-file`이 옮긴다. 줄마다 그 agent 파일에 `apps`와 `permissions.deny`를 쓰고 표를 지운다. 앱이 없는 줄, active 선언에 없는 command, 정의 파일이 없거나 틀린 agent의 줄은 버린다(쓸 곳이 없다). 다시 돌아도 같은 결과다. 뒤의 data step `approvals.deny-rule-slug`가 `lophn(<domain> <낱말>)` 규칙을 앱 slug로 바꾼다.
-- data step은 ledger schema step 뒤에 조립 목록 순서로 돈다. `agents.skills-off`(agent 파일의 `skills`를 `skills_off`로)가 `approvals.assignment-file`보다 먼저 돈다. 앞의 step이 옛 `skills`를 옮겨야 뒤의 step이 엄격한 schema로 agent 파일을 읽고 쓴다. 순서를 바꾸면 옛 `skills`가 남은 파일은 schema가 거절해 할당이 버려진다.
+- 옛 판의 data step `approvals.assignment-file`(옛 표의 할당을 정의 파일의 `apps`로 옮김)과 `approvals.deny-rule-slug`(deny 규칙을 앱 slug로 바꿈)는 이미 적용한 data root가 id를 기록하고 있어 목록에 남고 하는 일이 없다. 옛 할당(`apps`, `permissions`)은 옮기지 않고 data step `agents.drop-apps-permissions`가 정의 파일에서 지운다: 배포는 앱의 active release가 가진 public skill에서만 만들 수 있어 옛 할당에서 만들 수 없고, 그 앱을 부르면 Gate가 묻는다. `remote_apps`와 다른 칸, 본문은 그대로다. 이 step은 정의를 schema로 읽는 다른 data step보다 앞서 돈다(새 schema는 두 칸을 받지 않는다).
+- data step은 ledger schema step 뒤에 조립 목록 순서로 돈다. `agents.drop-apps-permissions`가 가장 먼저, 그 뒤 `agents.skills-off`(agent 파일의 `skills`를 `skills_off`로)가 돈다. 앞의 step이 옛 칸을 옮기거나 지워야 뒤의 step이 엄격한 schema로 agent 파일을 읽고 쓴다.
 - 공유 요청은 `share_requests` 표(schema step `approvals.share_requests`)에 앱마다 한 줄이다.
 - turn request, 질문 대기, `SessionGrantStore`(이번 대화 허락과 최근 거부)는 core main thread 메모리에 있고 ledger에 쓰지 않는다(durable queue가 되는 것을 막고 재시작·session 종료 시 자연히 비워진다).
 
@@ -260,7 +261,7 @@ event (남지 않는다. commit 뒤 Bus)
 - `apps/call_tool`은 이 입구로 대신하지 않는다. 기기 자격이 `person` caller가 되어 Gate를 건너고 operation까지 닿고, `runs/start`는 run 기록이 사람 caller라 agent run까지 연다. 그래서 다른 기계의 앱을 부르는 입구는 새 route 하나다.
 - 요청한 쪽은 보내는 컴퓨터의 core가 정직하게 싣는다는 것에 기댄다. 받는 기계가 확인할 수 있는 것은 Noise로 인증된 명단의 컴퓨터가 보냈다는 것뿐이다. 뚫린 컴퓨터는 `screen`을 주장할 수 있고 허락이 있으면 사람의 route와 자동 확인까지 받는다. 그것을 한정하는 것은 받는 컴퓨터가 그 컴퓨터에 준 허락(켜고 끄는 스위치 하나)이다.
 - 다른 컴퓨터의 agent가 보낸 mail이 여는 session은 받는 컴퓨터가 그 컴퓨터에 터미널 입력 허락을 켜 두었을 때만 agent 정의의 `permission_mode`를 따르고 아니면 최대 `workspace` 이하로 상한을 둔다. 허락은 mail을 받을지에는 쓰지 않는다(명단의 컴퓨터는 mail을 받는다). 늦게 온 mail의 [Start now]는 정하는 때의 허락으로 본다(`machine-a2a.md`).
-- private은 기계 사이에도 선다. 자리가 둘이고 각자 자기 workspace의 설정(call 정책의 `private` 목록)으로 본다. 부르는 기계가 막는다: private인 workspace의 agent와 앱은 다른 기계를 부르지 못한다. 받는 기계가 막는다: 대상 앱의 workspace가 private이면 그 앱은 다른 기계에서 불리지 않고 그 앱의 목록·읽기도 `agent`·`app` 요청에는 보이지 않는다. 기계 사이에는 call 정책의 workspace 쌍 규칙을 보지 않는다(그 key는 기계마다의 id다). private 목록만 본다. 사람의 화면과 터미널은 private이어도 된다. agent가 같은 기계의 앱을 부를 때는 지금처럼 할당만 본다.
+- private은 기계 사이에도 선다. 자리가 둘이고 각자 자기 workspace의 설정(call 정책의 `private` 목록)으로 본다. 부르는 기계가 막는다: private인 workspace의 agent와 앱은 다른 기계를 부르지 못한다. 받는 기계가 막는다: 대상 앱의 workspace가 private이면 그 앱은 다른 기계에서 불리지 않고 그 앱의 목록·읽기도 `agent`·`app` 요청에는 보이지 않는다. 기계 사이에는 call 정책의 workspace 쌍 규칙을 보지 않는다(그 key는 기계마다의 id다). private 목록만 본다. 사람의 화면과 터미널은 private이어도 된다. agent가 같은 기계의 앱을 부를 때는 지금처럼 배포(와 Gate)만 본다.
 - 앱 화면의 앱 session·call route(`app_sessions/list|status|stop|open|end`, `app_calls/send|read|cancel|list`, `app_agents/list`)는 기기가 다른 컴퓨터에 띄운 이 기계의 앱 화면을 대신해 부른다. 이 route들은 사람 자격이면 입력의 앱을 그대로 쓰므로, 기기(principal `device:<id>`)는 자기가 연 앱 화면의 view(`view`)를 줘야 하고 앱은 core의 view 표에서 그 (기기, view)의 앱이다. view가 없으면 `forbidden`, 그 기기가 연 view가 아니면(없는 view, 다른 owner의 view) `not_found`, live가 아니거나 묶음을 잃은 view와 다른 앱을 적은 입력은 `forbidden`이다. 이 컴퓨터의 shell(principal `user`)과 앱 자격은 view 없이 그대로다. 기기가 보낸 메시지의 앱 이름표(`acp/send`의 `via_app`)는 그 기기가 그 앱의 live view를 열어 두었을 때만 붙고 아니면 이름표 없이 간다.
 - agent 자격은 `roster/*`와 `machines/list|call|watch`를 부르지 못한다(agent가 부르는 `machines/sessions|agents`는 그 session 대신 core가 정한 요청한 쪽 `agent`로 받는 컴퓨터의 `a2a/*`만 부른다). 사람의 route는 actor user만 받고(agent의 shell에서 부른 `lophn remote …`도 여기서 막힌다), 명단을 저장하는 `roster/statements|store|forget_all`은 core 안 machine 자격만 받는다.
 - 기기를 빼면(`roster/remove`, 어느 컴퓨터에서나 사람만. 기기는 `roster/leave`로 자기만) 그 컴퓨터가 서명한 빼기가 명단을 따라 모든 기계에 퍼진다. 빼기를 안 기계마다 그 기기의 자격을 거두고 연결을 `closed(credential_revoked)`로 닫으며 폰의 기기 행과 push token을 지운다. 연결과 자격은 id만이 아니라 key로도 찾는다(뺀 key의 연결은 id가 무엇이든 닫는다). 뺀 key는 다시 붙지 못하고 `join`이 그 빼기를 실어 거절한다. 붙는 중(key를 찾은 뒤 자격을 받기 전)에 빼면 빼기가 그 연결을 아직 모르므로, 연결이 자격을 받은 뒤 key를 다시 찾아 없으면 자격을 거두고 닫는다.
@@ -275,7 +276,7 @@ event (남지 않는다. commit 뒤 Bus)
 - **권한 4단계(`read_only` 보기만 / `ask` 다 묻기 / `workspace` 고치기는 알아서 / `full` 다 맡기기)와 설정 가능한 전역 기본 단계(초기 기본값 ③ `workspace`)** (사람, 2026-11-25 — 2026-10-20의 "할당이 허락, shell 기본 allow, `session` 허락 폐지" 및 2026-10-21의 "할당 tool external 미질문" 결정을 대체): `shell.run` 기본 allow와 단순 2단계(`ask | skip`)는 물어야 할 것을 놓치고 중간 자율 단계를 표현하지 못했다. 기본 ③(`workspace`)은 lophn이 rewind 기록을 남기는 등록 폴더 안 `file.*` 쓰기와 내장 읽기 shell 명령만 묻지 않고, 그 밖의 shell·바깥 폴더·비신뢰 MCP·미신뢰 로컬 tool은 묻는다. 전역 기본은 `approvals.default_mode`로 사람이 고르고, `session`("이 대화 동안") 선택지를 되살려 반복 마찰을 줄인다.
 - **사람이 없는 실행(`unattended`)에서 `ask`는 `deny`(`no_person`)** (사람, 2026-11-25 — 2026-10-20의 "unattended는 묻지 않고 실행" 결정을 뒤집음): 무인 실행에서 `ask`를 통과시키면 안전장치가 무력화된다. 미리 둔 allow 규칙과 명시적 ④(`full`) 모드(사람이 agent 정의 또는 workflow participant 모드로 opt-in)만 무인으로 통과한다.
 - **등록 폴더 밖 파일은 `ask`(`once | session | reject`)로 열고 민감·자기 보호 경로는 계속 차단** (사람, 2026-11-25): 바깥 폴더를 일괄 `forbidden`으로 막으면 정당한 작업이 막히고, `session`으로 연 폴더 안 쓰기도 rewind 기록에 넣어 복구할 수 있게 한다. `~/.ssh`, `~/.aws`, `~/.gnupg`와 `<data root>` 설정·권한·agent 정의·secret은 계속 차단한다.
-- **내 앱 command별 `ask_tools`, 외부 MCP `trust`, 로컬 tool `(realpath, sha256)` 신뢰** (사람, 2026-11-25 — 2026-10-21의 "할당 tool 무조건 실행" 보완): 할당한 내 앱은 기본 통과하되 command별로 사람이 묻기를 켤 수 있게 하고(`ASK_EXTERNAL_WHEN_ATTENDED` 상수 제거), 외부 MCP는 `trust: trusted | untrusted`(기본 `untrusted`)로 비읽기 tool을 물으며, 로컬 tool은 처음과 내용이 바뀌었을 때 사람 전용 등급으로 한 번 묻는다.
+- **외부 MCP `trust`, 로컬 tool `(realpath, sha256)` 신뢰** (사람, 2026-11-25 — 2026-10-21의 "할당 tool 무조건 실행" 보완. 내 앱 command별 `ask_tools`는 2026-11-28에 앱 skill 배포로 대신해 없앴다): 외부 MCP는 `trust: trusted | untrusted`(기본 `untrusted`)로 비읽기 tool을 물으며, 로컬 tool은 처음과 내용이 바뀌었을 때 사람 전용 등급으로 한 번 묻는다.
 - **workflow participant별 권한 단계는 `workflow.yaml`이 아니라 사람 전용 설정(`approvals.workflow_modes`)과 `StartWorkflow.participant_modes`에 둔다** (사람 2026-11-25 방향, 기술 결정 agent): workflow 파일은 agent가 쓰므로 거기에 단계를 두면 agent가 자기 권한을 올린다. job 승인 카드가 쓰일 단계를 보이고 승인 후 기억된 단계가 `full`로 오르면 자동 일시정지(`mode_escalated`)한다.
 - **통합 결정적 판정 엔진(`evaluatePermission`)과 고정 우선순위 `deny > ask > allow`, 격리 슬롯 `IsolationBackend = "none"`** (agent, 2026-11-25): `findLast`의 실수 구멍을 없애고 모든 범주(`shell`, `file_*`, `app_tool`, `mcp_tool`, `local_tool`, `setting`, `project_command*`)를 한 순수 함수로 통합한다. OS sandbox와 LLM 판정(guardian)은 넣지 않고 `IsolationBackend = "none"` 슬롯만 둔다.
 - **TypeScript 순수 상태 기계 shell 스캐너와 안전한 `always` 패턴** (agent, 2026-11-25 — 2026-10-21의 "문자열 정규화·파서 미사용" 및 "앞 두 낱말 + `*`" 결정을 뒤집음): `sh -c "rm -rf ~"`, `env rm -rf ~`, `rm -r --force ~`가 floor를 통과하는 데이터 손실 버그와 `rm -rf *` 같은 넓은 영구 허락 버그를 막는다. native tree-sitter 없이 순수 TypeScript 상태 기계로 래퍼(깊이 8)·flag·home 경로 정규화와 `opaque`/`elevated` 비대칭 검사를 구현한다. 이미 저장된 넓은 규칙은 지우지 않고 Settings에서 경고 표시만 단다.
@@ -283,7 +284,7 @@ event (남지 않는다. commit 뒤 Bus)
 - **원격 기기에서도 `sessions/change-mode`·coding session `set_mode` 전체 선택 허용, 모바일 폰 터미널 입력 항상 허용, 로컬 tool 신뢰는 desktop 전용** (사람, 2026-11-26): 원격(다른 컴퓨터·폰)에서도 대화의 4단계 권한 모드를 자유롭게 바꿀 수 있게 하고, 모바일 폰(`kind: "phone"`)의 터미널 입력(`terminals/input`, `terminals/open`의 `command`/`resume`, `terminal_view/snapshot`, coding session `run_shell`/`!`)은 별도 터미널 입력 스위치 없이 항상 허용한다(다른 컴퓨터의 터미널 입력과 `REMOTE_PERSON_ROUTES` 허락 경계, 그리고 로컬 tool 신뢰의 desktop 전용 경계는 유지).
 - (이전 기록, 2026-10-20/21) "시킨 것이 승낙이고 할당이 허락이다", "할당 tool의 external도 묻지 않음", "이 session 동안 허락 폐지", "unattended는 묻지 않음", "문자열 floor와 앞 두 낱말 `always`" 결정은 위의 2026-11-25 사람·기술 결정으로 대체되었다.
 - unattended에서 activation을 저절로 동의하는 장치를 두지 않는다. (사람, 2026-10-20)
-- 앱을 지은 agent가 공유를 제안하고 사람이 한 번 승인하면 앱의 command(부르기)와 public skill(알기)이 한 할당으로 같이 간다. 공유 요청은 turn 안 request가 아니다. 이유: 요청한 agent의 turn이 끝난 뒤에도 사람이 승인할 수 있어야 하고(activation 동의, job 승인과 같은 꼴), agent가 할당을 직접 쓰는 길은 두지 않는다. (사람, 2026-11-02)
+- 앱을 지은 agent가 공유를 제안하고 사람이 한 번 승인하면 앱의 command(부르기)와 public skill(알기)이 한 배포로 같이 간다. 공유 요청은 turn 안 request가 아니다. 이유: 요청한 agent의 turn이 끝난 뒤에도 사람이 승인할 수 있어야 하고(activation 동의, job 승인과 같은 꼴), agent가 배포를 승인 없이 직접 쓰는 길은 두지 않는다(배포 명령의 자격은 따로 따진다). (사람, 2026-11-02)
 - 앱의 activation 동의가 대기 중이면 공유 요청을 그 동의와 한 번에 승인한다. 이유: builder가 만들고 grant까지 알아서 해 주기를 바랐다. 사람의 승인은 남기되 한 번으로 줄였다. (사람, 2026-11-07)
 - 설정과 secret을 넣는 기기는 터미널 입력을 허락받은 기기다. 허락을 하나 더 만들지 않는다. 이유: 터미널에 칠 수 있는 기기는 이미 그 기계를 온전히 다룬다. 허락받은 기기의 확인이 필요한 command는 받는 core가 handle을 붙인다. (사람 "기존의 approval이랑 크게 다를 게 없다", 2026-11-18)
 - 동의 카드가 본 공유 요청의 `requested_at`을 싣고 그 사이 요청이 바뀌었으면 동의째 `conflict`다. 공유를 먼저 적용하고 실패하면 tx가 되돌아가 동의는 대기로 남는다. 이유: 사람이 보지 못한 요청을 승인하지 않는다. (agent)
@@ -292,19 +293,20 @@ event (남지 않는다. commit 뒤 Bus)
   - 부모의 승인 답은 글이 아니라 `call reply`의 구조 칸이다. 새 명령을 두지 않았다. 부모는 이미 `call reply`를 안다. (agent)
   - 팀 자식의 event는 그대로 내고 `to_parent` 표시로 거른다. `TurnResumed`, snapshot의 `waiting`, acp가 그 event에 기댄다. (agent)
   - 팀 자식의 권한 단계는 `min(부모 단계, 정의/전역 기본값)`으로 상한을 두고, 사람 전용 등급은 부모가 대신하지 못한다. (agent, 2026-11-25)
-- job은 사람이 등록을 한 번 승인해야 돈다. job의 허락은 만든 agent의 할당이 아니라 그 등록 승인이다. 이유: job은 agent가 만들고 정해진 때 사람 없이 돈다. agent가 혼자 정한 일이 사람 없이 되풀이되지 않게 하고 허락의 범위를 그 job의 할 일 하나로 맞춘다. 할당으로 허락하면 job 하나를 위해 그 agent에게 앱 전체를 열어 줘야 한다. 승인 뒤 할 일은 바뀌지 않는다. job이 부르는 agent run과 instance는 unattended이고 받은 agent의 할당과 권한 단계로 일한다. 앱 tool 호출은 승인이 허락이다. 버린 안: 앱 place에서 만든 job만 할당 검사를 건너뛰기, 만들 때 할당을 검사해 거절하기. (사람)
-- flow는 project workspace의 agent가 쓴 code라 그 agent의 할당이 허락이다. code에 credential을 주지 않으므로 다른 자격을 빌릴 길도 없다. (agent)
-- 묻는 길은 기다리는 turn 하나, fingerprint 없음, agent call은 묻지도 막지도 않음, `LOPHN.md` 쓰기는 묻지 않음, reaction은 `off | on`이고 새 일 handler는 approvals를 거치지 않는다. 이유: 개념이 많고 같은 판정을 여러 번 했다. agent call은 받은 agent가 자기 할당으로만 일하므로 부르는 쪽에서 판정할 이유가 없다(`products/AGENT.md` T5, T6). 누구를 부르는지는 지침과 workflow의 일이다. (agent)
+- **이 컴퓨터 앱의 허락은 skill 배포 하나이고, 배포되지 않은 앱 호출은 거절이 아니라 Gate의 ask다. `always`는 그 앱의 public skill을 부른 session의 workspace 층에 배포하고, 묻지 않는 범위는 앱 단위다. 묻지 못하는 agent 호출은 닿지 않은 앱을 부르지 못한다: 앱 호출 경로가 Gate가 기록한 run을 한 번 더 확인한다.** 이유: 아는 것이 agent를 움직이므로 알리는 것만 관리하면 허락을 따로 관리할 일이 거의 없다. 사람에게는 묻는 카드가 배포의 시작이 된다. Gate의 `once | session | always | reject`를 그대로 쓰고 새 범주를 만들지 않았다. 배포 명령을 묻는 것은 `setting` 종류의 카드를 쓴다(`once | reject`). (사람, 2026-11-28. `unattended`와 묻지 못하는 호출은 지금의 거절 규칙 그대로다. `full`은 사람이 맡긴 것이라 묻지 않는다: agent가 정했고 MCP·로컬 tool의 `full` 규칙과 같다.)
+- job은 사람이 등록을 한 번 승인해야 돈다. job의 허락은 만든 agent의 배포가 아니라 그 등록 승인이다. 이유: job은 agent가 만들고 정해진 때 사람 없이 돈다. agent가 혼자 정한 일이 사람 없이 되풀이되지 않게 하고 허락의 범위를 그 job의 할 일 하나로 맞춘다. 배포로 허락하면 job 하나를 위해 그 agent에게 앱 전체를 열어 줘야 한다. 승인 뒤 할 일은 바뀌지 않는다. job이 부르는 agent run과 instance는 unattended이고 받은 agent의 배포와 권한 단계로 일한다. 앱 tool 호출은 승인이 허락이다. 버린 안: 앱 place에서 만든 job만 배포 검사를 건너뛰기, 만들 때 배포를 검사해 거절하기. (사람)
+- flow는 project workspace의 agent가 쓴 code라 그 agent에게 닿은 skill이 허락이다. code에 credential을 주지 않으므로 다른 자격을 빌릴 길도 없다. (agent)
+- 묻는 길은 기다리는 turn 하나, fingerprint 없음, agent call은 묻지도 막지도 않음, `LOPHN.md` 쓰기는 묻지 않음, reaction은 `off | on`이고 새 일 handler는 approvals를 거치지 않는다. 이유: 개념이 많고 같은 판정을 여러 번 했다. agent call은 받은 agent가 자기 배포와 권한으로만 일하므로 부르는 쪽에서 판정할 이유가 없다(`products/AGENT.md` T5, T6). 누구를 부르는지는 지침과 workflow의 일이다. (agent)
 - 보류 request 길(저장 표와 applier)을 지웠다. 쓰던 둘 가운데 reaction의 `ask`는 지웠고(그 reaction 설정이 없어졌다), activation 동의는 activation module이 자기 상태로 갖는다. (agent)
-- MCP server는 설정한 층이 곧 할당이라 할당 줄은 앱만 둔다. (agent)
+- MCP server와 이 컴퓨터 앱의 skill 배포는 설정한 층이 곧 허락이라 할당 줄은 다른 컴퓨터 앱만 둔다. (agent)
 - LLM 판정을 넣지 않았고 OS sandbox와 timeout도 두지 않았다(비목표).
 - CLI의 `--dangerously-skip-permissions`는 두지 않는다. 무인 실행 권한은 agent 정의의 `permission_mode`나 허용 규칙으로 사람이 명시적으로 정한다. (agent)
 - 사람 결정 handle은 shell capability로만 등록한다. 이유: HTTP token은 renderer와 앱 view, CLI를 쓰는 terminal agent까지 같은 값이 퍼지고 agent·worker credential은 agent의 것이라 그 자격으로 등록하면 agent가 사람의 결정을 흉내 낼 수 있다. 그래서 사람만 쓰는 창을 가진 shell main에만 주는 다른 자격을 둔다. 경계는 control socket 자리(같은 사용자, 0700 폴더, named pipe)이고 OS peer 신원은 보지 않는다. 같은 사용자의 process는 이미 `secrets.json`을 읽을 수 있어(`architecture/agent-definition.md`의 secret 저장소, `architecture/platform.md`의 data root) peer 검증이 더 막는 것이 없고 세 OS native addon이 든다. (agent)
-- 판정이 읽는 할당을 call 때마다 읽는 것과 MCP 연결 call이 server 설정을 다시 읽는 것은 사람이 거둔 권한이 바로 거둬지게 하려는 것이다. 버린 안: server를 끄는 바뀜마다 연결을 끊기(바뀜을 알리는 길을 새로 둬야 한다). (agent)
+- 판정이 읽는 배포를 call 때마다 읽는 것과 MCP 연결 call이 server 설정을 다시 읽는 것은 사람이 거둔 권한이 바로 거둬지게 하려는 것이다. 버린 안: server를 끄는 바뀜마다 연결을 끊기(바뀜을 알리는 길을 새로 둬야 한다). (agent)
 - 폰의 자격은 사람과 같은 actor user이되 route를 목록으로 좁힌다. principal을 기기마다 두어 입장 한도와 command 결과를 shell과 나누지 않는다. 이유: 폰은 일하는 창이고(보기, 말하기, 답하기) 관리는 desktop에 남긴다. 신원은 bearer token이 아니라 handshake로 받은 공개 key다. 버린 안: 폰용 actor 종류를 새로 두기(사람의 결정 route가 모두 그 종류를 받아야 하고 뜻이 같은 사람이다). (agent, 사람이 추천을 받음 2026-11-14)
 - 기기 자격은 내 기기 명단에서 온다. 기기 id는 명단 전체에서 하나이고 모든 컴퓨터에서 같지만 터미널 입력 허락은 받는 컴퓨터가 정해 컴퓨터마다 따로다. 부를 수 있는 route 목록은 kind와 상관없이 하나다. 이유: 한 번 들인 기기가 모든 컴퓨터에서 같은 기기여야 어느 컴퓨터에서나 빼고 알아본다. 허락은 명단에 서명된 값이면 명단의 컴퓨터 누구나 다시 서명해 켤 수 있어(컴퓨터가 자기 허락을 스스로 켜는 구멍이 실제로 있었다) 경계가 못 된다. 그래서 허락은 받는 컴퓨터의 ledger 표에 두고 그 컴퓨터 앞의 사람이 켠 것만 인정한다. 잃는 것: 한 번 켜면 모든 컴퓨터에 서던 것이 없어져 컴퓨터마다 한 번씩 켠다(초대장의 허락과 합류 때의 스위치가 그 한 번을 줄이고, 첫 기동은 켜져 있던 허락을 옮긴다). 버린 안: 컴퓨터마다 기기 표와 그 컴퓨터 안에서만 뜻이 있는 `dev_`, 명단 항목에 둔 모든 기계에 같은 허락(앞의 판). (agent, 사람: "기존의 approval이랑 크게 다를 게 없다"로 한 번 정했다가 허락은 받는 컴퓨터가 정하는 것으로 고쳤다, 2026-11-19)
 - 다른 기계로 넘기는 call에 요청한 쪽을 싣고 받는 기계가 종류마다 다르게 대한다. 이유: 받는 기계가 모두를 "그 컴퓨터의 사람"으로 보면 agent와 앱이 보낸 call이 사람의 route와 자동 확인을 받는다(`core-setup` review의 지적). 사람의 터미널은 새 route 없이 `machines/call`을 같이 쓰고 요청한 쪽만 자격으로 가른다. 넘기는 길이 하나라야 막는 자리가 하나다. 버린 안: 입력에 요청한 쪽 칸을 두는 것(agent가 `screen`을 주장한다), 터미널 전용 route. (agent)
-- 허락은 부르는 기계에서 할당으로 보고 받는 기계는 자기 규칙을 본다. 이유: 명단의 컴퓨터는 대등하고 그 사람의 것이다. 부른 기계의 할당을 다시 따지면 두 기계의 설정이 어긋나 안 되는 이유를 찾을 수 없다. 대신 받는 기계가 자기 것(명단, 터미널 입력 허락, private, `public`)은 늘 본다. (사람 "기존의 approval이랑 크게 다를 게 없을 거 같은데", agent)
+- 허락은 부르는 기계에서 할당(다른 컴퓨터 앱)으로 보고 받는 기계는 자기 규칙을 본다. 이유: 명단의 컴퓨터는 대등하고 그 사람의 것이다. 부른 기계의 할당을 다시 따지면 두 기계의 설정이 어긋나 안 되는 이유를 찾을 수 없다. 대신 받는 기계가 자기 것(명단, 터미널 입력 허락, private, `public`)은 늘 본다. (사람 "기존의 approval이랑 크게 다를 게 없을 거 같은데", agent)
 - 앱 command의 허락(터미널 입력 허락)과 사람의 route의 허락은 같은 스위치 하나다. 이유: 앱에 시키는 것은 그 기계를 다루는 것이고 터미널에 칠 수 있는 컴퓨터는 이미 그 기계를 온전히 다룬다. 허락을 하나 더 만들지 않는다. 잃는 것: "터미널은 되지만 agent와 앱은 안 된다"를 고를 수 없다. (agent)
 - private은 기계 사이에도 서고 두 자리에서 본다. 부르는 기계는 부른 쪽 workspace(private이면 보내지 않는다)를, 받는 기계는 대상 앱의 workspace를 각자 자기 call 정책의 `private` 목록으로 본다. 쌍 규칙은 기계 사이에 보지 않는다. 이유: 쌍 규칙의 key가 기계마다의 id이고 상대의 설정을 읽을 길이 없다. 사람의 화면과 터미널은 private이어도 된다. (사람, 2026-11-17)
 - `terminal`은 사람의 터미널이 아니라 그 컴퓨터의 CLI token을 쥔 쪽이다. 이유: lophn 터미널 탭의 shell은 사람 token을 받고 거기서 도는 coding agent와 사람을 가를 수 없다(`cli`가 명단을 바꾸는 명령을 막는 것도 지나가는 실수 막기다). 그래서 받는 기계는 `terminal`에 사람의 route, 자동 확인, 터미널·page를 움직이는 route, 사람의 결정 route를 주지 않고 앱 command와 기기 목록의 읽기만 연다. 잃는 것: 그 컴퓨터를 허락한 상태에서 CLI token을 쥔 coding agent는 `lophn … --on`으로 앱의 public command를 부를 수 있다. 그 범위는 받는 컴퓨터가 그 컴퓨터에 준 허락 하나로 정해진다. (agent)

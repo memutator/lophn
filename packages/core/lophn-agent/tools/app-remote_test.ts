@@ -34,6 +34,7 @@ function toolkit(remote: () => Promise<unknown>, remoteReadMs = 20) {
       return { ok: false, error: { code: "not_found", message: "none" } };
     },
     assignment: async () => ok({ entries: [remoteLine] }),
+    deployments: async () => [],
     remoteReadMs,
   });
   return { kit, paths };

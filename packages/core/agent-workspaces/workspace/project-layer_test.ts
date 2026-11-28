@@ -33,6 +33,7 @@ test("calendar 앱 extensions.json의 MCP server는 그 앱 session에만 실리
       servers: [],
       skills: { bundled: null, registered: [], personal: null },
       skillsOff: [],
+      deployed: [],
     },
   });
   const names = (workspace: AgentWorkspace | null) =>

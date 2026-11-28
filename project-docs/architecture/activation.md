@@ -61,7 +61,7 @@ release의 상태는 `prepared`, `activating`, `active`, `superseded`, `failed`�
 3. 동의를 기다리면 `release.activate`는 기다리지 않고 `waiting_consent`를 돌려준다. 동의 뒤의 시작은 sweep이 한다. 결과는 `activation.report`로 release를 만든 session에 notice로 간다(아래 실패와 복구의 `activation.report`).
 4. 묻는지는 program이 선언 사실로 결정적으로 판정한다. 늘어난 바깥 자원, 늘어난 다른 앱 tool 쓰기, migration이 선언한 loss, 이전 활성 release가 없는 첫 activation이다. 아무것도 늘지 않으면 묻지 않는다.
    - secret의 OAuth 칸(끝점, scope, 추가 parameter)이 바뀐 것도 늘어난 바깥 자원이다. 비교가 정규화한 scope 전체를 맞추므로 순서만 바뀐 것은 묻지 않는다. 동의 화면은 authorize host, refresh token이 갈 token host, scope를 보인다.
-   - 앱 자신의 tool이 더해지는 것은 묻지 않는다. 그 앱을 할당받은 agent는 새 tool도 묻지 않고 쓴다(할당이 허락이다, `architecture/approval.md`).
+   - 앱 자신의 tool이 더해지는 것은 묻지 않는다. 그 앱의 skill이 닿은 agent는 새 command도 묻지 않고 쓴다(배포가 허락이다, `architecture/approval.md`).
 5. data 손실은 migration 파일 머리의 `-- loss:` 줄이 유일한 출처이고, 줄이 틀리면 release 준비가 거절된다. 선언을 믿으니 사본에서 돌려 재지 않는다.
 6. 사람이 동의한 비교와 시작할 때의 비교가 다르면 다시 판정해 다시 묻는다. 기다리는 사이 앱 grant가 바뀔 수 있다.
 7. 새 release가 다른 workspace가 쓰는 공개 command·skill·event 계약을 지우거나 바꿔도 activation은 막지 않는다. `release.prepare`는 변경·제거된 항목과 외부 사용처 수(`contract_changes`, P12를 지켜 외부 workspace 이름은 숨김)만 돌려주고, activation 확정(`release.activate` 또는 `activation.consent` 승인) 직후 core가 영향받는 하위 workspace마다 `follow_up_items`를 남기고 대상 workspace의 `lophn`(둘 이상이면 Home `lophn`)에 정리 handoff를 보낸다(`architecture/app-call.md`).

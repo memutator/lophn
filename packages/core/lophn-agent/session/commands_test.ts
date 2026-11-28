@@ -72,8 +72,7 @@ function makeOpenDeps(defaultMode: PermissionMode = "workspace"): OpenDeps {
             workspace: null,
             permissionMode: "full",
             runtime: "lophn",
-            apps: [],
-            deny: [],
+            deployedSkills: [],
             remoteApps: [],
             browserProfile: null,
           };
@@ -86,8 +85,7 @@ function makeOpenDeps(defaultMode: PermissionMode = "workspace"): OpenDeps {
             workspace: null,
             permissionMode: "read_only",
             runtime: "lophn",
-            apps: [],
-            deny: [],
+            deployedSkills: [],
             remoteApps: [],
             browserProfile: null,
           };
@@ -99,8 +97,7 @@ function makeOpenDeps(defaultMode: PermissionMode = "workspace"): OpenDeps {
             name: "Plain",
             workspace: null,
             runtime: "lophn",
-            apps: [],
-            deny: [],
+            deployedSkills: [],
             remoteApps: [],
             browserProfile: null,
           };

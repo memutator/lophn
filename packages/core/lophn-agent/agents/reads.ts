@@ -99,7 +99,12 @@ function rowOf(context: AgentContext, loaded: Loaded): AgentRow {
               : receivedSkills(
                   [
                     ...skills,
-                    ...context.lookups.shared(definition?.apps ?? []),
+                    ...context.lookups.shared(
+                      context.lookups.reaching(
+                        workspace,
+                        definition?.deployed_skills ?? [],
+                      ),
+                    ),
                   ],
                   definition?.skills_off ?? [],
                 ).length,

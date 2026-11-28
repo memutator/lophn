@@ -354,18 +354,6 @@ export const terminalAgentsWiring: WiringFactory = () => {
           Promise.resolve(
             err({ code: "unavailable", message: "core is still starting" }),
           ),
-        memberDeny: (harness, session) => {
-          const deny = ledgerSnapshot(ctx.ledgerPath, (lookup) => {
-            const agentId =
-              (session != null
-                ? (loadSession(lookup, session)?.agent as AgentId | undefined)
-                : undefined) ?? (`coding_${harness}` as AgentId);
-            return (
-              workspaceDepsOf(lookup.sql).agents.agent(agentId)?.deny ?? []
-            );
-          });
-          return deny.ok ? deny.value : [];
-        },
         memberLaunch: (harness, session) => {
           const config = ledgerSnapshot(ctx.ledgerPath, (lookup) => {
             const agentId =

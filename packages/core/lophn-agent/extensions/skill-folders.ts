@@ -3,10 +3,16 @@ import process from "node:process";
 import { homeOf } from "../../../base/mod.ts";
 import type {
   AgentWorkspace,
+  SkillDeployment,
   WorkspaceKind,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { appSkills } from "../../../protocol/apps/declaration/read.ts";
-import { skillFoldersSetting, skillsOffSetting } from "./settings.ts";
+import { gatherDeployments } from "./deployments.ts";
+import {
+  globalDeployedSkillsSetting,
+  skillFoldersSetting,
+  skillsOffSetting,
+} from "./settings.ts";
 import { createListSettingsReader } from "../../config/mod.ts";
 import { settingsList } from "../../../protocol/config/mod.ts";
 import {
@@ -21,7 +27,9 @@ import {
 import { createNodeSkillFiles } from "./adapters/node-fs.ts";
 import type { SkillSnapshotDeps } from "./skill-read.ts";
 import {
+  EMPTY_PROJECT_EXTENSIONS,
   parseProjectExtensions,
+  type ProjectExtensions,
   workspaceSkillsOf,
   type ProjectLayer,
 } from "./project-settings.ts";
@@ -30,7 +38,7 @@ import { type CoreCall, readOf } from "../run-loop/core-call.ts";
 // 제품 runtime의 skill 발견이다. 파일 출처는 내장 skill 폴더, 등록 순서의 설정
 // `lophn-agent.extensions.skill_folders`, data root의 개인 보관소(`<LOPHN_HOME>/skills`), agent workspace의 첫 폴더나 앱 source의
 // `.lophn/skills`, agent workspace 그릇 자리의 `skills/`(workspace-data 층 규칙이 정한다, Home 포함) 다섯뿐이다. 다른 workspace의 폴더,
-// 상위 폴더, 다른 harness 보관소(`.agents/skills` 포함), 원격은 열지 않는다. 할당한 앱의 공유 skill은 파일을 열지 않고 core의
+// 상위 폴더, 다른 harness 보관소(`.agents/skills` 포함), 원격은 열지 않는다. 배포한 앱 skill(공유 층)은 파일을 열지 않고 core의
 // `app.skills`가 bundle에서 읽어 준 본문을 쓴다. 층은 내장, 공유, 전역(등록 폴더와 개인 보관소), project·app, workspace-data 순이다.
 
 // 내장, 개인 보관소의 위치와 agent가 놓인 workspace다. null은 그 출처가 없는 것이다. 테스트는 temp 폴더를 끼운다.
@@ -82,19 +90,19 @@ export function productSkillStores(
   };
 }
 
-// workspace에서 끈 이름이다. 파일이 없거나 틀렸거나 읽다 던지면 끈 것이 없다.
-function workspaceOff(
+// workspace 층 설정이다(끈 skill 이름, 배포한 앱 skill 같은). 파일이 없거나 틀렸거나 읽다 던지면 빈 설정이다.
+function workspaceExtensions(
   port: SkillFiles,
   file: string | null,
-): readonly string[] {
-  if (file === null) return [];
+): ProjectExtensions {
+  if (file === null) return EMPTY_PROJECT_EXTENSIONS;
   try {
     const read = port.read(file, SKILL_BODY_MAX_BYTES);
-    if (read === null || !read.complete) return [];
+    if (read === null || !read.complete) return EMPTY_PROJECT_EXTENSIONS;
     const parsed = parseProjectExtensions(read.text);
-    return parsed.ok ? parsed.value.skills_off : [];
+    return parsed.ok ? parsed.value : EMPTY_PROJECT_EXTENSIONS;
   } catch {
-    return [];
+    return EMPTY_PROJECT_EXTENSIONS;
   }
 }
 
@@ -118,28 +126,41 @@ async function workspaceSkillsOfStores(
   );
 }
 
-// 할당한 앱(slug)의 active release가 내놓은 public skill이다. 같은 이름은 slug 앞선 앱의 것만 남긴다. 앱 자기 workspace에서는
-// 그 앱의 `app` 층으로 이미 보이므로 싣지 않는다. 읽지 못하면 공유 skill이 없는 것으로 본다.
+// 배포 기록이 가리킨 앱 skill이다: 그 앱(slug)의 active release가 내놓은 public skill 가운데 배포한 이름만이다. 같은 이름은 slug 앞선
+// 앱의 것만 남긴다. 앱 자기 workspace에서는 그 앱의 `app` 층으로 이미 보이므로 싣지 않는다. 읽지 못하면 공유 skill이 없는 것으로 본다.
 export async function sharedSkillsOf(
   machine: CoreCall,
-  apps: readonly string[],
+  deployed: readonly SkillDeployment[],
   workspace: AgentWorkspace | null,
 ): Promise<readonly SharedSkill[]> {
-  if (apps.length === 0) return [];
-  const read = await readOf(machine, appSkills, { apps: [...apps] });
-  return read.ok ? sharedFor(read.value.skills, workspace) : [];
+  if (deployed.length === 0) return [];
+  const read = await readOf(machine, appSkills, {
+    apps: [...new Set(deployed.map((entry) => entry.app))],
+  });
+  if (!read.ok) return [];
+  const named = new Set(
+    deployed.map((entry) => `${entry.app}\0${entry.skill}`),
+  );
+  return sharedFor(
+    read.value.skills.filter((skill) =>
+      named.has(`${skill.slug}\0${skill.name}`),
+    ),
+    workspace,
+  );
 }
 
 // 층을 합친 목록이다. 내장 skill은 그 workspace 종류에 선언된 것만이다. 전역과 project에서 끈 것이 enabled false다.
+// `agent`는 그 agent 정의가 배포받은 앱 skill이다.
 export async function registeredSkillEntries(
   machine: CoreCall,
   stores: SkillStores,
   kind: WorkspaceKind,
-  apps: readonly string[],
+  agent: readonly SkillDeployment[],
 ): Promise<readonly SkillEntry[]> {
-  const { roots, off } = await globalSkillSettings(machine);
+  const { roots, off, deployed } = await globalSkillSettings(machine);
   const workspace = await workspaceSkillsOfStores(machine, stores);
   const port = productFiles(roots, stores, workspace);
+  const own = workspaceExtensions(port, stores.extensions_file);
   return discoverSkills(
     port,
     {
@@ -148,13 +169,19 @@ export async function registeredSkillEntries(
       personal: stores.personal,
       workspace,
       workspaceData: workspaceDataSkills(stores),
-      shared: await sharedSkillsOf(machine, apps, stores.workspace),
+      shared: await sharedSkillsOf(
+        machine,
+        gatherDeployments({
+          global: deployed,
+          workspace: own.deployed_skills,
+          agent,
+        }),
+        stores.workspace,
+      ),
     },
     {
       kind,
-      off: [
-        ...new Set([...off, ...workspaceOff(port, stores.extensions_file)]),
-      ],
+      off: [...new Set([...off, ...own.skills_off])],
     },
   ).entries;
 }
@@ -170,36 +197,43 @@ export function productSkillSnapshotDeps(
     port: productFiles([], base, null),
     builtin_root: base.bundled,
     personal_store: base.personal,
-    global: async () => {
-      const { roots, off } = await globalSkillSettings(machine);
-      return { roots, off };
-    },
-    shared: (apps, workspace) => sharedSkillsOf(machine, apps, workspace),
+    global: () => globalSkillSettings(machine),
+    shared: (deployed, workspace) =>
+      sharedSkillsOf(machine, deployed, workspace),
     workspace: async (workspace) => {
       const where = productSkillStores(workspace, deps);
       const workspace_skills = await workspaceSkillsOfStores(machine, where);
       const port = productFiles([], where, workspace_skills);
+      const own = workspaceExtensions(port, where.extensions_file);
       return {
         workspace_skills,
         workspace_data: workspaceDataSkills(where),
-        off: workspaceOff(port, where.extensions_file),
+        off: own.skills_off,
+        deployed: own.deployed_skills,
       };
     },
   };
 }
 
-// 등록 폴더(순서대로)와 전역에서 끈 skill 이름이다. 읽지 못하거나 값이 틀리면 둘 다 없는 것으로 본다.
-async function globalSkillSettings(
-  machine: CoreCall,
-): Promise<{ roots: readonly string[]; off: readonly string[] }> {
+// 등록 폴더(순서대로), 전역에서 끈 skill 이름, 모든 agent에게 배포한 앱 skill이다. 읽지 못하거나 값이 틀리면 모두 없는 것으로 본다.
+async function globalSkillSettings(machine: CoreCall): Promise<{
+  roots: readonly string[];
+  off: readonly string[];
+  deployed: readonly SkillDeployment[];
+}> {
   const read = await readOf(machine, settingsList, {
-    keys: [skillFoldersSetting.key, skillsOffSetting.key],
+    keys: [
+      skillFoldersSetting.key,
+      skillsOffSetting.key,
+      globalDeployedSkillsSetting.key,
+    ],
   });
-  if (!read.ok) return { roots: [], off: [] };
+  if (!read.ok) return { roots: [], off: [], deployed: [] };
   const settings = createListSettingsReader(read.value.settings);
   return {
     roots: settings.get(skillFoldersSetting) ?? [],
     off: settings.get(skillsOffSetting) ?? [],
+    deployed: settings.get(globalDeployedSkillsSetting) ?? [],
   };
 }
 

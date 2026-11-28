@@ -8,6 +8,7 @@ import type { GuiHarness } from "../../../../protocol/coding-agent/gui-harness.t
 import type { AgentDefinitionIssue } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import { isHarnessRuntime } from "../../../../protocol/lophn-agent/agent-values.ts";
 import type { McpOwnerWorkspace } from "../../../../protocol/lophn-agent/mcp-settings.ts";
+import type { SkillDeployment } from "../../../../protocol/lophn-agent/skill-settings.ts";
 import {
   type CatalogEntry,
   effortAxisOf,
@@ -22,7 +23,6 @@ import {
 } from "../../../../protocol/lophn-agent/workspaces.ts";
 import type { ReadResult } from "../source.ts";
 import { isAppWorkspace, kindOfWorkspace } from "./agent-key.ts";
-import { appsFor } from "./editor/grants-model.ts";
 import {
   AGENT_MEMORY,
   ANTHROPIC,
@@ -43,7 +43,7 @@ import {
   GLOBAL_MCP,
   GLOBAL_MODEL,
   GLOBAL_SKILLS,
-  GRANT_CATALOG,
+  DEPLOYABLE,
   HOME_LOPHN_MD,
   HOME_MCP,
   HOME_MEMORY,
@@ -114,6 +114,11 @@ type FakeCall =
   | { method: "setWorkspaceModel"; choice: ModelChoice | null }
   | { method: "setSkill"; name: string; on: boolean }
   | { method: "setMcp"; name: string; on: boolean }
+  | {
+      method: "setDeployed";
+      workspace: string;
+      next: readonly SkillDeployment[];
+    }
   | {
       method: "signInMcp";
       name: string;
@@ -348,6 +353,7 @@ export function createFakeAgentsSource(
     model: ModelChoice | null;
     skillOff: Set<string>;
     mcpOff: Set<string>;
+    deployed: SkillDeployment[];
     memory: InstructionsFile;
   }
   const layers = new Map<string, Layer>();
@@ -378,6 +384,10 @@ export function createFakeAgentsSource(
         rows.skills.filter((row) => !row.on).map((row) => row.name),
       ),
       mcpOff: new Set(rows.mcp.filter((row) => !row.on).map((row) => row.name)),
+      deployed:
+        kind === "project"
+          ? [{ app: "budget-tracker", skill: "track-expenses" }]
+          : [],
       memory: {
         text: { home: HOME_MEMORY, project: PROJECT_MEMORY, app: APP_MEMORY }[
           kind
@@ -670,11 +680,8 @@ export function createFakeAgentsSource(
           ? {}
           : { harnessConfig: definition.harness_config }),
         instructions: definition.body.trim() !== "",
-        apps: (grants.get(key) ?? []).filter((one) => one.machine === undefined)
-          .length,
-        remoteApps: (grants.get(key) ?? []).filter(
-          (one) => one.machine !== undefined,
-        ).length,
+        apps: definition.deployed_skills?.length ?? 0,
+        remoteApps: (grants.get(key) ?? []).length,
         tools: definition.tools ?? [],
         ...(definition.permission_mode === undefined
           ? {}
@@ -683,14 +690,11 @@ export function createFakeAgentsSource(
     };
   };
 
-  // core의 정의 file처럼 할당을 정의의 apps·remote_apps 칸으로도 보인다(복제가 이 칸을 그대로 옮긴다).
+  // core의 정의 file처럼 다른 컴퓨터 앱 할당을 정의의 remote_apps 칸으로도 보인다(복제가 이 칸을 그대로 옮긴다).
   const withGrantsOf = (key: string, definition: AgentDraft): AgentDraft => {
-    const entries = grants.get(key) ?? [];
-    const local = entries.filter((one) => one.machine === undefined);
-    const remote = entries.filter((one) => one.machine !== undefined);
+    const remote = grants.get(key) ?? [];
     return {
       ...definition,
-      ...(local.length === 0 ? {} : { apps: local.map((one) => one.app) }),
       ...(remote.length === 0
         ? {}
         : {
@@ -810,6 +814,7 @@ export function createFakeAgentsSource(
             inherited: GLOBAL_MODEL,
           },
           skills: skillsFor(workspace),
+          deployed: layerOf(workspace).deployed,
           mcpServers: mcpFor(workspace),
           memory: layerOf(workspace).memory,
         }),
@@ -1015,7 +1020,6 @@ export function createFakeAgentsSource(
       // 복제는 할당 칸을 들고 만든다. core처럼 만든 agent의 할당이 된다.
       if (input.assignment === null) {
         const copied = input.definition as AgentDraft & {
-          apps?: readonly `app_${string}`[];
           remote_apps?: readonly {
             machine: `mch_${string}`;
             app: `app_${string}`;
@@ -1024,7 +1028,6 @@ export function createFakeAgentsSource(
           }[];
         };
         grants.set(key, [
-          ...(copied.apps ?? []).map((app) => ({ app, removed_tools: [] })),
           ...(copied.remote_apps ?? []).map((one) => ({
             app: one.app,
             machine: one.machine,
@@ -1108,6 +1111,19 @@ export function createFakeAgentsSource(
       return Promise.resolve();
     },
 
+    deployable() {
+      return Promise.resolve(ok(DEPLOYABLE));
+    },
+
+    setDeployed(workspace, next) {
+      calls.push({ method: "setDeployed", workspace, next });
+      const failed = takeChangeFailure();
+      if (failed !== null) return Promise.resolve(failed);
+      layerOf(workspace).deployed = [...next];
+      notify();
+      return Promise.resolve(ok(null));
+    },
+
     setMcp(workspace, name, on) {
       calls.push({ method: "setMcp", name, on });
       const failed = takeChangeFailure();
@@ -1122,7 +1138,6 @@ export function createFakeAgentsSource(
       return Promise.resolve(
         ok({
           entries: grants.get(key) ?? [],
-          catalog: { apps: appsFor(GRANT_CATALOG.apps, _project) },
           revision: grantRevisions.get(key) ?? 0,
         }),
       );

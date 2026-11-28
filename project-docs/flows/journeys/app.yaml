@@ -355,28 +355,27 @@ journeys:
       - {do: "거둔 뒤 같은 host로 가는 앱 요청이 막힌다", flow: app-broker-net-fetch:refused}
 
   - id: app-public-call-assigned
-    title: "agent에게 앱의 공개 command를 할당하고 agent가 그것을 부른다"
-    actor: person
-    goal: "사람이 할당한 command만 agent가 앱에 부르고, 결과를 받는다"
+    title: "앱의 skill을 agent에게 배포하고 agent가 그 앱의 공개 command를 부른다"
+    actor: agent
+    goal: "앱의 skill이 닿은 agent만 그 앱의 공개 command를 묻지 않고 부르고, 결과를 받는다"
     refs: [P12, H3, C25]
     steps:
-      - {do: "agent의 Grants에서 현재 앱 할당을 읽는다", screen: new-agent-grants-app, flow: assignment-read:ok}
-      - {do: "앱을 붙이고 쓸 command를 넣는다", screen: new-agent-grants-app, flow: assignment-set:saved}
+      - {do: "앱 workspace의 agent가 앱의 public skill을 그 agent에게 배포한다", flow: skills-deploy:changed}
       - {do: "agent가 앱 지도에서 그 command의 입력 모양을 읽는다", flow: app-declaration-read:ok}
-      - {do: "할당으로 호출 판정을 통과한다", flow: app-call-assignment-judge:passed}
+      - {do: "그 앱의 skill이 닿아 호출 판정을 통과한다", flow: app-call-deployment-judge:passed}
       - {do: "앱 handler가 결과를 돌려 succeeded로 끝난다", flow: app-command-call:succeeded}
       - {do: "다른 앱의 app process가 broker로 같은 command를 부르면 core가 그대로 전달한다", flow: app-broker-apps-call:forwarded}
 
   - id: app-public-call-denied
-    title: "할당에 없는 앱 command를 agent가 부르면 막히고, 사람이 할당을 넣으면 다시 통과한다"
+    title: "skill이 닿지 않은 앱 command를 Gate를 지나지 않고 부르면 막히고, 배포하면 다시 통과한다"
     actor: agent
-    goal: "할당 밖의 호출은 handler에 가지 않고 denied로 기록되며, 사람이 고친 뒤에는 같은 호출이 통과한다"
+    goal: "배포되지 않은 앱의 호출은 사람이 허락하지 않으면 handler에 가지 않고 denied로 기록되며, 배포한 뒤에는 같은 호출이 통과한다"
     refs: [H3, P12]
     steps:
-      - {do: "할당에 없는 command를 agent가 부른다", flow: app-call-assignment-judge:gate-blocked}
-      - {do: "core가 denied(gate_blocked)로 기록하고 호출자에게 돌려준다", flow: app-command-call:denied-gate-blocked}
-      - {do: "사람이 agent 할당에 그 command를 넣는다", flow: assignment-set:saved}
-      - {do: "agent가 다시 부르면 판정을 통과한다", flow: app-call-assignment-judge:passed}
+      - {do: "skill이 닿지 않은 앱 command를 agent가 부른다", flow: app-call-deployment-judge:gate-blocked}
+      - {do: "core가 denied(gate_blocked)로 기록하고 배포하는 법과 함께 호출자에게 돌려준다", flow: app-command-call:denied-gate-blocked}
+      - {do: "사람이나 앱 workspace의 agent가 그 앱의 skill을 배포한다", flow: skills-deploy:changed}
+      - {do: "agent가 다시 부르면 판정을 통과한다", flow: app-call-deployment-judge:passed}
 
   - id: app-remove-public-command
     title: "공개 command를 지우는 release를 준비하고 쓰는 쪽에 알린 뒤 사람이 정한다"

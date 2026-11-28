@@ -1,9 +1,11 @@
 import type {
   AgentWorkspace,
   McpServer,
+  SkillDeployment,
   WorkspaceKind,
   SkillSource,
 } from "../../../protocol/lophn-agent/mod.ts";
+import { gatherDeployments } from "./deployments.ts";
 import type { WorkspaceFiles } from "./workspace-store.ts";
 import {
   EMPTY_PROJECT_EXTENSIONS,
@@ -46,13 +48,15 @@ type ExtensionRegistryDeps = {
     skills: Omit<SkillSources, "workspaceData" | "workspace">;
     // 전역에서 끈 skill의 정확한 이름이다.
     skillsOff: readonly string[];
+    // 모든 agent에게 배포한 앱 skill이다.
+    deployed: readonly SkillDeployment[];
   };
 };
 
 export type ExtensionRegistry = {
   // 이 workspace(null은 Home)의 agent가 발견하는 skill이다. 내장, 전역, project·app, workspace-data 순으로 덮고 끈 것은
   // enabled false다. 내장 skill은 `workspaces`에 선언된 종류만이고 null이면 모두다.
-  // `shared`는 그 agent에게 할당한 앱의 public skill이다. 내장 바로 위 층이다.
+  // `shared`는 그 session에 닿는 배포 기록이 가리킨 앱의 public skill이다. 내장 바로 위 층이다.
   skills(
     workspace: AgentWorkspace | null,
     kind: WorkspaceKind | null,
@@ -60,6 +64,11 @@ export type ExtensionRegistry = {
   ): SkillListing;
   // 이 workspace(null은 Home)에서 쓸 수 있는 서버다. 전역에 workspace 층이 덮이고 이어진다.
   mcpServers(workspace: AgentWorkspace | null): readonly McpRuntimeServer[];
+  // 그 workspace의 session에 닿는 배포 기록이다: 전역과 workspace 층에 그 agent 층(`agent`)을 더한다.
+  deployments(
+    workspace: AgentWorkspace | null,
+    agent: readonly SkillDeployment[],
+  ): SkillDeployment[];
 };
 
 function key(workspace: AgentWorkspace | null): string {
@@ -127,6 +136,13 @@ export function createExtensionRegistry(
       );
       skills.set(skillKey(workspace, kind, shared), listing);
       return listing;
+    },
+    deployments(workspace, agent) {
+      return gatherDeployments({
+        global: deps.global.deployed,
+        workspace: projectOf(workspace).deployed_skills,
+        agent,
+      });
     },
     mcpServers(workspace) {
       const found = servers.get(key(workspace));

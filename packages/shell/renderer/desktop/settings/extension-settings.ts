@@ -3,6 +3,7 @@
 // (`lophn-agent.extensions.skill_folders`·`lophn-agent.extensions.mcp_servers` 설정 정의)에서
 // 이 화면이 읽는 field만 옮긴 것이다. credential 값은 어디에도 없고 보관 이름과 저장 여부만 있다.
 import type { McpTrust } from "../../../../protocol/lophn-agent/mcp-settings.ts";
+import type { SkillDeployment } from "../../../../protocol/lophn-agent/skill-settings.ts";
 import type { CoreSource } from "../connection/connection.ts";
 import { chooseSetting, readEffective } from "./declared.ts";
 import type {
@@ -14,6 +15,7 @@ import type {
 
 export const SKILL_FOLDERS = "lophn-agent.extensions.skill_folders";
 export const MCP_SERVERS = "lophn-agent.extensions.mcp_servers";
+export const DEPLOYED_SKILLS = "lophn-agent.extensions.deployed_skills";
 
 /** 등록한 MCP server 설정 하나. 바꿀 때 그대로 돌려보내므로 모르는 field도 지우지 않는다. */
 export interface McpServerValue {
@@ -110,6 +112,14 @@ export function secretStatesOf(
   return new Map(
     names.map((name) => [name, set.has(name) ? "set" : "missing"]),
   );
+}
+
+/** 모든 agent에게 배포한 앱 skill. */
+export function deployedOf(
+  read: ReadonlyMap<string, unknown>,
+): readonly SkillDeployment[] {
+  const found = read.get(DEPLOYED_SKILLS);
+  return Array.isArray(found) ? (found as SkillDeployment[]) : [];
 }
 
 /** key마다의 지금 값에서 확장 설정 두 줄. */

@@ -232,6 +232,7 @@ test("workspaceData는 묶인 worktree가 없거나 ready가 아니면 원래 �
     makeCall(makeWtReply({ status: "missing" })) as never,
     agent,
     files,
+    new Set(),
     WKT_ID,
   );
   assert.equal(missingWt.ok, false);
@@ -243,6 +244,7 @@ test("workspaceData는 묶인 worktree가 없거나 ready가 아니면 원래 �
     ) as never,
     agent,
     files,
+    new Set(),
     WKT_ID,
   );
   assert.equal(wrongProject.ok, false);
@@ -252,6 +254,7 @@ test("workspaceData는 묶인 worktree가 없거나 ready가 아니면 원래 �
     makeCall(err({ code: "not_found", message: "gone" })) as never,
     agent,
     files,
+    new Set(),
     WKT_ID,
   );
   assert.equal(lookupFailed.ok, false);

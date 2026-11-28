@@ -1,5 +1,5 @@
-// 할당 화면. 사람이 이 agent에게 앱을 붙이고, 앱을 펼쳐 tool마다 넣거나 뺀다. 바꾼 것은 바로 entries로 나간다.
-// MCP server는 설정한 층이 곧 할당이라 이 화면에 줄이 없다.
+// 다른 컴퓨터 앱 할당 화면. 사람이 이 agent에게 다른 컴퓨터의 앱을 붙이고, 앱을 펼쳐 tool마다 넣거나 뺀다. 바꾼 것은 바로 entries로 나간다.
+// 이 컴퓨터의 앱은 할당이 아니라 skill 배포라 이 화면에 줄이 없다(Deployed skills).
 
 import type { MessageKey } from "@lophn/i18n";
 import { t } from "@lophn/i18n";
@@ -23,7 +23,7 @@ import {
 } from "../../../desktop/machines/status.tsx";
 import { actionIcons, commonIcons } from "../../../icons/mod.ts";
 import { readComputerApps } from "../core-grants.ts";
-import type { GrantApp, GrantCatalog } from "../source.ts";
+import type { GrantApp } from "../source.ts";
 import {
   appEntryOf,
   dropEntries,
@@ -163,9 +163,7 @@ function TargetCard({
 }
 
 interface GrantsPanelProps {
-  readonly agentName: string;
   readonly entries: readonly AssignmentEntry[];
-  readonly catalog: GrantCatalog;
   /** 바꾼 entries 전체. 부르는 쪽이 바로 저장한다. */
   readonly onChange: (entries: readonly AssignmentEntry[]) => void;
 }
@@ -206,19 +204,11 @@ function useComputerApps() {
   return { view, apps };
 }
 
-/** 이 agent에게 붙인 앱. 붙은 것은 agent마다 다르다. */
-export function GrantsPanel({
-  agentName,
-  entries,
-  catalog,
-  onChange,
-}: GrantsPanelProps) {
+/** 이 agent에게 붙인 다른 컴퓨터의 앱. 붙은 것은 agent마다 다르다. 이 컴퓨터의 앱은 skill 배포가 닿게 한다(Deployed skills). */
+export function GrantsPanel({ entries, onChange }: GrantsPanelProps) {
   const [open, setOpen] = useState<readonly string[]>([]);
   const { view, apps: computerApps } = useComputerApps();
 
-  const apps = catalog.apps.filter(
-    (app) => appEntryOf(entries, app.app) !== undefined,
-  );
   // 다른 컴퓨터: 명단의 컴퓨터와 이미 줄이 붙은 컴퓨터(명단에서 빠졌어도 줄은 남아 뺄 수 있다).
   const machines = [
     ...new Set([
@@ -244,104 +234,6 @@ export function GrantsPanel({
 
   return (
     <div className={styles.grants}>
-      <section>
-        <p className={styles.lead}>
-          {t("agents.notice.grants-lead", { name: agentName })}
-        </p>
-        <div className={styles.sectionHead}>
-          <h2 className={styles.sectionTitle}>
-            {t("agents.heading.grants-apps")}
-          </h2>
-          <Menu
-            trigger={
-              <Button
-                size="sm"
-                icon={actionIcons.add}
-                disabled={catalog.apps.length === apps.length}
-              >
-                {t("agents.button.assign-app")}
-              </Button>
-            }
-            items={catalog.apps
-              .filter((app) => appEntryOf(entries, app.app) === undefined)
-              .map((app) => ({ id: app.app, label: app.name }))}
-            onSelect={(app) =>
-              onChange(
-                setEntry(entries, {
-                  app: app as `app_${string}`,
-                  removed_tools: [],
-                }),
-              )
-            }
-          />
-        </div>
-        {apps.length === 0 ? (
-          <p className={styles.empty}>{t("agents.empty.grants-apps")}</p>
-        ) : (
-          apps.map((app) => {
-            const entry = appEntryOf(entries, app.app)!;
-            const used = app.tools.filter(
-              (tool) => !isRemoved(entry, tool.tool),
-            ).length;
-            return (
-              <TargetCard
-                key={app.app}
-                name={app.name}
-                summary={t("agents.label.grants-app-tools-summary", {
-                  used,
-                  total: app.tools.length,
-                })}
-                open={open.includes(app.app)}
-                onToggle={() =>
-                  setOpen(
-                    open.includes(app.app)
-                      ? open.filter((one) => one !== app.app)
-                      : [...open, app.app],
-                  )
-                }
-                remove={{
-                  label: t("agents.button.remove-app"),
-                  onClick: () =>
-                    onChange(
-                      dropEntries(
-                        entries,
-                        (one) =>
-                          one.machine !== undefined || one.app !== app.app,
-                      ),
-                    ),
-                }}
-              >
-                {app.tools.map((tool) => (
-                  <GrantRow
-                    key={tool.tool}
-                    target={{
-                      name: tool.tool,
-                      detail: tool.detail,
-                      effect: tool.effect,
-                      removed: isRemoved(entry, tool.tool),
-                      ask: isAsk(entry, tool.tool),
-                    }}
-                    onRemoved={(removed) =>
-                      onChange(
-                        setEntry(
-                          entries,
-                          withToolRemoved(entry, tool.tool, removed),
-                        ),
-                      )
-                    }
-                    onAsk={(ask) =>
-                      onChange(
-                        setEntry(entries, withToolAsk(entry, tool.tool, ask)),
-                      )
-                    }
-                  />
-                ))}
-              </TargetCard>
-            );
-          })
-        )}
-        <p className={styles.note}>{t("agents.notice.grants-mcp-layers")}</p>
-      </section>
       {machines.length === 0 ? null : (
         <section data-grants-computers="">
           <div className={styles.sectionHead}>

@@ -36,7 +36,7 @@ flows:
     code: [packages/core/lophn-agent/agents/commands.ts, packages/core/lophn-agent/agents/validate.ts, packages/core/lophn-agent/agents/definition-file.ts]
     steps:
       - Agents 화면이 정의 전체(handle, name, workspace, avatar, runtime 등과 본문)를 agents/create로 보낸다. 복제는 화면이 저장된 정의를 옮기고 name(`<name> copy`)과 겹치지 않는 handle만 새로 지어 같은 길로 보낸다(올린 이미지 avatar는 옮기지 않는다)
-      - agent 자격이 부르면 mcp_servers, skip, apps, remote_apps, extensions, permissions를 거절하고, 범위는 부른 session의 workspace로 정한다(home이면 전역)
+      - agent 자격이 부르면 mcp_servers, skip, deployed_skills, remote_apps, extensions를 거절하고, 범위는 부른 session의 workspace로 정한다(home이면 전역)
       - 사람이 낸 id가 이미 있으면 거절하고, id가 없으면 core가 새로 정한다
       - checkAgent가 파일 모양, 도구 이름, handle 중복과 예약 이름, 새 handle 모양, 범위 workspace의 존재를 검사한다
       - 통과하면 agents/<id>.md를 쓰고 저장하지 않은 옛 avatar 이미지를 지운다
@@ -45,7 +45,7 @@ flows:
         observe: [disk:agents/<id>.md, disk:agents/<id>/avatar.<ext>]
       - id: human-only-field
         code: forbidden
-        when: agent 자격이 mcp_servers, skip, apps, remote_apps, extensions, permissions, browser_profile 가운데 하나를 냈다
+        when: agent 자격이 mcp_servers, skip, deployed_skills, remote_apps, extensions, browser_profile 가운데 하나를 냈다
         observe: [response]
       - id: agent-exists
         code: conflict
@@ -75,7 +75,7 @@ flows:
     steps:
       - 정의 전체와 읽을 때의 hash(compare)를 agents/change로 보낸다
       - hash가 file과 다르면 conflict로 거절한다
-      - agent 자격이 mcp_servers, skip, apps, remote_apps, extensions, permissions 가운데 하나를 바꾸면 거절한다
+      - agent 자격이 mcp_servers, skip, deployed_skills, remote_apps, extensions 가운데 하나를 바꾸면 거절한다
       - lophn의 avatar가 고정 값과 다르면 거절한다
       - 정의가 있는 agent의 handle과(lophn 포함) 범위 workspace는 만들 때 정한 값과 같아야 한다
       - checkAgent 뒤 파일 전체를 새 내용으로 쓴다. 쓰지 않은 칸은 지워진다
@@ -97,7 +97,7 @@ flows:
         observe: [response, "screen:agent-settings-save-conflict"]
       - id: human-only-field
         code: forbidden
-        when: agent 자격이 사람만 정하는 칸(mcp_servers, skip, apps, remote_apps, extensions, permissions, browser_profile)을 지금 file의 값과 다르게 냈다
+        when: agent 자격이 사람만 정하는 칸(mcp_servers, skip, deployed_skills, remote_apps, extensions, browser_profile)을 지금 file의 값과 다르게 냈다
         observe: [response]
       - id: lophn-avatar
         code: forbidden
@@ -925,7 +925,7 @@ flows:
     steps:
       - agent 자격은 자기 session의 workspace(project·app 인자가 있으면 같은 workspace인지 대조)를 쓰고, 사람 자격은 --project/--app 또는 Home을 쓴다
       - 런타임 발견기(discoverSkills)와 같은 층(내장·공유·전역·workspace·workspace-data)과 상한으로 skill 목록(경로 포함)과 skipped(경로·이유)를 돌려준다
-      - agent 자격이면 그 agent 정의의 skills_off와 할당 앱의 공유 skill도 반영한다
+      - agent 자격이면 그 agent 정의의 skills_off와 그 session에 닿는 배포(전역, workspace, agent 층)가 가리킨 앱 skill(공유 층)도 반영한다
     outcomes:
       - id: ok
         observe: [response]
@@ -985,6 +985,70 @@ flows:
     crosses_process: false
     risk: [sandbox]
     declared_only: [unauthorized]
+    docs: [architecture/agent-definition.md]
+
+  - id: skills-deploy
+    title: 사람이나 agent가 앱의 public skill을 전역, workspace, agent 층에 배포하거나 거둔다
+    actor: agent
+    entries: [route:skills/deploy, route:skills/undeploy]
+    boundary: [agent-workspaces, lophn-agent, core-api]
+    code:
+      - packages/core/main/daemon/wiring/skill-deploy.ts
+      - packages/core/main/daemon/wiring/lophn-agent-extensions.ts
+      - packages/core/lophn-agent/extensions/deployments.ts
+      - packages/protocol/lophn-agent/skill-settings.ts
+    steps:
+      - "입력의 `to`(global, workspace, workspace:<이름>, agent:<handle>)를 층으로 풀고 앱(slug)과 skill 이름을 그 앱의 active release가 내놓은 public skill로 대조한다(deploy만. undeploy는 사라졌거나 비공개가 된 기록도 거둔다)"
+      - "사람 자격은 모두 묻지 않고 한다. agent 자격은 그 앱 자기 workspace의 session이거나 Home의 lophn이면 묻지 않고 하고, 그 밖의 agent는 `setting` 종류의 Gate ask(once, reject)로 사람에게 묻는다(tool_call이 그 카드를 연다)"
+      - "사람이 없는 실행과 tool_call이 없는 호출은 묻지 못해 forbidden이고 문장이 앱 command를 부르면 묻는다고 알린다"
+      - "층의 기록을 바꾼다: 전역은 settings.json의 lophn-agent.extensions.deployed_skills, workspace는 그 workspace의 extensions.json, agent는 정의 file의 deployed_skills다. skill 본문은 복사하지 않는다"
+    outcomes:
+      - id: changed
+        observe: [response]
+        when: 기록을 더했거나(deploy) 거뒀다(undeploy). 이미 그 상태면 changed가 false인 같은 ok다
+      - id: invalid-input
+        code: invalid_input
+        when: 입력 schema가 틀렸거나 `to`를 읽을 수 없거나 deploy한 skill이 그 앱의 public skill이 아니다
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: 묻고 갈 agent가 아닌 호출이거나 사람이 거절했거나 사람이 없는 실행이거나 Gate가 막았다
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: 앱, workspace, agent를 찾지 못했다
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: 층의 파일이나 설정을 읽거나 쓰지 못했다
+        observe: [response]
+    crosses_process: false
+    risk: [permission]
+    docs: [architecture/agent-definition.md, architecture/app-call.md, architecture/approval.md]
+
+  - id: skills-deployments
+    title: 사람이나 agent가 누가 어느 앱의 skill을 받는지 읽는다
+    actor: agent
+    entries: [route:skills/deployments]
+    boundary: [agent-workspaces, lophn-agent, core-api]
+    code:
+      - packages/core/main/daemon/wiring/skill-deploy.ts
+      - packages/protocol/lophn-agent/skill-settings.ts
+    steps:
+      - "전역 설정, Home·모든 project·앱의 extensions.json, 모든 agent 정의의 배포 기록을 읽어 {앱, skill, 층, 이름}으로 돌려준다"
+      - 앱 slug를 주면 그 앱의 skill을 가진 모든 층만이다
+    outcomes:
+      - id: ok
+        observe: [response]
+      - id: invalid-input
+        code: invalid_input
+        when: 입력 schema가 틀렸다
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: ledger snapshot을 열지 못했다
+        observe: [response]
+    crosses_process: false
     docs: [architecture/agent-definition.md]
 
   - id: instruction-read

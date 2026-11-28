@@ -5,8 +5,8 @@ import type { AppToolkit } from "./app-toolkit.ts";
 // `public` command만 본다. 다른 기계의 앱은 그 앱 id가 이 앱 workspace와 같아도 `public`만이다(받는 기계도 비공개를 거절한다).
 // `lophn <slug> <command>`가 부를 때마다 거른다.
 export function withPublicOnly(toolkit: AppToolkit): AppToolkit {
-  const load: AppToolkit["load"] = async (who, memo) => {
-    const loaded = await toolkit.load(who, memo);
+  const load: AppToolkit["load"] = async (who, memo, slug) => {
+    const loaded = await toolkit.load(who, memo, slug);
     if (!loaded.ok) return loaded;
     const views = loaded.value.views.map((view) => {
       const own =

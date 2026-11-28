@@ -26,7 +26,6 @@ import type {
   ToolCallInput,
   ToolCallOutput,
 } from "../../../protocol/apps/calls/mod.ts";
-import type { Assignment } from "../../../protocol/approvals/mod.ts";
 import type { AppGrant } from "../../../protocol/apps/grants.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import type {
@@ -108,8 +107,10 @@ function setup() {
     handler: null as Handler | null,
     // 지금 preview의 선언. nonce가 다르면 선언이 없다.
     preview: { nonce: "pv-nonce-1", effects: {} as Record<string, string> },
-    // null이면 만든 앱을 모두 할당했다(위험 test가 범위를 줄인다).
-    assignment: null as Assignment["entries"] | null,
+    // skill이 닿는 앱. null이면 만든 앱 모두에 skill이 배포돼 닿는다(위험 test가 범위를 줄인다).
+    reached: null as ReadonlySet<Id<"app">> | null,
+    // run-loop Gate가 run으로 끝낸 tool call(사람이 허락했거나 닿는 앱이었다).
+    gateRan: new Set<string>(),
     // null이면 부른 앱이 만든 앱 모두의 tool을 부를 grant를 가졌다.
     grants: null as AppGrant[] | null,
     // agentToolCall이 돌려주는 agent와 workspace. agent가 null이면 tool call을 모른다.
@@ -201,13 +202,9 @@ function setup() {
     },
     ledger: ledger as InvocationLedger,
     link,
-    assignmentOf: (agent) =>
-      ok({
-        agent,
-        entries:
-          state.assignment ??
-          madeApps.map((app) => ({ app, removed_tools: [] })),
-      }),
+    appReached: (_who, app) =>
+      Promise.resolve(ok((state.reached ?? new Set(madeApps)).has(app))),
+    gateRan: (_session, toolCall) => state.gateRan.has(toolCall),
     appGrantsOf: (app) =>
       Promise.resolve(
         ok(
@@ -883,23 +880,42 @@ test("agent, 다른 앱, job, flow가 operation을 부르면 handler에 보내�
   assert.deepStrictEqual([sent.kind, sent.name], ["operation", "op.w.save"]);
 });
 
-test("agent는 할당하지 않은 앱의 tool과 할당에서 뺀 tool을 부르지 못한다", async () => {
+test("agent는 skill이 닿지 않은 앱의 tool을 사람이 허락하지 않으면 부르지 못하고, 닿는 앱이나 사람이 이 호출을 허락했으면 부른다", async () => {
   const t = setup();
-  const assigned = newApp();
+  const reached = newApp();
   const other = newApp();
   const agentCall = (app: Id<"app">, tool: string): ToolCallInput => ({
     ...person(app, tool),
     caller: { kind: "agent", session: SES, turn: TRN, tool_call: TCL },
   });
-  t.state.assignment = [{ app: assigned, removed_tools: ["r.removed"] }];
+  t.state.reached = new Set([reached]);
 
-  const rows: [string, Id<"app">, string, string][] = [
-    ["not assigned", other, "r.get", "gate_blocked"],
-    ["removed tool", assigned, "r.removed", "gate_blocked"],
-    ["assigned", assigned, "r.get", "succeeded"],
+  const rows: [string, Id<"app">, string, string, boolean][] = [
+    ["skill not deployed", other, "r.get", "gate_blocked", false],
+    ["skill deployed", reached, "r.get", "succeeded", false],
+    ["person allowed this call at the Gate", other, "r.get", "succeeded", true],
+    [
+      "private command of another app",
+      reached,
+      "priv.get",
+      "gate_blocked",
+      false,
+    ],
+    [
+      "private command of the app's own workspace",
+      other,
+      "priv.get",
+      "succeeded",
+      false,
+    ],
   ];
-  for (const [name, app, tool, want] of rows) {
+  for (const [name, app, tool, want, gateRan] of rows) {
     const before = t.sent.length;
+    t.state.gateRan = new Set(gateRan ? [TCL] : []);
+    // 앱 자기 workspace의 agent는 배포 없이 자기 앱의 command를 비공개까지 부른다.
+    t.state.workspace = name.includes("own workspace")
+      ? { kind: "app", id: app }
+      : null;
     const result = await t.path.call(agentCall(app, tool), {
       actor: "agent",
     });
@@ -912,7 +928,7 @@ test("agent는 할당하지 않은 앱의 tool과 할당에서 뺀 tool을 부�
   }
 });
 
-test("workflow instance가 부르는 앱 tool은 flow instance의 creator의 할당이나 앱 workspace 밖이면 실행되지 않는다", async () => {
+test("workflow instance가 부르는 앱 tool은 flow instance의 creator에게 skill이 닿지 않거나 앱 workspace 밖의 비공개 tool이면 실행되지 않는다", async () => {
   const assigned = newApp();
   const other = newApp();
   const rows: {
@@ -922,11 +938,10 @@ test("workflow instance가 부르는 앱 tool은 flow instance의 creator의 할
     workspace?: (app: Id<"app">) => Workspace | null;
     want: string;
   }[] = [
-    { name: "not assigned", app: other, tool: "r.get", want: "gate_blocked" },
     {
-      name: "removed tool",
-      app: assigned,
-      tool: "r.removed",
+      name: "skill not deployed",
+      app: other,
+      tool: "r.get",
       want: "gate_blocked",
     },
     {
@@ -967,7 +982,7 @@ test("workflow instance가 부르는 앱 tool은 flow instance의 creator의 할
   for (const row of rows) {
     const name = `flow: ${row.name}`;
     const t = setup();
-    t.state.assignment = [{ app: assigned, removed_tools: ["r.removed"] }];
+    t.state.reached = new Set([assigned]);
     const workspace =
       row.workspace === undefined ? undefined : row.workspace(row.app);
     const result = await t.path.call(
@@ -1545,7 +1560,9 @@ function receiver(schema: string, node = "receiver") {
     },
     ledger: ledger as InvocationLedger,
     link,
-    assignmentOf: () => err({ code: "internal", message: "unused" }),
+    appReached: () =>
+      Promise.resolve(err({ code: "internal", message: "unused" })),
+    gateRan: () => false,
     appGrantsOf: () =>
       Promise.resolve(err({ code: "internal", message: "unused" })),
     isPrivate: () => false,

@@ -112,6 +112,8 @@ function setup(
   };
   const deps: RemoteForwardDeps = {
     isPrivate: () => false,
+    appReached: () => Promise.resolve(ok(false)),
+    gateRan: () => false,
     assignmentOf: (agent) =>
       ok({
         agent,
@@ -208,7 +210,6 @@ test("할당이 없는 agent는 다른 기계의 앱을 부르지 못한다: 그
         },
       ],
     ],
-    ["assigned on this machine only", [{ app: APP, removed_tools: [] }]],
     [
       "another app on that machine",
       [
@@ -498,7 +499,8 @@ test("lophn <app> <command> --on <기계>는 apps/call_tool(remote)과 forward�
     ledger: {},
     link: {},
     forward: t.forward,
-    assignmentOf: (a: AgentId) => ok({ agent: a, entries: [] }),
+    appReached: () => Promise.resolve(ok(false)),
+    gateRan: () => false,
     appGrantsOf: () => Promise.resolve(ok([])),
     clock,
     ids,

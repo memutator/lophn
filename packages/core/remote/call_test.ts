@@ -904,7 +904,6 @@ test("machines/app_tools는 session 없는 agent로 묻고, 닿지 않는 앱은
           name: "Gone",
           removed_tools: [],
         },
-        { app: "app_0000000000000000000000000c", removed_tools: [] },
       ]),
     agent: async (agent) =>
       agent === "agt_0000000000000000000000000a"

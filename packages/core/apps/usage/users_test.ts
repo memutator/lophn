@@ -3,12 +3,11 @@ import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import type { ReleaseRecord } from "../../../protocol/apps/mod.ts";
 import type { Tx } from "../../../protocol/server/mod.ts";
-import { callAllowed } from "../calls/gate.ts";
 import { appsSchemaSteps } from "../registration/schema.ts";
 import { releasesSchemaSteps } from "../releases/schema.ts";
 import { insertRelease } from "../releases/store.ts";
 import type { UsagePorts } from "./ports.ts";
-import { agentAssignment, appToolUsers } from "./users.ts";
+import { appToolUsers } from "./users.ts";
 
 type UsageSession = NonNullable<ReturnType<UsagePorts["sessionWorkspace"]>>;
 
@@ -188,69 +187,4 @@ test("appToolUsers는 정적 선언(활성 앱 app_connections, job tool_run)과
       `b:project:${PROJECT_B.id}`,
     ],
   );
-});
-
-// 앱 범위 agent는 자기 앱의 command를 할당 없이 부르고, 할당받지 않은 다른 앱의 command는 여전히 부를 수 없다.
-test("앱 범위 agent는 자기 앱 command를 할당 없이 부르고 다른 앱 command는 할당이 있어야 부른다", async () => {
-  const db = new DatabaseSync(":memory:");
-  for (const step of [...appsSchemaSteps, ...releasesSchemaSteps]) {
-    db.exec(step.sql);
-  }
-  const MINE = "app_01hzzzzzzzzzzzzzzzzzzzzzz1";
-  const THEIRS = "app_01hzzzzzzzzzzzzzzzzzzzzzz2";
-  for (const [id, slug] of [
-    [MINE, "mine"],
-    [THEIRS, "theirs"],
-  ]) {
-    db.prepare(
-      `INSERT INTO apps VALUES (?, ?, 'n', 'd', NULL, NULL, NULL, 1, '1', 'active')`,
-    ).run(id, slug);
-  }
-  const sql = {
-    run: (text: string, params: never[]) => db.prepare(text).run(...params),
-    get: (text: string, params: never[]) =>
-      db.prepare(text).get(...params) as Record<string, never> | undefined,
-    all: (text: string, params: never[]) =>
-      db.prepare(text).all(...params) as Record<string, never>[],
-  };
-  const SCOPED = "agt_01hzzzzzzzzzzzzzzzzzzzzzz1" as never;
-  let apps: string[] = [];
-  const directory = {
-    agent: () => ({
-      id: SCOPED,
-      handle: "helper",
-      name: "helper",
-      workspace: { kind: "app", id: MINE },
-      skip: false,
-      runtime: "lophn",
-      apps,
-      deny: [],
-      remoteApps: [],
-    }),
-    agents: () => [],
-    cardOf: () => null,
-  } as never;
-  const gate = {
-    assignmentOf: (agent: never) => agentAssignment(sql, agent, directory),
-    appGrantsOf: async () => ({ ok: true as const, value: [] }),
-    isPrivate: () => false,
-  };
-  const call = (app: string) =>
-    callAllowed(
-      {
-        kind: "agent",
-        agent: SCOPED,
-        workspace: { kind: "app", id: MINE },
-        session: "ses_x" as never,
-        remote: false,
-        turn: "trn_x" as never,
-        toolCall: "tcl_x" as never,
-      },
-      { app: app as never, tool: "add", effect: "write", public: false },
-      gate,
-    );
-  assert.deepStrictEqual(await call(MINE), { ok: true, value: true });
-  assert.deepStrictEqual(await call(THEIRS), { ok: true, value: false });
-  apps = ["theirs"];
-  assert.deepStrictEqual(await call(THEIRS), { ok: true, value: true });
 });

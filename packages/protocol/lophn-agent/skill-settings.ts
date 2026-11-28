@@ -2,6 +2,7 @@ import { z } from "zod";
 import { withReadCommon } from "../base/envelope.ts";
 import { idSchema } from "../base/ids.ts";
 import { defineMemory, defineRead } from "../base/route.ts";
+import { slugSchema } from "../projects/values.ts";
 import type { WorkspaceKind } from "./workspaces.ts";
 
 // 끈 skill의 정확한 이름이다(전역 설정, project `extensions.json`, agent 정의의 `skills_off`가 같은 규칙을 쓴다).
@@ -12,9 +13,27 @@ export const skillNameSchema = z
   .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/);
 export const SKILLS_OFF_MAX = 256;
 
+// 배포 기록 하나: 앱(slug)의 public skill 하나를 이 층에 배포했다. 층은 전역 설정, workspace `extensions.json`, agent 정의의 `deployed_skills`
+// 셋이고 MCP·`skills_off`와 같다. skill 본문은 층에 복사하지 않는다: 앱의 active release bundle이 봉한 사본이고 기록은 그것을 가리킨다.
+export const skillDeploymentSchema = z.strictObject({
+  app: slugSchema,
+  skill: skillNameSchema,
+});
+export type SkillDeployment = z.infer<typeof skillDeploymentSchema>;
+export const DEPLOYED_SKILLS_MAX = 256;
+export const deployedSkillsSchema = z
+  .array(skillDeploymentSchema)
+  .max(DEPLOYED_SKILLS_MAX)
+  .refine(
+    (entries) =>
+      new Set(entries.map((entry) => `${entry.app}/${entry.skill}`)).size ===
+      entries.length,
+    { message: "duplicate deployed skill" },
+  );
+
 // skill의 층은 내장, 전역, project·app, workspace-data이고 공유 skill(shared)이 더해진다. 끄기는 전역, workspace(Home, project, 앱), agent 세 층에서 한다.
 // 같은 이름은 마지막 층이 덮는다. project·app은 그 workspace 폴더의 `.lophn/skills`, workspace-data는 Home·project·앱 그릇 자리의 `skills/`(폴더 없는 project도 받는다),
-// shared는 할당한 앱의 active release가 내놓은 public skill이다.
+// shared는 그 session에 닿는 배포 기록(전역, workspace, agent)이 가리킨 앱 skill이고 앱의 active release가 내놓은 public skill이다.
 export const SKILL_SOURCES = [
   "builtin",
   "global",
@@ -235,4 +254,60 @@ export const skillsCheck = defineMemory({
     "not_found",
     "unavailable",
   ],
+});
+
+// `lophn skill deploy|undeploy|deployments`. 배포는 앱의 public skill 하나를 층 하나에 기록하는 일이다. `to`는 `global`, `workspace`(부른
+// session의 workspace), `workspace:<project 이름·id, 앱 slug·id, home>`, `agent:<handle>`이다. 사람은 모두 하고, agent는 자기 앱 workspace의 앱
+// skill과 Home lophn이면 묻지 않고 한다. 그 밖의 agent는 사람에게 묻고(`tool_call`이 그 카드를 연다) 사람이 없는 실행은 거절한다.
+const deployTargetInput = {
+  app: slugSchema,
+  skill: skillNameSchema,
+  to: z.string().min(1).max(200),
+  tool_call: idSchema("tcl").optional(),
+};
+const deployErrors = [
+  "invalid_input",
+  "unauthorized",
+  "forbidden",
+  "not_found",
+  "unavailable",
+] as const;
+
+export const skillsDeploy = defineMemory({
+  resource: "skills",
+  method: "deploy",
+  name: "DeploySkill",
+  input: z.strictObject(deployTargetInput),
+  output: z.object({ deployed: z.boolean() }),
+  actors: ["user", "agent"],
+  errors: [...deployErrors],
+});
+
+export const skillsUndeploy = defineMemory({
+  resource: "skills",
+  method: "undeploy",
+  name: "UndeploySkill",
+  input: z.strictObject(deployTargetInput),
+  output: z.object({ removed: z.boolean() }),
+  actors: ["user", "agent"],
+  errors: [...deployErrors],
+});
+
+const deploymentRowSchema = z.object({
+  app: slugSchema,
+  skill: skillNameSchema,
+  layer: z.enum(["global", "workspace", "agent"]),
+  // workspace 층이면 그 workspace의 이름이고(project 이름, 앱 slug, `home`), agent 층이면 handle이다. 전역은 없다.
+  at: z.string().nullable(),
+});
+export type SkillDeploymentRow = z.infer<typeof deploymentRowSchema>;
+
+export const skillsDeployments = defineMemory({
+  resource: "skills",
+  method: "deployments",
+  name: "ListSkillDeployments",
+  input: z.strictObject({ app: slugSchema.optional() }),
+  output: z.object({ deployments: z.array(deploymentRowSchema) }),
+  actors: ["user", "agent"],
+  errors: [...deployErrors],
 });

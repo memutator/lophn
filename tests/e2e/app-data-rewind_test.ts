@@ -12,7 +12,6 @@
 // agent의 앱 호출과 끝 text, 둘이다.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { assignmentSet } from "../../packages/protocol/approvals/mod.ts";
 import {
   appCallTool,
   appInvocations,
@@ -223,15 +222,6 @@ test("E2E 여러 write의 앱 data rewind는 한 번에 되돌아가고, 충돌�
       id: agent,
       definition: { handle: "writer", name: "Writer", body: "use the app" },
     });
-    // 할당이 있어야 agent가 앱 command를 부를 수 있다.
-    await core.call(
-      assignmentSet,
-      {
-        agent,
-        entries: [{ app: live.app, removed_tools: [] }],
-      },
-      { revision: 0 },
-    );
     for (const choose of [true, false]) {
       const title = choose ? "by-agent-chosen" : "by-agent-skipped";
       fake!.reset();

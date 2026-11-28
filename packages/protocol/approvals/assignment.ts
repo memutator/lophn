@@ -5,34 +5,25 @@ import { idSchema } from "../base/ids.ts";
 import { defineCommand, defineRead } from "../base/route.ts";
 import { agentIdSchema } from "../lophn-agent/workspaces.ts";
 
-// 할당. agent가 부를 수 있는 앱과 그 앱에서 뺀 tool(`removed_tools`), 부를 때마다 물을 tool(`ask_tools`)이다.
-// 저장은 agent 정의 파일의 `apps`(앱 slug)와 `permissions`이고, 이 route는 그것을 앱 id와 command 이름으로 풀어 읽고 쓴다.
-// 줄은 앱뿐이다. MCP server는 설정한 층(전역, project, agent 정의)이 곧 할당이고 끄기는 `mcp_off`라 줄이 없다.
-// 다른 기계의 앱이면 `machine`(그 기계의 id)과 `name`(그 기계 앱의 표시 이름: 이 기계에는 그 앱의 slug가 없고, 꺼진 기계의 앱도 이름으로 보이게 한다)이 붙는다.
-// `name`은 `machine`이 있을 때만 있고 그때는 있어야 한다. 앱 id는 기계 사이에 같아 같은 줄인지는 `(machine, app)`으로 본다.
-// 줄의 종류가 다시 생기면 그때 `kind`를 더한다.
-export const assignmentEntrySchema = z
-  .strictObject({
-    app: idSchema("app"),
-    machine: idSchema("mch").optional(),
-    name: z.string().min(1).max(64).optional(),
-    removed_tools: z.array(toolKeySchema),
-    ask_tools: z.array(toolKeySchema).optional(),
-  })
-  .refine(
-    (entry) => (entry.machine === undefined) === (entry.name === undefined),
-    {
-      message: "a remote app has a machine and a name, a local app has neither",
-    },
-  );
+// 다른 컴퓨터 앱 할당. agent가 부를 수 있는 다른 컴퓨터의 앱과 그 앱에서 뺀 tool(`removed_tools`), 부를 때마다 물을 tool(`ask_tools`)이다.
+// 저장은 agent 정의 파일의 `remote_apps`이고, 이 route는 그것을 읽고 쓴다. 이 컴퓨터의 앱은 할당이 아니라 skill 배포가 닿게 한다.
+// `machine`은 그 기계의 id이고 `name`은 그 기계 앱의 표시 이름이다(이 기계에는 그 앱의 slug가 없고, 꺼진 기계의 앱도 이름으로 보이게 한다).
+// 앱 id는 기계 사이에 같아 같은 줄인지는 `(machine, app)`으로 본다.
+export const assignmentEntrySchema = z.strictObject({
+  app: idSchema("app"),
+  machine: idSchema("mch"),
+  name: z.string().min(1).max(64),
+  removed_tools: z.array(toolKeySchema),
+  ask_tools: z.array(toolKeySchema).optional(),
+});
 export type AssignmentEntry = z.infer<typeof assignmentEntrySchema>;
 
 const entriesSchema = z
   .array(assignmentEntrySchema)
   .refine(
     (entries) =>
-      new Set(entries.map((entry) => `${entry.machine ?? ""}/${entry.app}`))
-        .size === entries.length &&
+      new Set(entries.map((entry) => `${entry.machine}/${entry.app}`)).size ===
+        entries.length &&
       entries.every((entry) => {
         const askTools = entry.ask_tools ?? [];
         return (
@@ -72,7 +63,7 @@ const readErrors = [
 
 // ---------- 전역 agent 할당 ----------
 
-// agent는 id 하나다. 줄은 앱과 그 앱에서 뺀 tool이다.
+// agent는 id 하나다. 줄은 다른 컴퓨터의 앱과 그 앱에서 뺀 tool이다.
 export const assignmentSchema = z.strictObject({
   agent: agentIdSchema,
   entries: entriesSchema,

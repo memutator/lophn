@@ -17,7 +17,7 @@ import type { ToolDefinition } from "../registry.ts";
 import type { SpillableResult } from "../spill.ts";
 import type { ToolContext } from "../tool-context.ts";
 
-// 앱 command를 `lophn <slug> <command>`로 부르는 길이다. 어느 command가 지금 불리는지는 부를 때 정한다: 지금 할당(앱, 뺀 command),
+// 앱 command를 `lophn <slug> <command>`로 부르는 길이다. 어느 command가 지금 불리는지는 부를 때 정한다: 지금 배포(이 컴퓨터의 앱)나 할당(다른 컴퓨터의 앱),
 // 활성 release의 선언, 비공개 규칙(그 앱 workspace의 session이면 전부, 아니면 public만). 묻기는 run-loop tool gate가, 막기는 core 호출 경로가 하고
 // invocation 기록, 결과 모름도 core가 다룬다. 정의는 loop가 기록·Gate·retry에 쓰는 것이고 model에는 보이지 않는다.
 
@@ -44,10 +44,11 @@ export type AppCommandEntry = {
   doc: CommandDoc;
 };
 
-// 할당이 이 command를 부르게 두는가. 앱을 할당하지 않았거나 command를 뺐으면 아니다. 줄은 `(machine, app)`이다.
-function assigned(
+// 다른 컴퓨터 앱의 할당이 이 command를 부르게 두는가. 앱을 할당하지 않았거나 command를 뺐으면 아니다. 줄은 `(machine, app)`이다.
+// 이 컴퓨터의 앱은 할당이 없다: 목록에 든 앱의 command는 모두 풀리고 부를 때 Gate가 배포를 본다.
+function remoteAssigned(
   entries: readonly AssignmentEntry[],
-  machine: string | undefined,
+  machine: string,
   app: string,
   command: string,
 ): boolean {
@@ -74,7 +75,7 @@ function docOf(
   };
 }
 
-// 앱 ∩ 선언 ∩ 할당. 순서는 이 기계의 앱, 다른 기계의 앱 다음 앱, command 이름 순이다. 비공개 규칙은 views를 거른 쪽(`withPublicOnly`)이 한다.
+// 앱 ∩ 선언(∩ 다른 컴퓨터 앱 할당). 순서는 이 기계의 앱, 다른 기계의 앱 다음 앱, command 이름 순이다. 비공개 규칙은 views를 거른 쪽(`withPublicOnly`)이 한다.
 export function appCommandEntries(source: {
   views: readonly AppToolView[];
   entries: readonly AssignmentEntry[];
@@ -86,7 +87,10 @@ export function appCommandEntries(source: {
   for (const view of views) {
     const declared = [...view.tools].sort((a, b) => (a.name < b.name ? -1 : 1));
     for (const command of declared) {
-      if (!assigned(source.entries, view.machine, view.app, command.name)) {
+      if (
+        view.machine !== undefined &&
+        !remoteAssigned(source.entries, view.machine, view.app, command.name)
+      ) {
         continue;
       }
       out.push({
@@ -132,7 +136,6 @@ export function appCommands(source: {
     entries: appCommandEntries(source),
     machines: source.machines,
     unreachable: source.entries.flatMap((entry) =>
-      entry.machine === undefined ||
       source.views.some(
         (view) => view.machine === entry.machine && view.app === entry.app,
       )
@@ -143,7 +146,7 @@ export function appCommands(source: {
               machineName:
                 source.machines.find((one) => one.machine === entry.machine)
                   ?.name ?? entry.machine,
-              name: entry.name ?? entry.app,
+              name: entry.name,
             },
           ],
     ),
@@ -220,7 +223,7 @@ export function appCommandTool(entry: AppCommandEntry): ToolDefinition {
       if (!reply.ok) return reply;
       return ok(resultOf(appName, command, reply.value, machineName));
     },
-    // 묻기는 run-loop tool gate, 막기는 core 호출 경로. 다른 기계의 앱은 묻는 판정이 없고(할당이 허락이다) 막기는 core가 넘기기 전에 한다.
+    // 묻기는 run-loop tool gate(배포되지 않은 앱을 묻는다), 막기는 core 호출 경로. 다른 기계의 앱은 묻는 판정이 없고(할당이 허락이다) 막기는 core가 넘기기 전에 한다.
     ...(machine === null
       ? {
           gate: () => ({

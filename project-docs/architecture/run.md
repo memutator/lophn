@@ -113,7 +113,7 @@ tool run
 25. 앱을 id, slug, 이름으로 푼다(없으면 `not_found`). `StartRun`은 run 행을 만들고 기다리지 않고 돌려준다. 호출은 뒤에서 돌고 끝나면 `SettleRun`한다. 성공이면 `done`이고 result가 tool 결과다.
 26. tool은 앱의 command 이름이다. 사람 화면 전용인 operation은 run이 부르지 못한다(`architecture/app-call.md`).
 27. 부른 쪽은 사람이다. 앱 화면에서 사람이 누르는 것과 같은 길이고 Gate를 거치지 않는다(`architecture/app-call.md`). run은 session이 없고 호출 기록의 `view_session`에 run id를 싣는다.
-28. `origin`이 있는 tool run은 사람이 아니다. job이 연 것은 program caller로 부르고, 사람이 승인한 job이라 통과한다(`architecture/app-call.md`, `architecture/job.md`). flow instance가 연 것은 flow caller로 부르고, 그 instance의 agent(`workflow.yaml`의 `agent`)와 project workspace의 지금 할당과 비공개 거르기를 받는다. 막히면 run이 `tool_denied`다.
+28. `origin`이 있는 tool run은 사람이 아니다. job이 연 것은 program caller로 부르고, 사람이 승인한 job이라 통과한다(`architecture/app-call.md`, `architecture/job.md`). flow instance가 연 것은 flow caller로 부르고, 그 instance의 agent(`workflow.yaml`의 `agent`)와 project workspace에서 그 agent에게 닿은 skill(배포)과 비공개 거르기를 받는다. 막히면 run이 `tool_denied`다.
 29. tool 이름이 앱에 없는 것은 `StartRun`에서 막지 않는다. run이 `tool_denied`로 실패한다.
 
 읽기

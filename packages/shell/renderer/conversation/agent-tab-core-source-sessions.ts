@@ -91,13 +91,7 @@ export function agentNameOf(env: Env, agent: AgentId): Promise<string | null> {
 
 // ---------------------------------------------------------------- 권한
 
-/** 앱이나 이름을 모르면 id가 대신 보인다. */
-async function appNameOf(env: Env, app: string): Promise<string> {
-  const read = await env.read(appGet, { app });
-  return read.ok ? read.value.app.name : app;
-}
-
-/** 할당한 앱마다 이름과 뺀 tool, 부를 때마다 물을 tool. */
+/** 할당한 다른 컴퓨터의 앱마다 이름과 뺀 tool, 부를 때마다 물을 tool. */
 async function readApps(
   env: Env,
 ): Promise<SourceResult<PermissionsView["apps"]>> {
@@ -106,10 +100,7 @@ async function readApps(
   const apps = [];
   for (const entry of read.value.assignment.entries) {
     apps.push({
-      name:
-        entry.machine === undefined
-          ? await appNameOf(env, entry.app)
-          : (entry.name ?? entry.app),
+      name: entry.name,
       removed: entry.removed_tools,
       ...(entry.ask_tools === undefined || entry.ask_tools.length === 0
         ? {}

@@ -57,6 +57,8 @@ export const agents = {
   "agents.notice.tab-lead-home":
     "Home lists every agent: global ones and those scoped to a project or app. A scoped agent works only in its own workspace, and a session works in the workspace where you open it.",
   "agents.button.assign-app": "Assign app",
+  "agents.button.deploy-skill": "Deploy skill",
+  "agents.button.undeploy-skill": "Remove",
   "agents.button.choose-character": "Choose character",
   "agents.button.create-agent": "Create agent",
   "agents.button.remove-app": "Remove app",
@@ -68,13 +70,13 @@ export const agents = {
   "agents.button.set-secret": "Set {label}",
   "agents.button.sign-in": "Sign in",
   "agents.empty.grants-computers": "No apps from other computers are assigned.",
-  "agents.empty.grants-apps":
-    "No apps. An assigned app brings all of its tools.",
+  "agents.empty.deployed-skills":
+    "No app skills deployed here. A deployed skill tells agents the app exists and lets them call its commands without asking.",
   "agents.heading.all-agents": "All agents",
   "agents.heading.coding-agents": "Your coding agents",
   "agents.notice.coding-agents":
     "Your favorite coding agents from Settings. lophn can hand work to them, and they run with your own settings for that tool.",
-  "agents.heading.grants-apps": "Apps",
+  "agents.heading.deployed-skills": "Deployed app skills",
   "agents.heading.grants-computers": "Other computers",
   "agents.heading.server-form": "Add a server for this agent only",
   "agents.heading.skip": "Skip permissions",
@@ -157,6 +159,7 @@ export const agents = {
   "agents.label.grant-ask-toggle": "Ask before {tool}",
   "agents.label.grant-col-effect": "Effect",
   "agents.label.grant-col-name": "Name",
+  "agents.label.deployed-gone": "No longer a public skill of an active app",
   "agents.label.grants-app-tools-summary":
     "{used, number} of {total, number} tools",
   "agents.label.grants-app-gone": "Not on this computer any more",
@@ -205,10 +208,11 @@ export const agents = {
   "agents.notice.copy-image":
     "The uploaded image can't be copied, so the copy starts with a character. Upload the image again once it is created.",
   "agents.notice.copy-apps":
-    "The copy gets the same {count, plural, one {# assigned app} other {# assigned apps}}. You can change them once it is created.",
+    "The copy gets the same {count, plural, one {# app} other {# apps}} from other computers. You can change them once it is created.",
   "agents.label.no-role": "No role line yet",
   "agents.label.own-model": "its own model",
-  "agents.label.glance-apps": "{count, plural, one {# app} other {# apps}}",
+  "agents.label.glance-apps":
+    "{count, plural, one {# deployed skill} other {# deployed skills}}",
   "agents.label.glance-remote-apps":
     "{count, plural, one {# app} other {# apps}} on other computers",
   "agents.label.glance-mcp": "{count, number} MCP",
@@ -229,7 +233,7 @@ export const agents = {
   "agents.label.field-modality": "Takes and gives",
   "agents.label.field-workspace": "Workspace",
   "agents.label.field-browser-profile": "Browser profile",
-  "agents.label.field-apps": "Apps",
+  "agents.label.field-apps": "Deployed skills",
   "agents.label.field-remote-apps": "Other computers",
   "agents.label.field-mcp": "MCP servers",
   "agents.label.field-tools": "Tools",
@@ -290,17 +294,19 @@ export const agents = {
   "agents.notice.credential-later":
     "If the server needs a key or token, lophn asks for it in a protected prompt after you add it.",
   "agents.notice.grants-after-create":
-    "You can assign apps here once the agent exists.",
+    "You can assign apps from other computers here once the agent exists.",
   "agents.notice.instructions-app-none":
     "This app has no source folder yet, so it has no AGENTS.md. Only the instructions below apply here.",
   "agents.notice.grants-apply-now":
     "Changes to apps apply right away, without Save.",
-  "agents.notice.grants-lead":
-    "What {name} can use besides its own tools. Anything you don't assign here, {name} can't use.",
+  "agents.notice.deployed-skills-global":
+    "Skills deployed here reach every agent in every workspace. A workspace or one agent can also have its own.",
+  "agents.notice.deployed-skills-workspace":
+    "Skills deployed here reach every agent working in this {kind}. They point at the app's own skills, so an app's new release is followed.",
+  "agents.notice.deployed-skills-agent":
+    "Skills deployed to this agent only. Skills deployed to its workspace or to every agent reach it too. Saved with Save.",
   "agents.notice.grants-computers":
     "Apps that run on your other computers. Only the commands an app offers to other computers can be assigned, and they run on that computer.",
-  "agents.notice.grants-mcp-layers":
-    "MCP servers are set where you add them: Settings \u203a Tools and skills, the project, or this agent's MCP servers above.",
   "agents.notice.instructions-help":
     "Read after the workspace instructions. Your global instructions come before both.",
   "agents.notice.instructions-help-lophn":

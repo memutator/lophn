@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  type Assignment,
   type GateCall,
   type PermissionRule,
   type PermissionRuleLayers,
@@ -15,7 +14,6 @@ import type {
 import { evaluatePermission, type PermissionRequest } from "./judge.ts";
 
 const APP = "app_0000000000000000000000000a";
-const OTHER = "app_0000000000000000000000000b";
 const SES = "ses_0000000000000000000000000a";
 const HOME = "/home/alice";
 const DATA_ROOT = "/home/alice/.lophn";
@@ -560,65 +558,64 @@ test("workflow_run은 read_only 단계에서 mode 거부다", () => {
   );
 });
 
-test("app_tool 할당·제외·ask_tools와 MCP 서버 신뢰 수준이 단계에 맞게 판정된다", () => {
-  const assignment: Assignment = {
-    agent: "lophn_home",
-    entries: [
-      {
-        app: APP,
-        removed_tools: ["notes.delete"],
-        ask_tools: ["notes.publish"],
-      },
-      {
-        app: OTHER,
-        machine: "mch_0000000000000000000000000c",
-        name: "remote-only",
-        removed_tools: [],
-      },
-    ],
+test("배포되지 않은 앱의 tool은 사람이 있을 때 묻고 없으면 막고, 닿는 앱은 묻지 않으며, MCP 서버 신뢰 수준이 단계에 맞게 판정된다", () => {
+  const call: GateCall = {
+    kind: "app_tool",
+    app: APP,
+    tool: "notes.add",
+    effect: "external",
+  };
+  const withSkills = {
+    appAccess: { reached: false, slug: "notes", skills: ["notes-guide"] },
   };
 
-  // 미할당(다른 기계만 할당 포함)과 제외 tool은 어느 단계에서도 막힌다.
-  const unassigned = evalReq(
-    { kind: "app_tool", app: OTHER, tool: "x.run", effect: "read" },
-    "full",
-    "attended",
-    { assignment },
-  );
-  assert.strictEqual(unassigned.kind, "deny");
-  assert.strictEqual(unassigned.denial.reason_kind, "unassigned");
-  assert.deepStrictEqual(unassigned.denial.recovery_action, {
-    kind: "assign_app",
-    app: OTHER,
+  // 닿지 않은 앱은 사람에게 묻는다. 배포할 public skill이 있을 때만 always(배포)가 열린다.
+  const asked = evalReq(call, "workspace", "attended", withSkills);
+  assert.strictEqual(asked.kind, "ask");
+  assert.deepStrictEqual(asked.allowed_choices, [
+    "once",
+    "session",
+    "always",
+    "reject",
+  ]);
+  assert.deepStrictEqual(asked.always_patterns, [
+    "deploy notes/notes-guide to this workspace",
+  ]);
+  const noSkill = evalReq(call, "workspace", "attended", {
+    appAccess: { reached: false, slug: "notes", skills: [] },
   });
+  assert.strictEqual(noSkill.kind, "ask");
+  assert.deepStrictEqual(noSkill.allowed_choices, [
+    "once",
+    "session",
+    "reject",
+  ]);
 
-  const removed = evalReq(
-    { kind: "app_tool", app: APP, tool: "notes.delete", effect: "write" },
-    "full",
-    "attended",
-    { assignment },
-  );
-  assert.strictEqual(removed.kind, "deny");
-  assert.strictEqual(removed.denial.reason_kind, "removed");
+  // 사람이 없는 실행은 묻지 못해 막히고, 문장이 먼저 배포하라고 알린다. 사람이 `full`을 골랐어도 사람이 없으면 같다.
+  for (const mode of ["workspace", "full"] as const) {
+    const unattended = evalReq(call, mode, "unattended", withSkills);
+    assert.strictEqual(unattended.kind, "deny");
+    assert.strictEqual(unattended.denial.reason_kind, "no_person");
+    assert.match(
+      unattended.denial.recovery_hint ?? "",
+      /Deploy a skill of app notes first/,
+    );
+  }
 
-  // ask_tools에 든 tool은 workspace에서 묻고, 일반 할당 tool은 통과한다.
-  assert.strictEqual(
-    evalReq(
-      { kind: "app_tool", app: APP, tool: "notes.publish", effect: "external" },
-      "workspace",
-      "attended",
-      { assignment },
-    ).kind,
-    "ask",
-  );
+  // 닿는 앱(skill 배포나 앱 자기 workspace)과 사람이 `full`로 맡긴 호출은 묻지 않는다.
   assert.deepStrictEqual(
-    evalReq(
-      { kind: "app_tool", app: APP, tool: "notes.add", effect: "external" },
-      "workspace",
-      "attended",
-      { assignment },
-    ),
+    evalReq(call, "workspace", "attended", {
+      appAccess: { reached: true, slug: "notes", skills: ["notes-guide"] },
+    }),
     { kind: "run" },
+  );
+  assert.deepStrictEqual(evalReq(call, "full", "attended", withSkills), {
+    kind: "run",
+  });
+  assert.strictEqual(
+    evalReq({ ...call, effect: "write" }, "read_only", "attended", withSkills)
+      .kind,
+    "deny",
   );
 
   // 비신뢰 MCP 서버의 비읽기 tool은 workspace에서 묻고, 읽기 전용이나 신뢰 서버는 통과한다.

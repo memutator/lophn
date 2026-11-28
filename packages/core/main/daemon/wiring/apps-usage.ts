@@ -125,7 +125,7 @@ function usagePortsOf(sql: Query): UsagePorts {
           continue;
         }
         if (!isActiveWorkspace(sql, info.workspace)) continue;
-        if (info.apps.includes(appSlug)) {
+        if (info.deployedSkills.some((one) => one.app === appSlug)) {
           workspaces.push(info.workspace);
         }
       }

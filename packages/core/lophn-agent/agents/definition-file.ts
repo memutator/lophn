@@ -226,7 +226,7 @@ const EMPTY_DEFAULT_LISTS = [
   "skills_off",
   "mcp_off",
   "mcp_servers",
-  "apps",
+  "deployed_skills",
   "remote_apps",
   "extensions",
 ] as const;
@@ -297,15 +297,6 @@ function orderedFrontmatter(value: Plain): Plain {
       key === "mcp_off"
         ? list.map((item) => pick(item, ["server_name", "original_tool"]))
         : list;
-  }
-  const permissions = value.permissions as Plain | undefined;
-  const deny = permissions?.deny as string[] | undefined;
-  const ask = permissions?.ask as string[] | undefined;
-  const nextPermissions: Plain = {};
-  if (deny !== undefined && deny.length > 0) nextPermissions.deny = deny;
-  if (ask !== undefined && ask.length > 0) nextPermissions.ask = ask;
-  if (Object.keys(nextPermissions).length > 0) {
-    out.permissions = nextPermissions;
   }
   if (value.browser_profile !== undefined) {
     out.browser_profile = value.browser_profile;

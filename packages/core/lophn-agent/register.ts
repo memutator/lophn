@@ -47,8 +47,12 @@ import {
   recordRewindWrite,
   requestRewindSummary,
   SESSION_LIFECYCLE_ROUTES,
+  type SkillDeployment,
   skillsCheck,
+  skillsDeploy,
+  skillsDeployments,
   skillsList,
+  skillsUndeploy,
   stageRewindFile,
   takeRewindSummaryRequest,
   type Workspace,
@@ -107,6 +111,8 @@ import {
   dataRootOf,
   type ExtensionRegistry,
   extensionSettings,
+  gatherDeployments,
+  globalDeployedSkillsSetting,
   globalMcpServersSetting,
   type ProjectLayer,
   readSharedHeads,
@@ -423,6 +429,13 @@ function registeredSkillsOff(sql: Pick<Tx["sql"], "get" | "all">): string[] {
   return settingsOf(sql)?.get(skillsOffSetting) ?? [];
 }
 
+// 모든 agent에게 배포한 앱 skill이다. 읽지 못하면 없다.
+function registeredDeployed(
+  sql: Pick<Tx["sql"], "get" | "all">,
+): SkillDeployment[] {
+  return settingsOf(sql)?.get(globalDeployedSkillsSetting) ?? [];
+}
+
 // workspace 층이 정하는 skill 자리와 workspace 그릇을 읽는 길이다. 조립이 넘긴다.
 type SkillLayers = {
   projectLayer: ProjectLayer;
@@ -476,6 +489,7 @@ function extensionRegistry(
       servers: registeredMcpServers(sql),
       skills: globalSkillSources(sql, layers),
       skillsOff: registeredSkillsOff(sql),
+      deployed: registeredDeployed(sql),
     },
   });
 }
@@ -525,13 +539,26 @@ function agentLookups(
         .entries.filter((entry) => entry.enabled) ?? [],
     // agent 정의가 MCP tool을 고르지 않는다. 쓸 tool은 agent 할당과 설정한 층이 정한다.
     mcp: () => [],
-    // 할당한 앱의 public skill. 이름만 필요한 개수 계산이 쓴다.
-    shared: (apps) =>
-      sharedHeadsOf(workspaces, sql, apps).map((head) => ({
+    reaching: (workspace, agent) =>
+      registryOf()?.deployments(workspace, agent) ??
+      gatherDeployments({ agent }),
+    // 배포 기록이 가리킨 앱의 public skill. 이름만 필요한 개수 계산이 쓴다.
+    shared: (deployed) =>
+      sharedHeadsOf(workspaces, sql, deployed).map((head) => ({
         name: head.name,
         can_disable: true,
       })),
-    sharedCommands: (apps, deny) => workspaces.sharedCommands(sql, apps, deny),
+    sharedCommands: (deployed) => {
+      const root = dataRootOf(sql, undefined);
+      return !root.ok
+        ? []
+        : workspaces.sharedCommands(
+            sql,
+            workspaces
+              .sharedSkills(sql, root.value, deployed)
+              .map((one) => one.slug),
+          );
+    },
     modelInfo: (model) => {
       const row = sql.get(
         "select name, definition_key from providers where id = ?",
@@ -564,17 +591,20 @@ function agentLookups(
   };
 }
 
-// 할당한 앱의 public skill 목록이다(slug 순, 같은 이름은 앞의 것). data root를 모르면 없다.
+// 배포 기록이 가리킨 앱의 public skill 목록이다(slug 순, 같은 이름은 앞의 것). data root를 모르면 없다.
 function sharedHeadsOf(
   workspaces: WorkspaceLookups,
   sql: Pick<Tx["sql"], "get" | "all">,
-  apps: readonly string[],
+  deployed: readonly SkillDeployment[],
   workspace: Workspace | null = null,
 ) {
   const root = dataRootOf(sql, undefined);
-  if (!root.ok || apps.length === 0) return [];
+  if (!root.ok || deployed.length === 0) return [];
   return sharedFor(
-    readSharedHeads(skillFiles, workspaces.sharedSkills(sql, root.value, apps)),
+    readSharedHeads(
+      skillFiles,
+      workspaces.sharedSkills(sql, root.value, deployed),
+    ),
     workspace,
   );
 }
@@ -782,22 +812,22 @@ export function createLophnAgent(ports: LophnAgentPorts) {
     workspaceExtensionDeps,
   );
 
-  // 그 agent 정의가 끈 skill 이름과 할당한 앱이다. 정의를 읽지 못하면 끈 skill이 없다.
+  // 그 agent 정의가 끈 skill 이름과 배포받은 앱 skill이다. 정의를 읽지 못하면 끈 skill도 배포도 없다.
   function ownOf(
     sql: Pick<Tx["sql"], "get" | "all">,
     agent: AgentId,
   ): {
     skills_off: readonly string[];
-    apps: readonly string[];
+    deployed: readonly SkillDeployment[];
   } {
-    const none = { skills_off: [], apps: [] };
+    const none = { skills_off: [], deployed: [] };
     const opened = openAgentContext(agentDeps, sql);
     if (!opened.ok) return none;
     const loaded = loadAgent(opened.value, agent);
     if (!loaded.ok || loaded.value === null) return none;
     return {
       skills_off: loaded.value.definition?.skills_off ?? [],
-      apps: loaded.value.definition?.apps ?? [],
+      deployed: loaded.value.definition?.deployed_skills ?? [],
     };
   }
 
@@ -808,15 +838,15 @@ export function createLophnAgent(ports: LophnAgentPorts) {
     skills: (sql, session) => {
       const own = ownOf(sql, session.agent);
       const kind = workspaceKindOf(session.workspace);
+      const registry = extensionRegistry(sql, ports);
       const shared = sharedHeadsOf(
         ports.lookups,
         sql,
-        own.apps,
+        registry?.deployments(session.workspace, own.deployed) ?? [],
         session.workspace,
       );
       return commandSkillsOf(
-        extensionRegistry(sql, ports)?.skills(session.workspace, kind, shared)
-          .entries ?? [],
+        registry?.skills(session.workspace, kind, shared).entries ?? [],
         own.skills_off,
       );
     },
@@ -966,9 +996,12 @@ export function createLophnAgent(ports: LophnAgentPorts) {
       mcpToolsList,
       mcpToolsRequestTake,
       mcpToolsRequestDone,
-      // `lophn skill list|check`. handler는 wiring/lophn-agent-extensions.ts가 붙인다.
+      // `lophn skill list|check|deploy|undeploy|deployments`. handler는 wiring/lophn-agent-extensions.ts가 붙인다.
       skillsList,
       skillsCheck,
+      skillsDeploy,
+      skillsUndeploy,
+      skillsDeployments,
       // ask 대기와 사람의 답. handler는 wiring/approvals.ts가 붙인다.
       askWait,
       askRead,

@@ -68,8 +68,6 @@ mcp_servers:
         kind: bearer
         credential:
           secret: mcp.lophn.gh
-apps:
-  - notes
 ---
 Always answer in Korean.
 `;

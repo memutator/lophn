@@ -663,7 +663,8 @@ export const harnessWiring: WiringFactory = () => {
             });
           }
           return ok({
-            deny: info.value.deny,
+            // 정의에 권한 규칙 칸은 없다(앱 command의 deny는 skill 배포로 바뀌었다).
+            deny: [],
             ...(info.value.harnessConfig === undefined
               ? {}
               : { harness_config: info.value.harnessConfig }),

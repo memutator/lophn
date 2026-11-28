@@ -481,7 +481,7 @@ files:
 
   - path: packages/shell/renderer/workspace/agents/editor/grants-model_test.ts
     covers: []
-    note: "agent에 붙일 앱 tool 목록 순수 함수. 앱의 비공개 tool은 그 agent가 일하는 앱 것만 붙는다. assignment-set의 화면 쪽 규칙이지만 flow outcome에 없다"
+    note: "다른 컴퓨터 앱 tool 목록 순수 함수. 다른 컴퓨터의 앱은 public tool만 붙고, ask와 removed는 겹치지 않는다. assignment-set의 화면 쪽 규칙이지만 flow outcome에 없다"
 
   - path: packages/shell/renderer/workspace/open-policy_test.ts
     covers:

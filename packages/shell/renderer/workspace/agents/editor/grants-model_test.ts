@@ -3,16 +3,14 @@ import { test } from "node:test";
 
 import type { GrantApp } from "../source.ts";
 import {
-  appEntryOf,
   appsFor,
   isAsk,
   isRemoved,
-  setEntry,
   withToolAsk,
   withToolRemoved,
 } from "./grants-model.ts";
 
-test("agent가 일하는 앱의 비공개 tool만 붙일 수 있고 public tool은 어느 앱 것이든 붙일 수 있다", () => {
+test("다른 컴퓨터의 앱은 public tool만 붙일 수 있다", () => {
   const tool = (name: string, isPublic: boolean) => ({
     tool: name,
     detail: "",
@@ -26,42 +24,22 @@ test("agent가 일하는 앱의 비공개 tool만 붙일 수 있고 public tool�
     app("app_other", [tool("open2", true), tool("secret2", false)]),
     app("app_closed", [tool("secret3", false)]),
   ];
-  const seen = (workspace: string | null) =>
-    appsFor(apps, workspace).map((one) => [
-      one.app,
-      one.tools.map((a) => a.tool),
-    ]);
-
-  assert.deepStrictEqual(seen("app_mine"), [
-    ["app_mine", ["open1", "secret1"]],
-    ["app_other", ["open2"]],
-  ]);
-  assert.deepStrictEqual(seen(null), [
-    ["app_mine", ["open1"]],
-    ["app_other", ["open2"]],
-  ]);
-});
-
-test("다른 기계에 할당한 같은 앱 id의 줄은 이 기계의 줄과 섞이지 않는다", () => {
-  const remote = {
-    app: "app_mine",
-    machine: "mch_other",
-    name: "Mine",
-    removed_tools: ["x"],
-  };
-  const local = { app: "app_mine", removed_tools: [] };
-  assert.deepStrictEqual(appEntryOf([remote], "app_mine"), undefined);
   assert.deepStrictEqual(
-    appEntryOf([remote, local], "app_mine", "mch_other"),
-    remote,
+    appsFor(apps).map((one) => [one.app, one.tools.map((a) => a.tool)]),
+    [
+      ["app_mine", ["open1"]],
+      ["app_other", ["open2"]],
+    ],
   );
-  assert.deepStrictEqual(setEntry([remote], local), [remote, local]);
-  const edited = { ...local, removed_tools: ["y"] };
-  assert.deepStrictEqual(setEntry([remote, local], edited), [remote, edited]);
 });
 
 test("ask_tools와 removed_tools는 서로 겹치지 않는다", () => {
-  const base = { app: "app_mine", removed_tools: ["delete_expense"] };
+  const base = {
+    app: "app_mine",
+    machine: "mch_other",
+    name: "Mine",
+    removed_tools: ["delete_expense"],
+  };
   const asked = withToolAsk(base, "delete_expense", true);
   assert.equal(isAsk(asked, "delete_expense"), true);
   assert.equal(isRemoved(asked, "delete_expense"), false);

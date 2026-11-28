@@ -23,6 +23,7 @@ import type {
   SessionOpenMode,
 } from "../../../../protocol/lophn-agent/agent-values.ts";
 import type { McpServer } from "../../../../protocol/lophn-agent/mcp-settings.ts";
+import type { SkillDeployment } from "../../../../protocol/lophn-agent/skill-settings.ts";
 import type {
   CatalogEntry,
   ModelChoice,
@@ -33,6 +34,7 @@ import type { ToolEffect } from "../../../../protocol/lophn-agent/tool-values.ts
 import type { PermissionMode } from "../../../../protocol/lophn-agent/turn-values.ts";
 import type { ReadResult } from "../source.ts";
 import type {
+  DeployableSkill,
   InstructionsFile,
   McpLogin,
   McpRow,
@@ -91,7 +93,7 @@ export interface AgentGlance {
   readonly harnessConfig?: HarnessConfig;
   /** 정의 본문(이 agent의 지침)이 비어 있지 않은가. */
   readonly instructions: boolean;
-  /** 이 컴퓨터의 할당 앱 수. */
+  /** 이 agent에게 배포한 앱 skill 수. */
   readonly apps: number;
   /** 다른 컴퓨터의 할당 앱 수. */
   readonly remoteApps: number;
@@ -113,6 +115,8 @@ export interface AgentsOverview {
   };
   /** 이 workspace에서 발견되는 skill. 꺼진 것도 줄로 남는다. */
   readonly skills: readonly SkillRow[];
+  /** 이 workspace에 배포한 앱 skill(workspace 층의 배포). */
+  readonly deployed: readonly SkillDeployment[];
   /** 이 workspace가 쓰는 MCP server(전역과 workspace 층). */
   readonly mcpServers: readonly McpRow[];
   /** workspace memory. 파일이 없거나 읽을 수 없으면 빈 글이다. */
@@ -152,6 +156,8 @@ export interface AgentDraft {
   readonly skills_off?: readonly string[];
   readonly mcp_off?: readonly McpOff[];
   readonly mcp_servers?: readonly McpServer[];
+  /** 이 agent에게 배포한 앱 skill(agent 층의 배포). 앱의 public skill 하나가 한 줄이다. */
+  readonly deployed_skills?: readonly SkillDeployment[];
   /** 새 session의 기본 권한 단계. 없으면 전역 기본(`approvals.default_mode`)을 따른다. 사람만 쓴다. */
   readonly permission_mode?: PermissionMode;
   /** 이 agent가 여는 browser 탭의 profile(core의 browser profile 목록의 id). 없으면 기본이다. 사람만 쓴다. */
@@ -295,14 +301,8 @@ export interface GrantApp {
   readonly tools: readonly GrantTool[];
 }
 
-/** 붙일 수 있는 대상 전체. 붙은 것은 entries가 말한다. */
-export interface GrantCatalog {
-  readonly apps: readonly GrantApp[];
-}
-
 export interface GrantsView {
   readonly entries: readonly AssignmentEntry[];
-  readonly catalog: GrantCatalog;
   /** 읽은 때의 저장 판. 저장할 때 compare로 보내고, 그 사이 다른 창이 고쳤으면 core가 conflict로 거절한다. */
   readonly revision: number;
 }
@@ -389,7 +389,14 @@ export interface AgentsSource {
   ): Promise<ReadResult<null>>;
   /** MCP server의 secret 한 자리(`mcp.…` 이름)에 값을 넣는 보호 입력 창을 열고 닫힐 때까지 기다린다. 값은 이 길을 지나지 않는다. */
   enterMcpSecret(name: string, server: string): Promise<void>;
-  /** 이 agent에 붙은 할당과 붙일 수 있는 앱. */
+  /** 배포할 수 있는 앱 skill 전부(활성 앱의 public skill). 읽지 못하면 못 읽은 것이다. */
+  deployable(): Promise<ReadResult<readonly DeployableSkill[]>>;
+  /** workspace 층의 배포를 새 내용으로 바꾼다. agent 층은 정의의 `deployed_skills`로 저장한다. */
+  setDeployed(
+    workspace: string,
+    next: readonly SkillDeployment[],
+  ): Promise<ReadResult<null>>;
+  /** 이 agent의 다른 컴퓨터 앱 할당. */
   grants(
     workspace: string | null,
     assignment: string,

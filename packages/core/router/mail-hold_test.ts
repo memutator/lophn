@@ -146,8 +146,7 @@ const agents: AgentDirectory = {
           workspace: null,
           ...(id === SKIPPER ? { permissionMode: "full" as const } : {}),
           runtime: "lophn",
-          apps: [],
-          deny: [],
+          deployedSkills: [],
           remoteApps: [],
           browserProfile: null,
         }
@@ -158,8 +157,7 @@ const agents: AgentDirectory = {
             name: "lophn",
             workspace: workspaceOfLophn(id),
             runtime: "lophn",
-            apps: [],
-            deny: [],
+            deployedSkills: [],
             remoteApps: [],
             browserProfile: null,
           }

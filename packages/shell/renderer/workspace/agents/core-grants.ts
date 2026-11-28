@@ -1,5 +1,5 @@
-// 할당을 읽고 저장하는 부분과 붙일 수 있는 앱 목록. 붙은 것은 agent 정의 파일의 apps·permissions가, 붙일 수 있는 앱과 tool은
-// 앱 목록과 활성 release의 선언이 말한다. MCP server는 설정한 층이 곧 할당이라 여기에 없다.
+// 다른 컴퓨터 앱 할당을 읽고 저장하는 부분과 그 컴퓨터가 내놓는 앱 목록. 붙은 것은 agent 정의 파일의 remote_apps가, 붙일 수 있는 앱과 tool은
+// 그 컴퓨터의 앱 목록과 활성 release의 선언이 말한다. 이 컴퓨터의 앱은 할당이 아니라 skill 배포다(`core-extensions.ts`).
 import {
   assignmentSet,
   type AssignmentEntry,
@@ -64,12 +64,11 @@ export async function readComputerApps(
 ): Promise<GrantApp[] | null> {
   // 읽기만 하므로 command key의 무작위 값은 쓰이지 않는다.
   const apps = await appCatalog(createLink(core, () => ""));
-  return apps === null ? null : appsFor(apps, null);
+  return apps === null ? null : appsFor(apps);
 }
 
 export async function readGrants(
   link: Link,
-  workspace: string | null,
   agent: string,
 ): Promise<ReadResult<GrantsView>> {
   if (!isAgentId(agent)) return { ok: false, message: "not_found" };
@@ -78,12 +77,10 @@ export async function readGrants(
     revision: number;
   }>("agent_assignments", "get", { agent });
   if (!read.ok) return read;
-  const apps = await appCatalog(link);
   return {
     ok: true,
     value: {
       entries: read.value.assignment.entries,
-      catalog: { apps: appsFor(apps ?? [], workspace) },
       revision: read.value.revision,
     },
   };
@@ -91,7 +88,6 @@ export async function readGrants(
 
 export function saveGrants(
   link: Link,
-  _workspace: string | null,
   agent: string,
   entries: readonly AssignmentEntry[],
   revision: number,

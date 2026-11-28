@@ -22,6 +22,7 @@ import { Avatar, type AvatarLook } from "../../../parts/avatar/avatar.tsx";
 import { useOpenHandoffSession } from "../../../shell/cascade-delete-confirm.tsx";
 import { codingFaceOf } from "../coding-face.ts";
 import type { AgentDraft, AgentsSource, GrantsView } from "../source.ts";
+import type { DeployableSkill } from "../views.ts";
 import type { Face } from "../tab-state.ts";
 import { useAgentModels } from "../use-agent-models.ts";
 import type { McpLogin, McpRow, McpSecret, McpStatus } from "../views.ts";
@@ -62,6 +63,7 @@ export type AgentEditorSource = Pick<
   | "removeModelInfo"
   | "grants"
   | "setGrants"
+  | "deployable"
   | "signInMcp"
   | "cancelMcpSignIn"
   | "enterMcpSecret"
@@ -148,6 +150,10 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
   const [tab, setTab] = useState<EditorTab>("overview");
   const [notice, setNotice] = useState<Notice | null>(null);
   const [grants, setGrants] = useState<GrantsLoaded>({ kind: "loading" });
+  // 배포할 수 있는 앱 skill. 읽는 중이거나 읽지 못했으면 null이다.
+  const [deployable, setDeployable] = useState<
+    readonly DeployableSkill[] | null
+  >(null);
   const [attempt, setAttempt] = useState(0);
   const [grantsAttempt, setGrantsAttempt] = useState(0);
   // 저장은 한 줄로 이어 보낸다. 앞 저장이 끝나기 전에 다음 변화를 보내면 옛 revision이라 conflict가 난다.
@@ -260,6 +266,16 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
       live = false;
     };
   }, [source, workspace, agent, attempt, grantsAttempt]);
+
+  useEffect(() => {
+    let live = true;
+    void source.deployable().then((result) => {
+      if (live) setDeployable(result.ok ? result.value : null);
+    });
+    return () => {
+      live = false;
+    };
+  }, [source, attempt]);
 
   const ready = state.kind === "ready" ? state : null;
   const dirty = ready !== null && isDirty(ready);
@@ -484,7 +500,7 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
       });
   };
 
-  // 할당은 정의 파일의 apps·remote_apps·permissions라 할당 저장이 파일 hash를 바꾼다. 들고 있는 hash와 그 칸들을 파일에 맞춰,
+  // 다른 컴퓨터 앱 할당은 정의 파일의 remote_apps라 할당 저장이 파일 hash를 바꾼다. 들고 있는 hash와 그 칸들을 파일에 맞춰,
   // 이어지는 정의 저장이 conflict가 되거나 방금 바꾼 할당을 옛 값으로 덮지 않게 한다. 편집 중인 다른 칸은 그대로 둔다.
   const syncGrantsFile = async (assignment: string) => {
     const read = await source.readAgent(workspace, assignment);
@@ -556,7 +572,7 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
     detail.assignment === null
       ? ""
       : source.imageSrc(workspace, detail.assignment, image);
-  // Overview의 Apps 줄: 이 컴퓨터의 앱은 목록의 이름, 다른 컴퓨터의 앱은 저장된 이름이다.
+  // Overview의 다른 컴퓨터 앱 줄: 저장된 이름이다.
   const appNames: AppNames =
     detail.assignment === null || grants.kind === "loading"
       ? { state: detail.assignment === null ? "none" : "loading" }
@@ -564,21 +580,11 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
         ? { state: "failed" }
         : {
             state: "ready",
-            local: grants.view.entries.flatMap((entry) =>
-              entry.machine === undefined
-                ? (grants.view.catalog.apps
-                    .filter((app) => app.app === entry.app)
-                    .map((app) => app.name) ?? [])
-                : [],
-            ),
-            remote: grants.view.entries.flatMap((entry) =>
-              entry.machine === undefined ? [] : [entry.name ?? entry.app],
-            ),
+            remote: grants.view.entries.map((entry) => entry.name),
           };
   const copiedApps =
-    ((definition as { apps?: readonly unknown[] }).apps?.length ?? 0) +
-    ((definition as { remote_apps?: readonly unknown[] }).remote_apps?.length ??
-      0);
+    (definition as { remote_apps?: readonly unknown[] }).remote_apps?.length ??
+    0;
   const apps = fresh ? (
     <p className={styles.note}>
       {copiedApps === 0
@@ -594,12 +600,7 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
     />
   ) : (
     <>
-      <GrantsPanel
-        agentName={name}
-        entries={grants.view.entries}
-        catalog={grants.view.catalog}
-        onChange={changeGrants}
-      />
+      <GrantsPanel entries={grants.view.entries} onChange={changeGrants} />
       <p className={styles.note}>{t("agents.notice.grants-apply-now")}</p>
     </>
   );
@@ -710,6 +711,7 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
             {...form}
             facts={facts}
             apps={apps}
+            deployable={deployable}
             onSignIn={signIn}
             onCancelSignIn={cancelSignIn}
             onSetSecret={setSecret}

@@ -5,6 +5,7 @@ import { parseActor } from "../../../protocol/base/mod.ts";
 import {
   type AgentId,
   type AgentWorkspace,
+  type SkillDeployment,
   skillsCheck,
   skillsList,
   workspaceKindOf,
@@ -13,8 +14,11 @@ import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
 import type { MemoryHandler } from "../../server/mod.ts";
 import { resolveInWorkspace } from "../tools/file/scope.ts";
 import type { WorkspaceScope } from "../tools/ports.ts";
+import { gatherDeployments } from "./deployments.ts";
 import {
+  EMPTY_PROJECT_EXTENSIONS,
   parseProjectExtensions,
+  type ProjectExtensions,
   type ProjectLayer,
   workspaceSkillsOf,
 } from "./project-settings.ts";
@@ -248,7 +252,11 @@ export type SkillCommandDeps = {
   dataRoot: string;
   projectLayer: ProjectLayer;
   bundledSkillsRoot: string;
-  globalSettings(): { roots: readonly string[]; off: readonly string[] };
+  globalSettings(): {
+    roots: readonly string[];
+    off: readonly string[];
+    deployed: readonly SkillDeployment[];
+  };
   sessionInfo(session: string): Result<{
     agent: AgentId;
     workspace: AgentWorkspace | null;
@@ -259,9 +267,11 @@ export type SkillCommandDeps = {
   sourceFolder(workspace: AgentWorkspace): Result<string | null>;
   agentOwn(agent: AgentId): Result<{
     skills_off: readonly string[];
-    apps: readonly string[];
+    deployed: readonly SkillDeployment[];
   }>;
-  sharedFolders(apps: readonly string[]): Result<readonly SharedFolder[]>;
+  sharedFolders(
+    deployed: readonly SkillDeployment[],
+  ): Result<readonly SharedFolder[]>;
 };
 
 const routeKey = (route: { resource: string; method: string }) =>
@@ -275,14 +285,18 @@ function sameWorkspace(
   return a.kind === b.kind && a.id === b.id;
 }
 
-async function readWorkspaceOff(file: string): Promise<readonly string[]> {
+async function readWorkspaceExtensions(
+  file: string,
+): Promise<ProjectExtensions> {
   try {
     const info = await lstat(file);
-    if (!info.isFile() || info.size > SKILL_BODY_MAX_BYTES) return [];
+    if (!info.isFile() || info.size > SKILL_BODY_MAX_BYTES) {
+      return EMPTY_PROJECT_EXTENSIONS;
+    }
     const parsed = parseProjectExtensions(await readFile(file, "utf8"));
-    return parsed.ok ? parsed.value.skills_off : [];
+    return parsed.ok ? parsed.value : EMPTY_PROJECT_EXTENSIONS;
   } catch {
-    return [];
+    return EMPTY_PROJECT_EXTENSIONS;
   }
 }
 
@@ -369,11 +383,23 @@ export function createSkillCommandHandlers(
     const global = deps.globalSettings();
     const own =
       agent === null
-        ? { skills_off: [] as readonly string[], apps: [] as readonly string[] }
+        ? {
+            skills_off: [] as readonly string[],
+            deployed: [] as readonly SkillDeployment[],
+          }
         : (() => {
             const read = deps.agentOwn(agent);
-            return read.ok ? read.value : { skills_off: [], apps: [] };
+            return read.ok ? read.value : { skills_off: [], deployed: [] };
           })();
+    const root = deps.dataRoot.replace(/[\\/]+$/, "");
+    const workspaceExtensions = await readWorkspaceExtensions(
+      deps.projectLayer.extensionsFile(root, workspace),
+    );
+    const deployed = gatherDeployments({
+      global: global.deployed,
+      workspace: workspaceExtensions.deployed_skills,
+      agent: own.deployed,
+    });
     const source =
       workspace === null
         ? null
@@ -382,13 +408,12 @@ export function createSkillCommandHandlers(
             return read.ok ? read.value : null;
           })();
     const sharedFolders =
-      own.apps.length === 0
+      deployed.length === 0
         ? []
         : (() => {
-            const read = deps.sharedFolders(own.apps);
+            const read = deps.sharedFolders(deployed);
             return read.ok ? read.value : [];
           })();
-    const root = deps.dataRoot.replace(/[\\/]+$/, "");
     const baseSources: Omit<SkillSources, "shared"> = {
       bundled: deps.bundledSkillsRoot,
       registered: global.roots,
@@ -408,15 +433,12 @@ export function createSkillCommandHandlers(
       readSharedHeads(snapshot, sharedFolders),
       workspace,
     );
-    const workspaceOff = await readWorkspaceOff(
-      deps.projectLayer.extensionsFile(root, workspace),
-    );
     const listing = discoverSkills(
       snapshot,
       { ...baseSources, shared },
       {
         kind: workspaceKindOf(workspace),
-        off: [...new Set([...global.off, ...workspaceOff])],
+        off: [...new Set([...global.off, ...workspaceExtensions.skills_off])],
       },
     );
     return {

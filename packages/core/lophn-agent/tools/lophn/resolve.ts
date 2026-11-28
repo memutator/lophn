@@ -60,18 +60,18 @@ export function appScopeOf(
   return ok({ machine: found.value.machine, argv });
 }
 
-// 이 호출이 앱 command일 수 있는가. 내장 명령의 첫 낱말이면 앱 목록(다른 컴퓨터를 읽을 수 있다)을 읽을 까닭이 없다.
-export function mayBeAppCall(input: unknown): boolean {
+// 이 호출이 앱 command일 수 있으면 그 앱 slug 자리의 첫 낱말이다. 내장 명령의 첫 낱말이면 앱 목록(다른 컴퓨터를 읽을 수 있다)을 읽을 까닭이 없다.
+export function appWordOf(input: unknown): string | undefined {
   const args = argsOf(input);
-  if (args === undefined) return false;
+  if (args === undefined) return undefined;
   const split = splitOn(args);
-  if (!split.ok) return false;
+  if (!split.ok) return undefined;
   const [first] = split.value.argv;
-  return first !== undefined && !isBuiltinWord(first);
+  return first !== undefined && !isBuiltinWord(first) ? first : undefined;
 }
 
 // 앱 command의 호출로 푼다. 지금 부를 수 있는 command(`entries`) 중 하나로 읽히면 그 command와 입력이고, 아니면
-// (도움말, 틀린 명령줄, 할당 밖·뺀·비공개 command, 고르지 못한 기계) undefined라 호출은 `lophn` tool에 남아 그 handler가 답한다.
+// (도움말, 틀린 명령줄, 없는 앱·비공개 command, 고르지 못한 기계) undefined라 호출은 `lophn` tool에 남아 그 handler가 답한다.
 // `--on <기계>`가 있으면 그 기계의 앱 command만 보고, 없으면 이 기계의 것만 본다.
 // wire 이름이 형식에 맞지 않는 이름은 tool 표 전체를 깨므로 풀지 않는다.
 export function resolveAppCall(

@@ -11,10 +11,12 @@ import {
 import { skillsRead } from "../../../../../protocol/lophn-agent/skill-settings.ts";
 import { secretStatus } from "../../../../../protocol/secrets/secret-file.ts";
 import { actionIcons } from "../../../icons/mod.ts";
+import { DeployedSkills } from "../../../workspace/agents/editor/deployed-skills.tsx";
 import { McpList, SkillList } from "../../../workspace/agents/editor/parts.tsx";
 import { ServerForm } from "../../../workspace/agents/editor/server-form.tsx";
 import { useCoreRead } from "../../connection/core-read.ts";
 import { extensionsViewOf, serverSecretNames } from "../agents/core-source.ts";
+import type { DeployableSkill } from "../../../workspace/agents/views.ts";
 import type {
   AgentsSettingsSource,
   McpRow,
@@ -24,6 +26,8 @@ import { effectiveOf } from "../declared.ts";
 import {
   authStateInput,
   authStatesOf,
+  DEPLOYED_SKILLS,
+  deployedOf,
   extensionSettingsOf,
   MCP_SERVERS,
   SKILL_FOLDERS,
@@ -60,8 +64,28 @@ export function ExtensionsPanel({ source }: ExtensionsPanelProps): ReactNode {
   // 로그인이 끝나도 따라간다. 상태를 읽지 못하면 그 칸만 모른다고 본다.
   const skills = useCoreRead(skillsRead, {});
   const settings = useCoreRead(settingsList, {
-    keys: [SKILL_FOLDERS, MCP_SERVERS],
+    keys: [SKILL_FOLDERS, MCP_SERVERS, DEPLOYED_SKILLS],
   });
+  const deployed = useMemo(
+    () =>
+      settings.loaded.state === "ready"
+        ? deployedOf(effectiveOf(settings.loaded.value))
+        : [],
+    [settings.loaded],
+  );
+  // 배포할 수 있는 앱 skill. 읽는 중이거나 읽지 못했으면 null이다.
+  const [deployable, setDeployable] = useState<
+    readonly DeployableSkill[] | null
+  >(null);
+  useEffect(() => {
+    let live = true;
+    void source.deployable().then((result) => {
+      if (live) setDeployable(result.ok ? result.value : null);
+    });
+    return () => {
+      live = false;
+    };
+  }, [source]);
   const servers = useMemo(
     () =>
       settings.loaded.state === "ready"
@@ -190,6 +214,22 @@ export function ExtensionsPanel({ source }: ExtensionsPanelProps): ReactNode {
             )}
             <p className={styles.note}>
               {t("agents.notice.settings-tools-skills")}
+            </p>
+          </section>
+
+          <section className={styles.section} data-section="deployed">
+            <div className={styles.sectionHead}>
+              <h2 className={styles.sectionTitle}>
+                {t("agents.heading.deployed-skills")}
+              </h2>
+            </div>
+            <DeployedSkills
+              entries={deployed}
+              deployable={deployable}
+              onChange={(next) => void act(() => source.setDeployed(next))}
+            />
+            <p className={styles.note}>
+              {t("agents.notice.deployed-skills-global")}
             </p>
           </section>
 

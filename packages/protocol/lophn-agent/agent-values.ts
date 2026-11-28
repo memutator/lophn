@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { toolKeySchema } from "../apps/channel-values.ts";
 import { idSchema } from "../base/ids.ts";
-import { slugSchema } from "../projects/values.ts";
 import { avatarOutputSchema, avatarSchema } from "./agent-avatar.ts";
 import { mcpServerSchema } from "./mcp-settings.ts";
 import {
@@ -9,6 +8,7 @@ import {
   modelChoiceOutputSchema,
   modelChoiceSchema,
 } from "./models.ts";
+import { deployedSkillsSchema } from "./skill-settings.ts";
 import { permissionModeSchema } from "./turn-values.ts";
 import { CODING_BUILTINS } from "./workspaces.ts";
 
@@ -88,11 +88,6 @@ function mcpKey(entry: { server_name: string; original_tool?: string }) {
 const skillsSchema = z.array(nonblankSchema).refine(unique, {
   message: "duplicate skill",
 });
-// 할당한 앱의 slug. slug는 앱을 만들 때 정해지고 바뀌지 않아 사람이 손으로 읽고 고칠 수 있다.
-// 할당은 그 앱의 command를 부르게 하고 그 앱의 public skill을 받게 한다.
-const appsSchema = z.array(slugSchema).refine(unique, {
-  message: "duplicate app",
-});
 // 할당한 다른 기계의 앱. 그 앱은 이 기계에 slug가 없어 id로 둔다. `name`은 꺼진 기계의 앱을 보이는 표시값이고 `removed`는 그 앱에서 뺀 command다.
 // 사람만 쓰는 칸이다. 옛 파일에는 이 칸이 없다.
 const remoteAppsSchema = z
@@ -115,17 +110,6 @@ const remoteAppsSchema = z
       unique(entries.map((entry) => `${entry.machine}/${entry.app}`)),
     { message: "duplicate remote app" },
   );
-// agent 층 권한 규칙. 할당한 앱에서 뺀 command(`deny`)와 부를 때마다 물을 command(`ask`)를 `lophn(<앱 slug> <command>)` 꼴로 적는다.
-const permissionsSchema = z.strictObject({
-  deny: z
-    .array(nonblankSchema)
-    .refine(unique, { message: "duplicate rule" })
-    .optional(),
-  ask: z
-    .array(nonblankSchema)
-    .refine(unique, { message: "duplicate rule" })
-    .optional(),
-});
 const mcpOffListSchema = z
   .array(mcpOffSchema)
   .refine((entries) => unique(entries.map(mcpKey)), {
@@ -216,7 +200,7 @@ const toolPicksSchema = z.array(nonblankSchema).refine(unique, {
 // 사람만 쓰는 칸이다. protocol/shell을 import하지 못해 id 꼴만 쓴다.
 const browserProfileSchema = idSchema("bpf");
 
-// 정의 칸. 모든 agent가 같은 칸을 갖는다. lophn의 name·avatar·`runtime: custom` 잠금, `tools`·`skills`와 runtime의 짝, 사람만 쓰는 칸(`mcp_servers`, `apps`, `remote_apps`, `extensions`, `permissions`, `browser_profile`, `permission_mode`)의
+// 정의 칸. 모든 agent가 같은 칸을 갖는다. lophn의 name·avatar·`runtime: custom` 잠금, `tools`·`skills`와 runtime의 짝, 사람만 쓰는 칸(`mcp_servers`, `remote_apps`, `extensions`, `browser_profile`, `permission_mode`)과 deploy 명령만 쓰는 칸(`deployed_skills`)의
 // 거절은 저장하는 쪽(core)이 본다.
 const frontmatterFields = {
   handle: agentHandleSchema,
@@ -234,9 +218,8 @@ const frontmatterFields = {
   skills_off: skillsSchema.optional(),
   mcp_off: mcpOffListSchema.optional(),
   mcp_servers: mcpServersSchema.optional(),
-  apps: appsSchema.optional(),
+  deployed_skills: deployedSkillsSchema.optional(),
   remote_apps: remoteAppsSchema.optional(),
-  permissions: permissionsSchema.optional(),
   browser_profile: browserProfileSchema.optional(),
   permission_mode: permissionModeSchema.optional(),
 };
@@ -256,9 +239,8 @@ const frontmatterOutputFields = {
   skills_off: skillsSchema.optional(),
   mcp_off: mcpOffListOutputSchema.optional(),
   mcp_servers: mcpServersSchema.optional(),
-  apps: appsSchema.optional(),
+  deployed_skills: deployedSkillsSchema.optional(),
   remote_apps: remoteAppsSchema.optional(),
-  permissions: permissionsSchema.optional(),
   browser_profile: browserProfileSchema.optional(),
   permission_mode: permissionModeSchema.optional(),
 };

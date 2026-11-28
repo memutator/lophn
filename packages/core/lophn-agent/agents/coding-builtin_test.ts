@@ -16,6 +16,7 @@ const lookups: AgentLookups = {
   workspaceExists: () => false,
   workspaceArchived: () => false,
   skills: () => [],
+  reaching: () => [],
   shared: () => [],
   mcp: () => [],
   sharedCommands: () => [],

@@ -45,7 +45,7 @@ session의 경계가 흐리면 사람이 대화에서 잃는 것이 생긴다. �
 ## 지키는 것
 
 1. session의 정체(agent, workspace)는 열 때 정해져 바뀌지 않는다. 저장소가 거절한다(`sessions` 표의 `agent`, `workspace_kind`, `workspace_id`는 고치지 못한다). agent 정의가 없는 agent, 없거나 보관된 workspace에는 열지 않는다. 어느 agent든 자기 범위 안의 어느 workspace에든 열 수 있다.
-   - agent 정의, 할당, 지침, file 범위가 agent와 workspace에서 나온다. 열린 session의 것을 바꾸면 쌓인 대화가 다른 agent의 것이 된다.
+   - agent 정의, 배포, 지침, file 범위가 agent와 workspace에서 나온다. 열린 session의 것을 바꾸면 쌓인 대화가 다른 agent의 것이 된다.
 2. session을 여는 길은 사람, Router, run이고 같은 연산으로 연다. Router는 call과 workflow step의 새 session(`architecture/workflow.md`)과 program 알림으로 연다. 열 때의 검사(agent 정의, workspace, 보관 여부)가 한 곳이라 어느 길로 열어도 같은 session이 된다.
 3. run(`architecture/run.md`)이 연 session도 사람이 연 것과 같은 session이고 run이 끝나도 열린 채 남는다. 저절로 닫지 않는다. agent의 call이나 run이 연 새 session은 그 workspace의 Main desk에 Agent 탭으로 보인다(`architecture/workspace-layout.md` "agent가 연 탭"). run마다 새 session이라 탭이 쌓이고 닫는 것은 사람이다. 탭을 닫은 session은 Recent로 간다. Agent 탭은 저장하지 않아 앱을 다시 켜면 탭이 없고(session은 열린 채 core에 남는다) sidebar에서 다시 연다. 왼쪽 sidebar는 run의 session을 따로 묶지 않는다.
 4. session은 저절로 끝나지 않는다. 끝은 사람의 archive나 지움뿐이다. lophn agent는 일이 끝났다고 program에게 알리지 않는다. 열려 있어야 call과 reaction을 받을 수 있다.
@@ -113,7 +113,7 @@ session의 경계가 흐리면 사람이 대화에서 잃는 것이 생긴다. �
 ## 결정
 
 - session이 일하는 그릇(home, project, app)을 workspace라 부른다. 이유: 전에는 place였다. 코드·protocol·화면·문서의 이름을 모두 바꿨다. 사람이 쓰던 data root는 schema step과 data step이 옮겼고, 이미 낸 step의 id와 SQL은 기록이라 옛 이름 그대로다. 전역 설정 층은 화면에서 "Workspace" 대신 "Global"로 부른다. workspace 하나와 헷갈리지 않게 한다. (사람, 2026-11-05)
-- agent는 전역이고 workspace는 session이 갖는다. 이유: role(lophn, Project Manager, App Engineer, Operator)이 agent를 workspace에 묶었지만 workspace가 하는 일(file 범위, credential 조건, prompt, 주소)은 모두 "session이 어디서 일하나"의 일이다. Claude Code, Codex, OpenCode도 agent 설정은 전역이고 작업 폴더는 session마다다. 버린 안: 옛 assignment 상태 machine(누가 무엇을 맡았나). agent와 할당으로 대체했다. 맡기는 것은 call이고 허락은 할당이다. (사람, 2026-10-28)
+- agent는 전역이고 workspace는 session이 갖는다. 이유: role(lophn, Project Manager, App Engineer, Operator)이 agent를 workspace에 묶었지만 workspace가 하는 일(file 범위, credential 조건, prompt, 주소)은 모두 "session이 어디서 일하나"의 일이다. Claude Code, Codex, OpenCode도 agent 설정은 전역이고 작업 폴더는 session마다다. 버린 안: 옛 assignment 상태 machine(누가 무엇을 맡았나). agent와 설정한 층(할당, 지금은 배포)으로 대체했다. 맡기는 것은 call이고 허락은 그 층이다. (사람, 2026-10-28)
 - 앱 일은 그 앱 workspace의 session이 한다. 이유: 앱은 project에 묶이지 않는 그릇이라 앱 코드의 일(설계, 선언, 구현, release)은 그 앱 workspace에서 한다. 앱은 사람이 Home의 Workspaces panel에서 New app으로 직접 만들거나(그 앱 workspace의 lophn 새 session으로 시작한다), home의 lophn이 등록하고 그 앱 workspace의 lophn session에 call로 맡긴다. (agent)
 - 앱 workspace에는 project 지침이 없고 앱 지침이 있다. 이유: 앱은 project에 묶이지 않는다. (agent)
 - "이 대화 동안(`session`)" 허락은 core 메모리의 `SessionGrantStore`에 두고 session이 끝나거나 재시작하면 비워지며 fork로 복사하지 않는다(`architecture/approval.md`). session의 권한 단계(`permission_mode`)는 표(`sessions.permission_mode`)에 남기고, fork는 출처의 단계를 가져가지 않고 agent/전역 기본값으로 시작한다. 팀 자식은 `min(부모 단계, 정의/전역 기본값)`으로 상한을 둔다. (사람 2026-11-25 결정으로 2026-10-20의 `session` 허락 폐지 및 `skip` 2단계 결정을 대체)

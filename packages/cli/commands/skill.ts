@@ -1,11 +1,15 @@
 // `lophn skill list|check`: workspace에서 발견된 skill(제외된 skipped 포함)을 보고, skill 폴더 하나를 런타임 규칙으로 검증한다.
 // 둘 다 읽기 전용이고 lophn agent와 사람·coding agent 터미널이 같은 명령을 쓴다.
+// `lophn skill deploy|undeploy|deployments`: 앱의 public skill을 전역, workspace, agent 층에 배포하고 거두고 읽는다.
 import { isAbsolute, resolve } from "node:path";
 import { z } from "zod";
 import { err, ok, type Result } from "../../base/mod.ts";
 import {
   skillsCheck,
+  skillsDeploy,
+  skillsDeployments,
   skillsList,
+  skillsUndeploy,
 } from "../../protocol/lophn-agent/skill-settings.ts";
 import { WORKSPACE_KINDS } from "../../protocol/lophn-agent/workspaces.ts";
 import { type CommandContext, defineCommand } from "./types.ts";
@@ -122,4 +126,99 @@ const check = defineCommand({
   },
 });
 
-export const SKILL_COMMANDS = [list, check];
+// `--to`의 `workspace`는 부른 session의 workspace(사람의 터미널은 `LOPHN_WORKSPACE`, 없으면 Home)로 풀어 core에 `workspace:<id>`로 보낸다.
+function placeOf(to: string, ctx: CommandContext): string {
+  if (to !== "workspace") return to;
+  return `workspace:${ctx.workspace === null || ctx.workspace === undefined ? "home" : ctx.workspace.id}`;
+}
+
+const deployInput = z.strictObject({
+  app: z.string().min(1).describe("App slug"),
+  skill: z.string().min(1).describe("Name of one of the app's public skills"),
+  to: z
+    .string()
+    .min(1)
+    .describe(
+      "Where: global (every agent), workspace (this workspace) or workspace:<project, app or home>, agent:<handle>",
+    ),
+});
+
+const deploy = defineCommand({
+  name: "skill.deploy",
+  summary:
+    "Deploy an app's public skill to every agent, a workspace or an agent",
+  description:
+    "Deploy one public skill of an app (its slug and the skill name, from the app's active release) so agents that receive it know the app and call its commands without asking. The record points at the app's own skill; nothing is copied, so it follows the active release. --to global gives it to every agent, --to workspace (or workspace:<project, app slug or home>) to the agents that run in that workspace, --to agent:<handle> to one agent. The person does this freely, an agent in the app's own workspace may deploy that app's skills anywhere, and the Home lophn may deploy any app anywhere. Any other agent asks the person first (an unattended run is refused; then call the app's command, which asks the person to allow it).",
+  input: deployInput,
+  positional: ["app", "skill"],
+  effect: "write",
+  routes: [skillsDeploy],
+  workspaces: WORKSPACE_KINDS,
+  run: async (input, ctx) => {
+    const done = await ctx.core.read(skillsDeploy, {
+      app: input.app,
+      skill: input.skill,
+      to: placeOf(input.to, ctx),
+      ...(ctx.caller === undefined ? {} : { tool_call: ctx.caller.tool_call }),
+    });
+    if (!done.ok) return done;
+    return ok({
+      summary: done.value.deployed
+        ? `deployed ${input.app}/${input.skill} to ${input.to}`
+        : `${input.app}/${input.skill} was already deployed to ${input.to}`,
+      content: done.value,
+    });
+  },
+});
+
+const undeploy = defineCommand({
+  name: "skill.undeploy",
+  summary:
+    "Remove a deployed app skill from every agent, a workspace or an agent",
+  description:
+    "Remove one deployed app skill from the place it was deployed to (the same --to as skill deploy). Who may do it without asking is the same as for deploy.",
+  input: deployInput,
+  positional: ["app", "skill"],
+  effect: "write",
+  routes: [skillsUndeploy],
+  workspaces: WORKSPACE_KINDS,
+  run: async (input, ctx) => {
+    const done = await ctx.core.read(skillsUndeploy, {
+      app: input.app,
+      skill: input.skill,
+      to: placeOf(input.to, ctx),
+      ...(ctx.caller === undefined ? {} : { tool_call: ctx.caller.tool_call }),
+    });
+    if (!done.ok) return done;
+    return ok({
+      summary: done.value.removed
+        ? `removed ${input.app}/${input.skill} from ${input.to}`
+        : `${input.app}/${input.skill} was not deployed to ${input.to}`,
+      content: done.value,
+    });
+  },
+});
+
+const deployments = defineCommand({
+  name: "skill.deployments",
+  summary: "List who receives which app skills",
+  description:
+    "List the deployed app skills: for each, the app, the skill and where it is deployed (global, a workspace or an agent). With --app, only that app's skills: every place that holds one of them.",
+  input: z.strictObject({
+    app: z.string().min(1).optional().describe("App slug"),
+  }),
+  effect: "read",
+  routes: [skillsDeployments],
+  workspaces: WORKSPACE_KINDS,
+  run: async (input, ctx) => {
+    const read = await ctx.core.read(skillsDeployments, input);
+    if (!read.ok) return read;
+    return ok({
+      summary: `${read.value.deployments.length} deployed skills`,
+      content: read.value,
+      arrayKeys: ["deployments"],
+    });
+  },
+});
+
+export const SKILL_COMMANDS = [list, check, deploy, undeploy, deployments];

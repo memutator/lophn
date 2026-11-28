@@ -2,8 +2,10 @@ import { z } from "zod";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import {
   type AgentWorkspace,
+  deployedSkillsSchema,
   type McpServer,
   mcpServerSchema,
+  type SkillDeployment,
   skillNameSchema,
   SKILLS_OFF_MAX,
   workspaceExtensionSettingsChange,
@@ -68,26 +70,30 @@ export function workspaceSkillsOf(
       };
 }
 
-// 서버 한 칸, 끈 skill 이름, 이 workspace에서 끈 전역 서버 이름이다.
+// 서버 한 칸, 끈 skill 이름, 이 workspace에서 끈 전역 서버 이름, 이 workspace에 배포한 앱 skill이다.
 export type ProjectExtensions = {
   mcp_servers: McpServer[];
   skills_off: string[];
   mcp_off: string[];
+  deployed_skills: SkillDeployment[];
 };
 
 export const EMPTY_PROJECT_EXTENSIONS: ProjectExtensions = {
   mcp_servers: [],
   skills_off: [],
   mcp_off: [],
+  deployed_skills: [],
 };
 
 const fileSchema = z.strictObject({
   mcp_servers: z.array(mcpServerSchema).max(32),
   skills_off: z.array(skillNameSchema).max(SKILLS_OFF_MAX),
   mcp_off: z.array(z.string().regex(/^[A-Za-z0-9_-]{1,32}$/)).max(32),
+  // 배포를 쓰기 전에 만든 파일에는 이 칸이 없다.
+  deployed_skills: deployedSkillsSchema.default([]),
 });
 
-function serializeProjectExtensions(value: ProjectExtensions): string {
+export function serializeProjectExtensions(value: ProjectExtensions): string {
   return `${JSON.stringify(value, null, 2)}\n`;
 }
 
@@ -189,6 +195,7 @@ export function createProjectExtensionReads(deps: ProjectExtensionDeps): {
           mcp_servers: value.mcp_servers,
           skills_off: value.skills_off,
           mcp_off: value.mcp_off,
+          deployed_skills: value.deployed_skills,
           hash: current.value?.hash ?? null,
           as_of_seq: snapshot.as_of_seq,
           next_cursor: null,
@@ -232,6 +239,7 @@ export function createProjectExtensionCommands(deps: ProjectExtensionDeps): {
           mcp_servers: input.mcp_servers,
           skills_off: input.skills_off,
           mcp_off: input.mcp_off,
+          deployed_skills: input.deployed_skills,
         });
         try {
           // Home의 폴더는 처음 쓸 때 만든다(project·앱 폴더는 workspace를 만들 때 이미 있다).

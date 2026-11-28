@@ -113,7 +113,7 @@ core는 daemon main thread, writer·reader Worker, I/O child process, agent runt
 - tool 정의 파일은 agent runtime child에서 실린다. 그래서 feature module의 tool 정의는 protocol(route, schema), base, 같은 폴더, harness의 tool 등록 계약만 import하고, handler는 tool context로 core route를 부른다. feature module의 store·DB 코드를 끌어오면 agent runtime에 sqlite가 딸려 간다. 이 규칙은 apps의 tool 정의 폴더와 `agent-workspaces`의 tool 정의에 걸려 있다(sqlite, storage 금지. workspace 종류 층은 store·ledger·register 폴더도 금지).
 - tool 정의는 handler가 부르는 route를 적는다. agent credential의 상한은 그 route 이름이다(core는 tool 이름이 아니라 route 이름으로 대조한다).
 - feature module tool 하나를 더할 때 고치는 곳: 그 module의 tool 정의, protocol의 route, protocol의 workspace 종류별 tool 이름 목록, workspace 종류 층의 순서 목록.
-- harness 폴더는 feature module의 protocol(apps, problems, projects, coding-agent)을 import하지 않는다. 아직 못 끊은 7곳(동적 앱 tool 묶음과 앱 command 호출 정의, agent runtime이 열 core route 목록, 공유 skill 받기가 할당한 앱의 skill을 읽는 길, file.read의 열 수 있는 형식 고르기, file.image의 annotation 읽기, file.outline의 md 제목 tree)은 이유와 함께 예외 목록에 올려 두고 새 위반만 막는다. 예외 file이 위반을 다 없애면 check가 목록에서 빼라고 알린다.
+- harness 폴더는 feature module의 protocol(apps, problems, projects, coding-agent)을 import하지 않는다. 아직 못 끊은 7곳(동적 앱 tool 묶음과 앱 command 호출 정의, agent runtime이 열 core route 목록, 공유 skill 받기가 배포한 앱의 skill을 읽는 길, file.read의 열 수 있는 형식 고르기, file.image의 annotation 읽기, file.outline의 md 제목 tree)은 이유와 함께 예외 목록에 올려 두고 새 위반만 막는다. 예외 file이 위반을 다 없애면 check가 목록에서 빼라고 알린다.
 
 ## 지키는 것
 
@@ -138,7 +138,7 @@ core는 daemon main thread, writer·reader Worker, I/O child process, agent runt
 
 - boundary ID: `core`(core main, install-and-update, host queue), `lophn-agent`(하위: `agents`, `agent-sessions`, `run-loop`, `agent-tools`, `models`, `host-queue-core`, `harness-host-core`), `agent-workspaces`, `projects`, `apps`, `runs`, `workflows`, `jobs`, `approvals`, `router`, `events`, `storage`, `server`, `supervision`, `secrets`, `config`, `diagnostics`, `protocol`, `base`, `coding-agent`, `coding-agent-cli`, `design`, `sdk`, `shell`.
 - `agent-tool-spi`: feature module와 `agent-workspaces`가 harness에 agent tool을 등록하는 계약. 제공은 apps 같은 feature module과 `agent-workspaces`, 정의는 `lophn-agent`의 `agent-tools`다.
-- port: module이 바깥에서 받는 것을 자기 안에 type으로 둔 것. 구현은 core main의 wiring이 끼운다. `runs`는 agent·메시지·turn·앱 tool 호출·origin, `workflows`는 정의 file·project·turn·flow process, `jobs`는 대상 이름 풀기·시간대·timer·run과 instance 시작, `router`는 session directory·input transport·call store, `approvals`는 할당 읽기·쓰기와 앱 공유 요청의 이름 풀기에 port를 둔다.
+- port: module이 바깥에서 받는 것을 자기 안에 type으로 둔 것. 구현은 core main의 wiring이 끼운다. `runs`는 agent·메시지·turn·앱 tool 호출·origin, `workflows`는 정의 file·project·turn·flow process, `jobs`는 대상 이름 풀기·시간대·timer·run과 instance 시작, `router`는 session directory·input transport·call store, `approvals`는 다른 컴퓨터 앱 할당 읽기·쓰기와 공유 승인의 배포, 앱 공유 요청의 이름 풀기에 port를 둔다.
 - wiring: daemon은 module마다 하나의 wiring이 자기 module의 값을 끼우고, 순서는 조립 목록이 정한다. 저장된 data의 새 schema step은 그 목록 맨 뒤 wiring이 낸다(AGENTS.md "호환성"). `lophn-agent` 팀 등록처럼 reader·writer Worker가 싣는 파일은 따로 있다. reader Worker는 reader 등록을 내는 파일만 싣고, 조회를 꽂는 등록 파일은 import가 아니라 등록을 만들 때 꽂는다. 그래서 read가 없어도 reader의 read가 쓰는 조회(project·앱 조회, agent 이름 풀기)를 꽂는 파일은 빈 reader 등록을 낸다.
 - agent tool 이름이 아니라 route 이름이 agent credential 상한이다(위 "harness" 절).
 - 설정 key, 저장 파일은 이 문서가 정하지 않는다. 각 메커니즘 문서가 가진다.

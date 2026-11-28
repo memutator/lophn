@@ -36,6 +36,7 @@ export type FieldName =
   | "model"
   | "skills"
   | "mcp"
+  | "deployed_skills"
   | "extensions"
   | "permission_mode"
   | "browser_profile"
@@ -59,6 +60,7 @@ const FIELD_OF: Readonly<Record<string, FieldName>> = {
   skills_off: "skills",
   mcp_off: "mcp",
   mcp_servers: "mcp",
+  deployed_skills: "deployed_skills",
   extensions: "extensions",
   permission_mode: "permission_mode",
   browser_profile: "browser_profile",
@@ -82,6 +84,7 @@ const TAB_OF_FIELD: Readonly<Record<FieldName, Group>> = {
   browser_profile: "sees",
   tools: "sees",
   mcp: "sees",
+  deployed_skills: "sees",
   extensions: "sees",
   permission_mode: "sees",
   instructions: "works",
@@ -128,8 +131,8 @@ function canonical(value: unknown): string {
   return JSON.stringify(value) ?? "undefined";
 }
 
-/** 할당 칸. Sees의 앱 할당이 바로 저장해 파일에 맞춘다. 이 칸의 차이는 편집이 아니다. */
-export const GRANT_FIELDS = ["apps", "remote_apps", "permissions"] as const;
+/** 할당 칸. Sees의 다른 컴퓨터 앱 할당이 바로 저장해 파일에 맞춘다. 이 칸의 차이는 편집이 아니다. */
+export const GRANT_FIELDS = ["remote_apps"] as const;
 
 const withoutGrants = (definition: AgentDraft): string => {
   const rest: Record<string, unknown> = { ...definition };

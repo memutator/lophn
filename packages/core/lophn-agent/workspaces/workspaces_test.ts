@@ -93,8 +93,7 @@ const deps: OpenDeps = {
             name: "scoped",
             workspace: { kind: "app" as const, id: APP },
             runtime: "lophn" as const,
-            apps: [],
-            deny: [],
+            deployedSkills: [],
             remoteApps: [],
             browserProfile: null,
           }
@@ -108,8 +107,7 @@ const deps: OpenDeps = {
                 ? {}
                 : { permissionMode: reviewerMode }),
               runtime: "lophn" as const,
-              apps: [],
-              deny: [],
+              deployedSkills: [],
               remoteApps: [],
               browserProfile: null,
             }
@@ -120,8 +118,7 @@ const deps: OpenDeps = {
                 workspace: workspaceOfLophn(id),
                 name: "lophn",
                 runtime: "lophn" as const,
-                apps: [],
-                deny: [],
+                deployedSkills: [],
                 remoteApps: [],
                 browserProfile: null,
               }
@@ -583,8 +580,7 @@ test("a built-in coding agent called into a project opens as a GUI tab member; H
                 workspace: null,
                 name: "Claude Code",
                 runtime: "claude-code" as const,
-                apps: [],
-                deny: [],
+                deployedSkills: [],
                 remoteApps: [],
                 browserProfile: null,
               }
@@ -643,8 +639,7 @@ test("a built-in coding agent called into a project opens as a GUI tab member; H
                 name: "Builder Neon",
                 runtime: "antigravity" as const,
                 open: "tab" as const,
-                apps: [],
-                deny: [],
+                deployedSkills: [],
                 remoteApps: [],
                 browserProfile: null,
               }
@@ -655,8 +650,7 @@ test("a built-in coding agent called into a project opens as a GUI tab member; H
                   workspace: null,
                   name: "Reviewer",
                   runtime: "antigravity" as const,
-                  apps: [],
-                  deny: [],
+                  deployedSkills: [],
                   remoteApps: [],
                   browserProfile: null,
                 }

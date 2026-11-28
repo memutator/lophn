@@ -36,12 +36,11 @@ const GROUP_LABEL = {
   works: "agents.label.tab-works",
 } as const;
 
-/** 할당 앱의 이름. Overview가 Sees 절에 보인다. 읽는 중이거나 읽지 못했으면 그 상태다. */
+/** 다른 컴퓨터 앱 할당의 이름. Overview가 Sees 절에 보인다. 읽는 중이거나 읽지 못했으면 그 상태다. */
 export type AppNames =
   | { readonly state: "loading" | "failed" | "none" }
   | {
       readonly state: "ready";
-      readonly local: readonly string[];
       readonly remote: readonly string[];
     };
 
@@ -154,24 +153,26 @@ export function OverviewTab(props: OverviewTabProps) {
   const instructions = firstLine(definition.body);
   const memoryLine =
     detail.memory === null ? null : firstLine(detail.memory.text);
-  const copiedApps =
-    ((definition as { apps?: readonly unknown[] }).apps?.length ?? 0) +
-    ((definition as { remote_apps?: readonly unknown[] }).remote_apps?.length ??
-      0);
+  const deployed = (definition.deployed_skills ?? []).map(
+    (one) => `${one.app}/${one.skill}`,
+  );
+  const copiedRemote =
+    (definition as { remote_apps?: readonly unknown[] }).remote_apps?.length ??
+    0;
 
   const apps = props.apps;
-  const appsValue = (side: "local" | "remote"): ReactNode =>
+  const remoteValue = (): ReactNode =>
     fresh ? (
-      copiedApps === 0 ? (
+      copiedRemote === 0 ? (
         <Muted>{t("agents.label.value-after-create")}</Muted>
       ) : (
-        t("agents.label.value-copied-apps", { count: copiedApps })
+        t("agents.label.value-copied-apps", { count: copiedRemote })
       )
     ) : apps.state === "ready" ? (
-      apps[side].length === 0 ? (
+      apps.remote.length === 0 ? (
         none
       ) : (
-        apps[side].join(", ")
+        apps.remote.join(", ")
       )
     ) : apps.state === "failed" ? (
       <Muted>{t("agents.label.value-unread")}</Muted>
@@ -290,14 +291,14 @@ export function OverviewTab(props: OverviewTabProps) {
             )}
           </GlanceRow>
           <GlanceRow name="apps" label={t("agents.label.field-apps")}>
-            {appsValue("local")}
+            {deployed.length === 0 ? none : deployed.join(", ")}
           </GlanceRow>
           {hasRemote ? (
             <GlanceRow
               name="remote_apps"
               label={t("agents.label.field-remote-apps")}
             >
-              {appsValue("remote")}
+              {remoteValue()}
             </GlanceRow>
           ) : null}
           <GlanceRow name="mcp" label={t("agents.label.field-mcp")}>

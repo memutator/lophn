@@ -20,6 +20,7 @@ import { codingFaceOf } from "./coding-face.ts";
 import { AgentEditor } from "./editor/agent-editor.tsx";
 import type { Ready } from "./editor/editor-model.ts";
 import type { AgentsSource } from "./source.ts";
+import type { DeployableSkill } from "./views.ts";
 import {
   AgentsTabs,
   agentOfPlace,
@@ -90,6 +91,19 @@ export function AgentsPage(props: AgentsPageProps): ReactElement {
     workspace,
   );
   const models = useAgentModels(source);
+  // 배포할 수 있는 앱 skill. 읽는 중이거나 읽지 못했으면 null이다.
+  const [deployable, setDeployable] = useState<
+    readonly DeployableSkill[] | null
+  >(null);
+  useEffect(() => {
+    let live = true;
+    void source.deployable().then((result) => {
+      if (live) setDeployable(result.ok ? result.value : null);
+    });
+    return () => {
+      live = false;
+    };
+  }, [source]);
   const [failed, setFailed] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const showLoading = useDelayedLoading(overview.state === "loading");
@@ -307,6 +321,10 @@ export function AgentsPage(props: AgentsPageProps): ReactElement {
             change(() => source.setSkill(workspace, name, on))
           }
           onAddSkill={props.onAddExtension}
+          deployable={deployable}
+          onDeployedChange={(next) =>
+            change(() => source.setDeployed(workspace, next))
+          }
           onToggleMcp={(name, on) =>
             change(() => source.setMcp(workspace, name, on))
           }

@@ -157,7 +157,7 @@ workflow는 사람, agent, 앱 tool, 앱 event를 비결정적 함수처럼 조�
 ### `workflow()` (sub-workflow)와 권한
 29. `workflow()` 호출은 **같은 project 안의 workflow만** 허용한다(다른 project 지정은 `forbidden`).
 30. 조상 instance chain에 같은 `(project, workflow)`가 있으면 cycle로 `conflict` 거절한다. 최대 중첩 깊이는 5단계다(root 0, child 1..5 허용, 초과 시 `conflict`).
-31. sub-workflow 안의 앱 `tool()` 호출은 그 sub-workflow 선언의 creator `agent` 할당을 그대로 사용한다(교집합 제한을 두지 않는다). flow의 앱 tool 호출은 선언의 `agent`(없으면 lophn)의 지금 할당과 비공개 규칙(앱의 비공개 command는 그 앱 workspace만) 안에서만 된다(`architecture/app-call.md`).
+31. sub-workflow 안의 앱 `tool()` 호출은 그 sub-workflow 선언의 creator `agent`에게 닿은 skill을 그대로 사용한다(교집합 제한을 두지 않는다). flow의 앱 tool 호출은 선언의 `agent`(없으면 lophn)에게 지금 닿은 skill(배포)과 비공개 규칙(앱의 비공개 command는 그 앱 workspace만) 안에서만 된다(`architecture/app-call.md`).
 31a. **단계별·참가자별 권한 단계 (`step_modes` · `participant_modes`)**:
     - `workflow.yaml`과 flow code는 agent가 쓸 수 있으므로 권한 단계 칸을 파일에 두지 않는다.
     - 사람이 `StartWorkflow`(user 전용)에 선택 `step_modes`(`Record<stepName, PermissionMode>`)와 `participant_modes`(`Record<participantKey, PermissionMode>`)를 실어 보내면, 참가자 기본은 `workflow_instances.participant_modes_json` 열(schema step `workflows.instances-participant-modes`)에, YAML workflow의 단계별 단계는 각 `instance.steps` 항목의 `permission_mode`에 고정 저장한다.
@@ -235,7 +235,7 @@ workflow는 사람, agent, 앱 tool, 앱 event를 비결정적 함수처럼 조�
 - **실패 값 모양은 `@lophn/flow`의 `{ ok: false, reason, message, session? }` 하나로 통일, 경계 오류 코드 7개 유지**: 공통 경계 오류 코드 7개를 늘리지 않으면서, flow 실행 사유(`cancelled | interrupted | stalled | model_error`)를 `reason`에 명확히 싣는다. (agent, 2026-11-23)
 - **저장 상태 3개(`running | ended | stopped`) 유지, `needs_you`·`blocked`는 계산 상태**: 저장 상태 전이 race를 피하고 원격 step 계산 모델과 맞춘다. (agent 제안 · 사람 승인, 2026-11-23)
 - **`workflow_origin`은 넘길 때마다 갱신 + `spawned_by`만 상속**: `session: same`으로 같은 세션이 다음 step을 받을 때 `step`이 낡지 않게 넘길 때마다 갱신한다(`workflow_origin` 불변 trigger 없음). `fork`와 이미 열린 타 세션으로의 일반 `agent call`은 상속하지 않는다. (agent, 2026-11-23)
-- **sub-workflow는 같은 project만 + 자식 creator 할당 그대로 사용**: 같은 project의 agent가 두 선언의 `agent:` 칸을 모두 쓸 수 있어 교집합 제한은 실익 없이 정상 동작하는 sub-workflow만 깨뜨린다. 대신 다른 project 호출을 `forbidden`으로 막고, cycle과 최대 깊이 5 초과를 `conflict`로 거절하며, `StopWorkflow`는 자식까지 연쇄 중지한다. (agent, 2026-11-23)
+- **sub-workflow는 같은 project만 + 자식 creator의 배포 그대로 사용**: 같은 project의 agent가 두 선언의 `agent:` 칸을 모두 쓸 수 있어 교집합 제한은 실익 없이 정상 동작하는 sub-workflow만 깨뜨린다. 대신 다른 project 호출을 `forbidden`으로 막고, cycle과 최대 깊이 5 초과를 `conflict`로 거절하며, `StopWorkflow`는 자식까지 연쇄 중지한다. (agent, 2026-11-23)
 - **최근 assistant 앞 160자 평문 절단(redaction 선적용 · fail-closed) & 명시적 `refs`만 수집**: LLM 요약은 비용·지연·비결정성을 만들고, 자른 뒤 redaction하면 경계에 걸친 secret 앞부분이 샐 수 있으며, 파일 자동 감시·`.md` 필터링은 harness별 편차와 산출물 판정을 core에 끌어들인다. (agent, 2026-11-23)
 - **fallback은 core 정책이 아니라 SDK helper(`withFallback`)**: 흐름이 JS call stack에 있으므로 core가 임의 수정(`edit`)을 할 수 없고, 정책을 core에 굳히지 않기 위해 SDK helper로 둔다. (agent 제안 · 사람 승인, 2026-11-23)
 - **`onEvent`는 비영속 + `job`과 공용 바닥 정책 공유**: event 저장소를 두지 않는 `job` 원칙과 일관되게, 재시작을 넘는 대기는 `tool()` 조회나 외부 event `job`에 맡긴다. 도달·고리 정책은 바닥 core module에 두어 feature module 간 cross-import 없이 공유한다. (agent, 2026-11-23)

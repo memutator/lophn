@@ -29,8 +29,6 @@ export function recoveryLabel(action: RecoveryAction): string | null {
       return null;
     case "edit_rule":
       return t("conversation.button.recover-edit-rule");
-    case "assign_app":
-      return t("conversation.button.recover-assign-app");
     case "change_mode":
       return action.suggested_mode === undefined
         ? t("conversation.button.recover-change-mode-generic")

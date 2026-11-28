@@ -31,6 +31,7 @@ test("정의 읽기의 model 출처는 agent, project, global 순서다", () => 
       workspaceExists: () => true,
       workspaceArchived: () => false,
       skills: () => [],
+      reaching: () => [],
       shared: () => [],
       mcp: () => [],
       sharedCommands: () => [],
@@ -103,6 +104,7 @@ test("an app lophn's MCP server and token are not seen by the project lophn", ()
     workspaceExists: () => true,
     workspaceArchived: () => false,
     skills: () => [],
+    reaching: () => [],
     shared: () => [],
     mcp: () => [],
     sharedCommands: () => [],
@@ -175,6 +177,7 @@ test("agent는 자기 workspace가 아닌 private workspace의 명함 목록을 
     workspaceExists: () => true,
     workspaceArchived: (workspace) => workspace.kind === "app",
     skills: () => [],
+    reaching: () => [],
     shared: () => [],
     mcp: () => [],
     sharedCommands: () => [],
@@ -242,10 +245,12 @@ test("다른 컴퓨터에 내주는 명함은 private 앱을 싣지 않는다", 
     workspaceExists: () => true,
     workspaceArchived: () => false,
     skills: () => [],
-    shared: (apps) =>
-      apps.map((slug) => ({ name: `${slug}-skill`, can_disable: true })),
+    reaching: (_workspace, agent) => agent,
+    shared: (deployed) =>
+      deployed.map((one) => ({ name: one.skill, can_disable: true })),
     mcp: () => [],
-    sharedCommands: (apps) => apps.map((slug) => ({ slug, name: "add" })),
+    sharedCommands: (deployed) =>
+      deployed.map((one) => ({ slug: one.app, name: "add" })),
     modelInfo: () => null,
     modelDefault: () => null,
     workspaceModel: () => null,
@@ -254,7 +259,7 @@ test("다른 컴퓨터에 내주는 명함은 private 앱을 싣지 않는다", 
     files: {
       read: (path) =>
         path === `/data/agents/${AGENT}.md`
-          ? "---\nhandle: reviewer\nname: reviewer\napps:\n  - diary\n  - notes\nskills_off:\n  - diary-skill\n---\nbody\n"
+          ? "---\nhandle: reviewer\nname: reviewer\ndeployed_skills:\n  - app: diary\n    skill: diary-skill\n  - app: notes\n    skill: notes-skill\nskills_off:\n  - diary-skill\n---\nbody\n"
           : null,
       writeAtomic: () => {},
       remove: () => {},

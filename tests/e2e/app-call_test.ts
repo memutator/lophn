@@ -2,7 +2,7 @@
 // - contract: boundary `app-runtime`·`app-spi`(tool 호출은 core를 지나고 invocation과 changeset이 같이 남는다),
 //   `child-supervision-protocol`(응답이 control frame 한도를 넘어도 호출은 결과 모름이 되지 않는다), `agent-tools`(`lophn <slug> <command>`),
 //   `app-capability`(broker가 요청마다 선언∩grant를 보고 lophn이 secret을 붙인다. 앱은 값을 모른다),
-//   `approvals`(할당이 agent의 앱 호출을 연다).
+//   `approvals`(agent는 자기 앱 workspace의 앱 command를 배포 없이 부른다).
 // - 현실적 회귀: 큰 changeset·결과가 frame 한도에서 거절되어 호출이 "결과 모름"이 되고 rewind가 막히는 것(세 번 난 일),
 //   agent tool이 core를 건너뛰는 것, caller 확인이 풀리는 것, net/fetch가 실제 core에서 나가지 못하는 것과
 //   secret 사용이 늘 `unavailable`이었던 것.
@@ -14,23 +14,10 @@
 // text). 앱 command는 `lophn <slug> <command 낱말>`로 부르고 기록 이름은 `<slug>.<command>`다. 앱 command는 model의
 // tools[]에 없고 부를 때 읽으므로, 무엇이 보이는지는 `lophn help`의 묶음 목록으로 본다. agent는 test가 만든 agent의 앱 workspace
 // session이다(비공개 command는 그 앱 workspace의 session만 본다). 앱 activation helper의 앱 workspace lophn session 대답은 행 몫에 세지 않는다.
-// 할당 경계 행(removed-tool, no-assignment, assignment-added)
-// - contract: boundary `approvals`·`agent-tools`(앱 ∩ release 선언 ∩ 할당만 command가 되고, 뺀 command는 보이지 않고 불러도 core에
-//   닿지 않는다), `run-loop`(tools[]는 session을 시작할 때 고정하고 앱 command는 부를 때 읽는다).
-// - 현실적 회귀: `removed_tools`가 무시되어 뺀 command가 불리는 것, 할당 없는 agent에 앱 command가 보이는 것, session 도중
-//   할당이 바뀌어 `tools[]`가 달라져 prompt cache가 깨지는 것, 할당을 더했는데 새 command가 불리지 않는 것.
-// - 왜 지금 test로 못 잡나: `app-tools`·`judge`·`turn-prompt`·`tool-lists`의 unit은 입력으로 받은 할당과 목록만 본다. 사람의
-//   `SetAgentAssignment` 저장 → agent runtime child의 읽기 → model 요청의 `tools[]` → 호출이 core를 지나 앱 process에서
-//   실행되는 왕복은 process를 건너야 보인다.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { CALL_BODY_MAX_BYTES } from "../../packages/core/apps/runtime/entrypoint/limits.ts";
 import { serve } from "../../packages/core/server/serve.ts";
-import {
-  assignmentGet,
-  assignmentSet,
-  type AssignmentEntry,
-} from "../../packages/protocol/approvals/mod.ts";
 import {
   appCallTool,
   appInvocation,
@@ -40,7 +27,6 @@ import {
 } from "../../packages/protocol/apps/mod.ts";
 import {
   agentCreate,
-  type Workspace,
   toolCallList,
 } from "../../packages/protocol/lophn-agent/mod.ts";
 import {
@@ -59,48 +45,11 @@ import {
   waitTurnEnd,
 } from "../support/core/human.ts";
 import { bootCore, type Core, createRun } from "../support/core/mod.ts";
-import {
-  type FakeServer,
-  startFakeServer,
-} from "../support/fake-server/mod.ts";
+import { startFakeServer } from "../support/fake-server/mod.ts";
 import { lophnReply } from "../support/fake-server/lophn.ts";
-import { lastToolResult, lastUserText } from "../support/fake-server/probe.ts";
+import { lastToolResult } from "../support/fake-server/probe.ts";
 
 const user = { kind: "person", view_session: "e2e" } as const;
-
-// 행 하나의 준비. entries가 null이면 할당을 한 번도 set하지 않은 agent다.
-async function agentWith(
-  core: Core,
-  workspace: Workspace,
-  name: string,
-  entries: AssignmentEntry[] | null,
-): Promise<{ session: string; agent: string }> {
-  const agent = core.ids.newId("agt");
-  await core.call(agentCreate, {
-    id: agent,
-    definition: {
-      handle: name.toLowerCase(),
-      name,
-      body: "use the assigned app",
-    },
-  });
-  if (entries !== null) {
-    // 새 agent의 할당 revision은 0이다.
-    await core.call(assignmentSet, { agent, entries }, { revision: 0 });
-  }
-  return { session: await openWorkspaceSession(core, agent, workspace), agent };
-}
-
-// 앱의 `lophn <slug> --help`다. 이 agent가 지금 부를 수 있는 그 앱의 command가 나온다.
-// 보이는 command가 없으면 모르는 명령이라는 오류가 나온다.
-const helpReply = (slug: string) => ({
-  kind: "tool" as const,
-  calls: [lophnReply(slug, `${slug} --help`).calls[0]],
-});
-const helpOf = (fake: FakeServer, slug: string, index = 1) =>
-  lastToolResult(fake.journal()[index], slug) ?? "";
-
-const doneText = { reply: { kind: "text" as const, text: "done" } };
 
 // net-fetch-loopback 행의 loopback 상대다. 받은 요청 수와 Authorization을 남기고 JSON을 돌려준다.
 async function startLoopback() {
@@ -172,93 +121,6 @@ test("E2E agent·사람 화면의 tool 호출은 core를 지나 앱 process가 �
     await c.call(agentCreate, {
       id: agent,
       definition: { handle: "caller", name: "Caller", body: "use the app" },
-    });
-    await c.call(
-      assignmentSet,
-      {
-        agent,
-        entries: [{ app: id, removed_tools: [] }],
-      },
-      { revision: 0 },
-    );
-
-    const assignAll: AssignmentEntry[] = [{ app: id, removed_tools: [] }];
-
-    await t.test("removed-tool", async () => {
-      // 할당에서 뺀 command는 model이 그래도 부르면 실행되지 않는다.
-      fake.reset();
-      fake.script([
-        {
-          reply: callApp("t1", `${app.slug} add-item`, { title: "op-removed" }),
-        },
-        doneText,
-      ]);
-      const removed = await agentWith(c, workspace, "Removed", [
-        { app: id, removed_tools: ["add_item"] },
-      ]);
-      await say(c, removed.session, "add op-removed");
-      await waitTurnEnd(c, removed.session);
-      // fake
-      assert.ok(
-        lastToolResult(fake.journal()[1], "t1")?.includes("unknown command"),
-      );
-      // ledger
-      const writes = await c.call(appInvocations, {
-        app: id,
-        session: removed.session,
-      });
-      assert.deepStrictEqual(writes.invocations, []);
-      // app state
-      assert.ok(!(await items(c, id)).includes("op-removed"));
-    });
-
-    await t.test("no-assignment", async () => {
-      // 할당 없이 만든 agent에는 활성 앱이 있어도 앱 command가 하나도 보이지 않는다.
-      fake.reset();
-      fake.script([{ reply: helpReply(app.slug) }, doneText]);
-      const bare = await agentWith(c, workspace, "NoAssignment", null);
-      await say(c, bare.session, "hello");
-      await waitTurnEnd(c, bare.session);
-      // fake
-      assert.ok(helpOf(fake, app.slug).includes("unknown command"));
-      // 정의 파일에 할당이 없는 것도 빈 할당(revision 0)으로 읽힌다.
-      const read = await c.call(assignmentGet, { agent: bare.agent });
-      assert.deepStrictEqual(read.assignment.entries, []);
-      assert.deepStrictEqual(read.revision, 0);
-    });
-
-    await t.test("assignment-added", async () => {
-      // session 도중 할당을 더해도 tools[]는 그대로이고 notice도 없지만, 새 command는 바로 불린다.
-      fake.reset();
-      fake.script([doneText, { reply: helpReply(app.slug) }, doneText]);
-      const added = await agentWith(c, workspace, "AssignmentAdded", null);
-      await say(c, added.session, "first");
-      await waitTurnEnd(c, added.session, 0);
-      await c.call(
-        assignmentSet,
-        { agent: added.agent, entries: assignAll },
-        { revision: 0 },
-      );
-      await say(c, added.session, "second");
-      await waitTurnEnd(c, added.session, 1);
-      // fake
-      const [before, after] = fake.journal();
-      const help = helpOf(fake, app.slug, 2);
-      assert.deepStrictEqual(
-        JSON.stringify((after!.body as { tools: unknown }).tools),
-        JSON.stringify((before!.body as { tools: unknown }).tools),
-      );
-      assert.ok(!lastUserText(after!).includes("tools_changed"));
-      assert.ok(help.includes("list-items") && help.includes("add-item"));
-      // ledger
-      const read = await c.call(assignmentGet, { agent: added.agent });
-      assert.deepStrictEqual(read.assignment.entries, assignAll);
-      assert.notEqual(read.revision, 0);
-      const writes = await c.call(appInvocations, {
-        app: id,
-        session: added.session,
-      });
-      assert.deepStrictEqual(writes.invocations, []);
     });
 
     await t.test("agent-calls-app", async () => {

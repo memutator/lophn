@@ -4,7 +4,11 @@ import { idSchema } from "../base/ids.ts";
 import { defineCommand, defineMemory, defineRead } from "../base/route.ts";
 import { sha256Schema } from "../base/values.ts";
 import { secretNameSchema } from "../secrets/secrets.ts";
-import { SKILLS_OFF_MAX, skillNameSchema } from "./skill-settings.ts";
+import {
+  deployedSkillsSchema,
+  SKILLS_OFF_MAX,
+  skillNameSchema,
+} from "./skill-settings.ts";
 import {
   agentIdSchema,
   type Workspace,
@@ -434,6 +438,7 @@ export const workspaceExtensionSettingsRead = defineRead({
       mcp_servers: z.array(mcpServerSchema),
       skills_off: workspaceSkillsOffSchema,
       mcp_off: workspaceMcpOffSchema,
+      deployed_skills: deployedSkillsSchema,
       hash: sha256Schema.nullable(),
     }),
   ),
@@ -452,6 +457,7 @@ export const workspaceExtensionSettingsChange = defineCommand({
     mcp_servers: workspaceServersSchema,
     skills_off: workspaceSkillsOffSchema,
     mcp_off: workspaceMcpOffSchema,
+    deployed_skills: deployedSkillsSchema,
   }),
   output: z.object({
     workspace: workspaceKeySchema,

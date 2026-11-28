@@ -428,7 +428,7 @@ test("workspace-reader scans declared vs mentioned impact, skips archived worksp
     await mkdir(join(root, "agents"), { recursive: true });
     await writeFile(
       join(root, "agents", `${AGT_REVIEWER}.md`),
-      `---\nhandle: reviewer\nname: Reviewer\nruntime: custom\napps:\n  - billing\n---\nYou review billing.\n`,
+      `---\nhandle: reviewer\nname: Reviewer\nruntime: custom\ndeployed_skills:\n  - app: billing\n    skill: billing-guide\n---\nYou review billing.\n`,
     );
 
     // Active workflow with flow.ts + workflow.yaml referencing reviewer & billing

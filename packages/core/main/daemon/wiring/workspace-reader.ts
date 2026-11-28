@@ -102,6 +102,7 @@ export type AgentSnapshot = {
   name: string;
   workspace: FollowUpWorkspace | null;
   runtime: AgentRuntime;
+  // 이 agent에게 배포한 앱 skill의 앱 slug(agent 층의 배포만이다).
   apps: readonly string[];
 };
 
@@ -304,7 +305,7 @@ async function readAgentsFromDisk(
       name: def.name ?? def.handle ?? id,
       workspace,
       runtime: def.runtime ?? "lophn",
-      apps: def.apps ?? [],
+      apps: [...new Set((def.deployed_skills ?? []).map((one) => one.app))],
     });
   }
   return agents;
@@ -843,7 +844,7 @@ export async function scanImpact(
     }
     if (assignedAgents.length > 0) {
       immediate.push(
-        `${assignedAgents.length} agent app assignment${assignedAgents.length === 1 ? "" : "s"}`,
+        `${assignedAgents.length} agent skill deployment${assignedAgents.length === 1 ? "" : "s"}`,
       );
     }
 
@@ -913,7 +914,7 @@ export async function scanImpact(
         workspace: agent.workspace,
         workspace_name: wsName(agent.workspace),
         label: `@${agent.handle}`,
-        detail: `assigned app ${app.slug}`,
+        detail: `deployed skills of app ${app.slug}`,
       });
     }
 
@@ -1480,7 +1481,7 @@ export async function scanReleaseContractUsers(
     }
   }
 
-  // 3. public skill 변경 시 이 앱이 할당된 외부 agent.
+  // 3. public skill 변경 시 이 앱의 skill을 배포받은 외부 agent.
   if (changedSkills.size > 0) {
     const summary = [...changedSkills.entries()]
       .map(([n, c]) => `${n} (${c})`)
@@ -1491,7 +1492,7 @@ export async function scanReleaseContractUsers(
       }
       if (!agent.apps.includes(app.slug)) continue;
       const name = wsName(agent.workspace);
-      const reason = `agent @${agent.handle} assigned ${app.slug} (skills: ${summary})`;
+      const reason = `agent @${agent.handle} has skills of ${app.slug} deployed (skills: ${summary})`;
       declared.push({
         kind: "agent_app_assignment",
         workspace: agent.workspace,

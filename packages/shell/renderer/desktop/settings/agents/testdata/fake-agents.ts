@@ -21,6 +21,7 @@ import {
 import { fakeAnswer } from "../../../connection/events/fake-source.ts";
 import {
   type AuthStateValue,
+  DEPLOYED_SKILLS,
   MCP_SERVERS,
   type McpServerValue,
 } from "../../extension-settings.ts";
@@ -42,6 +43,7 @@ type AgentsCall =
   | readonly ["change-model", ModelChoice]
   | readonly ["instructions", string]
   | readonly ["add-skill"]
+  | readonly ["deployed", number]
   | readonly ["skill", string, boolean]
   | readonly ["add-server"]
   | readonly ["create-server", string]
@@ -232,6 +234,15 @@ export function fakeAgents(options: FakeAgentsOptions = {}) {
       skills = skills.map((row) =>
         row.name === name ? { ...row, enabled } : row,
       );
+      core.changed("settings");
+      return Promise.resolve(ok());
+    },
+    deployable() {
+      return Promise.resolve({ ok: true, value: [] });
+    },
+    setDeployed(next) {
+      calls.push(["deployed", next.length]);
+      core.set(DEPLOYED_SKILLS, next);
       core.changed("settings");
       return Promise.resolve(ok());
     },

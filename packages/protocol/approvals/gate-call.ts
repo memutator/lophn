@@ -166,6 +166,8 @@ export const judgmentSchema = z.discriminatedUnion("kind", [
     reason: z.string().nullable(),
     outside_rewind: z.boolean(),
     allowed_choices: z.array(turnRequestChoiceKindSchema).min(1),
+    // `always`가 하는 일의 줄이다. 판정이 always를 열 때만 있다.
+    always_patterns: z.array(z.string().min(1)).optional(),
   }),
   z.strictObject({
     kind: z.literal("deny"),

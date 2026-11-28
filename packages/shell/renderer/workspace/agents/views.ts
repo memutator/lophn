@@ -68,6 +68,14 @@ export interface SkillRow {
   readonly builtIn: boolean;
 }
 
+/** 배포할 수 있는 앱 skill 하나: 앱(slug와 이름)의 active release가 내놓은 public skill이다. */
+export interface DeployableSkill {
+  readonly app: string;
+  readonly appName: string;
+  readonly skill: string;
+  readonly description: string;
+}
+
 /** MCP server의 층. workspace 층은 Home·project·앱의 `extensions.json`이고 agent 층은 그 agent의 정의가 가진 것이다. */
 export type McpLayer = "global" | "workspace" | "agent";
 

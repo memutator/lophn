@@ -679,9 +679,6 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
       case "edit_rule":
         host.openAgentSettings?.("rules");
         return host.openAgentSettings !== undefined;
-      case "assign_app":
-        host.openPermissions?.();
-        return host.openPermissions !== undefined;
       case "change_mode": {
         if (action.suggested_mode === undefined) return false;
         return changePermissionMode(action.suggested_mode);

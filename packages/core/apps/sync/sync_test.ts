@@ -264,7 +264,9 @@ function computer(plan: SyncPlan = PHONE_APP) {
     apps: { activeRelease, archived: () => ok(false), bySlug: () => ok(null) },
     ledger,
     link,
-    assignmentOf: () => err({ code: "internal", message: "unused" }),
+    appReached: () =>
+      Promise.resolve(err({ code: "internal", message: "unused" })),
+    gateRan: () => false,
     appGrantsOf: () =>
       Promise.resolve(err({ code: "internal", message: "unused" })),
     isPrivate: () => false,

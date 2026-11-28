@@ -1,5 +1,7 @@
+export { deploymentsReach, gatherDeployments } from "./deployments.ts";
 export {
   extensionSettings,
+  globalDeployedSkillsSetting,
   globalMcpServersSetting,
   skillFoldersSetting,
   skillsOffSetting,

@@ -2,9 +2,11 @@ import { err, ok } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import {
   type AgentWorkspace,
+  type SkillDeployment,
   type WorkspaceKind,
   workspaceKindOf,
 } from "../../../protocol/lophn-agent/mod.ts";
+import { gatherDeployments } from "./deployments.ts";
 import type { SkillReader } from "../tools/ports.ts";
 import {
   discoverSkills,
@@ -29,18 +31,23 @@ export type SkillSnapshotDeps = {
   // 내장 skill 폴더와 개인 보관소다.
   builtin_root: string | null;
   personal_store: string | null;
-  // 사람이 등록한 폴더(등록 순서)와 전역에서 끈 이름이다. turn마다 읽는다.
-  global(): Promise<{ roots: readonly string[]; off: readonly string[] }>;
-  // workspace 폴더의 `.lophn/skills`, workspace 그릇 자리의 `skills/`와 그 workspace에서 끈 이름이다. workspace가 null이면
-  // Home이다. 파일이 없으면 끈 이름은 비어 있다.
+  // 사람이 등록한 폴더(등록 순서), 전역에서 끈 이름, 전역에 배포한 앱 skill이다. turn마다 읽는다.
+  global(): Promise<{
+    roots: readonly string[];
+    off: readonly string[];
+    deployed: readonly SkillDeployment[];
+  }>;
+  // workspace 폴더의 `.lophn/skills`, workspace 그릇 자리의 `skills/`와 그 workspace에서 끈 이름, 그 workspace에 배포한 앱 skill이다.
+  // workspace가 null이면 Home이다. 파일이 없으면 끈 이름과 배포는 비어 있다.
   workspace(workspace: AgentWorkspace | null): Promise<{
     workspace_skills: WorkspaceSkills | null;
     workspace_data: string | null;
     off: readonly string[];
+    deployed: readonly SkillDeployment[];
   }>;
-  // 이 agent에게 할당한 앱(slug)이 내놓은 public skill이다. 읽지 못하면 없는 것이다.
+  // 배포 기록이 가리킨 앱 skill이다(그 앱의 active release가 내놓은 public skill 가운데 배포한 이름). 읽지 못하면 없는 것이다.
   shared(
-    apps: readonly string[],
+    deployed: readonly SkillDeployment[],
     workspace: AgentWorkspace | null,
   ): Promise<readonly SharedSkill[]>;
 };
@@ -52,8 +59,8 @@ type SkillSession = {
   workspace: AgentWorkspace | null;
   // agent 정의가 끈 이름(`skills_off`)이다.
   off: readonly string[];
-  // agent 정의에 할당된 앱 slug다.
-  apps: readonly string[];
+  // agent 정의가 배포받은 앱 skill이다.
+  deployed: readonly SkillDeployment[];
 };
 
 type SkillSnapshot = {
@@ -76,7 +83,14 @@ export async function createSkillSnapshot(
 ): Promise<SkillSnapshot> {
   const global = await deps.global();
   const layer = await deps.workspace(session.workspace);
-  const shared = await deps.shared(session.apps, session.workspace);
+  const shared = await deps.shared(
+    gatherDeployments({
+      global: global.deployed,
+      workspace: layer.deployed,
+      agent: session.deployed,
+    }),
+    session.workspace,
+  );
   const found = discoverSkills(
     deps.port,
     {
@@ -243,7 +257,7 @@ export function turnSkillReader(
   session: {
     id: string;
     workspace: AgentWorkspace | null;
-    apps: readonly string[];
+    deployed: readonly SkillDeployment[];
   },
   enabled: readonly string[],
 ): SkillReader {
@@ -261,7 +275,7 @@ export function turnSkillReader(
         kind: workspaceKindOf(session.workspace),
         workspace: session.workspace,
         off: [],
-        apps: session.apps,
+        deployed: session.deployed,
       });
       return (await snapshot).reader.read(id, name, path);
     },

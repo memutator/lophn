@@ -1,3 +1,4 @@
+import { agentDropAppsPermissionsStep } from "../../../lophn-agent/agents/drop-apps-permissions-step.ts";
 import { agentAvatarStep } from "../../../lophn-agent/agents/avatar-step.ts";
 import { agentHandleStep } from "../../../lophn-agent/agents/handle-step.ts";
 import { agentPermissionModeStep } from "../../../lophn-agent/agents/mod.ts";
@@ -6,10 +7,11 @@ import { agentToolsNoCommandsStep } from "../../../lophn-agent/agents/tools-no-c
 import type { WiringFactory } from "./context.ts";
 
 // agent 정의 파일의 옛 모양을 고치는 data step을 낸다. 정의를 schema로 읽는 다른 data step보다 앞서 돈다.
-// handle 채우기가 먼저, runtime `bare`를 `custom`으로 옮기는 step, `tools`에서 명령 이름을 빼는 step, `profile` 칸을 `avatar`로 옮기는 step, `skip`을 `permission_mode`로 옮기는 step이 그 뒤다.
+// 이 컴퓨터 앱의 할당(`apps`, `permissions`)을 지우는 step이 가장 먼저다(새 schema는 두 칸을 받지 않는다). handle 채우기가 그 뒤, runtime `bare`를 `custom`으로 옮기는 step, `tools`에서 명령 이름을 빼는 step, `profile` 칸을 `avatar`로 옮기는 step, `skip`을 `permission_mode`로 옮기는 step이 그 뒤다.
 export const agentHandleWiring: WiringFactory = () => ({
   name: "agent-handle",
   dataSteps: [
+    agentDropAppsPermissionsStep,
     agentHandleStep,
     agentRuntimeCustomStep,
     agentToolsNoCommandsStep,

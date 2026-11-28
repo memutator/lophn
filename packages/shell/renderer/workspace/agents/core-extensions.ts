@@ -10,6 +10,7 @@ import {
 import type { ModelChoice } from "../../../../protocol/lophn-agent/models.ts";
 import {
   BUILTIN_SKILLS,
+  type SkillDeployment,
   type SkillEntry,
 } from "../../../../protocol/lophn-agent/skill-settings.ts";
 import type { Workspace } from "../../../../protocol/lophn-agent/workspaces.ts";
@@ -31,6 +32,7 @@ import { isAppWorkspace, kindOfWorkspace } from "./agent-key.ts";
 import type { Link } from "./core-link.ts";
 import { secretsOf } from "./mcp-secrets.ts";
 import type {
+  DeployableSkill,
   InstructionsFile,
   McpLayer,
   McpLogin,
@@ -211,6 +213,7 @@ interface WorkspaceSettings {
   readonly servers: readonly McpServer[];
   readonly skillsOff: readonly string[];
   readonly mcpOff: readonly string[];
+  readonly deployed: readonly SkillDeployment[];
   readonly hash: string | null;
 }
 
@@ -223,6 +226,7 @@ async function readWorkspaceSettings(
       mcp_servers: McpServer[];
       skills_off: string[];
       mcp_off: string[];
+      deployed_skills: SkillDeployment[];
       hash: string | null;
     }>("workspace-extension-settings", "read", { workspace })
     .then((result) =>
@@ -233,6 +237,7 @@ async function readWorkspaceSettings(
               servers: result.value.mcp_servers,
               skillsOff: result.value.skills_off,
               mcpOff: result.value.mcp_off,
+              deployed: result.value.deployed_skills,
               hash: result.value.hash,
             },
           }
@@ -256,12 +261,60 @@ export async function changeWorkspaceSettings(
       mcp_servers: next.servers,
       skills_off: next.skillsOff,
       mcp_off: next.mcpOff,
+      deployed_skills: next.deployed,
     },
     compare: { hash: current.value.hash },
   });
   return changed.ok
     ? { ok: true, value: null }
     : { ok: false, message: changed.code };
+}
+
+/** 이 workspace 층에 배포한 앱 skill. */
+export async function readDeployed(
+  link: Link,
+  workspace: string,
+): Promise<ReadResult<SkillDeployment[]>> {
+  const own = await readWorkspaceSettings(link, workspace);
+  return own.ok ? { ok: true, value: [...own.value.deployed] } : own;
+}
+
+interface AppRow {
+  readonly id: string;
+  readonly slug: string;
+  readonly name: string;
+  readonly status: string;
+}
+
+/**
+ * 배포할 수 있는 앱 skill 전부. 활성 앱마다 active release의 public skill이다(`apps/skills`가 읽는다). 앱을 읽지 못하면 못 읽은 것이고,
+ * skill이 없는 앱은 목록에 없다.
+ */
+export async function readDeployable(
+  link: Link,
+): Promise<ReadResult<DeployableSkill[]>> {
+  const apps = await link.read<{ apps: AppRow[] }>("apps", "list", {});
+  if (!apps.ok) return apps;
+  const active = apps.value.apps.filter((app) => app.status === "active");
+  const found: DeployableSkill[] = [];
+  // route가 한 번에 받는 앱은 64개까지다.
+  for (let at = 0; at < active.length; at += 64) {
+    const chunk = active.slice(at, at + 64);
+    const read = await link.read<{
+      skills: { slug: string; name: string; description: string }[];
+    }>("apps", "skills", { apps: chunk.map((app) => app.slug) });
+    if (!read.ok) return read;
+    for (const skill of read.value.skills) {
+      found.push({
+        app: skill.slug,
+        appName:
+          chunk.find((app) => app.slug === skill.slug)?.name ?? skill.slug,
+        skill: skill.name,
+        description: skill.description,
+      });
+    }
+  }
+  return { ok: true, value: found };
 }
 
 /** 이 자리에서 보이는 MCP server: 전역과 workspace(Home, project, 앱) 층. 전역 server를 workspace에서 끈 것은 꺼진 것으로 보인다. */

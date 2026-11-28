@@ -665,7 +665,6 @@ export const conversation = {
   "conversation.label.blocked": "Blocked",
   "conversation.label.blocked-rule": "Rule: {pattern}",
   "conversation.button.recover-edit-rule": "Edit rule",
-  "conversation.button.recover-assign-app": "Assign app",
   "conversation.button.recover-change-mode": "Switch to {mode}",
   "conversation.button.recover-change-mode-generic": "Change mode",
   "conversation.button.recover-trust-local-tool": "Trust",

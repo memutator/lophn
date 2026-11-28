@@ -74,8 +74,8 @@ test("an agent sees the private tools of its own app workspace only, public tool
   );
 });
 
-// `lophn <slug> <command>`는 부를 때 푼다. 할당하지 않은 앱, 뺀 command, 다른 앱의 비공개 command는 풀리지 않아 실행되지 않는다.
-test("lophn resolves an app command only for an assigned app, a kept command, and a visible private command", async () => {
+// `lophn <slug> <command>`는 부를 때 푼다. 다른 앱의 비공개 command는 풀리지 않아 실행되지 않는다(어느 앱을 읽을지는 배포가 정한다).
+test("lophn resolves an app command only for a public command of another app and any command of its own app workspace", async () => {
   const kit = withPublicOnly({
     load: () =>
       Promise.resolve(
@@ -87,8 +87,7 @@ test("lophn resolves an app command only for an assigned app, a kept command, an
               tool("shown", true),
             ]),
           ),
-          // APP_A만 할당했고 shown은 뺐다.
-          entries: [{ app: APP_A, removed_tools: ["shown"] }],
+          entries: [],
         }),
       ),
   } as unknown as AppToolkit);
@@ -100,21 +99,21 @@ test("lophn resolves an app command only for an assigned app, a kept command, an
   const entries = appCommandEntries(loaded.value);
   const resolves = (...args: string[]) =>
     resolveAppCall({ args }, entries)?.entry.doc.name;
-  // 그 앱 workspace의 비공개 command. 할당하지 않은 앱 것은 항목에 없다.
+  // 그 앱 workspace의 비공개 command. 다른 앱의 비공개 command는 항목에 없다.
   assert.deepStrictEqual(resolves("alpha", "open"), "alpha.open");
   assert.deepStrictEqual(resolves("beta", "open"), undefined);
+  assert.deepStrictEqual(resolves("beta", "shown"), "beta.shown");
   assert.deepStrictEqual(
     resolveAppCall({ args: ["alpha", "open"] }, entries)?.entry.app,
     APP_A,
   );
-  assert.deepStrictEqual(resolves("alpha", "shown"), undefined);
   assert.deepStrictEqual(resolves("alpha", "open", "--bogus"), undefined);
 });
 
 test("a resolved app command is found by the executor's wire name lookup", () => {
   const entries = appCommandEntries({
     views: [view(APP_A, [tool("open", false)])],
-    entries: [{ app: APP_A, removed_tools: [] }],
+    entries: [],
   });
   const hit = resolveAppCall({ args: ["alpha", "open"] }, entries);
   assert.ok(hit !== undefined);
@@ -126,8 +125,8 @@ test("a resolved app command is found by the executor's wire name lookup", () =>
 
 test("wrong CLI spelling stays unexecuted and corrections only name commands the agent can call", () => {
   const entries = appCommandEntries({
-    views: [view(APP_A, [tool("add_event", false), tool("quota.list", false)])],
-    entries: [{ app: APP_A, removed_tools: ["quota.list"] }],
+    views: [view(APP_A, [tool("add_event", false)])],
+    entries: [],
   });
   const docs = entries.map((entry) => entry.doc);
   assert.equal(

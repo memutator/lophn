@@ -8,6 +8,7 @@ import { CODING_DEPLOYED_SKILLS_SETTING_KEY } from "../../../../protocol/lophn-a
 import type { ReleaseRecord } from "../../../../protocol/apps/mod.ts";
 import type { Tx } from "../../../../protocol/server/mod.ts";
 import { PROJECT_LAYER } from "../../../agent-workspaces/workspace/project-layer.ts";
+import { projectsSchemaSteps } from "../../../projects/registry/schema.ts";
 import { appsSchemaSteps } from "../../../apps/registration/schema.ts";
 import { releasesSchemaSteps } from "../../../apps/releases/schema.ts";
 import { insertRelease } from "../../../apps/releases/store.ts";
@@ -73,12 +74,16 @@ async function withRoot(
   const root = await mkdtemp(join(tmpdir(), "lophn-skill-deploy-"));
   try {
     const db = new DatabaseSync(join(root, "lophn.db"));
-    for (const step of [...appsSchemaSteps, ...releasesSchemaSteps]) {
+    for (const step of [
+      ...projectsSchemaSteps,
+      ...appsSchemaSteps,
+      ...releasesSchemaSteps,
+    ]) {
       db.exec(step.sql);
     }
-    // agent 목록이 project 표를 읽는다. 비어 있어도 표는 있어야 한다.
-    db.exec("create table projects (id text primary key)");
-    db.prepare("INSERT INTO projects VALUES (?)").run(PROJECT.id);
+    db.prepare(
+      "INSERT INTO projects (id, name, title, purpose, revision, status) VALUES (?, 'Household', 'Household', '', '1', 'active')",
+    ).run(PROJECT.id);
     db.prepare(
       "INSERT INTO apps VALUES (?, 'notes', 'n', 'd', NULL, NULL, NULL, 1, '1', 'active')",
     ).run(APP);
@@ -419,5 +424,56 @@ test("always 배포는 그 workspace 층에만 쓰고, 앱을 지우면 모든 �
     assert.doesNotMatch(agent, new RegExp(APP));
     assert.match(agent, new RegExp(OTHER));
     assert.deepStrictEqual(logged, []);
+  });
+});
+
+// 의존이 보여야 한다. 앱이 skill을 바꾸거나 지울 때 그 skill을 받는 자리는 전역, harness, workspace, agent 어디든 같은 목록에서 나오고,
+// 앱이 더는 내놓지 않는 기록도 목록에 남아 거둘 수 있다(받는 쪽은 말없이 빼므로 여기서만 보인다).
+test("앱의 skill을 받는 자리는 모든 층에서 한 목록으로 나오고, 앱이 더는 내놓지 않는 기록은 provided false로 보인다", async () => {
+  await withRoot(async ({ root, global, deployments }) => {
+    const gone = { app: APP, skill: "internal" };
+    global.value = [guide, gone];
+    global.harness = [guide];
+    await mkdir(join(PROJECT_LAYER.extensionsFile(root, PROJECT), ".."), {
+      recursive: true,
+    });
+    await writeFile(
+      PROJECT_LAYER.extensionsFile(root, PROJECT),
+      JSON.stringify({
+        mcp_servers: [],
+        skills_off: [],
+        mcp_off: [],
+        deployed_skills: [guide],
+      }),
+    );
+    await writeFile(
+      join(root, "agents", `${AGENT}.md`),
+      `---\nhandle: helper\nname: helper\ndeployed_skills:\n  - app: ${APP}\n    skill: guide\n---\nbody\n`,
+    );
+
+    const places = await deployments.receivers(APP, ["guide"]);
+    assert.ok(places.ok);
+    assert.deepStrictEqual(places.value.map((one) => one.layer).sort(), [
+      "agent",
+      "global",
+      "harness",
+      "workspace",
+    ]);
+    // 앱이 내놓지 않는 skill은 받는 것이 아니다.
+    const none = await deployments.receivers(APP, ["internal"]);
+    assert.ok(none.ok);
+    assert.deepStrictEqual(none.value, []);
+
+    const listed = await deployments.list("notes");
+    assert.ok(listed.ok);
+    assert.deepStrictEqual(
+      listed.value
+        .filter((one) => one.layer === "global")
+        .map((one) => [one.skill, one.provided]),
+      [
+        ["guide", true],
+        ["internal", false],
+      ],
+    );
   });
 });

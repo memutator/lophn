@@ -59,6 +59,7 @@ release의 상태는 `prepared`, `activating`, `active`, `superseded`, `failed`�
 1. 계기는 앱 workspace session의 `release.activate`다. release 준비만으로는 시작하지 않는다.
 2. `release.activate`는 시작한 시도의 끝을 120초까지 기다린다. 넘으면 `running`을 돌려주고 시도는 core 안에서 이어 가며, session은 `app.status`와 `release.get`으로 본다. 120초는 `shell.run`의 기본 timeout과 앱 tool 호출 상한과 같아 tool 하나가 turn을 이보다 오래 붙들지 않는다.
 3. 동의를 기다리면 `release.activate`는 기다리지 않고 `waiting_consent`를 돌려준다. 동의 뒤의 시작은 sweep이 한다. 결과는 `activation.report`로 release를 만든 session에 notice로 간다(아래 실패와 복구의 `activation.report`).
+3a. 카드에는 이 release가 지우거나 비공개로 바꾸는 공개 skill·command를 지금 받는 바깥 자리(전역, harness, workspace, agent)가 "이 자리가 이것을 잃는다"로 보인다(비교의 `removed_for_receivers`). 받는 곳이 없으면 줄이 없다. 이 줄은 묻는 이유가 아니다: 카드는 아래 4번의 이유가 있을 때만 서고, 지우는 release 하나만으로는 서지 않는다(앱 agent는 `release.prepare`의 수를 보고 home의 lophn에게 알린다).
 4. 묻는지는 program이 선언 사실로 결정적으로 판정한다. 늘어난 바깥 자원, 늘어난 다른 앱 tool 쓰기, migration이 선언한 loss, 이전 활성 release가 없는 첫 activation이다. 아무것도 늘지 않으면 묻지 않는다.
    - secret의 OAuth 칸(끝점, scope, 추가 parameter)이 바뀐 것도 늘어난 바깥 자원이다. 비교가 정규화한 scope 전체를 맞추므로 순서만 바뀐 것은 묻지 않는다. 동의 화면은 authorize host, refresh token이 갈 token host, scope를 보인다.
    - 앱 자신의 tool이 더해지는 것은 묻지 않는다. 그 앱의 skill이 닿은 agent는 새 command도 묻지 않고 쓴다(배포가 허락이다, `architecture/approval.md`).

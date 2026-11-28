@@ -52,6 +52,8 @@ export interface CardView {
   /** activation 카드의 늘어난 선언. */
   readonly added: readonly Line[];
   readonly loss: readonly Line[];
+  /** 이 release가 지우는 공개 skill·command를 받는 자리. 이 자리가 그것을 잃는다. */
+  readonly removed: readonly Line[];
   /** 이전 활성 release가 없다. */
   readonly first: boolean;
   /** 되돌리기(rewind) 기록 밖의 호출인지. */
@@ -567,7 +569,34 @@ function activationView(
         one.column === undefined ? one.table : `${one.table}.${one.column}`,
     })),
   );
-  return { added, loss, first: comparison.first };
+  const removed: Line[] = (comparison.removed_for_receivers ?? []).map(
+    (one) => ({
+      label: t(
+        one.surface === "skill"
+          ? "waiting.label.removed-skill"
+          : "waiting.label.removed-command",
+      ),
+      value: `${one.name}: ${one.places.map(placeText).join(", ")}`,
+    }),
+  );
+  return { added, loss, removed, first: comparison.first };
+}
+
+/** 받는 자리 한 곳: 모든 agent, 터미널 coding agent, workspace, agent. */
+function placeText(place: {
+  layer: "global" | "harness" | "workspace" | "agent";
+  at: string | null;
+}): string {
+  switch (place.layer) {
+    case "global":
+      return t("waiting.label.place-global");
+    case "harness":
+      return t("waiting.label.place-harness");
+    case "workspace":
+      return t("waiting.label.place-workspace", { name: place.at ?? "" });
+    case "agent":
+      return t("waiting.label.place-agent", { name: place.at ?? "" });
+  }
 }
 
 /** job이 할 일 한 줄. */
@@ -646,6 +675,7 @@ export function cardOf(
     factsPinned: false,
     added: NO_LINES,
     loss: NO_LINES,
+    removed: NO_LINES,
     first: false,
     choices: [] as readonly WaitingChoice[],
   };

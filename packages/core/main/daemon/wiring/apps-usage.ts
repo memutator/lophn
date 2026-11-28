@@ -26,7 +26,6 @@ import {
   type ReaderRegistration,
   snapshotPort,
 } from "../../../storage/ledger/mod.ts";
-import { agentDirectory } from "./lophn-agent-team.ts";
 
 type Query = Pick<Sql, "get" | "all">;
 
@@ -117,19 +116,6 @@ function usagePortsOf(sql: Query): UsagePorts {
         subs.push({ event: trigger["event"], workspace });
       }
       return subs;
-    },
-    assignedAppWorkspaces(appSlug, appId) {
-      const workspaces: (Workspace | null)[] = [];
-      for (const info of agentDirectory(sql).agents()) {
-        if (info.workspace?.kind === "app" && info.workspace.id === appId) {
-          continue;
-        }
-        if (!isActiveWorkspace(sql, info.workspace)) continue;
-        if (info.deployedSkills.some((one) => one.app === appId)) {
-          workspaces.push(info.workspace);
-        }
-      }
-      return workspaces;
     },
   };
 }

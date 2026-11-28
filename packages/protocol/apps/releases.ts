@@ -82,13 +82,17 @@ export const bundleManifestSchema = z.object({
 export type BundleManifest = z.infer<typeof bundleManifestSchema>;
 
 // 다른 앱·project가 쓰는 공개 tool을 지우는 release면 준비 결과가 그 tool을 싣는다. 막지 않고 알린다.
+// receiver_count는 그 앱의 skill을 받는 바깥 자리(전역, harness, workspace, agent)의 수다. P12: 이름은 앱 session이 읽는 이 결과에 싣지 않는다.
 export const removedPublicToolSchema = z.object({
   tool: toolKeySchema,
+  receiver_count: z.number().int().nonnegative().optional(),
 });
 
-// 공개 skill을 지우는 release면, 그 앱이 할당된 agent가 있을 때 그 skill을 싣는다. 막지 않고 알린다.
+// 공개 skill을 지우거나 비공개로 바꾸는 release면 준비 결과가 그 skill을 싣는다. 막지 않고 알린다.
+// receiver_count는 그 skill을 받는 바깥 자리(전역, harness, workspace, agent)의 수다.
 export const removedPublicSkillSchema = z.object({
   skill: z.string().min(1),
+  receiver_count: z.number().int().nonnegative().optional(),
 });
 
 // activation 전 release.prepare에서 앱 agent가 확인하는 자기 계약(command·skill·event) 변경 요약. P12: 외부 이름은 싣지 않고 개수만 싣는다.

@@ -49,9 +49,12 @@ import { openConnection, type Writer } from "../../../storage/ledger/mod.ts";
 import type { WiringFactory } from "./context.ts";
 import {
   type ImpactReadResult,
+  type Receivers,
+  receiversOf,
   scanImpact,
   scanReleaseContractUsers,
 } from "./workspace-reader.ts";
+import { createSkillDeployments } from "./skill-deploy.ts";
 
 export const CASCADE_DELIVERY_PRINCIPAL = "machine:cascade-delivery";
 
@@ -91,6 +94,7 @@ export type CascadeDeps = {
   writer: () => Writer;
   callPolicy?: () => CallPolicy | undefined;
   secretNames?: () => readonly string[];
+  receivers?: Receivers;
 };
 
 export type CascadeResult = {
@@ -582,6 +586,7 @@ async function scanTargetImpact(
         dataRoot: deps.dataRoot,
         ...(deps.callPolicy ? { callPolicy: deps.callPolicy() } : {}),
         ...(deps.secretNames ? { secretNames: deps.secretNames } : {}),
+        ...(deps.receivers ? { receivers: deps.receivers } : {}),
       },
       target,
     );
@@ -705,6 +710,7 @@ export async function runContractChangeCascade(
       deps.dataRoot,
       info.app,
       info.changes,
+      deps.receivers,
     );
   } finally {
     opened.value.close();
@@ -1012,6 +1018,13 @@ export const cascadeWiring: WiringFactory = () => {
           const names = ctx.peek.secretStore?.names();
           return names?.ok ? names.value : [];
         },
+        receivers: receiversOf(ctx, (message) =>
+          ctx.telemetry.logger.warn({
+            component: "cascade",
+            event: "receivers_not_read",
+            fields: { message },
+          }),
+        ),
       };
       cascadeDeps = deps;
       const warn = (event: string, message: string) =>

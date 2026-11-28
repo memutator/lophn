@@ -22,11 +22,6 @@ export interface UsagePorts {
   declaredToolUsers?(app: string): readonly StaticToolUse[];
   // 활성 job(event trigger 등)이 정적으로 구독하는 앱 event 사용처(원격 machine 제외).
   declaredEventSubscribers?(app: string): readonly StaticEventSubscriber[];
-  // 이 앱이 할당된 외부 활성 agent의 workspace 목록(public skill 사용처 수 산출용).
-  assignedAppWorkspaces?(
-    appSlug: string,
-    appId: string,
-  ): readonly (Workspace | null)[];
 }
 
 export const usagePorts = definePort<UsagePorts>("apps.usage");

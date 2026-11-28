@@ -391,6 +391,11 @@ export function createFakeAgentsSource(
                 app: "app_01h000000000000000000budget",
                 skill: "track-expenses",
               },
+              // 앱이 더는 내놓지 않는 기록: 목록에 "No longer provided by the app"로 보이고 거둘 수 있다.
+              {
+                app: "app_01h000000000000000000budget",
+                skill: "old-report",
+              },
             ]
           : [],
       memory: {

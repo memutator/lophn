@@ -43,6 +43,9 @@ export function DeployedSkills({
                 key={`${entry.app}/${entry.skill}`}
                 className={styles.deployedRow}
                 data-deployed={`${entry.app}/${entry.skill}`}
+                data-gone={
+                  known === undefined && deployable !== null ? "" : undefined
+                }
               >
                 <span className={styles.toggleMain}>
                   <span className={styles.toggleName}>{entry.skill}</span>
@@ -54,9 +57,9 @@ export function DeployedSkills({
                         : t("agents.label.deployed-gone")}
                   </span>
                 </span>
-                <span className={styles.chip}>
-                  {known?.appName ?? entry.app}
-                </span>
+                {known === undefined ? null : (
+                  <span className={styles.chip}>{known.appName}</span>
+                )}
                 <Button
                   size="sm"
                   variant="ghost"

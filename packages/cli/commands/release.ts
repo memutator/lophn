@@ -85,7 +85,7 @@ const prepare = defineCommand({
   name: "release.prepare",
   summary: "Prepare a release from the HEAD commit",
   description:
-    "Prepare a release from the HEAD commit of the app source, so commit first. It builds the bundle, checks the dependencies, runs the migrations on an empty database and from the active release's schema, and starts the bundle once to match its handlers with the declaration (this replaces the app's current preview). Returns the prepared release and any public contract changes (commands, skills, events removed or changed with external user counts), or the failed stage and its reason.",
+    "Prepare a release from the HEAD commit of the app source, so commit first. It builds the bundle, checks the dependencies, runs the migrations on an empty database and from the active release's schema, and starts the bundle once to match its handlers with the declaration (this replaces the app's current preview). Returns the prepared release and any public contract changes (commands, skills, events removed or changed with external user counts; a removed public skill carries the number of places that receive it: every agent, coding agents, workspaces, agents). You see counts only, not who they are: before you activate a release that removes or changes a public skill or command, ask lophn at Home with `lophn call send` who depends on it. A failed preparation returns the failed stage and its reason.",
   input: z.strictObject({ app }),
   positional: ["app"],
   effect: "write",
@@ -117,7 +117,7 @@ const prepare = defineCommand({
       }${
         removedSkills === 0
           ? ""
-          : `, removes ${removedSkills} public skills in use: ${out.removed_public_skills.map((entry) => entry.skill).join(", ")}`
+          : `, removes ${removedSkills} public skills: ${out.removed_public_skills.map((entry) => `${entry.skill} (${entry.receiver_count ?? 0} place${entry.receiver_count === 1 ? "" : "s"} receive it)`).join(", ")}`
       }`;
     }
     return ok({

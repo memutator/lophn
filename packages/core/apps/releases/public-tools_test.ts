@@ -227,11 +227,6 @@ test("contractChangesOf counts unique external users without leaking external wo
     declaredEventSubscribers: () => [
       { event: "posted", workspace: { kind: "project", id: PRJ as never } },
     ],
-    assignedAppWorkspaces: () => [
-      null,
-      { kind: "project", id: PRJ as never },
-      { kind: "app", id: APP as never }, // self -> ignored
-    ],
   };
   const tx = {
     sql,
@@ -255,7 +250,8 @@ test("contractChangesOf counts unique external users without leaking external wo
       surface: "skill",
       name: "usage",
       change: "removed",
-      external_user_count: 2,
+      // 받는 자리는 배포 목록(전역·harness·workspace·agent)에서 오고 core 메인 thread가 채운다(`release.prepare`).
+      external_user_count: 0,
     },
     {
       surface: "event",
@@ -481,19 +477,43 @@ test("workspace-reader scans declared vs mentioned impact, skips archived worksp
     assert.strictEqual(snap.value.summary.workflows, 1);
     assert.strictEqual(snap.value.summary.custom_agents, 1);
 
+    // 받는 자리는 배포 목록 한 길에서 온다(전역, harness, workspace, agent). 여기서는 agent 하나와 전역 하나가 받는다.
+    const receivers = async () => [
+      {
+        app: APP_TARGET,
+        slug: "billing",
+        skill: "billing-guide",
+        provided: true,
+        layer: "agent" as const,
+        at: "reviewer",
+        workspace: null,
+        active: true,
+      },
+      {
+        app: APP_TARGET,
+        slug: "billing",
+        skill: "billing-guide",
+        provided: true,
+        layer: "global" as const,
+        at: null,
+        workspace: undefined,
+        active: true,
+      },
+    ];
     const appImpact = await scanImpact(
-      { sql, dataRoot: root },
+      { sql, dataRoot: root, receivers },
       { kind: "app", app: APP_TARGET },
     );
     assert.ok(appImpact.ok);
     assert.deepStrictEqual(
       appImpact.value.impact.declared.map((d) => d.kind).sort(),
       [
-        "agent_app_assignment",
         "app_connection",
         "app_subscription",
         "job_action",
         "job_trigger",
+        "skill_deployment",
+        "skill_deployment",
       ],
     );
     // flow.ts tool + onEvent + SKILL.md mention, NO memory.md or LOPHN.md, NO archived project
@@ -531,6 +551,7 @@ test("workspace-reader scans declared vs mentioned impact, skips archived worksp
       root,
       APP_TARGET,
       [{ surface: "command", name: "charge", change: "changed" }],
+      receivers,
     );
     assert.ok(contractImpact.ok);
     assert.deepStrictEqual(

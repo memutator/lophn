@@ -263,6 +263,12 @@ type AppsControlDeps = {
       input: unknown,
     ): Promise<Result<unknown>>;
   };
+  // 그 앱(id)의 skill을 받는 바깥 자리(전역, harness, workspace, agent). `release.prepare`가 지우는 skill·command를 받는 자리 수를 센다.
+  // 없으면 받는 자리가 없는 것으로 본다.
+  receivers?(
+    app: string,
+    skills?: readonly string[],
+  ): Promise<readonly { layer: string; at: string | null }[]>;
   // 알려진 secret까지 지운 log 줄. 안전화를 끝내지 못하면 null이다.
   redact(line: string): string | null;
   // supervisor 상태 맞춤 검사 간격(ms). 기본 1000.
@@ -716,6 +722,27 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
         (done.value as { result: unknown }).result,
       );
       const { release } = recorded;
+      // 받는 자리는 전역 설정과 정의 file을 읽어야 해서 core 메인 thread가 센다(writer Worker는 세지 못한다).
+      const placeCount = async (skills?: readonly string[]) =>
+        new Set(
+          ((await deps.receivers?.(app, skills)) ?? []).map(
+            (one) => `${one.layer}\0${one.at ?? ""}`,
+          ),
+        ).size;
+      const everyPlace = await placeCount();
+      const removedSkills = await Promise.all(
+        recorded.removed_public_skills.map(async (one) => ({
+          ...one,
+          receiver_count: await placeCount([one.skill]),
+        })),
+      );
+      const contractChanges = await Promise.all(
+        (recorded.contract_changes ?? []).map(async (one) =>
+          one.surface === "skill"
+            ? { ...one, external_user_count: await placeCount([one.name]) }
+            : one,
+        ),
+      );
       return ok({
         status: "prepared" as const,
         release: {
@@ -726,9 +753,12 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
           bundle_hash: release.bundle_hash,
           data_schema: release.data_schema,
         },
-        removed_public_tools: recorded.removed_public_tools,
-        removed_public_skills: recorded.removed_public_skills,
-        contract_changes: recorded.contract_changes ?? [],
+        removed_public_tools: recorded.removed_public_tools.map((one) => ({
+          ...one,
+          receiver_count: everyPlace,
+        })),
+        removed_public_skills: removedSkills,
+        contract_changes: contractChanges,
       });
     } finally {
       preparing.delete(app);
@@ -844,6 +874,9 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
           machine: deps.activation.machine,
           prepareBlob: deps.activation.prepareBlob,
           reconcile: reconcileApp,
+          ...(deps.receivers === undefined
+            ? {}
+            : { receivers: deps.receivers.bind(deps) }),
         });
 
   async function sweep(): Promise<void> {

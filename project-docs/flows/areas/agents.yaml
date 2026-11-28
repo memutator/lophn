@@ -1035,7 +1035,7 @@ flows:
       - packages/core/main/daemon/wiring/skill-deploy.ts
       - packages/protocol/lophn-agent/skill-settings.ts
     steps:
-      - "전역 설정, Home·모든 project·앱의 extensions.json, 모든 agent 정의의 배포 기록을 읽어 {앱, skill, 층, 이름}으로 돌려준다"
+      - "전역 설정, harness 설정, Home·모든 project·앱의 extensions.json, 모든 agent 정의의 배포 기록을 읽어 {앱, skill, 층, 이름, provided}로 돌려준다. provided는 그 앱의 active release가 지금 그 skill을 public으로 내놓는가이고, false인 기록(skill이 사라졌거나 비공개가 됐다, 앱이 지워졌다)도 싣는다"
       - 앱 slug를 주면 그 앱의 skill을 가진 모든 층만이다
     outcomes:
       - id: ok

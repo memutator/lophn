@@ -60,6 +60,10 @@ import {
 import { loadProject, loadProjects } from "../../../projects/registry/store.ts";
 import { openConnection } from "../../../storage/ledger/mod.ts";
 import type { WiringFactory } from "./context.ts";
+import {
+  createSkillDeployments,
+  type DeploymentEntry,
+} from "./skill-deploy.ts";
 
 type Query = Pick<Sql, "get" | "all">;
 
@@ -102,8 +106,6 @@ export type AgentSnapshot = {
   name: string;
   workspace: FollowUpWorkspace | null;
   runtime: AgentRuntime;
-  // 이 agent에게 배포한 앱 skill의 앱 slug(agent 층의 배포만이다).
-  apps: readonly string[];
 };
 
 export type JobSnapshot = {
@@ -126,9 +128,100 @@ export type WorkspaceSnapshot = {
   summary: WorkspaceUpdateSummary;
 };
 
+// 그 앱의 skill을 받는 자리를 읽는 한 길이다(`createSkillDeployments(ctx).receivers`). 읽지 못하면 받는 자리가 없는 것이다.
+export function receiversOf(
+  ctx: Parameters<typeof createSkillDeployments>[0],
+  warn?: (message: string) => void,
+): Receivers {
+  const deployments = createSkillDeployments(ctx);
+  return async (app, skills) => {
+    try {
+      const found = await deployments.receivers(app, skills);
+      if (found.ok) return found.value;
+      warn?.(`skill receivers of ${app} not read: ${found.error.message}`);
+    } catch (thrown) {
+      warn?.(`skill receivers of ${app} not read: ${String(thrown)}`);
+    }
+    return [];
+  };
+}
+
+export type Receivers = (
+  app: string,
+  skills?: readonly string[],
+) => Promise<readonly DeploymentEntry[]>;
+
+// 받는 자리를 자리(층과 이름)마다 한 줄로 묶는다. 같은 자리의 skill 이름은 모은다.
+export function receiverPlaces(entries: readonly DeploymentEntry[]): {
+  layer: DeploymentEntry["layer"];
+  at: string | null;
+  workspace: DeploymentEntry["workspace"];
+  skills: string[];
+}[] {
+  const places = new Map<
+    string,
+    {
+      layer: DeploymentEntry["layer"];
+      at: string | null;
+      workspace: DeploymentEntry["workspace"];
+      skills: string[];
+    }
+  >();
+  for (const entry of entries) {
+    const key = `${entry.layer}\0${entry.at ?? ""}`;
+    const place = places.get(key) ?? {
+      layer: entry.layer,
+      at: entry.at,
+      workspace: entry.workspace,
+      skills: [],
+    };
+    if (!place.skills.includes(entry.skill)) place.skills.push(entry.skill);
+    places.set(key, place);
+  }
+  return [...places.values()];
+}
+
+// 받는 자리 하나를 영향 목록의 줄로: workspace 층은 그 workspace에, agent는 속한 workspace에 걸고 전역과 harness는 workspace 없이(Home 줄) 싣는다.
+function skillDeploymentRef(
+  place: ReturnType<typeof receiverPlaces>[number],
+  appSlug: string,
+  wsName: (workspace: FollowUpWorkspace | null) => string,
+): DeclaredRef {
+  const workspace = (place.workspace ?? null) as FollowUpWorkspace | null;
+  return {
+    kind: "skill_deployment",
+    workspace,
+    workspace_name:
+      place.layer === "global" || place.layer === "harness"
+        ? receiverLabel(place)
+        : wsName(workspace),
+    label: receiverLabel(place),
+    detail: `skills ${place.skills.join(", ")} of app ${appSlug} are deployed here`,
+  };
+}
+
+// 한 자리를 사람이 읽는 말로: 모든 agent, 터미널 coding agent, workspace, agent.
+export function receiverLabel(place: {
+  layer: DeploymentEntry["layer"];
+  at: string | null;
+}): string {
+  switch (place.layer) {
+    case "global":
+      return "every agent";
+    case "harness":
+      return "the coding agents in terminals";
+    case "workspace":
+      return `workspace ${place.at}`;
+    case "agent":
+      return `@${place.at}`;
+  }
+}
+
 export type WorkspaceReaderDeps = {
   sql: Query;
   dataRoot: string;
+  // 그 앱(id)의 skill을 받는 바깥 자리(`createSkillDeployments(ctx).receivers`). 없으면 받는 자리가 없는 것으로 본다.
+  receivers?: Receivers;
   callPolicy?: CallPolicy;
   secretNames?: () => Promise<readonly string[]> | readonly string[];
 };
@@ -305,7 +398,6 @@ async function readAgentsFromDisk(
       name: def.name ?? def.handle ?? id,
       workspace,
       runtime: def.runtime ?? "lophn",
-      apps: [...new Set((def.deployed_skills ?? []).map((one) => one.app))],
     });
   }
   return agents;
@@ -818,11 +910,7 @@ export async function scanImpact(
     const scopedAgents = snapshot.agents.filter(
       (a) => a.workspace?.kind === "app" && a.workspace.id === app.id,
     );
-    const assignedAgents = snapshot.agents.filter(
-      (a) =>
-        !(a.workspace?.kind === "app" && a.workspace.id === app.id) &&
-        a.apps.includes(app.id),
-    );
+    const receivers = receiverPlaces((await deps.receivers?.(app.id)) ?? []);
 
     immediate.push(
       `App data and ${releasesCount} release${releasesCount === 1 ? "" : "s"}`,
@@ -842,9 +930,9 @@ export async function scanImpact(
         `${erasedJobs.length} job${erasedJobs.length === 1 ? "" : "s"}`,
       );
     }
-    if (assignedAgents.length > 0) {
+    if (receivers.length > 0) {
       immediate.push(
-        `${assignedAgents.length} agent skill deployment${assignedAgents.length === 1 ? "" : "s"}`,
+        `${receivers.length} place${receivers.length === 1 ? "" : "s"} that receive${receivers.length === 1 ? "s" : ""} its skills (they lose them)`,
       );
     }
 
@@ -908,14 +996,8 @@ export async function scanImpact(
       }
     }
 
-    for (const agent of assignedAgents) {
-      declared.push({
-        kind: "agent_app_assignment",
-        workspace: agent.workspace,
-        workspace_name: wsName(agent.workspace),
-        label: `@${agent.handle}`,
-        detail: `deployed skills of app ${app.slug}`,
-      });
+    for (const place of receivers) {
+      declared.push(skillDeploymentRef(place, app.slug, wsName));
     }
 
     for (const wf of snapshot.workflows) {
@@ -1340,6 +1422,7 @@ export async function scanReleaseContractUsers(
   dataRoot: string,
   appId: Id<"app">,
   contractChanges: readonly ContractChangeInput[],
+  receivers?: Receivers,
 ): Promise<Result<ReleaseContractImpact>> {
   const loaded = loadApp(sql, appId);
   if (!loaded.ok) return loaded;
@@ -1481,26 +1564,25 @@ export async function scanReleaseContractUsers(
     }
   }
 
-  // 3. public skill 변경 시 이 앱의 skill을 배포받은 외부 agent.
+  // 3. public skill 변경 시 바뀐 skill을 배포받은 외부 자리(전역, harness, workspace, agent).
   if (changedSkills.size > 0) {
-    const summary = [...changedSkills.entries()]
-      .map(([n, c]) => `${n} (${c})`)
-      .join(", ");
-    for (const agent of snapshot.agents) {
-      if (agent.workspace?.kind === "app" && agent.workspace.id === app.id) {
-        continue;
+    const places = receiverPlaces(
+      (await receivers?.(app.id, [...changedSkills.keys()])) ?? [],
+    );
+    for (const place of places) {
+      const changed = place.skills
+        .map((name) => `${name} (${changedSkills.get(name)})`)
+        .join(", ");
+      const ref = skillDeploymentRef(place, app.slug, wsName);
+      declared.push({ ...ref, detail: `${ref.detail} (changed: ${changed})` });
+      // 전역과 harness는 인계할 workspace가 없다. 사람은 이 목록에서 본다.
+      if (place.workspace !== undefined) {
+        noteWorkspace(
+          place.workspace,
+          wsName(place.workspace),
+          `${receiverLabel(place)} has skills of ${app.slug} deployed (changed: ${changed})`,
+        );
       }
-      if (!agent.apps.includes(app.id)) continue;
-      const name = wsName(agent.workspace);
-      const reason = `agent @${agent.handle} has skills of ${app.slug} deployed (skills: ${summary})`;
-      declared.push({
-        kind: "agent_app_assignment",
-        workspace: agent.workspace,
-        workspace_name: name,
-        label: `@${agent.handle}`,
-        detail: reason,
-      });
-      noteWorkspace(agent.workspace, name, reason);
     }
   }
 
@@ -1662,6 +1744,13 @@ export const workspaceReaderWiring: WiringFactory = () => ({
                   sql: opened.value.sql,
                   dataRoot: ctx.root.path,
                   callPolicy,
+                  receivers: receiversOf(ctx, (message) =>
+                    ctx.telemetry.logger.warn({
+                      component: "workspace-reader",
+                      event: "receivers_not_read",
+                      fields: { message },
+                    }),
+                  ),
                   secretNames: () => {
                     const names = ctx.secretStore.names();
                     return names.ok ? names.value : [];

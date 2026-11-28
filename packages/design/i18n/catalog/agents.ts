@@ -159,7 +159,7 @@ export const agents = {
   "agents.label.grant-ask-toggle": "Ask before {tool}",
   "agents.label.grant-col-effect": "Effect",
   "agents.label.grant-col-name": "Name",
-  "agents.label.deployed-gone": "No longer a public skill of an active app",
+  "agents.label.deployed-gone": "No longer provided by the app",
   "agents.label.grants-app-tools-summary":
     "{used, number} of {total, number} tools",
   "agents.label.grants-app-gone": "Not on this computer any more",

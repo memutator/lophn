@@ -136,6 +136,16 @@ export const ACTIVATION = (): ActivationConsent => ({
       "fs.write:/exports/**",
     ],
     added_tools: [{ app: INVENTORY, tool: "stock.adjust" }],
+    removed_for_receivers: [
+      {
+        surface: "skill",
+        name: "refund-orders",
+        places: [
+          { layer: "workspace", at: "Household" },
+          { layer: "agent", at: "bookkeeper" },
+        ],
+      },
+    ],
     loss_steps: [
       {
         from: 3,

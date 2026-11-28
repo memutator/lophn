@@ -70,7 +70,7 @@ const read = defineCommand({
   summary:
     "Read static references and immediate deletions before deleting a target",
   description:
-    "Inspect what will be deleted immediately and which active apps, jobs, workflows, agents, and skills reference a target (declared vs mentioned). Available at Home and for the person (P12). Examples: `lophn impact read app app_...`, `lophn impact read agent agt_...`, `lophn impact read workflow <name> --project prj_...`, `lophn impact read artifact <name> --project prj_...` (or `--app app_...`).",
+    "Inspect what will be deleted immediately and which active apps, jobs, workflows, and skills reference a target (declared vs mentioned), including every place that receives an app's skills (`skill_deployment`: every agent, the coding agents in terminals, workspaces, agents). Available at Home and for the person (P12). Examples: `lophn impact read app app_...`, `lophn impact read agent agt_...`, `lophn impact read workflow <name> --project prj_...`, `lophn impact read artifact <name> --project prj_...` (or `--app app_...`).",
   input: z.strictObject({
     kind: z.enum(["app", "agent", "artifact", "workflow"]),
     target: z

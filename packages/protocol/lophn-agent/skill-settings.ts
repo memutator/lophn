@@ -311,6 +311,8 @@ const deploymentRowSchema = z.object({
   layer: z.enum(["global", "harness", "workspace", "agent"]),
   // workspace 층이면 그 workspace의 이름이고(project 이름, 앱 slug, `home`), agent 층이면 handle이다. 전역과 harness는 없다.
   at: z.string().nullable(),
+  // 그 앱의 active release가 지금 그 skill을 public으로 내놓는가. 아니면 "앱이 더는 내놓지 않는 기록"이다(받는 쪽은 말없이 뺀다). 거두거나 바꿀 수 있다.
+  provided: z.boolean(),
 });
 export type SkillDeploymentRow = z.infer<typeof deploymentRowSchema>;
 

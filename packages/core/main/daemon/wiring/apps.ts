@@ -202,6 +202,7 @@ import {
   type WiringFactory,
 } from "./context.ts";
 import { createSkillDeployments, undeployedMessage } from "./skill-deploy.ts";
+import { receiversOf } from "./workspace-reader.ts";
 import { agentDirectory } from "./lophn-agent-team.ts";
 
 export const appsWiring: WiringFactory = () => {
@@ -283,6 +284,13 @@ export const appsWiring: WiringFactory = () => {
         clock: ctx.clock,
         ledgerPath: ctx.ledgerPath,
         readers: runtime.readers,
+        receivers: receiversOf(ctx, (message) =>
+          ctx.telemetry.logger.warn({
+            component: "apps",
+            event: "receivers_not_read",
+            fields: { message },
+          }),
+        ),
         redact: (line) =>
           redactLine(
             { concern: "apps/runtime", revision: "1", scope: "app-log" },

@@ -21,7 +21,7 @@ flows:
       - "화면 dir마다 desktop 화면(main.tsx)은 main.js로, 폰 화면(phone.tsx)은 폰이 돌릴 phone.js·manifest phone.json과 desktop preview(index.html·preview.js)로 짓는다. 선언의 phone 화면과 phone.tsx를 양쪽으로 맞춰 보고, 폰 화면이 있으면 build 뒤 devDependencies(kit과 그 peer)를 npm prune으로 뺀 node_modules를 담는다. 선언의 runs_on에 phone이 있으면 SDK 하한(cap-store 2.0.0, cap-tool 2.2.0)을, sync가 표를 보내면(폰 밖) cap-store 2.0.0 하나를 선언의 sdk_dependencies로 보고, 화면 build 뒤 prune 앞에 폰 backend를 신뢰된 child(phone-backend/main.ts)가 묶는다(phone/backend.js·backend.js.map·backend.json). 묶기가 node 내장·폰 entry 없는 SDK·staging 밖 import를 거절하고, 빈 vm context에 실어 등록한 handler가 선언과 같은지 본다. 결과 file은 bundle의 phone/에 담기고 file 수·byte 상한이 센다"
       - "core가 봉인 사본을 preview 자리에 띄워 선언과 등록된 handler가 맞는지 본다(실패면 failed-handlers)"
       - "core가 선언과 manifest를 모아 release.record를 machine 자격으로 부른다(invalid_input이면 failed-release, 그 밖의 오류는 그대로 낸다)"
-      - "준비가 끝나면 release 요약과 함께 이번 release가 지우는 공개 command·skill을 돌려준다. 검사 실패는 오류 code가 아니라 status failed로 돌아간다"
+      - "준비가 끝나면 release 요약과 함께 이번 release가 지우는 공개 command·skill을 돌려준다. 지우는 skill·command마다 그것을 받는 바깥 자리(전역, harness, workspace, agent)의 수를 core 메인 thread가 배포 목록에서 세어 싣는다(수만이고 이름은 없다). 검사 실패는 오류 code가 아니라 status failed로 돌아간다"
     outcomes:
       - id: prepared
         when: "release 행이 prepared로 생김. 같은 bundle이 이미 prepared면 그 release를 돌려준다"

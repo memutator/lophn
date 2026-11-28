@@ -188,6 +188,29 @@ export function AppUpdateScreen({ place }: { place: PlaceOf<"app-update"> }) {
             ))}
           </>
         )}
+        {view.removed.length > 0 && (
+          <>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 6,
+                marginTop: 10,
+                marginBottom: 4,
+              }}
+            >
+              <Icon icon={TriangleAlert} size={16} tone="warning" />
+              <Text variant="detail" weight="medium">
+                {t("waiting.label.removed-heading")}
+              </Text>
+            </View>
+            {view.removed.map((line) => (
+              <Line key={`${line.label}:${line.value}`} kind={line.label}>
+                {line.value}
+              </Line>
+            ))}
+          </>
+        )}
       </Card>
       <Text
         variant="note"

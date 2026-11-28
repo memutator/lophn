@@ -151,6 +151,22 @@ export const activationComparisonSchema = z.object({
   added_resources: z.array(z.string().min(1)),
   // 선언한 다른 앱의 tool 가운데 active grant가 덮지 않는 것.
   added_tools: z.array(addedToolSchema),
+  // 이 release가 지우거나 비공개로 바꾸는 공개 skill·command를 지금 받는 바깥 자리(전역, harness, workspace, agent). 받는 곳이 없는 것은 싣지 않는다.
+  // 카드가 "이 자리가 이것을 잃는다"로 보인다.
+  removed_for_receivers: z
+    .array(
+      z.object({
+        surface: z.enum(["skill", "command"]),
+        name: z.string().min(1),
+        places: z.array(
+          z.object({
+            layer: z.enum(["global", "harness", "workspace", "agent"]),
+            at: z.string().nullable(),
+          }),
+        ),
+      }),
+    )
+    .optional(),
   // 이번 activation이 지나는 migration 단계 가운데 loss가 비지 않은 것.
   loss_steps: z.array(
     z.object({

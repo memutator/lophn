@@ -27,8 +27,8 @@ import type {
   Sql,
 } from "../../../../protocol/server/mod.ts";
 import { PROJECT_LAYER } from "../../../agent-workspaces/workspace/project-layer.ts";
-import { publicSkillsOf } from "../../../apps/lookups.ts";
-import { projectIds } from "../../../projects/lookups.ts";
+import { appStatusOf, publicSkillsOf } from "../../../apps/lookups.ts";
+import { projectIds, projectStatusOf } from "../../../projects/lookups.ts";
 import { loadApp, loadApps } from "../../../apps/registration/store.ts";
 import type { AppAccess } from "../../../approvals/approvals.ts";
 import type { AgentFileSystem } from "../../../lophn-agent/agents/ports.ts";
@@ -71,6 +71,18 @@ type Layer =
   | { layer: "harness" };
 
 export type DeployWho = { agent: AgentId; workspace: AgentWorkspace | null };
+
+// 한 배포 기록과 그 자리다. `workspace`는 workspace 층이나 agent가 속한 workspace(undefined는 전역·harness)이고 null은 Home이다.
+export type DeploymentEntry = {
+  app: string;
+  slug: string | null;
+  skill: string;
+  provided: boolean;
+  layer: SkillDeploymentRow["layer"];
+  at: string | null;
+  workspace: AgentWorkspace | null | undefined;
+  active: boolean;
+};
 
 type Ctx = Pick<
   WiringContext,
@@ -284,17 +296,39 @@ export function createSkillDeployments(ctx: Ctx) {
     return written.ok ? ok(added.map((one) => one.skill)) : written;
   }
 
-  // 모든 자리의 배포 기록이다. 앱 slug를 주면 그 앱의 것만이다. 앱은 slug로 보이고(앱이 이미 없으면 기록의 id), 자리의 이름은 사람이 읽는 이름이다.
-  async function list(slug?: string): Promise<Result<SkillDeploymentRow[]>> {
-    const rows: SkillDeploymentRow[] = [];
+  // 모든 자리의 배포 기록이다(전역, harness, workspace, agent). 앱과 skill은 id와 이름을 같이 갖고, `provided`는 그 앱의 active release가 지금
+  // 그 skill을 public으로 내놓는가다. 내놓지 않는 기록(skill이 지워졌거나 비공개가 됐다, 앱이 지워지거나 보관됐다)도 싣는다:
+  // 읽는 쪽이 말없이 빼는 것을 여기서는 보인다. 앱을 읽는 쪽 모두가 이 한 목록을 쓴다.
+  async function entries(): Promise<Result<DeploymentEntry[]>> {
     const places = snapshot((sql) => {
       const deps = workspaceDepsOf(sql);
       const apps = loadApps(sql, undefined);
       const slugs = new Map(
         (apps.ok ? apps.value : []).map((one) => [one.id, one.slug]),
       );
+      // 연결이 닫히기 전에 다 읽는다.
+      const provided = new Map<string, readonly string[]>(
+        (apps.ok ? apps.value : []).map((one) => [
+          one.id,
+          publicSkillsOf(sql, one.id),
+        ]),
+      );
+      const activeIds = new Set([
+        ...projectIds(sql).filter(
+          (id) => projectStatusOf(sql, id) === "active",
+        ),
+        ...(apps.ok ? apps.value : [])
+          .filter((one) => appStatusOf(sql, one.id) === "active")
+          .map((one) => one.id),
+      ]);
+      const providedBy = (app: string): readonly string[] =>
+        provided.get(app) ?? [];
+      const active = (workspace: AgentWorkspace | null): boolean =>
+        workspace === null || activeIds.has(workspace.id);
       return {
         slugs,
+        providedBy,
+        active,
         projects: projectIds(sql).map((id) => ({
           workspace: { kind: "project", id } as AgentWorkspace,
           name: deps.projects.project(id as never)?.name ?? id,
@@ -307,40 +341,87 @@ export function createSkillDeployments(ctx: Ctx) {
           .agents()
           .map((one) => ({
             at: agentLabel(one, deps, slugs),
+            workspace: one.workspace,
             deployed: one.deployedSkills,
           })),
       };
     });
     if (!places.ok) return places;
+    const found: DeploymentEntry[] = [];
     const add = (
       layer: SkillDeploymentRow["layer"],
       at: string | null,
-      entries: readonly SkillDeployment[],
+      workspace: AgentWorkspace | null | undefined,
+      items: readonly SkillDeployment[],
     ) => {
-      for (const entry of entries) {
-        const name = places.value.slugs.get(entry.app) ?? entry.app;
-        if (slug === undefined || name === slug) {
-          rows.push({ app: name, skill: entry.skill, layer, at });
-        }
+      for (const item of items) {
+        found.push({
+          app: item.app,
+          slug: places.value.slugs.get(item.app) ?? null,
+          skill: item.skill,
+          provided: places.value.providedBy(item.app).includes(item.skill),
+          layer,
+          at,
+          workspace,
+          active: places.value.active(workspace ?? null),
+        });
       }
     };
     const global = await read({ layer: "global" });
-    if (global.ok) add("global", null, global.value);
+    if (global.ok) add("global", null, undefined, global.value);
     const harness = await read({ layer: "harness" });
-    if (harness.ok) add("harness", null, harness.value);
+    if (harness.ok) add("harness", null, undefined, harness.value);
     const home = await read({ layer: "workspace", workspace: null });
-    if (home.ok) add("workspace", "home", home.value);
+    if (home.ok) add("workspace", "home", null, home.value);
     for (const place of [...places.value.projects, ...places.value.apps]) {
-      const found = await read({
+      const one = await read({
         layer: "workspace",
         workspace: place.workspace,
       });
-      if (found.ok) add("workspace", place.name, found.value);
+      if (one.ok) add("workspace", place.name, place.workspace, one.value);
     }
     for (const agent of places.value.agents) {
-      add("agent", agent.at, agent.deployed);
+      add("agent", agent.at, agent.workspace, agent.deployed);
     }
-    return ok(rows);
+    return ok(found);
+  }
+
+  // `lophn skill deployments`와 화면의 목록이다. 앱 slug를 주면 그 앱의 것만이다. 앱은 slug로 보이고(앱이 이미 없으면 기록의 id).
+  async function list(slug?: string): Promise<Result<SkillDeploymentRow[]>> {
+    const all = await entries();
+    if (!all.ok) return all;
+    return ok(
+      all.value
+        .filter((one) => slug === undefined || (one.slug ?? one.app) === slug)
+        .map((one) => ({
+          app: one.slug ?? one.app,
+          skill: one.skill,
+          layer: one.layer,
+          at: one.at,
+          provided: one.provided,
+        })),
+    );
+  }
+
+  // 그 앱(id)의 skill을 지금 받는 바깥 자리다: 앱이 지금 내놓는 skill의 배포만(`provided`), 앱 자기 workspace와 그 workspace의 agent,
+  // 보관된 workspace는 뺀다. 의존 알림(release 준비, 동의 카드, 앱 보관·삭제 창, 계약 변경 인계)이 모두 이 목록을 읽는다.
+  // `skills`를 주면 그 이름의 배포만이다.
+  async function receivers(
+    app: string,
+    skills?: readonly string[],
+  ): Promise<Result<DeploymentEntry[]>> {
+    const all = await entries();
+    if (!all.ok) return all;
+    return ok(
+      all.value.filter(
+        (one) =>
+          one.app === app &&
+          one.provided &&
+          one.active &&
+          !(one.workspace?.kind === "app" && one.workspace.id === app) &&
+          (skills === undefined || skills.includes(one.skill)),
+      ),
+    );
   }
 
   // 앱을 지우거나 보관할 때 그 앱(id)의 배포를 모든 자리에서 거둔다. 읽지 못하거나 쓰지 못한 자리는 로그에 그 자리를 남기고 건너뛴다:
@@ -399,7 +480,16 @@ export function createSkillDeployments(ctx: Ctx) {
     }
   }
 
-  return { read, write, reaching, appAccess, deployAll, list, strip };
+  return {
+    read,
+    write,
+    reaching,
+    appAccess,
+    deployAll,
+    list,
+    receivers,
+    strip,
+  };
 }
 
 export type SkillDeployments = ReturnType<typeof createSkillDeployments>;

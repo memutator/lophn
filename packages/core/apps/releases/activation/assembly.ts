@@ -57,6 +57,7 @@ import type { ConnectFacts } from "../../runtime/connect.ts";
 import type { DesiredApp } from "../../runtime/supervisor/mod.ts";
 import type { SupervisorClient } from "../../runtime/supervisor-link.ts";
 import { asksFor, compareForActivation } from "../compare.ts";
+import { removedPublicOf, removedPublicSkillsIn } from "../public-tools.ts";
 import {
   loadActiveRelease,
   loadRelease,
@@ -109,6 +110,11 @@ type ActivationDeps = {
   prepareBlob(call: BlobPrepareCall): Promise<Result<PreparedRelayResult>>;
   // 원하는 앱 상태를 supervisor에 알린다(마지막 상태를 기억한다).
   reconcile(desired: DesiredApp): Promise<Result<void>>;
+  // 그 앱(id)의 skill을 받는 바깥 자리. 동의 카드가 "이 release가 지우는 skill·command를 누가 받나"를 싣는다. 없으면 받는 자리가 없는 것이다.
+  receivers?(
+    app: string,
+    skills?: readonly string[],
+  ): Promise<readonly { layer: string; at: string | null }[]>;
 };
 
 // 다른 module의 port다. 조립이 늦게 끼운다(`attach`). 끼우기 전에는 activation을 진행하지 않는다.
@@ -260,7 +266,16 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
       if (!stored.ok) return stored;
       const active = loadActiveRelease(sql, release.app);
       if (!active.ok) return active;
-      return ok({ stored: stored.value, active: active.value });
+      const before =
+        active.value === null || active.value.id === release.id
+          ? ok(null)
+          : loadStoredDeclaration(sql, active.value.id);
+      if (!before.ok) return before;
+      return ok({
+        stored: stored.value,
+        active: active.value,
+        before: before.value,
+      });
     });
     if (!read.ok) return read;
     if (read.value.stored === null) {
@@ -268,9 +283,38 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
     }
     const grants = await grantsOf(release.app);
     if (!grants.ok) return grants;
-    const { active } = read.value;
+    const { active, before } = read.value;
+    type Removed = NonNullable<ActivationComparison["removed_for_receivers"]>;
+    const removed: Removed = [];
+    if (before !== null) {
+      const now = read.value.stored.declaration;
+      const places = async (skills?: readonly string[]) => {
+        const found = (await deps.receivers?.(release.app, skills)) ?? [];
+        const seen = new Map<string, { layer: string; at: string | null }>();
+        for (const one of found) seen.set(`${one.layer}\0${one.at ?? ""}`, one);
+        return [...seen.values()] as Removed[number]["places"];
+      };
+      for (const name of removedPublicSkillsIn(
+        before.declaration.skills ?? [],
+        now.skills ?? [],
+      )) {
+        const where = await places([name]);
+        if (where.length > 0)
+          removed.push({ surface: "skill", name, places: where });
+      }
+      const everyPlace = await places();
+      if (everyPlace.length > 0) {
+        for (const name of removedPublicOf(
+          before.declaration.commands,
+          now.commands,
+        )) {
+          removed.push({ surface: "command", name, places: everyPlace });
+        }
+      }
+    }
     return ok(
       compareForActivation({
+        removed,
         previous:
           active === null || active.id === release.id
             ? null

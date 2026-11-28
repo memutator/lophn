@@ -52,7 +52,7 @@ export const DECLARED_REF_KINDS = [
   "workflow_participant",
   "workflow_creator",
   "workflow_input",
-  "agent_app_assignment",
+  "skill_deployment",
 ] as const;
 export const declaredRefSchema = z.object({
   kind: z.enum(DECLARED_REF_KINDS),

@@ -73,6 +73,28 @@ export function ActivationCard({
               </ul>
             </>
           ) : null}
+          {view.removed.length > 0 ? (
+            <>
+              <p className={styles.detailHead}>
+                <StatusMark
+                  tone="warning"
+                  label={t("waiting.label.removed-heading")}
+                />
+              </p>
+              <ul className={styles.lines}>
+                {view.removed.map((line) => (
+                  <li
+                    key={`${line.label}:${line.value}`}
+                    className={styles.line}
+                  >
+                    <span />
+                    <span className={styles.lineLabel}>{line.label}</span>
+                    <span className={styles.lineValue}>{line.value}</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : null}
           <p className={styles.fine}>{t("waiting.notice.activation-fine")}</p>
         </div>
       ) : null}

@@ -206,14 +206,6 @@ export function contractChangesOf(
     }
   }
 
-  const skillWorkspaces = new Set<string>();
-  if (diffs.some((d) => d.surface === "skill") && appSlug !== null) {
-    for (const workspace of ports.assignedAppWorkspaces?.(appSlug, app) ?? []) {
-      const key = externalWorkspaceKey(app, workspace);
-      if (key !== null) skillWorkspaces.add(key);
-    }
-  }
-
   const eventSubscribers = new Map<string, Set<string>>();
   if (diffs.some((d) => d.surface === "event")) {
     const addEventSub = (event: string, workspace: Workspace | null) => {
@@ -256,7 +248,7 @@ export function contractChangesOf(
         diff.surface === "command"
           ? (commandUsers.get(diff.name)?.size ?? 0)
           : diff.surface === "skill"
-            ? skillWorkspaces.size
+            ? 0
             : (eventSubscribers.get(diff.name)?.size ?? 0),
     })),
   );

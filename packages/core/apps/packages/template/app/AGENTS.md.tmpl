@@ -23,7 +23,7 @@ Package를 쓴다.
 ## SDK 확인
 
 - 내장 SDK의 사용법은 설치 사본의 `guide.md`(예:
-  `.lophn/sdk/declaration/6.1.0/guide.md`)를 읽는다. 새 SDK Package나 의존이
+  `.lophn/sdk/declaration/6.2.0/guide.md`)를 읽는다. 새 SDK Package나 의존이
   필요하면 `lophn.ts`의 의존 선언과 `package.json`의 의존을 같은 정확한
   version으로 함께 고친 뒤 `npm install`을 돌린다(release 준비가 둘을 대조한다).
 - 화면 component는 `@lophn/ui/<분류>`에서 import한다. 분류는 primitives, input,
@@ -156,11 +156,10 @@ Package를 쓴다.
   부르고 결과를 어떻게 읽는지 쓰고, `lophn.ts`의 `skills`에
   `{name, public: true, commands}`로 선언한다(`commands`는 이 앱의 public command).
   `DESIGN.md`에도 적는다.
-- release를 활성화한 뒤 `lophn app share --agent <name>... [--coding-agents] --reason <글>`로
-  받을 agent를 제안한다. 요청은 사람이 승인해야 효력이 있고, 그제야 할당과 skill 복사가
-  일어난다. activation 동의가 기다리는 중이면 그 동의와 한 번에 승인되니 따로 승인을
-  부탁하지 않는다(activation 전에 먼저 청해도 된다). `--coding-agents`는 사람의 coding agent의 skill 폴더에
-  public skill을 복사한다.
+- release를 활성화한 뒤 내장 skill `deploy-skill`을 읽고 `lophn skill deploy <앱> <skill> --to <어디>`로
+  그 skill을 받을 agent·workspace·전역·사람의 coding agent(`harness`)에 배포한다. 이 앱 workspace의
+  agent는 묻지 않고 배포한다. 배포한 skill은 받는 쪽이 고치지 못하고 앱의 active release를 따라간다.
+  public skill이 없는 앱은 배포할 수 없고, 밖의 호출마다 사람에게 묻는다.
 
 ## 재사용 기준
 

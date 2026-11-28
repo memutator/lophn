@@ -80,8 +80,9 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
   규칙(소문자·숫자·`-`, 64자까지)이고 겹치지 못한다. `commands`는 이 선언의 command 이름이다.
   `public`이 true인 skill은 다른 agent에게도 주므로 `commands`가 모두 public command여야
   한다. 없는 command나 비공개 command를 쓰는 public skill은 선언 오류다.
-  공개 skill을 지우는 release는 막지 않고, 그 앱을 할당받은 agent가 있으면 준비 결과의
-  `removed_public_skills`에 그 skill이 실린다.
+  공개 skill을 지우는 release는 막지 않고, 그 앱의 skill이 배포된 agent가 있으면 준비 결과의
+  `removed_public_skills`에 그 skill이 실린다. 배포는 `lophn skill deploy`이고(내장 skill `deploy-skill`),
+  public skill이 없는 앱은 배포할 수 없어 밖의 호출마다 사람에게 묻는다.
 - `keys` — 앱이 내는 key(단축키) 목록이다. 항목은 `{id, title, key: {mac?, other}, context?}`다.
   - `id`는 이 앱 안의 이름이다(영문·숫자·`_ - .`, 1~64자, 겹치지 못한다). Settings › Keyboard에는
     `app.<앱 id>.<id>` command의 줄로 보이고 사람이 바꿀 수 있다. `title`은 그 줄의 이름이다(한 줄).
@@ -180,7 +181,7 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
   - CLI에서는 command 이름의 `.`을 낱말 경계로, `_`를 `-`로 바꾼다.
     `add_event`는 `lophn <slug> add-event`, `quota.list`는 `lophn <slug> quota list`다.
     입력 필드 `start_time`의 flag는 `--start-time`이다. JSON 입력과 handler 이름은 원래 이름을 쓴다.
-    실제 호출법은 `lophn <slug> --help`로 확인한다. 앱 command는 호출마다 현재 선언과 할당을 읽으므로
+    실제 호출법은 `lophn <slug> --help`로 확인한다. 앱 command는 호출마다 현재 선언과 배포를 읽으므로
     새 command를 쓰려고 새 session을 열 필요는 없다.
   - CLI로 바꾼 뒤 같은 이름이 되는 command(`add_event`와 `add-event`)나 같은 flag가 되는
     최상위 입력 필드(`start_time`과 `start-time`, boolean `enabled`와 `no_enabled`)는 선언 오류다.
@@ -227,7 +228,7 @@ const declaration = defineApp({
   commands: [],
   permissions: [],
   app_connections: [],
-  sdk_dependencies: [{ name: "@lophn/declaration", version: "6.1.0" }],
+  sdk_dependencies: [{ name: "@lophn/declaration", version: "6.2.0" }],
 });
 
 const result = validateDeclaration(declaration);

@@ -19,7 +19,8 @@ skill there is a procedure for one job in the project: one folder per skill, wit
 a `SKILL.md`. Every agent that works in this project sees it in its skill list.
 Write skills and artifacts with the file tools. To create, fix, or clean up a
 skill, read the skill `write-skill` first (for a global skill visible across all
-workspaces, hand it to lophn at home with `lophn call send`). If the same
+workspaces, hand it to lophn at home with `lophn call send`). To give an app's
+skill to agents, read `deploy-skill`. If the same
 procedure repeats two or more times in a conversation or the person repeats the
 same correction, ask in one line at the end whether to turn it into a skill, and
 create it only after they agree (never ask or create during an unattended run;
@@ -123,7 +124,7 @@ Write down:
   ask the person.
 
 Do not write down:
-- Anything you can read or compute: definitions, assignments, agent cards,
+- Anything you can read or compute: definitions, deployments, agent cards,
   settings, lists of apps or files.
 - What belongs to another workspace. Do not copy another workspace's content
   here; ask it with `lophn call send`.

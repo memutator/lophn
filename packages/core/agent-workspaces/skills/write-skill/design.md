@@ -1,6 +1,6 @@
 # Skill Design & Audit Guide
 
-Use this reference when drafting a new skill, splitting companions, declaring an app public skill, or auditing existing skills.
+Use this reference when drafting a new skill, splitting companions, writing an app public skill, or auditing existing skills.
 
 ## 1. Frontmatter and trigger discipline
 
@@ -35,7 +35,7 @@ Good vs bad descriptions:
 Include only the sections the skill actually needs:
 1. `# <Title>` + 2–3 sentences stating purpose and non-purpose.
 2. **Boundaries / Mode selection** (only if multiple modes or tricky exclusions exist).
-3. **Preconditions** (required app assignments, MCP servers, settings, or environment).
+3. **Preconditions** (apps whose commands it calls, MCP servers, settings, or environment).
 4. **Procedure** (numbered steps; include observable completion criteria for key steps and explicit person-confirmation points before irreversible or external actions).
 5. **Pitfalls and recovery** (only failures actually observed and their concrete fix—no incident logs, dates, or generic advice).
 6. **Verification** (how to prove the job succeeded).
@@ -48,12 +48,19 @@ Authoring discipline:
 
 ## 4. App public skills
 
-When an app shares a skill with other agents (`<app source>/.lophn/skills/<name>/SKILL.md`):
+The original of an app's public skill lives in the app source (`<app source>/.lophn/skills/<name>/SKILL.md`) and ships with each release. Copies elsewhere are deployments (`deploy-skill`): receivers cannot edit them, and a change goes to the app's own workspace.
+
+Write it for an agent in another workspace that knows nothing about the app:
+- The description says when a stranger should read it; the body names the commands to call with `lophn <app> <command>` and how to read their results, with no reference to the app's internals or screens.
+- Cover every command the app exposes for outside use. An app without a public skill cannot be deployed, and every outside call to it asks the person.
+
+Steps:
 1. Folder name must equal frontmatter `name`.
-2. Declare the skill in `lophn.ts` under `skills: [{ name, public: true, commands }]` (`design-app` governs the contract).
+2. Declare the skill in `lophn.ts` under `skills: [{ name, public: true, commands }]` (`design-app` governs the contract); every command listed must be public.
 3. Verify `.gitignore` does not exclude `.lophn/` or `.lophn/skills/`.
 4. Run `lophn skill check <app source>/.lophn/skills/<name>`.
-5. Commit changes, run `lophn declaration check`, `lophn release prepare`, and share with `lophn app share` (as `app` instructions and `design-app` specify).
+5. Commit, then `lophn declaration check`, `lophn release prepare` and `lophn release activate`.
+6. Once it is released, read `deploy-skill` to choose where it goes.
 
 ## 5. Static check codes (`lophn skill check`)
 

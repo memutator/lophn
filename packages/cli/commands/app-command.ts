@@ -2,7 +2,7 @@
 // 있어 표(`mod.ts`)에 정적으로 없다. binary가 앱 slug로 앱을 찾아 선언을 읽고, 지금 `agent run`처럼 run(`runs.start kind:tool`)으로
 // 불러 결과를 기다린다. 사람은 그 앱의 command를 비공개까지 모두 부른다. `--on <기계>`이면 core가 `remoteCore`라 slug와 선언은
 // 그 기계의 것이고, 부르기는 run이 아니라 `apps/remote_call` 하나다(run은 이 기계의 앱을 이 기계에서 부를 때의 기록이다). lophn agent는 같은 `appCommandDoc`으로 명령줄을 읽되
-// 부를 때 할당·비공개 규칙으로 거른 목록을 core가 쓴다(`core/lophn-agent/tools/app-tool`).
+// 부를 때 배포·비공개 규칙으로 거른 목록을 core가 쓴다(`core/lophn-agent/tools/app-tool`).
 import { z } from "zod";
 import { err, type LophnError, ok, type Result } from "../../base/mod.ts";
 import { appTools } from "../../protocol/apps/declaration/read.ts";

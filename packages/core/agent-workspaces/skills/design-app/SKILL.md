@@ -1,6 +1,6 @@
 ---
 name: design-app
-description: Design an app or a change in DESIGN.md before building it: operations vs commands, shared skills, desktop and phone screens (@lophn/ui-native, @lophn/app-ui-native), phone native features (@lophn/cap-phone) and app files (@lophn/cap-store), widgets, runs_on phone backends, cross-computer table sync and across_machines events, and in-app custom agents.
+description: Design an app or a change in DESIGN.md before building it: operations vs commands, public skills, desktop and phone screens (@lophn/ui-native, @lophn/app-ui-native), phone native features (@lophn/cap-phone) and app files (@lophn/cap-store), widgets, runs_on phone backends, cross-computer table sync and across_machines events, and in-app custom agents.
 ---
 
 # Design an app
@@ -43,8 +43,8 @@ Sections, in this order:
      the code the input, output and rules.
    - Commands: what an agent or another app will ask: name, effect, input,
      output, rules, public or not.
-   - Shared skills: the skills the app gives to other agents (see "Sharing
-     with other agents"): name, who it is for, the commands it calls.
+   - Public skills: the skills other agents receive (see "Public skills for
+     other agents"): name, who it is for, the commands it calls.
 7. Failure branches: refusals, failed outside calls, silent fallbacks. Name each
    cause differently and call `reportProblem` with it in the code.
 
@@ -74,26 +74,23 @@ An app has two layers. Give each action to the right one.
 - Both layers go through lophn, so a write of either is recorded and can be
   rewound. Names are shared: one name is one handler.
 
-## Sharing with other agents
+## Public skills for other agents
 
 When you create or change a feature, ask: is this useful to other agents, and
 to which? A coding agent that could read the person's usage numbers, or an
 agent that files the person's receipts, are examples. If it is:
 
 1. Make the commands it needs public, and keep them few.
-2. Write `.lophn/skills/<name>/SKILL.md`: when to use the skill, which commands
-   it calls with `lophn <app> <command>`, and how to read their results.
-   The description says only what the skill does. Commit the folder; release
-   prepare fails when it is missing from the commit.
+2. Write `.lophn/skills/<name>/SKILL.md` (read `write-skill`): when to use the
+   skill, which commands it calls with `lophn <app> <command>`, and how to read
+   their results. The description says when to read it. Commit the folder;
+   release prepare fails when it is missing from the commit.
 3. Declare it in `lophn.ts` `skills: [{name, public: true, commands}]`.
    `commands` are the public commands of this app that the skill calls.
-4. Write it under "Shared skills" in DESIGN.md.
-5. Run `lophn app share --agent <handle>... [--coding-agents] --reason <text>`
-   for the agents that should get it, before or after `release activate`. It only
-   opens a request; nothing is given until the person approves. If the
-   activation is waiting for consent, the request is shown on that consent and
-   approved with it, so do not ask the person to approve sharing separately.
-   Otherwise it waits in the waiting list; tell the person.
+4. Write it under "Public skills" in DESIGN.md.
+5. After `release activate`, read `deploy-skill` to give it to the agents that
+   should have it. An app with no public skill cannot be deployed, and every
+   outside call to its commands asks the person.
 
 Removing or changing a public skill or command shows in `contract_changes` at
 release prepare. Keep the skill and its commands in step.
@@ -352,7 +349,7 @@ about it.
    sends the board, the draft or the history as context blocks and asks for a
    reply schema. A custom agent always has the `lophn` tool with every lophn
    command of this app's workspace and this app's own commands (it may call
-   them without anyone assigning them). `tools` cannot name commands: it takes
+   them without a deployed skill). `tools` cannot name commands: it takes
    only built-in tool names, `mcp__<server>__<tool>` and `ext__<id>__<tool>`.
    When the agent must act on app data, say in the instructions when to call
    which command.

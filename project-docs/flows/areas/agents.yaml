@@ -1419,6 +1419,38 @@ flows:
     crosses_process: false
     docs: [architecture/agent-definition.md]
 
+  - id: skill-deploy-skill
+    title: 사람이나 agent가 /deploy-skill 또는 skill.read로 앱 skill 배포 안내 skill을 읽는다
+    actor: person
+    entries: [skill:deploy-skill]
+    uses: [route:messages/send, tool:skill.read, route:skills/deploy, route:skills/undeploy, route:skills/deployments]
+    boundary: [agent-workspaces, agent-tools]
+    code:
+      - packages/core/agent-workspaces/skills/deploy-skill/
+      - packages/core/lophn-agent/extensions/skill-read.ts
+      - packages/core/lophn-agent/tools/bundles/skill.ts
+      - packages/protocol/lophn-agent/skill-settings.ts
+    steps:
+      - 사람이 composer에 /deploy-skill과 글을 치거나 말로 요청하면 agent가 skill.read로 deploy-skill 본문을 읽는다(home, project, app 모두 menu true)
+      - 본문(배포가 무엇인지, 언제 배포하나, 층 고르기(agent·workspace·전역·harness), 배포 전 확인, `lophn skill deploy|undeploy|deployments` 예, 누가 묻지 않고 하나, 거두기)를 tool 결과로 준다
+    outcomes:
+      - id: loaded
+        observe: [response]
+      - id: not-available
+        code: forbidden
+        when: 선언되지 않은 workspace 종류이거나 turn의 skill 목록에 없다
+        observe: [response]
+      - id: not-found
+        code: not_found
+        when: turn 목록에는 있었지만 판에 그 이름이 없다(첫 읽기 전에 사라졌다), 또는 path가 가리키는 딸린 file이 없다
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: 본문이나 딸린 .md를 온전히 읽지 못했다
+        observe: [response]
+    crosses_process: false
+    docs: [architecture/agent-definition.md]
+
   - id: custom-call-reply
     title: custom agent가 끝낸 turn의 마지막 글을 result call의 답으로 보낸다
     actor: system

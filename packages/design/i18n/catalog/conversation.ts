@@ -252,7 +252,7 @@ export const conversation = {
   "conversation.label.next-turn": "Next turn",
   "conversation.label.permission-mode": "Mode",
   "conversation.label.permission-summary":
-    "{count, plural, =0 {No apps assigned} one {# app assigned} other {# apps assigned}}",
+    "{count, plural, =0 {No apps from other computers} one {# app from another computer} other {# apps from other computers}}",
   "conversation.label.permissions-may": "What {agent} may use",
   "conversation.label.permissions-all-tools": "All tools",
   "conversation.label.permissions-except": "All tools except {tools}",
@@ -504,9 +504,10 @@ export const conversation = {
   "conversation.notice.offline": "You can send once lophn is connected again.",
   "conversation.notice.permissions-mcp":
     "MCP servers are set globally, in the project, or on this agent.",
-  "conversation.notice.permissions-no-apps": "No apps are assigned.",
+  "conversation.notice.permissions-no-apps":
+    "No apps from other computers are assigned.",
   "conversation.notice.permissions-edited-in-agents":
-    "Apps are assigned in Agents.",
+    "Apps from other computers are assigned in Agents.",
   "conversation.notice.input-request-failed":
     "Can't open the protected window right now. Try again.",
   "conversation.notice.input-request-help":
@@ -677,7 +678,8 @@ export const conversation = {
   "conversation.heading.permissions-mode": "Permission mode",
   "conversation.heading.permissions-folders": "Read/write folders",
   "conversation.heading.permissions-rules": "Rules",
-  "conversation.heading.permissions-tools": "Assigned apps, MCP & local tools",
+  "conversation.heading.permissions-tools":
+    "Other computers' apps, MCP & local tools",
   "conversation.heading.permissions-denials": "Recent blocks",
   "conversation.label.permissions-folders-workspace": "Workspace",
   "conversation.label.permissions-folders-opened": "Opened for this session",

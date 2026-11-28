@@ -11,7 +11,7 @@ Before editing a broken skill, classify the observed failure into exactly one la
 | `Selection` | Skill failed to trigger on an implicit request, or triggered on an unrelated task | Edit `description` (or an adjacent skill's `Not for ...` boundary). Do **not** add trigger text to the body. |
 | `Instruction` | Skill loaded, but took wrong order, missed a decision, or lacked completion criteria | Edit `SKILL.md` or the relevant flat `.md` companion. |
 | `Resource` | Skipped at discovery, > 24 KiB, wrong `path`, missing companion, or symlink error | Split files under 24 KiB, flatten companions, fix `skill.read` paths, remove symlinks; confirm with `lophn skill check`. |
-| `Integration` | Missing app assignment, unconfigured MCP server, renamed app command, or wrong tool name | Ask the person for the assignment/secret or update to the actual current command/tool. |
+| `Integration` | App skill not deployed to the session, unconfigured MCP server, renamed app command, or wrong tool name | Deploy the skill (`deploy-skill`), ask the person for the secret, or update to the actual current command/tool. |
 | `Harness` | Evaluation prompt was ambiguous, leaked hints, or lacked fixture context | Fix the evaluation scenario, not the skill. |
 | `Capability` | Task requires deterministic code, persistent storage, UI, or cross-agent orchestration | Propose moving to a Local Tool, App, or Workflow instead of stretching a skill. |
 

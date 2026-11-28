@@ -42,8 +42,9 @@ not write `kind: agent` or `kind: flow` (legacy `kind` is ignored).
 lophn reads only these fields. Any other field is the workflow's own and lophn
 does not read it or call it wrong.
 
-- `agent`: for a folder with `flow.ts`, the agent whose assignment app command
-  (`tool`) calls use. It is an agent handle; when left out it is `lophn`.
+- `agent`: for a folder with `flow.ts`, the agent whose deployed app skills
+  decide which apps `tool` calls reach. It is an agent handle; when left out it
+  is `lophn`.
 - `participants`: a map from a key you choose to `{ agent, workspace?, on?, open? }`
   or `{ kind: human }`.
   - `agent` is the agent's handle. `workspace` is `{project: <name>}` or
@@ -187,7 +188,7 @@ if (!draft.ok) {
 }
 ```
 
-`@lophn/flow` (v2.1.0) exports:
+`@lophn/flow` (v2.2.0) exports:
 
 - `input: string`: the start text.
 - `inputs: Readonly<Record<string, unknown>>`: frozen validated values from
@@ -248,9 +249,11 @@ sandbox, env limited to `HOME`, `PATH`, `XDG_CACHE_HOME`). Send outside effects
 through `tool` and `agent` so lophn checkpoints and records them. `console.log`
 goes to stderr. Avoid non-erasable TypeScript syntax (`enum`, `namespace`).
 
-Allotment: app commands called by `tool()` use the current assignment of the
-agent in `workflow.yaml`'s `agent:` field (`lophn` when omitted). Ask the person
-before requiring a new app assignment.
+Allotment: `tool()` reaches an app only when a skill of that app is deployed to
+the agent in `workflow.yaml`'s `agent:` field (`lophn` when omitted) or to the
+project. A flow has no person to ask, so a call to any other app is refused.
+Deploy the skill first (read `deploy-skill`; the person is asked when you may
+not deploy it yourself).
 
 After writing or changing `flow.ts`, run `lophn workflow check <project>/<name>`
 to verify TypeScript types and erasable syntax and stamp `flow_sdk` in

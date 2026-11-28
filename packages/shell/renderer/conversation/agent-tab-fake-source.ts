@@ -137,7 +137,7 @@ const LOPHN: AgentFace = {
   name: "lophn",
   avatar: { kind: "character", shape: "pear", color: "lavender" },
   workspace: { kind: "project", name: "phroner" },
-  permissionSummary: "2 apps assigned",
+  permissionSummary: "2 apps from other computers",
 };
 
 const CLAUDE: AgentFace = {

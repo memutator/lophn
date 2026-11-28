@@ -1,5 +1,5 @@
 // harness agent(GUI 탭 팀원과 background 실행)가 자기 shell에서 `lophn` CLI로 답하고 다른 agent를 부르는 법을 가르치는 skill이다.
-// `lophn harness sync-skills`가 harness의 skill 폴더에 앱 공유 skill과 같은 길(표시 file `.lophn-shared`)로 둔다.
+// `lophn harness sync-skills`가 harness의 skill 폴더에 배포한 앱 skill과 같은 길(표시 file `.lophn-shared`)로 둔다.
 // 명령 사용법은 `packages/cli/commands/{call,session,agent,team,handoff}.ts`의 help와 같은 말이다. 받는 prompt의 tag는
 // `packages/core/lophn-agent/run-loop/input-text.ts`가 만든다.
 import type { SharedSkill } from "../harnesses/skill-copies.ts";

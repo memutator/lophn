@@ -85,20 +85,20 @@ root의 오류 경계는 폰 앱의 base가 둔다. 폰 화면의 머리 줄은 
 | `@lophn/ui-native`   | 0.4.0   |
 | `react-native`       | 0.88.1  |
 | `react`              | 19.3.0  |
-| `@lophn/declaration` | 6.1.0 (이 package가 의존으로 가져온다) |
+| `@lophn/declaration` | 6.2.0 (이 package가 의존으로 가져온다) |
 | `@lophn/i18n`        | 1.0.0 (이 package가 의존으로 가져온다) |
 
 앱 `package.json`과 `lophn.ts`는 `@lophn/ui-native`와 같은 방식으로 이 package를 더한다.
 
 ```json
 "devDependencies": {
-  "@lophn/app-ui-native": "file:.lophn/sdk/app-ui-native/1.12.1"
+  "@lophn/app-ui-native": "file:.lophn/sdk/app-ui-native/1.12.2"
 }
 ```
 
 ```ts
 sdk_dependencies: [
-  { name: "@lophn/app-ui-native", version: "1.12.1" },
+  { name: "@lophn/app-ui-native", version: "1.12.2" },
 ],
 ```
 

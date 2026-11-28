@@ -25,7 +25,7 @@ Classify the request before writing any file.
 |---|---|---|
 | Repeatable procedure, decision guide, or checklist using existing tools/commands | **Skill** (`SKILL.md` + flat `.md`) | Yes (extend an existing skill first) |
 | Deterministic executable code, parser, or API wrapper | **Local Tool** (`tools/<name>.ts`) | No (optional skill only for how to use it) |
-| Persistent data, screens (GUI), permissions, or secrets | **App** (plan at Home, build in app workspace) | No (public skill comes with the app) |
+| Persistent data, screens (GUI), permissions, or secrets | **App** (plan at Home, build in app workspace) | No (a public skill ships with the app) |
 | Long-running multi-step work across people, agents, or apps | **Workflow** (`write-workflow`) | No |
 | One-off or refreshable report page for the person to review | **Artifact** (`write-artifact`) | No |
 | Always-on rules for every session in a workspace | **`LOPHN.md` / `AGENTS.md`** (propose edits to the person; never auto-edit) | No |
@@ -45,7 +45,7 @@ Always use the absolute folder path from your workspace information with `file.w
 |---|---|---|
 | Current project or app (default, personal, uncommitted) | `<Skills folder>/<name>/SKILL.md` | Use `Skills folder:` from workspace info (works for folderless projects too). |
 | Project skill shared via git with a team | `<project folder>/.lophn/skills/<name>/SKILL.md` | Only when the person asks for or agrees to repo sharing. Never write to the person's repo unasked. |
-| App public skill shared with other agents | `<app source>/.lophn/skills/<name>/SKILL.md` | Folder name == `name`. Declare in `lophn.ts` (`skills: [{ name, public: true, commands }]`), check `.gitignore`, commit, run `lophn declaration check`, `lophn release prepare`, and `lophn app share`. See `design.md`. |
+| App public skill for agents outside the app | `<app source>/.lophn/skills/<name>/SKILL.md` | Folder name == `name`. Declare in `lophn.ts` (`skills: [{ name, public: true, commands }]`), check `.gitignore`, commit, release (`lophn declaration check`, `lophn release prepare`, `lophn release activate`). Then read `deploy-skill`. See `design.md`. |
 | Home-only skill | `<Skills folder>/<name>/SKILL.md` (`<data>/home/skills/`) | Visible only in Home sessions. |
 | Global personal skill (all workspaces) | `<Global skills folder>/<name>/SKILL.md` (`<LOPHN_HOME>/skills/`) | Written **only from Home** (`Global skills folder:` in Home workspace info). From a project or app session, hand off to Home `lophn` via `lophn call send`. |
 

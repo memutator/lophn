@@ -40,7 +40,7 @@ import {
   - `signal`: `AbortSignal`. 취소되면 core가 turn을 멈추고 `cancelled`를 돌려준다.
 - `human({ with, prompt, input?, step?, key?, session?, open?, signal? })` — `Promise<Outcome<SoftOutput>>`. `with`(agent 주소 또는 handle) 세션에 `human_turn`으로 입력을 넣고 사람이 논의해 `workflow.report`로 완료할 때까지 기다린다. `open`을 생략하면 기본은 `"tab"`이다. core가 켜져 있는 동안 process를 유지하며 stall 판정에서 제외된다.
 - `workflow({ workflow, input?, inputs?, key?, signal? })` — `Promise<Outcome<SoftOutput>>`. 같은 project 안의 다른 workflow를 sub-workflow로 호출한다(다른 project는 `forbidden`, 순환·최대 깊이 5 초과는 `conflict`).
-- `tool<T = unknown>({ app, tool, input?, key?, signal? })` — `Promise<Outcome<T>>`. 앱 command를 부르고 2단계 checkpoint로 기록한다. `workflow.yaml`의 `agent`(없으면 lophn)의 현재 할당 안에서만 되고 public command만 부른다.
+- `tool<T = unknown>({ app, tool, input?, key?, signal? })` — `Promise<Outcome<T>>`. 앱 command를 부르고 2단계 checkpoint로 기록한다. 그 앱의 skill이 `workflow.yaml`의 `agent`(없으면 lophn)나 그 project에 배포돼 있어야 하고(flow는 사람에게 물을 수 없다) public command만 부른다.
 - `onEvent({ source, event, workspace? }, handler)` — `() => void`. 실행 중 앱 event(앱 slug/id)나 session event(`source: "lophn"`)를 비영속 구독한다. 반환된 disposer를 부르면 구독을 해제한다.
 - `report({ step, text, refs?, data?, next? })` — `Promise<Outcome<void>>`. 진행과 명시적 산출물 경로(`refs`), 선택적 구조화 값(`data`)을 남긴다. `next: "end"`는 instance를 `ended`로 닫는다.
 - `escalate({ step, reason })` — `Promise<Outcome<void>>`. 사람의 판단이 필요함을 기록해 instance를 `needs_you`로 올린다.

@@ -118,6 +118,12 @@ export const BUILTIN_SKILLS: readonly {
     can_disable: false,
     menu: true,
   },
+  {
+    name: "deploy-skill",
+    workspaces: ["home", "project", "app"],
+    can_disable: false,
+    menu: true,
+  },
 ];
 
 const skillEntrySchema = z.object({

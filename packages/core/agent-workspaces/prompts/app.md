@@ -18,7 +18,8 @@ skill there is a procedure for one job in the app: one folder per skill, with a
 `SKILL.md`. Every agent that works in this app sees it in its skill list. Write
 skills and artifacts with the file tools. To create, fix, or clean up a skill,
 read the skill `write-skill` first (for a global skill visible across all
-workspaces, hand it to lophn at home with `lophn call send`). If the same
+workspaces, hand it to lophn at home with `lophn call send`). To give this app's
+skill to agents, read `deploy-skill`. If the same
 procedure repeats two or more times in a conversation or the person repeats the
 same correction, ask in one line at the end whether to turn it into a skill, and
 create it only after they agree (never ask or create during an unattended run;
@@ -59,7 +60,8 @@ information). Use `lophn app link-source` only for an existing git repo with a c
    commands are the meaningful, small-result actions that agents and other apps
    call. A skill that other agents should get is declared in `skills`
    (`{name, public, commands}`) and its `SKILL.md` lives in `.lophn/skills/<name>/`
-   in the source. Read the skill `design-app` for how to split them and when to share.
+   in the source. Read the skill `design-app` for how to split them and when to
+   make a skill.
 2. Code: the source folder's `AGENTS.md` (layout, commands, SDK guide) is in your
    instructions already. Write with the file tools.
 3. Test: `shell.run` in the source folder: `npm run check`, `npm test`.
@@ -86,12 +88,9 @@ information). Use `lophn app link-source` only for an existing git repo with a c
 6. `lophn release activate` the release:
    - `active`: tell the person in their words what changed in the app and
      anything they should try. Leave out the release, tests and preview unless
-     they ask. If the app has public skills other agents should
-     get, run `lophn app share --agent <handle>... [--coding-agents] --reason <text>`.
-     It opens a request that the person approves in the waiting list; tell them
-     in their words which agents could then do what.
-     (If you run it before `release activate` and the activation waits for
-     consent, the person approves both with that one consent.)
+     they ask. If the app has public skills that agents outside it should have,
+     deploy them with the skill `deploy-skill`; you may do it without asking.
+     Tell the person in their words which agents can now do what.
    - `failed`: read `failure` (`code`, `summary`, `restored`: the previous
      release runs again) and `lophn app logs`, fix it, go back to step 3.
    - `waiting_consent`: a first activation, wider permissions or a data-loss
@@ -210,7 +209,7 @@ Write down:
   ask the person.
 
 Do not write down:
-- Anything you can read or compute: definitions, assignments, agent cards,
+- Anything you can read or compute: definitions, deployments, agent cards,
   settings, lists of apps or files.
 - What belongs to another workspace. Do not copy another workspace's content
   here; ask it with `lophn call send`.

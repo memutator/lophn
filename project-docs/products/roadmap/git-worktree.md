@@ -76,9 +76,9 @@ Orca·Paseo·Emdash(가장 넓음), T3 Code·Happy(수명주기 중심), herdr(�
 
 1. **lophn core에 들인다. 2026-11-08·09의 "worktree는 lophn이 하지 않는다"를 대체한다.** worktree를 Explorer·앱 SDK·소스 컨트롤 화면과 엮으라는 답에서 나온 결론이다. `project-identity.md`의 "git은 읽기만 한다"도 worktree 수명과 소스 컨트롤 화면의 git 쓰기만큼 바뀐다. (사람, 2026-11-28)
 2. **desk와 worktree는 묶지 않는다.** desk는 사람의 작업 공간(화면 배치)이고 worktree는 그것과 다른 축이다. 한 desk에 여러 worktree의 탭이 섞일 수 있다. (사람, 2026-11-28)
-3. **오른쪽 사이드바 Explorer와 엮는다.** Explorer는 지금 project 폴더를 더해 등록하고 본다. worktree도 거기서 보이고 다뤄야 한다. (사람, 2026-11-28; 모양은 "사람이 정할 것" B)
-4. **앱 SDK의 project API와 엮는다.** 앱이 project의 worktree를 알 수 있어야 한다. (사람, 2026-11-28; 범위는 "사람이 정할 것" C)
-5. **오른쪽 사이드바에 소스 컨트롤 화면을 만든다.** 변경 내역(히스토리), 브랜치 보기, 커밋 같은 기능을 다른 제품을 참고해 만든다. 화면 모양은 추가 조사로 채운다. (사람, 2026-11-28)
+3. **오른쪽 사이드바 Explorer와 엮는다.** Explorer는 지금 project 폴더를 더해 등록하고 본다. worktree도 거기서 보이고 다뤄야 한다. (사람, 2026-11-28; 모양은 정한 것 7)
+4. **앱 SDK의 project API와 엮는다.** 앱이 project의 worktree를 알 수 있어야 한다. (사람, 2026-11-28; 범위는 정한 것 8)
+5. **오른쪽 사이드바에 소스 컨트롤 화면을 만든다.** 변경 내역(히스토리), 브랜치 보기, 커밋 같은 기능을 다른 제품을 참고해 만든다. 화면 모양은 추가 조사(spec 5절)와 정한 것 13~17로 채웠다. (사람, 2026-11-28)
 6. **세션·터미널은 열 때 worktree를 고른다.** 기본은 원래 폴더. 한 worktree에 세션·터미널이 여럿 붙는다. 탭과 왼쪽 사이드바 세션 줄에 브랜치 꼬리표가 선다. (사람, 2026-11-28)
 7. **Explorer에서 worktree는 그것이 난 폴더 아래 가지로 선다.** 브랜치 이름과 바뀐 파일 수를 보인다. 폴더 오른쪽 클릭 "New worktree…", worktree 오른쪽 클릭 "Open agent here / Open terminal here / Remove…". worktree는 project 폴더 목록(`folders[]`)에 넣지 않는다. (사람, 2026-11-28)
 8. **앱 SDK로 앱은 읽기만 한다.** worktree 목록·상태·바뀜 알림. 만들기·지우기·커밋은 사람과 agent가 한다. (사람, 2026-11-28)

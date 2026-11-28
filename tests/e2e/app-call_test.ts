@@ -2,7 +2,7 @@
 // - contract: boundary `app-runtime`·`app-spi`(tool 호출은 core를 지나고 invocation과 changeset이 같이 남는다),
 //   `child-supervision-protocol`(응답이 control frame 한도를 넘어도 호출은 결과 모름이 되지 않는다), `agent-tools`(`lophn <slug> <command>`),
 //   `app-capability`(broker가 요청마다 선언∩grant를 보고 lophn이 secret을 붙인다. 앱은 값을 모른다),
-//   `approvals`(agent는 자기 앱 workspace의 앱 command를 배포 없이 부른다).
+//   `approvals`(앱 skill이 닿지 않은 agent의 앱 호출은 사람이 답해야 하고, skill을 배포받으면 묻지 않으며, 앱 자기 workspace의 agent는 배포 없이 부른다).
 // - 현실적 회귀: 큰 changeset·결과가 frame 한도에서 거절되어 호출이 "결과 모름"이 되고 rewind가 막히는 것(세 번 난 일),
 //   agent tool이 core를 건너뛰는 것, caller 확인이 풀리는 것, net/fetch가 실제 core에서 나가지 못하는 것과
 //   secret 사용이 늘 `unavailable`이었던 것.
@@ -18,6 +18,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { CALL_BODY_MAX_BYTES } from "../../packages/core/apps/runtime/entrypoint/limits.ts";
 import { serve } from "../../packages/core/server/serve.ts";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import {
   appCallTool,
   appInvocation,
@@ -27,6 +28,7 @@ import {
 } from "../../packages/protocol/apps/mod.ts";
 import {
   agentCreate,
+  skillsDeploy,
   toolCallList,
 } from "../../packages/protocol/lophn-agent/mod.ts";
 import {
@@ -40,9 +42,12 @@ import { callPatch } from "../support/app/patch-call.ts";
 import { netFetchPatch } from "../support/app/patch-net.ts";
 import {
   connectFakeProvider,
+  decide,
   openWorkspaceSession,
   say,
+  waitPermission,
   waitTurnEnd,
+  waitTurnEndAnswering,
 } from "../support/core/human.ts";
 import { bootCore, type Core, createRun } from "../support/core/mod.ts";
 import { startFakeServer } from "../support/fake-server/mod.ts";
@@ -50,6 +55,27 @@ import { lophnReply } from "../support/fake-server/lophn.ts";
 import { lastToolResult } from "../support/fake-server/probe.ts";
 
 const user = { kind: "person", view_session: "e2e" } as const;
+
+// 다른 workspace의 agent가 부르는 행의 patch다: add_item을 공개하고 그 command를 부르는 public skill `items`를 선언한다.
+async function skillPatch(dir: string): Promise<void> {
+  const file = `${dir}/lophn.ts`;
+  const text = await readFile(file, "utf8");
+  const opened = text.replace(
+    /(name: "add_item",[\s\S]*?)public: false,/,
+    "$1public: true,",
+  );
+  const declared = opened.replace(
+    "  app_connections: [],",
+    `  skills: [{ name: "items", public: true, commands: ["add_item"] }],\n  app_connections: [],`,
+  );
+  if (declared === text) throw new Error("skill patch 자리가 없다");
+  await writeFile(file, declared);
+  await mkdir(`${dir}/.lophn/skills/items`, { recursive: true });
+  await writeFile(
+    `${dir}/.lophn/skills/items/SKILL.md`,
+    "---\nname: items\ndescription: Save an item in the Calls app when the person asks to keep a note.\n---\n\n# Items\n\nRun `lophn calls add-item --title <text>`.\n",
+  );
+}
 
 // net-fetch-loopback 행의 loopback 상대다. 받은 요청 수와 Authorization을 남기고 JSON을 돌려준다.
 async function startLoopback() {
@@ -105,6 +131,7 @@ test("E2E agent·사람 화면의 tool 호출은 core를 지나 앱 process가 �
       patch: async (dir) => {
         await callPatch(dir);
         await netFetchPatch(dir, { port: loopback.port, secret: NET_SECRET });
+        await skillPatch(dir);
       },
     });
     const id = app.app;
@@ -121,6 +148,53 @@ test("E2E agent·사람 화면의 tool 호출은 core를 지나 앱 process가 �
     await c.call(agentCreate, {
       id: agent,
       definition: { handle: "caller", name: "Caller", body: "use the app" },
+    });
+
+    // 앱 skill이 닿지 않은 다른 workspace(Home)의 agent가 앱 command를 부르면 사람에게 묻는다: 거절하면 실행되지 않고, 한 번 허락하면 실행된다.
+    await t.test("undeployed-asks", async () => {
+      fake.reset();
+      fake.script([
+        { reply: callApp("t1", `${app.slug} add-item`, { title: "asked" }) },
+        text("done"),
+        { reply: callApp("t2", `${app.slug} add-item`, { title: "allowed" }) },
+        text("done"),
+      ]);
+      const session = await openWorkspaceSession(c, agent, null);
+      await say(c, session, "add an item");
+      const asked = await waitPermission(c, session);
+      await decide(c, session, asked.request, "reject");
+      await waitTurnEnd(c, session);
+      const refused = await c.call(appInvocations, { app: id, session });
+      assert.deepStrictEqual(refused.invocations, []);
+      assert.ok(!(await items(c, id)).includes("asked"));
+      await say(c, session, "add another");
+      await waitTurnEndAnswering(c, session, "once", 1);
+      const ran = await c.call(appInvocations, { app: id, session });
+      assert.deepStrictEqual(ran.invocations.length, 1);
+      assert.deepStrictEqual(ran.invocations[0].status, "succeeded");
+      assert.ok((await items(c, id)).includes("allowed"));
+    });
+
+    // 그 앱의 public skill을 그 agent에 배포하면 묻지 않고 실행된다.
+    await t.test("deployed-skill-runs", async () => {
+      const deployed = await c.call(skillsDeploy, {
+        app: app.slug,
+        skill: "items",
+        to: `agent:caller`,
+      });
+      assert.deepStrictEqual(deployed.deployed, true);
+      fake.reset();
+      fake.script([
+        { reply: callApp("t1", `${app.slug} add-item`, { title: "deployed" }) },
+        text("done"),
+      ]);
+      const session = await openWorkspaceSession(c, agent, null);
+      await say(c, session, "add an item");
+      await waitTurnEnd(c, session);
+      const ran = await c.call(appInvocations, { app: id, session });
+      assert.deepStrictEqual(ran.invocations.length, 1);
+      assert.deepStrictEqual(ran.invocations[0].status, "succeeded");
+      assert.ok((await items(c, id)).includes("deployed"));
     });
 
     await t.test("agent-calls-app", async () => {

@@ -1,7 +1,16 @@
+export type WorkspaceWorktreeFact = {
+  id: string;
+  repoRoot: string;
+  path: string;
+  branch: string | null;
+};
+
 export type WorkspaceFacts = {
   workspace: { kind: "project" | "app"; id: string } | null;
   // workspace가 project일 때 그 project의 등록 폴더(position 순)
   projectFolders: readonly string[];
+  // project session이 worktree에 묶였을 때 원본 저장소 루트와 worktree 경로·메타.
+  worktree?: WorkspaceWorktreeFact | null;
   // workspace가 app일 때 그 앱의 source 폴더. 아직 잇지 않았으면 null
   appSource: string | null;
   // workspace가 app일 때 사람이 source 밖에 더 이은 폴더(position 순)
@@ -31,6 +40,8 @@ export type FolderScope = {
   base?: string;
   // 이 session의 tool-results 폴더. 읽기 전용이고 read 목록과 별개다
   results?: string;
+  // worktree에 묶인 session의 shell 도구에 주입할 환경변수(PROJECT_ROOT, WORKTREE_*).
+  env?: Record<string, string>;
 };
 
 // 어떤 workspace 종류가 어떤 폴더를 읽고 쓰는가의 규칙 하나. file tool scope(workspace-data)와 rewind가 이것을 쓴다.
@@ -53,19 +64,38 @@ export function workspaceScope(facts: WorkspaceFacts): FolderScope {
     };
   }
   // 사람의 폴더(project 폴더, 앱 source와 더한 폴더)가 data 폴더들보다 앞에 남는다. 상대 path의 기준이 첫 폴더라서다.
-  const own =
-    workspace.kind === "project"
-      ? [...facts.projectFolders]
-      : [
-          ...(facts.appSource === null ? [] : [facts.appSource]),
-          ...facts.appFolders,
-        ];
+  let own: string[];
+  let env: Record<string, string> | undefined;
+  if (workspace.kind === "project") {
+    const wt = facts.worktree;
+    if (wt != null) {
+      // worktree가 난 원래 폴더를 worktree 경로로 바꾸고, worktree를 맨 앞(base)으로 둔다.
+      const others = facts.projectFolders.filter(
+        (folder) => folder !== wt.repoRoot && folder !== wt.path,
+      );
+      own = [wt.path, ...others];
+      env = {
+        PROJECT_ROOT: wt.repoRoot,
+        WORKTREE_PATH: wt.path,
+        WORKTREE_ID: wt.id,
+        ...(wt.branch === null ? {} : { WORKTREE_BRANCH: wt.branch }),
+      };
+    } else {
+      own = [...facts.projectFolders];
+    }
+  } else {
+    own = [
+      ...(facts.appSource === null ? [] : [facts.appSource]),
+      ...facts.appFolders,
+    ];
+  }
   const withBase = (folders: string[]): FolderScope => {
     const base = own[0] ?? facts.dataFolder ?? undefined;
     return {
       read: [...folders],
       write: [...folders],
       ...(base === undefined ? {} : { base }),
+      ...(env === undefined ? {} : { env }),
     };
   };
   const folders = [...own];

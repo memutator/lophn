@@ -63,6 +63,7 @@ export type AgentAddress = {
 export type AgentMode = "turn" | "report";
 export type SessionChoice = "new" | "same" | (string & {});
 export type SessionOpenMode = "tab" | "background";
+export type WorktreePolicy = "new" | "inherit";
 
 export type EventWorkspaceFilter =
   | string
@@ -93,6 +94,7 @@ export type AgentRequest = {
   mode?: AgentMode;
   session?: SessionChoice;
   open?: SessionOpenMode;
+  worktree?: WorktreePolicy;
   step?: string;
   on?: string;
   signal?: AbortSignal;
@@ -151,6 +153,7 @@ export type WireRequestBody =
       mode?: AgentMode;
       session?: SessionChoice;
       open?: SessionOpenMode;
+      worktree?: WorktreePolicy;
       step?: string;
       on?: string;
       cancel_id?: string;

@@ -16,7 +16,7 @@ import {
   workspaceKindOf,
 } from "../../../protocol/lophn-agent/mod.ts";
 import { teamRead } from "../../../protocol/lophn-agent/team.ts";
-import { projectApi } from "../../../protocol/projects/mod.ts";
+import { projectApi, worktreesGet } from "../../../protocol/projects/mod.ts";
 import type { ResolvedAgent } from "../../lophn-agent/agents/mod.ts";
 import {
   type WorkspaceAgent,
@@ -31,7 +31,11 @@ import {
   workspaceInfo,
   type WorkspaceProject,
 } from "./workspace-info.ts";
-import { type FolderScope, workspaceScope } from "./workspace-folders.ts";
+import {
+  type FolderScope,
+  type WorkspaceWorktreeFact,
+  workspaceScope,
+} from "./workspace-folders.ts";
 import type { ArtifactEntry } from "./artifact-list.ts";
 
 // workspace 폴더를 data root에서 찾고 만드는 file system 접근이다. 조립(runtime entry)이 꽂는다.
@@ -120,6 +124,7 @@ async function readWorkspaceData(
   call: CoreCall,
   agent: ResolvedAgent,
   files: WorkspaceFiles,
+  worktreeId?: string | null,
 ): Promise<Result<WorkspaceRead>> {
   const { workspace } = agent;
   const projects = new Map<string, ProjectRecord>();
@@ -162,6 +167,7 @@ async function readWorkspaceData(
   let app: WorkspaceData["app"] = null;
   let release: WorkspaceData["release"] = null;
   let projectFolders: string[] = [];
+  let worktree: WorkspaceWorktreeFact | null = null;
   let appSource: string | null = null;
   let appFolders: string[] = [];
 
@@ -170,6 +176,36 @@ async function readWorkspaceData(
     if (!read.ok) return read;
     project = workspaceProject(read.value);
     projectFolders = read.value.folders.map((f) => f.path);
+    if (worktreeId !== undefined && worktreeId !== null) {
+      const wtRead = await readOf(call, worktreesGet, { worktree: worktreeId });
+      if (
+        wtRead.ok &&
+        wtRead.value.record.project_id === workspace.id &&
+        wtRead.value.record.status === "ready"
+      ) {
+        const rec = wtRead.value.record;
+        worktree = {
+          id: rec.id,
+          repoRoot: rec.repo_root,
+          path: rec.path,
+          branch: rec.branch,
+        };
+        project = {
+          ...project,
+          folders: [
+            {
+              path: rec.path,
+              description: rec.branch
+                ? `git worktree (${rec.branch})`
+                : "git worktree",
+            },
+            ...project.folders.filter(
+              (f) => f.path !== rec.repo_root && f.path !== rec.path,
+            ),
+          ],
+        };
+      }
+    }
   } else if (workspace?.kind === "app") {
     const read = await appOf(workspace.id);
     if (!read.ok) return read;
@@ -393,6 +429,7 @@ async function readWorkspaceData(
   const scope = workspaceScope({
     workspace,
     projectFolders,
+    worktree,
     appSource,
     appFolders,
     dataFolder: workspace === null ? null : files.dataFolder(workspace),
@@ -428,13 +465,14 @@ export async function workspaceData(
   call: CoreCall,
   agent: ResolvedAgent,
   files: WorkspaceFiles,
+  worktreeId?: string | null,
 ): Promise<
   Result<{
     workspace: TurnPromptInput["workspace"];
     scope: WorkspaceRead["scope"];
   }>
 > {
-  const read = await readWorkspaceData(call, agent, files);
+  const read = await readWorkspaceData(call, agent, files, worktreeId);
   if (!read.ok) return read;
   const { workspace, scope, team } = read.value;
   return ok({

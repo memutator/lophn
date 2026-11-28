@@ -214,12 +214,14 @@ type TabDeps = {
   // project에 터미널을 연다(`ctx.terminals.open`). command는 첫 prompt 뒤 치고, resume은 그 harness의 resume 명령을 친다.
   openTerminal(input: {
     project: TerminalProject;
+    worktree_id?: string;
     command?: string;
     resume?: { harness: string; external_session: string };
   }): Promise<Result<string>>;
   // `tab open --terminal`로 agent용 TUI 터미널을 연다. command가 있으면 exec로 실행하고 없으면 대화형 shell이다.
   openAgentTerminal?(input: {
     project: TerminalProject;
+    worktree_id?: string;
     command?: string;
     cwd?: string;
     columns: number;
@@ -545,11 +547,16 @@ export function createTabHandlers(deps: TabDeps) {
         }
       }
       const spec = input.target.terminal;
+      const callerWorktree =
+        caller.value === "person"
+          ? null
+          : (sessionRow(caller.value)?.worktree_id ?? null);
       const opened = await deps.openAgentTerminal({
         project:
           where.kind === "home"
             ? HOME_TERMINAL_PROJECT
             : (where.id as Id<"prj">),
+        ...(callerWorktree === null ? {} : { worktree_id: callerWorktree }),
         ...(spec.command === undefined ? {} : { command: spec.command }),
         ...(spec.cwd === undefined ? {} : { cwd: spec.cwd }),
         columns: spec.columns ?? TUI_DEFAULT_COLS,
@@ -639,6 +646,9 @@ export function createTabHandlers(deps: TabDeps) {
       const terminal = await deps.openTerminal({
         project:
           here.kind === "home" ? HOME_TERMINAL_PROJECT : (here.id as Id<"prj">),
+        ...(from!.worktree_id === null
+          ? {}
+          : { worktree_id: from!.worktree_id }),
         command,
       });
       if (!terminal.ok) return terminal;
@@ -678,6 +688,9 @@ export function createTabHandlers(deps: TabDeps) {
         // hold가 project의 session만 통과시킨다. core가 터미널을 열고 그 harness의 resume 명령을 친다.
         const terminal = await deps.openTerminal({
           project: there!.id as Id<"prj">,
+          ...(target.worktree_id === null
+            ? {}
+            : { worktree_id: target.worktree_id }),
           resume: held.value,
         });
         if (!terminal.ok) return terminal;
@@ -1418,6 +1431,9 @@ export const hostQueueWiring: WiringFactory = () => {
         async openAgentTerminal(input) {
           const opened = await ctx.terminals.open({
             project: input.project,
+            ...(input.worktree_id === undefined
+              ? {}
+              : { worktree_id: input.worktree_id }),
             ...(input.command === undefined ? {} : { exec: input.command }),
             ...(input.cwd === undefined ? {} : { cwd: input.cwd }),
             columns: input.columns,

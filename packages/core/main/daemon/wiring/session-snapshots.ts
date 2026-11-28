@@ -148,6 +148,7 @@ export const sessionSnapshotsWiring: WiringFactory = () => {
             workspace: workspaceOf(row),
             spawned_by: row.spawned_by as SessionSnapshot["spawned_by"],
             workflow_origin: workflowOriginOf(row.workflow_origin),
+            worktree_id: row.worktree_id as SessionSnapshot["worktree_id"],
             runs_on: null,
             state: sessionStateOf(sql, row.id, {
               approval: turn_requests.length > 0,

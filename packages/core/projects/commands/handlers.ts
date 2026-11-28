@@ -752,6 +752,7 @@ export function createProjectCommandHandlers(deps: ProjectCommandHandlersDeps) {
     const {
       project: rawProject,
       command: idOrName,
+      worktree_id: worktreeId,
       wait,
       tool_call,
     } = parsed.data;
@@ -791,6 +792,7 @@ export function createProjectCommandHandlers(deps: ProjectCommandHandlersDeps) {
     return await deps.runtime.start(project, cmd, {
       wait,
       redactLogs: isAgent(who),
+      ...(worktreeId === undefined ? {} : { worktreeId: worktreeId as Id<"wkt"> }),
     });
   };
 
@@ -887,6 +889,7 @@ export function createProjectCommandHandlers(deps: ProjectCommandHandlersDeps) {
     const {
       project: rawProject,
       command: idOrName,
+      worktree_id: worktreeId,
       wait,
       tool_call,
     } = parsed.data;
@@ -933,7 +936,13 @@ export function createProjectCommandHandlers(deps: ProjectCommandHandlersDeps) {
         return ok(found);
       },
       by,
-      { wait, redactLogs: isAgent(who) },
+      {
+        wait,
+        redactLogs: isAgent(who),
+        ...(worktreeId === undefined
+          ? {}
+          : { worktreeId: worktreeId as Id<"wkt"> }),
+      },
     );
   };
 

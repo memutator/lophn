@@ -27,6 +27,7 @@ import {
   type SoftOutput,
   type ToolRequest,
   type WorkflowRequest,
+  type WorktreePolicy,
 } from "./wire.ts";
 
 export type {
@@ -52,6 +53,7 @@ export type {
   ToolRequest,
   WithFallbackOptions,
   WorkflowRequest,
+  WorktreePolicy,
 };
 
 function need(): FlowPort {

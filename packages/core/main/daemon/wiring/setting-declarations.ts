@@ -14,6 +14,7 @@ import {
 } from "../../../folder/destinations.ts";
 import { lophnAgentSettings } from "../../../lophn-agent/register.ts";
 import { projectsFolderSetting } from "../../../projects/clone/mod.ts";
+import { projectsWorktreesFolderSetting } from "../../../projects/worktrees/mod.ts";
 import { appearanceThemesStep } from "./appearance-themes.ts";
 import { callPolicyPrivateStep } from "./call-policy-private.ts";
 import { codingGuiFlagStep } from "./coding-gui-flag.ts";
@@ -39,6 +40,7 @@ export const settingDeclarationsWiring: WiringFactory = () => ({
       teamSetting,
       diagnosticsTraceSetting,
       projectsFolderSetting,
+      projectsWorktreesFolderSetting,
       destinationsSetting(ctx.root.path),
       sharedFolderSetting(ctx.root.path),
     ]);

@@ -111,6 +111,8 @@ function approvalLabel(subject: AcpApprovalSubject): string {
       return `${subject.action} ${subject.after?.name ?? subject.before?.name ?? "project command"}`;
     case "workflow_run":
       return `${subject.mode} workflow ${subject.workflow}`;
+    case "worktree_remove":
+      return `remove worktree ${subject.branch ?? subject.path}`;
     case "file_change":
       return (
         subject.changes.map((one) => `${one.change} ${one.path}`).join(", ") ||
@@ -670,6 +672,8 @@ export function createBackgroundMembers(deps: BackgroundMembersDeps) {
         );
         return;
       }
+      const extraEnv =
+        members.env !== undefined ? await members.env(session) : {};
       const handlers = deps.handlers();
       if (handlers === null) {
         await failBeforeSend(
@@ -723,6 +727,7 @@ export function createBackgroundMembers(deps: BackgroundMembersDeps) {
             cwd,
             harness: guiHarness,
             env: {
+              ...extraEnv,
               [AGENT_CREDENTIAL_FILE_ENV]: deps.files.pathOf(session),
               [SESSION_ENV_NAME]: session,
             },

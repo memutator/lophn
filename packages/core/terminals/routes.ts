@@ -115,6 +115,7 @@ export function createTerminalRoutes(deps: {
       input: {
         project: TerminalProject;
         folder_ref?: string;
+        worktree_id?: string;
         cwd?: string;
         command?: string;
         resume?: { harness: string; external_session: string };

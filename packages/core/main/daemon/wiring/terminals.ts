@@ -27,6 +27,10 @@ import {
   projectFolderPaths,
 } from "../../../projects/lookups.ts";
 import {
+  loadManagedReadyWorktrees,
+  loadWorktreeById,
+} from "../../../projects/worktrees/mod.ts";
+import {
   type LedgerConnection,
   openConnection,
 } from "../../../storage/ledger/mod.ts";
@@ -128,6 +132,50 @@ export const terminalsWiring: WiringFactory = () => {
               path,
             })),
           );
+        },
+        managedWorktrees(project) {
+          if (project === HOME_TERMINAL_PROJECT) return [];
+          const wt = ctx.peek.worktrees;
+          if (wt === undefined) return [];
+          if (connection === undefined) {
+            const opened = openConnection(ctx.ledgerPath);
+            if (!opened.ok) return [];
+            connection = opened.value;
+          }
+          return loadManagedReadyWorktrees(
+            connection.sql,
+            project,
+            wt.getManagedRoot(),
+          ).map((row) => ({
+            folder_ref: `wt_${row.id}`,
+            path: row.path,
+          }));
+        },
+        worktree(project, worktreeId) {
+          if (connection === undefined) {
+            const opened = openConnection(ctx.ledgerPath);
+            if (!opened.ok) return opened;
+            connection = opened.value;
+          }
+          const row = loadWorktreeById(connection.sql, worktreeId);
+          if (row === null || row.project_id !== project) {
+            return err({
+              code: "not_found",
+              message: "worktree not found in this project",
+            });
+          }
+          if (row.status !== "ready") {
+            return err({
+              code: "conflict",
+              message: `worktree is ${row.status} and cannot be used to open a terminal`,
+            });
+          }
+          return ok({
+            id: row.id,
+            repo_root: row.repo_root,
+            path: row.path,
+            branch: row.branch,
+          });
         },
         platform: process.platform,
         codingCommand: (harness) =>

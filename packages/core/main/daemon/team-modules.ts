@@ -22,6 +22,7 @@ import * as lophnAgentRegistration from "./wiring/lophn-agent-registration.ts";
 import * as lophnAgentTeam from "./wiring/lophn-agent-team.ts";
 import * as projectClone from "./wiring/project-clone.ts";
 import * as projectCommands from "./wiring/project-commands.ts";
+import * as worktrees from "./wiring/worktrees.ts";
 import * as remote from "./wiring/remote.ts";
 import * as rewindRegistration from "./wiring/rewind-registration.ts";
 import * as routerRegistration from "./wiring/router-registration.ts";
@@ -53,4 +54,5 @@ export const BUNDLED_TEAM_MODULES: readonly unknown[] = [
   remote,
   projectClone,
   projectCommands,
+  worktrees,
 ];

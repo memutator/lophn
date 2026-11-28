@@ -256,6 +256,9 @@ function handOff(
     ...(participantMode !== undefined
       ? { permissionMode: participantMode }
       : {}),
+    ...(plan.worktree_id !== undefined
+      ? { worktreeId: plan.worktree_id as Id<"wkt"> }
+      : {}),
     // 사람 step(by: me / human())은 사람이 바로 대화·질문(ask)·승인에 답하는 자리이므로 attended turn으로 연다.
     unattended: !plan.human_turn,
   };
@@ -333,6 +336,7 @@ function editInstance(
         ...(added.needs !== undefined ? { needs: added.needs } : {}),
         ...(added.join !== undefined ? { join: added.join } : {}),
         ...(added.open !== undefined ? { open: added.open } : {}),
+        ...(added.worktree !== undefined ? { worktree: added.worktree } : {}),
       });
       return ok({ participants, steps: next, step: added.name });
     }
@@ -354,13 +358,14 @@ function editInstance(
       const at = index(edit.name);
       if (at < 0) return fail("not_found", "step not found");
       const next = [...steps];
-      // undefined는 덮지 않는다. with: null은 비운다. open·parallel·needs·join: null은 지운다.
+      // undefined는 덮지 않는다. with: null은 비운다. open·worktree·parallel·needs·join: null은 지운다.
       const patch = Object.fromEntries(
         Object.entries(edit.patch).filter(
           ([k, v]) =>
             v !== undefined &&
             !(
               (k === "open" ||
+                k === "worktree" ||
                 k === "parallel" ||
                 k === "needs" ||
                 k === "join") &&
@@ -370,6 +375,7 @@ function editInstance(
       );
       const updated = { ...next[at]!, ...patch };
       if (edit.patch.open === null) delete updated.open;
+      if (edit.patch.worktree === null) delete updated.worktree;
       if (edit.patch.parallel === null) delete updated.parallel;
       if (edit.patch.needs === null) delete updated.needs;
       if (edit.patch.join === null) delete updated.join;

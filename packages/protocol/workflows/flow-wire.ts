@@ -21,7 +21,7 @@ import {
 
 export const FLOW_SDK_NAME = "@lophn/flow";
 // packages/sdk/flow/package.json의 version·supported_from과 같아야 한다.
-export const FLOW_SDK_VERSION = "2.1.0";
+export const FLOW_SDK_VERSION = "2.2.0";
 export const FLOW_SDK_SUPPORTED_FROM = "2.0.0";
 // SDK 설치 사본 안 lophn 진입 file.
 export const FLOW_ENTRY_FILE = "entry.ts";

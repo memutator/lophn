@@ -1030,6 +1030,32 @@ export const workflowsWiring: WiringFactory = () => {
         snapshots,
         flowChecker: (inputFiles) => checkFlowFiles(ctx.root.path, inputFiles),
         lifecycle,
+        worktrees: {
+          async create({ project, branchSeed }) {
+            const wt = ctx.peek.worktrees;
+            if (wt === undefined) {
+              return err({
+                code: "unavailable" as const,
+                message: "worktrees are not wired",
+              });
+            }
+            const created = await wt.create({
+              project,
+              ...(branchSeed !== undefined ? { branchSeed } : {}),
+            });
+            if (!created.ok) return created;
+            return ok({ id: created.value.record.id as Id<"wkt"> });
+          },
+          sessionWorktree(session) {
+            const found = ledgerSnapshot(
+              ctx.ledgerPath,
+              (lookup) => loadSession(lookup, session)?.worktree_id ?? null,
+            );
+            return found.ok && found.value !== null
+              ? (found.value as Id<"wkt">)
+              : null;
+          },
+        },
         rememberedModesOf(project, workflow) {
           return ctx.settings.get(workflowModesSetting)?.[
             `${project}/${workflow}`
@@ -1083,6 +1109,9 @@ export const workflowsWiring: WiringFactory = () => {
             ...(input.open !== undefined ? { open: input.open } : {}),
             ...(input.permissionMode !== undefined
               ? { permission_mode: input.permissionMode }
+              : {}),
+            ...(input.worktreeId !== undefined
+              ? { worktree_id: input.worktreeId }
               : {}),
             delivery: {
               to:

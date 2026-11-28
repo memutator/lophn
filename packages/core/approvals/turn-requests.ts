@@ -53,6 +53,7 @@ function defaultOutsideRewind(subject: TurnRequest["subject"]): boolean {
     case "project_command":
     case "project_command_definition":
     case "workflow_run":
+    case "worktree_remove":
       return true;
     case "file_write":
       return subject.outside_workspace;

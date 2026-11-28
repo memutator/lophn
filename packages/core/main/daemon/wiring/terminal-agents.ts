@@ -688,10 +688,11 @@ export const terminalAgentsWiring: WiringFactory = () => {
 
       const opener = createCodingOpen({
         guiOn: () => ctx.harnessGuiTabs() !== null,
-        async open(project, command, tab) {
+        async open(project, command, tab, worktreeId) {
           const opened = await ctx.terminals.open({
             project: project as TerminalProject,
             command,
+            ...(worktreeId ? { worktree_id: worktreeId } : {}),
           });
           if (!opened.ok) return opened;
           const terminal = opened.value.terminal_ref;

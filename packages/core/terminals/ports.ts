@@ -15,6 +15,7 @@ import type { TuiScreenSnapshot, TuiScreenState } from "./host/screen.ts";
 export type TerminalOpen = {
   project: TerminalProject;
   folder_ref?: string;
+  worktree_id?: string;
   cwd?: string;
   command?: string;
   resume?: { harness: string; external_session: string };

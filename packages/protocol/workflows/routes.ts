@@ -37,6 +37,7 @@ import {
   workflowStateSchema,
   workflowTextSchema,
   workflowTitleSchema,
+  worktreePolicySchema,
 } from "./values.ts";
 
 const instanceRef = { instance: idSchema("wfi") };
@@ -405,6 +406,7 @@ const inlineStepInputSchema = z.strictObject({
   needs: z.array(stepNameSchema).optional(),
   join: stepJoinModeSchema.optional(),
   open: sessionOpenModeSchema.optional(),
+  worktree: worktreePolicySchema.optional(),
 });
 
 const overrideStepPatchSchema = z.strictObject({
@@ -418,6 +420,7 @@ const overrideStepPatchSchema = z.strictObject({
   needs: z.array(stepNameSchema).nullable().optional(),
   join: stepJoinModeSchema.nullable().optional(),
   open: sessionOpenModeSchema.nullable().optional(),
+  worktree: worktreePolicySchema.nullable().optional(),
 });
 
 const workflowFilesMapSchema = z

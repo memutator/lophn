@@ -33,6 +33,8 @@ export function defaultToolName(call: GateCall): string {
       return call.mode === "override_code"
         ? "workflow.override_code"
         : "workflow.run";
+    case "worktree_remove":
+      return "worktree.remove";
   }
 }
 
@@ -65,6 +67,8 @@ export function categoryOfCall(
       return "project_command_definition";
     case "workflow_run":
       return "workflow_run";
+    case "worktree_remove":
+      return "worktree_remove";
   }
 }
 
@@ -91,6 +95,8 @@ export function targetSummaryOfCall(call: GateCall): string {
       return `${call.action} ${call.after?.name ?? call.before?.name ?? call.project}`;
     case "workflow_run":
       return `${call.mode} ${call.workflow}`;
+    case "worktree_remove":
+      return call.branch ? `${call.branch} (${call.path})` : call.path;
   }
 }
 

@@ -114,6 +114,8 @@ export function startSession(
     parentMode?: PermissionMode;
     // workflow step이 새로 여는 session이면 시작 시점에 workflow_origin을 바로 적는다(생략하면 spawnedBy에서 상속).
     workflowOrigin?: WorkflowOrigin | null;
+    // worktree에 묶어 여는 project session. 열 때 고정되며 removing·removed·missing이면 conflict다.
+    worktreeId?: string | null;
     // fork는 출처의 제목, model 선택, 출처 표시를 이어받는다. permission_mode는 가져가지 않고 정의·전역 기본값으로 시작한다.
     inherit?: {
       title: string | null;
@@ -142,6 +144,29 @@ export function startSession(
     const usable = workspaceUsable(deps, workspace);
     if (!usable.ok) return usable;
   }
+  const worktreeId = input.worktreeId ?? null;
+  if (worktreeId !== null) {
+    if (workspace?.kind !== "project") {
+      return fail(
+        "invalid_input",
+        "worktree_id can only be used with a project workspace",
+      );
+    }
+    const wt = tx.sql.get(
+      "select project_id, status from project_worktrees where id = ?",
+      [worktreeId],
+    );
+    if (wt === undefined || String(wt["project_id"]) !== workspace.id) {
+      return fail("not_found", "worktree not found in this project");
+    }
+    const wtStatus = String(wt["status"]);
+    if (wtStatus !== "ready") {
+      return fail(
+        "conflict",
+        `worktree is ${wtStatus} and cannot be used to open a session`,
+      );
+    }
+  }
   const baseDefault =
     input.defaultMode ?? deps.defaultMode?.() ?? DEFAULT_PERMISSION_MODE;
   let permissionMode: PermissionMode =
@@ -166,9 +191,9 @@ export function startSession(
     `insert into sessions (id, agent, project, app, workspace_kind,
        workspace_id, title, lifecycle, forked_from_session, forked_from_through_seq,
        model_selection, permission_mode, harness, harness_gui, called_from_kind, called_from_id, spawned_by, opened_by_app, opened_by_machine,
-       workflow_origin, created_seq, state_seq)
+       workflow_origin, worktree_id, created_seq, state_seq)
      values (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-       coalesce(?, (select workflow_origin from sessions where id = ?)), ?, ?)`,
+       coalesce(?, (select workflow_origin from sessions where id = ?)), ?, ?, ?)`,
     [
       input.id,
       input.agent,
@@ -191,6 +216,7 @@ export function startSession(
       explicitOrigin,
       // team spawn 자식은 부모의 workflow_origin을 열 때 이어받는다. fork와 일반 call은 spawnedBy가 없어 null이다.
       input.spawnedBy ?? null,
+      worktreeId,
       seq,
       seq,
     ],

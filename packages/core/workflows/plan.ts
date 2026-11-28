@@ -135,6 +135,9 @@ export function planHandoff(input: {
   const body = stepBody({ step, received, inputs });
   const participantOpen = "kind" in participant ? undefined : participant.open;
   const open = step.open ?? participantOpen ?? (human ? "tab" : undefined);
+  const participantWorktree =
+    "kind" in participant ? undefined : participant.worktree;
+  const worktree = step.worktree ?? participantWorktree;
   const permissionMode = step.permission_mode;
   if ("remote" in resolved) {
     const { machine, computer, agent, workspace } = resolved.remote;
@@ -169,6 +172,7 @@ export function planHandoff(input: {
     ...(permissionMode !== undefined
       ? { permission_mode: permissionMode }
       : {}),
+    ...(worktree !== undefined ? { worktree } : {}),
     delivery: {
       to:
         same === null

@@ -617,6 +617,9 @@ export function createFlowHost(deps: FlowHostDeps): FlowHost {
                     ? { session: request.session as "new" | "same" | Id<"ses"> }
                     : {}),
                   ...(request.open !== undefined ? { open: request.open } : {}),
+                  ...(request.worktree !== undefined
+                    ? { worktree: request.worktree }
+                    : {}),
                   ...(request.on !== undefined ? { on: request.on } : {}),
                   signal: controller.signal,
                 });

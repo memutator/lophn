@@ -468,6 +468,7 @@ export const workflowEntrySchema = z
           needs: z.array(stepNameSchema).optional(),
           join: stepJoinModeSchema.optional(),
           open: sessionOpenModeSchema.optional(),
+          worktree: worktreePolicySchema.optional(),
         }),
       )
       .nullable(),

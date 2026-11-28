@@ -87,6 +87,7 @@ function openedOf(row: SessionRow) {
     id: row.id,
     lifecycle: "open" as const,
     workspace: workspaceOf(row),
+    worktree_id: row.worktree_id as `wkt_${string}` | null,
     state_seq: row.state_seq,
   };
 }
@@ -131,6 +132,7 @@ export function createConversationCommands(deps: ConversationDeps): {
         if (existing !== undefined) {
           const same =
             existing.agent === input.agent &&
+            existing.worktree_id === (input.worktree_id ?? null) &&
             canonicalize(workspaceOf(existing)) ===
               canonicalize(input.workspace);
           if (!same) return reject("conflict", "session id already used");
@@ -143,6 +145,7 @@ export function createConversationCommands(deps: ConversationDeps): {
           id: input.id,
           agent: input.agent,
           workspace: input.workspace,
+          worktreeId: input.worktree_id ?? null,
           ...(input.title !== undefined
             ? {
                 inherit: {

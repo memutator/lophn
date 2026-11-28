@@ -28,6 +28,7 @@ export type CodingOpenDeps = {
     project: string,
     command: string,
     tab?: CodingOpenTab,
+    worktreeId?: string | null,
   ): Promise<Result<string>>;
   // ledger session. harness는 harness agent session이면 그 adapter id(`claude`), 아니면 null이다. 없으면 undefined.
   session(session: string):
@@ -195,6 +196,7 @@ export function createCodingOpen(deps: CodingOpenDeps) {
       harness: string;
       cli_session: string | null;
       workflow_origin?: WorkflowOrigin | null;
+      worktree_id?: string | null;
     }): Promise<Result<string>> {
       if (!isGuiHarness(input.harness)) {
         return err({ code: "invalid_input", message: "not a GUI harness" });
@@ -242,6 +244,7 @@ export function createCodingOpen(deps: CodingOpenDeps) {
           cli,
         ),
         tab,
+        input.worktree_id ?? null,
       );
     },
     // 같은 key는 한 번만 연다(보내는 중이거나 성공한 것의 답을 준다. 실패한 key는 잊어 다시 열 수 있다).

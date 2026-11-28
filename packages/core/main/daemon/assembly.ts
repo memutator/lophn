@@ -83,6 +83,10 @@ import {
   createCoreRegistration as createProjectCommandsRegistration,
   projectCommandsWiring,
 } from "./wiring/project-commands.ts";
+import {
+  createCoreRegistration as createWorktreesRegistration,
+  worktreesWiring,
+} from "./wiring/worktrees.ts";
 import { projectsWiring } from "./wiring/projects.ts";
 import {
   createCoreRegistration as createRemoteRegistration,
@@ -140,6 +144,7 @@ export const TEAMS = [
   { createCoreRegistration: createRemoteRegistration },
   { createCoreRegistration: createProjectCloneRegistration },
   { createCoreRegistration: createProjectCommandsRegistration },
+  { createCoreRegistration: createWorktreesRegistration },
 ];
 
 // writer·reader Worker가 다시 import할 등록 묶음.
@@ -246,4 +251,6 @@ export const WIRINGS: readonly WiringFactory[] = [
   remoteWiring,
   // project commands 표의 ledger step이 낸 step 목록의 맨 끝이다(schema-steps.lock.json). terminals·approvals·remote 뒤다.
   projectCommandsWiring,
+  // worktrees 표와 sessions.worktree_id step이 낸 step 목록의 맨 끝이다(schema-steps.lock.json). projectCommandsWiring 뒤다.
+  worktreesWiring,
 ];

@@ -5,6 +5,7 @@ import { appDelete } from "../../../../protocol/apps/mod.ts";
 import { appSdkReviewRecord } from "../../../../protocol/apps/sdk-status.ts";
 import { workspaceUpdateRecord } from "../../../../protocol/apps/updates.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
+import { parseActor } from "../../../../protocol/base/mod.ts";
 import { agentDelete } from "../../../../protocol/lophn-agent/agent-definitions.ts";
 import {
   workspaceSessionOpen,
@@ -351,13 +352,32 @@ export function createCallBodyPreparer(deps: {
 function withCallBody(
   writer: Writer,
   prepare: ReturnType<typeof createCallBodyPreparer>,
+  prepareTeamWorktree?: (
+    ctx: AuthenticatedContext,
+    envelope: CommandEnvelope,
+  ) => Promise<
+    Result<{ envelope: CommandEnvelope; createdWorktreeId?: Id<"wkt"> }>
+  >,
+  rollbackTeamWorktree?: (id: Id<"wkt">) => Promise<void>,
 ): Writer {
   return {
     ...writer,
     async command(ctx, envelope) {
       const ready = await prepare(ctx, envelope);
       if (!ready.ok) return ready;
-      return await writer.command(ctx, ready.value);
+      let next = ready.value;
+      let createdWorktreeId: Id<"wkt"> | undefined;
+      if (prepareTeamWorktree !== undefined) {
+        const prepared = await prepareTeamWorktree(ctx, next);
+        if (!prepared.ok) return prepared;
+        next = prepared.value.envelope;
+        createdWorktreeId = prepared.value.createdWorktreeId;
+      }
+      const result = await writer.command(ctx, next);
+      if (!result.ok && createdWorktreeId !== undefined) {
+        await rollbackTeamWorktree?.(createdWorktreeId);
+      }
+      return result;
     },
   };
 }
@@ -729,6 +749,84 @@ export const routerWiring: WiringFactory = () => {
               relay: () => ctx.bodyPrepare,
               known: () => ctx.knownSecrets,
             }),
+            async (authCtx, envelope) => {
+              if (envelope.command !== teamSpawn.name) {
+                return ok({ envelope });
+              }
+              const parsed = teamSpawn.input.safeParse(envelope.input);
+              if (!parsed.success || parsed.data.worktree !== "new") {
+                return ok({ envelope });
+              }
+              const wt = ctx.peek.worktrees;
+              if (wt === undefined) {
+                return err({
+                  code: "unavailable" as const,
+                  message: "worktrees are not wired",
+                });
+              }
+              // 대상 project를 푼다: workspace가 지정되면 그 주소의 project, 없으면 부모 session의 project.
+              const actor = parseActor(authCtx.actor);
+              const parentSessionId =
+                actor?.kind === "agent" ? actor.id : undefined;
+              const targetRes = ledgerSnapshot(ctx.ledgerPath, (lookup) => {
+                const deps = workspaceDepsOf(lookup.sql);
+                if (parsed.data.workspace !== undefined) {
+                  const resolved = deps.names.resolveAddress({
+                    agent: parsed.data.agent,
+                    workspace: parsed.data.workspace,
+                  });
+                  if (!resolved.ok) return resolved;
+                  if (resolved.value.workspace?.kind !== "project") {
+                    return err({
+                      code: "invalid_input" as const,
+                      message: "worktree requires a project workspace",
+                    });
+                  }
+                  return ok(resolved.value.workspace.id as Id<"prj">);
+                }
+                if (parentSessionId === undefined) {
+                  return err({
+                    code: "forbidden" as const,
+                    message: "only an agent session calls",
+                  });
+                }
+                const parentRow = loadSession(lookup, parentSessionId);
+                if (parentRow === undefined) {
+                  return err({
+                    code: "not_found" as const,
+                    message: "session not found",
+                  });
+                }
+                const ws = workspaceOf(parentRow);
+                if (ws?.kind !== "project") {
+                  return err({
+                    code: "invalid_input" as const,
+                    message: "worktree requires a project workspace",
+                  });
+                }
+                return ok(ws.id as Id<"prj">);
+              });
+              if (!targetRes.ok) return targetRes;
+              if (!targetRes.value.ok) return targetRes.value;
+              const created = await wt.create({ project: targetRes.value.value });
+              if (!created.ok) return created;
+              const worktreeId = created.value.record.id as Id<"wkt">;
+              return ok({
+                envelope: {
+                  ...envelope,
+                  input: {
+                    ...(envelope.input as Record<string, unknown>),
+                    worktree: worktreeId,
+                  },
+                },
+                createdWorktreeId: worktreeId,
+              });
+            },
+            async (worktreeId) => {
+              await ctx.peek.worktrees
+                ?.remove({ worktree: worktreeId, force: true })
+                .catch(() => undefined);
+            },
           ),
       });
     },

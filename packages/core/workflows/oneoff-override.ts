@@ -10,6 +10,7 @@ import {
   WORKFLOW_FLOW_FILE,
   type WorkflowInstance,
   type WorkflowRunOverride,
+  type WorktreePolicy,
 } from "../../protocol/workflows/mod.ts";
 
 export type InlineStepInput = {
@@ -24,6 +25,7 @@ export type InlineStepInput = {
   readonly needs?: string[];
   readonly join?: StepJoinMode;
   readonly open?: SessionOpenMode;
+  readonly worktree?: WorktreePolicy;
 };
 
 export function normalizeInlineSteps(
@@ -51,6 +53,7 @@ export function normalizeInlineSteps(
       ...(s.needs !== undefined ? { needs: s.needs } : {}),
       ...(s.join !== undefined ? { join: s.join } : {}),
       ...(s.open !== undefined ? { open: s.open } : {}),
+      ...(s.worktree !== undefined ? { worktree: s.worktree } : {}),
     });
   }
   return ok(out);
@@ -174,6 +177,7 @@ export function applyRunOverrides(input: {
               v !== undefined &&
               !(
                 (k === "open" ||
+                  k === "worktree" ||
                   k === "parallel" ||
                   k === "needs" ||
                   k === "join") &&
@@ -183,6 +187,7 @@ export function applyRunOverrides(input: {
         );
         const updated = { ...steps[idx]!, ...filtered };
         if (patch.open === null) delete updated.open;
+        if (patch.worktree === null) delete updated.worktree;
         if (patch.parallel === null) delete updated.parallel;
         if (patch.needs === null) delete updated.needs;
         if (patch.join === null) delete updated.join;
@@ -226,6 +231,9 @@ export function applyRunOverrides(input: {
             : {}),
           ...(entry.step.join !== undefined ? { join: entry.step.join } : {}),
           ...(entry.step.open !== undefined ? { open: entry.step.open } : {}),
+          ...(entry.step.worktree !== undefined
+            ? { worktree: entry.step.worktree }
+            : {}),
         });
         stepChanges.push(`+${entry.step.name} (by: ${entry.step.by})`);
       }
@@ -401,6 +409,7 @@ export function serializeInstanceToYaml(input: {
             : {}),
           ...(s.join !== undefined ? { join: s.join } : {}),
           ...(s.open !== undefined ? { open: s.open } : {}),
+          ...(s.worktree !== undefined ? { worktree: s.worktree } : {}),
         };
         steps[s.name] = stepObj;
       }

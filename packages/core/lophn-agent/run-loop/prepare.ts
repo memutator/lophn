@@ -218,6 +218,7 @@ type PreparerDeps = {
     call: CoreCall,
     resolved: ResolvedAgent,
     session: string,
+    worktreeId?: string | null,
   ): Promise<
     Result<{
       workspace: TurnPromptInput["workspace"];
@@ -226,6 +227,7 @@ type PreparerDeps = {
         write: string[];
         base?: string;
         results?: string;
+        env?: Record<string, string>;
       };
     }>
   >;
@@ -704,6 +706,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       write: [] as string[],
       base: undefined as string | undefined,
       results: undefined as string | undefined,
+      env: undefined as Readonly<Record<string, string>> | undefined,
       open(folder: string) {
         if (!scope.read.includes(folder)) scope.read.push(folder);
         if (!scope.write.includes(folder)) scope.write.push(folder);
@@ -790,6 +793,7 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
         agentCall,
         resolved,
         seat.session,
+        session.worktree_id ?? null,
       );
       if (!placed.ok) return placed;
       const editorNote = workflowEditorPromptNote(session.title);
@@ -804,6 +808,9 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
       scope.write.push(...placed.value.scope.write);
       scope.base = placed.value.scope.base;
       scope.results = placed.value.scope.results;
+      if (placed.value.scope.env !== undefined) {
+        scope.env = placed.value.scope.env;
+      }
       const compaction = compactionOf(read.value);
       const memory = await memoryOf(compaction);
       const notices = [

@@ -49,6 +49,8 @@ export type WorkspaceScope = {
   base?: string;
   // 이 session의 tool-results 폴더. 읽기에만 열리고 쓰기·base·cwd와는 무관하다. 폴더가 아직 없을 수 있다.
   results?: string;
+  // worktree에 묶인 session의 shell 도구에 주입할 환경변수(PROJECT_ROOT, WORKTREE_*).
+  env?: Readonly<Record<string, string>>;
   // Gate가 바깥 경로 한 번 호출을 run으로 허락했을 때 이 호출 한 번만 허용하는 대상.
   onceTarget?: { path: string; folder: string; mode: "read" | "write" };
   // 같은 turn의 남은 동안 이 폴더를 read와 write에 더한다. 이미 있으면 다시 넣지 않는다.

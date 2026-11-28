@@ -206,6 +206,15 @@ export type WorkflowAgents = {
   defaultOpen?(address: AgentAddress): Promise<SessionOpenMode | undefined>;
 };
 
+// workflow step의 `worktree: "new" | "inherit"` 해석 port.
+export type WorkflowWorktrees = {
+  create(input: {
+    project: Id<"prj">;
+    branchSeed?: string;
+  }): Promise<Result<{ id: Id<"wkt"> }>>;
+  sessionWorktree(session: Id<"ses">): Id<"wkt"> | null;
+};
+
 // workflow participant 권한 단계 해석 port. 기억된 단계(approvals.workflow_modes), agent 정의 기본 단계,
 // 전역 기본 단계(approvals.default_mode), harness runtime 판별을 조립(wiring/workflows.ts)이 꽂는다.
 export type WorkflowPermissionModes = {

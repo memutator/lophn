@@ -557,6 +557,7 @@ export const harnessWiring: WiringFactory = () => {
             cli_session: row.harness_session,
             team: row.spawned_by !== null,
             workflow_origin,
+            worktree_id: row.worktree_id,
           };
         },
         background(session) {
@@ -592,6 +593,13 @@ export const harnessWiring: WiringFactory = () => {
           }
           const path = ledgerSnapshot(ctx.ledgerPath, (lookup) => {
             if (row.workspace_kind === "project") {
+              if (row.worktree_id !== null) {
+                const wt = lookup.sql.get(
+                  "select path from project_worktrees where id = ? and project_id = ? and status = 'ready'",
+                  [row.worktree_id, row.workspace_id!],
+                );
+                return wt === undefined ? null : String(wt["path"]);
+              }
               return (
                 projectFolderPaths(lookup.sql, row.workspace_id!)[0] ?? null
               );
@@ -603,6 +611,31 @@ export const harnessWiring: WiringFactory = () => {
             );
           });
           return path.ok ? path.value : null;
+        },
+        async env(session) {
+          const found = harnessSession(session);
+          if (!found.ok) return {};
+          const row = found.value.row;
+          if (row.workspace_kind !== "project" || row.worktree_id === null) {
+            return {};
+          }
+          const wt = ledgerSnapshot(ctx.ledgerPath, (lookup) =>
+            lookup.sql.get(
+              "select id, repo_root, path, branch from project_worktrees where id = ? and project_id = ? and status = 'ready'",
+              [row.worktree_id!, row.workspace_id!],
+            ),
+          );
+          if (!wt.ok || wt.value === undefined) return {};
+          const branch =
+            wt.value["branch"] === null || wt.value["branch"] === undefined
+              ? null
+              : String(wt.value["branch"]);
+          return {
+            PROJECT_ROOT: String(wt.value["repo_root"]),
+            WORKTREE_PATH: String(wt.value["path"]),
+            WORKTREE_ID: String(wt.value["id"]),
+            ...(branch === null ? {} : { WORKTREE_BRANCH: branch }),
+          };
         },
         async definition(session) {
           const found = harnessSession(session);

@@ -1,5 +1,5 @@
 import { err, ok, type Result } from "../../base/mod.ts";
-import { idSchema } from "../../protocol/base/ids.ts";
+import { type Id, idSchema } from "../../protocol/base/ids.ts";
 import { contentBlocksSchema } from "../../protocol/lophn-agent/content-block.ts";
 import { defineCommand, parseActor } from "../../protocol/base/mod.ts";
 import { z } from "zod";
@@ -424,6 +424,12 @@ const teamSpawnCommand: CommandDefinition<typeof teamSpawn> = {
     if (!parent.ok) return parent;
     const unattended = unattendedOf(tx, ctx);
     if (!unattended.ok) return unattended;
+    if (input.worktree === "new") {
+      return err({
+        code: "unavailable",
+        message: "worktree creation must be prepared before spawning",
+      });
+    }
     const router = routerFor(tx);
     if (!router.ok) return router;
     const routed = router.value.route(tx, {
@@ -443,6 +449,9 @@ const teamSpawnCommand: CommandDefinition<typeof teamSpawn> = {
       delivery: "next_turn",
       unattended: unattended.value,
       spawn: true,
+      ...(input.worktree !== undefined && input.worktree !== "inherit"
+        ? { worktreeId: input.worktree as Id<"wkt"> }
+        : {}),
     });
     if (!routed.ok) return routed;
     const { call, session, fail_reason } = routed.value;

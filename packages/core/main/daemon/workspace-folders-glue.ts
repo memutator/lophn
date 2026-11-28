@@ -33,8 +33,8 @@ function scopeOf(
 ): FolderScope | undefined {
   const found = lookup.sql.get(
     includeRead
-      ? "select workspace_kind, workspace_id, called_from_kind from sessions where id = ?"
-      : "select workspace_kind, workspace_id from sessions where id = ?",
+      ? "select workspace_kind, workspace_id, called_from_kind, worktree_id from sessions where id = ?"
+      : "select workspace_kind, workspace_id, worktree_id from sessions where id = ?",
     [session],
   );
   if (found === undefined) return undefined;
@@ -47,12 +47,39 @@ function scopeOf(
     includeRead &&
     found["called_from_kind"] !== null &&
     found["called_from_kind"] !== undefined;
+  const worktreeId =
+    found["worktree_id"] !== null && found["worktree_id"] !== undefined
+      ? String(found["worktree_id"])
+      : null;
+  let worktree: WorkspaceFacts["worktree"] = null;
+  if (workspace?.kind === "project" && worktreeId !== null) {
+    try {
+      const wt = sql.get(
+        "select id, repo_root, path, branch from project_worktrees where id = ? and project_id = ? and status = 'ready'",
+        [worktreeId, workspace.id],
+      );
+      if (wt !== undefined) {
+        worktree = {
+          id: String(wt["id"]),
+          repoRoot: String(wt["repo_root"]),
+          path: String(wt["path"]),
+          branch:
+            wt["branch"] === null || wt["branch"] === undefined
+              ? null
+              : String(wt["branch"]),
+        };
+      }
+    } catch {
+      // 테스트 DB에 project_worktrees 표가 없으면 무시한다.
+    }
+  }
   const facts: WorkspaceFacts = {
     workspace,
     projectFolders:
       workspace?.kind === "project"
         ? projectFolderPaths(sql, workspace.id)
         : [],
+    worktree,
     appSource:
       workspace?.kind === "app" ? appSourcePath(sql, workspace.id) : null,
     appFolders:

@@ -197,6 +197,18 @@ export function createSessionDirectory(
         effectiveOpen === "tab" &&
         agent.workspace?.kind === "project" &&
         isHarnessRuntime(agentInfo?.runtime);
+      // team spawn에서 명시적 worktreeId가 없으면 같은 project일 때 부모 session의 worktree를 물려받는다.
+      const inheritedWorktreeId =
+        options?.worktreeId !== undefined
+          ? options.worktreeId
+          : spawnedBy !== null &&
+              parent !== undefined &&
+              parent.worktree_id !== null &&
+              agent.workspace?.kind === "project" &&
+              parent.workspace_kind === "project" &&
+              parent.workspace_id === agent.workspace.id
+            ? (parent.worktree_id as Id<"wkt">)
+            : undefined;
       const started = startSession(tx, deps, {
         id: member?.id ?? tx.newId("ses"),
         agent: agent.agent,
@@ -222,6 +234,9 @@ export function createSessionDirectory(
         ...(options?.workflowOrigin === undefined
           ? {}
           : { workflowOrigin: options.workflowOrigin }),
+        ...(inheritedWorktreeId === undefined
+          ? {}
+          : { worktreeId: inheritedWorktreeId }),
       });
       return started.ok ? ok(targetOf(started.value)) : started;
     },

@@ -33,6 +33,7 @@ import {
   workflowOutcomeErrorSchema,
   workflowRefsSchema,
   workflowTitleSchema,
+  worktreePolicySchema,
 } from "./values.ts";
 
 // 받는 곳. CallAddressInput에 대입된다(맨 `{session}` 꼴은 plan이 만들지 않는다).
@@ -55,6 +56,8 @@ export const handoffPlanSchema = z
     session: sessionChoiceSchema.nullable(),
     open: sessionOpenModeSchema.optional(),
     permission_mode: permissionModeSchema.optional(),
+    worktree: worktreePolicySchema.optional(),
+    worktree_id: idSchema("wkt").optional(),
     // 이 컴퓨터의 받는 곳(to)이거나, 다른 컴퓨터의 받는 곳(remote: 명단의 그 컴퓨터와 기계를 건너는 주소)이다.
     delivery: z
       .union([

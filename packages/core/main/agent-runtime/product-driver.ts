@@ -250,9 +250,9 @@ export function productDriver(
       events: calls.events,
       compact: (input) => compactor.compactInTurn(input),
       workspacePrompt,
-      workspaceData: async (call, agent, session) =>
+      workspaceData: async (call, agent, session, worktreeId) =>
         withToolResults(
-          await workspaceData(call, agent, workspaceFiles()),
+          await workspaceData(call, agent, workspaceFiles(), worktreeId),
           session,
         ),
       workspaceTools: workspaceToolNames,

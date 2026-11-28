@@ -97,6 +97,7 @@ export type HarnessMembers = {
     cli_session: string | null;
     team: boolean;
     workflow_origin?: WorkflowOrigin | null;
+    worktree_id?: string | null;
   } | null;
   /** 열린 background harness session(`harness_gui = 0`)의 정보. 탭 팀원이거나 닫혔으면 null. */
   background?(session: string): BackgroundSessionInfo | null;
@@ -104,6 +105,8 @@ export type HarnessMembers = {
   waiting?(): readonly string[];
   /** background session이 쓸 cwd. Home은 session 전용 폴더를 만들고, 폴더 없는 project·app은 null. */
   cwd?(session: string): Promise<string | null>;
+  /** background session에 주입할 worktree 환경변수(PROJECT_ROOT, WORKTREE_*). */
+  env?(session: string): Promise<Readonly<Record<string, string>>>;
   /** background session의 agent 정의에서 launch 설정과 deny 규칙을 읽는다. */
   definition?(
     session: string,
@@ -252,6 +255,7 @@ export function createGuiMembers(deps: {
     harness: GuiHarness;
     cli_session: string | null;
     workflow_origin?: WorkflowOrigin | null;
+    worktree_id?: string | null;
   }): Promise<Result<string>>;
   /** core가 연 터미널을 닫는다. */
   closeTerminal(terminalRef: string): void;
@@ -329,6 +333,7 @@ export function createGuiMembers(deps: {
       ...(info.workflow_origin == null
         ? {}
         : { workflow_origin: info.workflow_origin }),
+      ...(info.worktree_id == null ? {} : { worktree_id: info.worktree_id }),
     });
     opening.delete(session);
     if (!opened.ok) {

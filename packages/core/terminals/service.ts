@@ -117,6 +117,18 @@ export function createTerminals(deps: {
   personEnv: PersonEnv;
   // project의 등록 폴더(`folder_ref`는 `<project>_<index>`). Home은 사람의 home 폴더 하나다. 없는 project는 not_found다.
   folders(project: string): Promise<Result<readonly Folder[]>>;
+  // project의 관리 루트 안 ready worktree 목록(`folderOfCwd`가 worktree 경로를 project의 것으로 인정할 때 쓴다).
+  managedWorktrees?(project: string): readonly Folder[];
+  // worktree_id가 주어졌을 때 ready 레코드인지 검사하고 경로·원본 저장소·브랜치를 돌려준다. removing·removed·missing이면 conflict.
+  worktree?(
+    project: string,
+    worktreeId: string,
+  ): Result<{
+    id: string;
+    repo_root: string;
+    path: string;
+    branch: string | null;
+  }>;
   platform: NodeJS.Platform;
   // 사람이 Settings › Coding agents에 저장한 실행 명령어(flag 포함). resume 시 기본 명령어 대신 쓴다.
   codingCommand?(harness: string): string | undefined;
@@ -134,6 +146,7 @@ export function createTerminals(deps: {
       agent?: TerminalAgent;
       tab_name?: string;
       agent_control?: { held: boolean };
+      worktree_id?: string | null;
     }
   >();
   // 같은 scrollback을 PTY host가 생략했을 때 이어 붙일 마지막 scrollback 사본.
@@ -157,6 +170,7 @@ export function createTerminals(deps: {
       agent: _agent,
       tab_name: _name,
       agent_control: _control,
+      worktree_id: _worktree,
       ...bare
     } = runtime;
     return {
@@ -166,6 +180,9 @@ export function createTerminals(deps: {
       ...(extra?.agent_control === undefined
         ? {}
         : { agent_control: extra.agent_control }),
+      ...(extra?.worktree_id === undefined
+        ? {}
+        : { worktree_id: extra.worktree_id }),
     };
   }
 
@@ -257,8 +274,51 @@ export function createTerminals(deps: {
     async open(input) {
       const folders = await deps.folders(input.project);
       if (!folders.ok) return folders;
+
+      let worktreeInfo: {
+        id: string;
+        repo_root: string;
+        path: string;
+        branch: string | null;
+      } | null = null;
+      let effectiveFolders: readonly Folder[] = folders.value;
+      let effectiveCwd = input.cwd;
+
+      if (input.worktree_id !== undefined) {
+        if (input.project === HOME_TERMINAL_PROJECT) {
+          return err({
+            code: "invalid_input",
+            message: "worktree_id is only supported for project workspaces",
+          });
+        }
+        if (deps.worktree === undefined) {
+          return err({
+            code: "unavailable",
+            message: "worktrees are not wired on this core",
+          });
+        }
+        const resolved = deps.worktree(input.project, input.worktree_id);
+        if (!resolved.ok) return resolved;
+        worktreeInfo = resolved.value;
+        effectiveFolders = [
+          { folder_ref: `wt_${worktreeInfo.id}`, path: worktreeInfo.path },
+        ];
+        effectiveCwd = input.cwd ?? worktreeInfo.path;
+      } else if (
+        input.cwd !== undefined &&
+        input.project !== HOME_TERMINAL_PROJECT &&
+        deps.managedWorktrees !== undefined
+      ) {
+        const extraWt = deps.managedWorktrees(input.project);
+        if (extraWt.length > 0) {
+          effectiveFolders = [...folders.value, ...extraWt];
+        }
+      }
+
       const start =
-        input.cwd === undefined ? null : folderOfCwd(folders.value, input.cwd);
+        effectiveCwd === undefined
+          ? null
+          : folderOfCwd(effectiveFolders, effectiveCwd);
       if (start !== null && !start.ok) {
         return failed("unreadable", "cwd is not inside a registered folder");
       }
@@ -273,6 +333,17 @@ export function createTerminals(deps: {
         input.dedicated === true || (!isAgent && input.exec !== undefined);
       const hooked =
         isDedicated || isAgent ? [] : [...envHooks].map((hook) => hook(input));
+      const worktreeEnv: Record<string, string> =
+        worktreeInfo === null
+          ? {}
+          : {
+              PROJECT_ROOT: worktreeInfo.repo_root,
+              WORKTREE_PATH: worktreeInfo.path,
+              WORKTREE_ID: worktreeInfo.id,
+              ...(worktreeInfo.branch === null
+                ? {}
+                : { WORKTREE_BRANCH: worktreeInfo.branch }),
+            };
       const env: Record<string, string> = {
         // 사람 token의 `lophn tab open --url`이 이 project에 탭을 놓게 한다. Home은 env가 없을 때의 기본이라 넣지 않는다.
         ...(input.project === HOME_TERMINAL_PROJECT
@@ -281,6 +352,7 @@ export function createTerminals(deps: {
         // 개발 실행은 PATH에 `lophn`이 없다. 설치본은 이미 있어 더하지 않는다.
         ...(path === undefined ? {} : { [path.name]: path.value }),
         ...Object.assign({}, ...hooked.map((one) => one.env)),
+        ...worktreeEnv,
         ...(input.env ?? {}),
       };
       const done = settled(
@@ -289,7 +361,7 @@ export function createTerminals(deps: {
           project: input.project,
           folder_ref: start?.folder_ref ?? input.folder_ref,
           ...(start === null ? {} : { cwd: start.path }),
-          folders: folders.value,
+          folders: effectiveFolders,
           columns: input.columns ?? 80,
           rows: input.rows ?? 24,
           env,
@@ -301,6 +373,12 @@ export function createTerminals(deps: {
           ...(isAgent ? { agent: true as const } : {}),
         }),
       );
+      if (done.ok && worktreeInfo !== null) {
+        extras.set(done.value.terminal_ref, {
+          ...extras.get(done.value.terminal_ref),
+          worktree_id: worktreeInfo.id,
+        });
+      }
       const runtime = done.ok ? decorate(done.value) : null;
       for (const one of hooked) one.opened(runtime);
       if (runtime === null) return done;

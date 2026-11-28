@@ -462,5 +462,9 @@
   {
     "id": "workflows.instances-parallel-editor",
     "sha256": "8796294d5c49594cbe86708c4a98741ceffd83c17542f1062279baafc3fc1f08"
+  },
+  {
+    "id": "projects.worktrees",
+    "sha256": "99359f99d6cb764936b7254289a80e28eff55388a1718c63d417662c0c1e8d9a"
   }
 ]

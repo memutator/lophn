@@ -66,6 +66,8 @@ export type RouteInput = {
   skipAllowed?: boolean;
   // workflow participant 등 새 session을 열 때 쓸 권한 단계.
   permissionMode?: PermissionMode;
+  // 새 project session이 묶일 git worktree id(없으면 team spawn inherit 규칙 또는 원본 폴더).
+  worktreeId?: Id<"wkt"> | null;
 };
 
 export type RouteResult = {

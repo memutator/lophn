@@ -1,5 +1,6 @@
 // project command 실행 runtime. core 메모리에 명령당 현재/마지막 실행(`ProjectCommandRun`)과
 // 로그 버퍼를 두고, 전용 PTY 수명주기·URL 감지·timeout·직렬 restart·shutdown을 관리한다.
+import { realpathSync } from "node:fs";
 import { createConnection } from "node:net";
 import { resolve } from "node:path";
 import {
@@ -25,12 +26,23 @@ export type ProjectFolder = {
   path: string;
 };
 
+export type ProjectCommandWorktree = {
+  id: Id<"wkt">;
+  repo_root: string;
+  path: string;
+  branch: string | null;
+};
+
 export type ProjectCommandRuntimeDeps = {
   terminals: Pick<
     Terminals,
     "open" | "close" | "patch" | "onRuntime" | "onOutput"
   >;
   folders(project: string): Promise<Result<readonly ProjectFolder[]>>;
+  resolveWorktree?(
+    project: string,
+    worktreeId: string,
+  ): Result<ProjectCommandWorktree>;
   clock: Clock;
   ids: IdSource;
   onRunChanged(project: Id<"prj">, run: ProjectCommandRun): void;
@@ -291,6 +303,8 @@ export function createProjectCommandRuntime(deps: ProjectCommandRuntimeDeps) {
   async function startUnlocked(
     project: Id<"prj">,
     command: ProjectCommand,
+    worktreeId?: Id<"wkt">,
+    timeoutOverrideMs?: number,
   ): Promise<Result<ActiveState>> {
     const key = keyOf(project, command.id);
     const existing = entries.get(key);
@@ -319,9 +333,47 @@ export function createProjectCommandRuntime(deps: ProjectCommandRuntimeDeps) {
         message: "folder_ref is not registered in this project",
       });
     }
+
+    let worktree: ProjectCommandWorktree | null = null;
+    let effectiveBase = base;
+    if (worktreeId !== undefined) {
+      if (deps.resolveWorktree === undefined) {
+        return err({
+          code: "unavailable",
+          message: "worktrees are not wired on this core",
+        });
+      }
+      const resolvedWt = deps.resolveWorktree(project, worktreeId);
+      if (!resolvedWt.ok) return resolvedWt;
+      worktree = resolvedWt.value;
+      // 기준 폴더가 worktree가 난 원래 폴더이면 cwd를 worktree 안의 같은 상대 경로로 옮긴다.
+      const realBase = (() => {
+        try {
+          return realpathSync(base.path);
+        } catch {
+          return resolve(base.path);
+        }
+      })();
+      const realRepo = (() => {
+        try {
+          return realpathSync(worktree.repo_root);
+        } catch {
+          return resolve(worktree.repo_root);
+        }
+      })();
+      if (realBase === realRepo) {
+        effectiveBase = {
+          folder_ref: `wt_${worktree.id}`,
+          path: worktree.path,
+        };
+      }
+    }
+
     const candidateCwd =
-      command.cwd === undefined ? base.path : resolve(base.path, command.cwd);
-    const checked = folderOfCwd([base], candidateCwd);
+      command.cwd === undefined
+        ? effectiveBase.path
+        : resolve(effectiveBase.path, command.cwd);
+    const checked = folderOfCwd([effectiveBase], candidateCwd);
     if (!checked.ok) {
       return err({
         code: "invalid_input",
@@ -343,6 +395,7 @@ export function createProjectCommandRuntime(deps: ProjectCommandRuntimeDeps) {
       signal: null,
       detected_urls: [],
       ended_by: null,
+      ...(worktree === null ? {} : { worktree_id: worktree.id }),
     };
     const state: ActiveState = {
       project,
@@ -359,12 +412,21 @@ export function createProjectCommandRuntime(deps: ProjectCommandRuntimeDeps) {
     entries.set(key, state);
     emit(state);
 
-    // 환경변수 조립 순서(spec 3.3.2): PersonEnv(terminals.open) → COLORTERM·FORCE_COLOR → PROJECT_*·COMMAND_* → 정의 env.
+    // 환경변수 조립 순서(spec 3.3.2): PersonEnv(terminals.open) → COLORTERM·FORCE_COLOR → PROJECT_*·WORKTREE_*·COMMAND_* → 정의 env.
     const env: Record<string, string> = {
       COLORTERM: "truecolor",
       FORCE_COLOR: "1",
-      PROJECT_ROOT: base.path,
+      PROJECT_ROOT: worktree !== null ? worktree.repo_root : base.path,
       PROJECT_CWD: checked.path,
+      ...(worktree === null
+        ? {}
+        : {
+            WORKTREE_PATH: worktree.path,
+            WORKTREE_ID: worktree.id,
+            ...(worktree.branch === null
+              ? {}
+              : { WORKTREE_BRANCH: worktree.branch }),
+          }),
       COMMAND_ID: command.id,
       COMMAND_NAME: command.name,
       ...(command.env ?? {}),
@@ -372,7 +434,8 @@ export function createProjectCommandRuntime(deps: ProjectCommandRuntimeDeps) {
 
     const opened = await deps.terminals.open({
       project,
-      folder_ref: base.folder_ref,
+      folder_ref: effectiveBase.folder_ref,
+      ...(worktree === null ? {} : { worktree_id: worktree.id }),
       cwd: checked.path,
       exec: command.command,
       env,
@@ -414,8 +477,11 @@ export function createProjectCommandRuntime(deps: ProjectCommandRuntimeDeps) {
     };
     emit(state);
 
-    if (command.kind === "action" && command.timeout_ms !== undefined) {
-      state.cancelTimeout = after(command.timeout_ms, () => {
+    const effectiveTimeout =
+      timeoutOverrideMs ??
+      (command.kind === "action" ? command.timeout_ms : undefined);
+    if (effectiveTimeout !== undefined) {
+      state.cancelTimeout = after(effectiveTimeout, () => {
         if (!isLive(state.run.status)) return;
         void stopUnlocked(state, "timeout");
       });
@@ -482,14 +548,22 @@ export function createProjectCommandRuntime(deps: ProjectCommandRuntimeDeps) {
     async start(
       project: Id<"prj">,
       command: ProjectCommand,
-      options?: { wait?: boolean; redactLogs?: boolean },
+      options?: {
+        wait?: boolean;
+        redactLogs?: boolean;
+        worktreeId?: Id<"wkt">;
+        timeoutMs?: number;
+      },
     ): Promise<Result<{ run: ProjectCommandRun; tail?: string }>> {
       const started = await serialize(project, command.id, () =>
-        startUnlocked(project, command),
+        startUnlocked(project, command, options?.worktreeId, options?.timeoutMs),
       );
       if (!started.ok) return started;
       const state = started.value;
-      if (options?.wait === true && command.kind === "action") {
+      if (
+        options?.wait === true &&
+        (command.kind === "action" || options.timeoutMs !== undefined)
+      ) {
         const settled = await waitForEnd(state);
         const { lines } = state.logs.read();
         const safe = maskEnvValues(
@@ -572,7 +646,7 @@ export function createProjectCommandRuntime(deps: ProjectCommandRuntimeDeps) {
       commandId: string,
       loadLatest: () => Result<ProjectCommand>,
       by: "user" | "agent",
-      options?: { wait?: boolean; redactLogs?: boolean },
+      options?: { wait?: boolean; redactLogs?: boolean; worktreeId?: Id<"wkt"> },
     ): Promise<Result<{ run: ProjectCommandRun; tail?: string }>> {
       const started = await serialize(project, commandId, async () => {
         const existing = entries.get(keyOf(project, commandId));
@@ -581,7 +655,7 @@ export function createProjectCommandRuntime(deps: ProjectCommandRuntimeDeps) {
         }
         const latest = loadLatest();
         if (!latest.ok) return latest;
-        return await startUnlocked(project, latest.value);
+        return await startUnlocked(project, latest.value, options?.worktreeId);
       });
       if (!started.ok) return started;
       const state = started.value;

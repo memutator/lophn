@@ -79,6 +79,7 @@ export type AgentHandOffInput = {
   human: boolean;
   open?: SessionOpenMode;
   permissionMode?: PermissionMode;
+  worktreeId?: Id<"wkt">;
 };
 
 export type AgentHandOffResult =
@@ -170,6 +171,8 @@ export type AgentPrimitiveRequest = {
   open?: SessionOpenMode;
   // participant에 고정된 권한 단계(lophn/custom participant만).
   permissionMode?: PermissionMode;
+  // 새 session에 묶일 worktree id(있으면 지정된 worktree에서 실행).
+  worktreeId?: Id<"wkt">;
   // mode: "report"에서 stall이 났을 때 stalled Outcome으로 바로 끝낼지(true), report/cancel을 계속 기다릴지(false, 기본).
   stalledResolves?: boolean;
   signal?: AbortSignal;
@@ -719,6 +722,7 @@ export function runAgentPrimitive(
       ...(req.permissionMode !== undefined
         ? { permissionMode: req.permissionMode }
         : {}),
+      ...(req.worktreeId !== undefined ? { worktreeId: req.worktreeId } : {}),
     };
 
     void Promise.resolve()

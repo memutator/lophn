@@ -125,6 +125,7 @@ export function createSessionLifecycle(deps: LifecycleDeps) {
       folders: where.folders,
       terminal: null,
       workflow: workflowOfRow(row.workflow_origin),
+      worktree_id: row.worktree_id as SessionInfo["worktree_id"],
     };
   }
 

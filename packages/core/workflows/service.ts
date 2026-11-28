@@ -41,6 +41,7 @@ import {
   type WorkflowExportFile,
   type WorkflowSoftOutput,
   type WorkflowTitleRequest,
+  type WorktreePolicy,
   type workflowCheckpointUpsert,
   type workflowDelete,
   type workflowEdit,
@@ -108,6 +109,7 @@ import type {
   WorkflowSnapshots,
   WorkflowStore,
   WorkflowTurns,
+  WorkflowWorktrees,
 } from "./ports.ts";
 import { deriveWorkflowStatus } from "./reads.ts";
 import { remoteTurnEndedText } from "./remote.ts";
@@ -397,6 +399,7 @@ export type RunAgentCallRequest = {
   schema?: Record<string, JsonValue>;
   session?: SessionChoice | Id<"ses">;
   open?: SessionOpenMode;
+  worktree?: WorktreePolicy;
   on?: string;
   signal?: AbortSignal;
 };
@@ -426,6 +429,7 @@ export function createWorkflowService(
     snapshots?: WorkflowSnapshots;
     flowChecker?: WorkflowFlowChecker;
     lifecycle?: WorkflowLifecycle;
+    worktrees?: WorkflowWorktrees;
     agentPorts?: AgentPrimitivePorts;
     onTitleNeeded?: (request: WorkflowTitleRequest) => void;
     clock?: Clock;
@@ -444,6 +448,7 @@ export function createWorkflowService(
     snapshots,
     flowChecker,
     lifecycle,
+    worktrees,
     rememberedModesOf,
     agentDefaultModeOf,
     globalDefaultMode,
@@ -569,6 +574,115 @@ export function createWorkflowService(
     });
   };
 
+  async function resolveWorktreeTargetProject(
+    workspace: AgentAddress["workspace"],
+    defaultProject: Id<"prj">,
+  ): Promise<Result<Id<"prj">>> {
+    if (workspace === undefined) return ok(defaultProject);
+    if ("project" in workspace) {
+      if (workspace.project.startsWith("prj_")) {
+        return ok(workspace.project as Id<"prj">);
+      }
+      const resolved = await projects.resolve(workspace.project);
+      if (!resolved.ok) return resolved;
+      return ok(resolved.value.id);
+    }
+    return fail("invalid_input", "worktree requires a project workspace");
+  }
+
+  function previousStepSessionOf(
+    lines: State["lines"],
+    fromSession?: Id<"ses"> | null,
+  ): Id<"ses"> | null {
+    if (fromSession !== undefined && fromSession !== null) return fromSession;
+    const lastHanded = lines.findLast(
+      (l) => l.kind === "handed" && l.receiver !== null,
+    );
+    return lastHanded?.kind === "handed" && lastHanded.receiver !== null
+      ? (lastHanded.receiver as Id<"ses">)
+      : null;
+  }
+
+  // `worktree: "new" | "inherit"`를 concrete `worktree_id`로 푼다. 실패하면 `not_handed(worktree_failed)`로 바꿔 step을 blocked로 둔다.
+  async function materializePlanWorktree(
+    plan: HandoffPlan,
+    ctx: {
+      project: Id<"prj">;
+      workflow: string;
+      title: string | null;
+      lines: State["lines"];
+      fromSession?: Id<"ses"> | null;
+    },
+    createdByStep: Map<string, Id<"wkt">>,
+  ): Promise<HandoffPlan> {
+    if (
+      plan.unresolved !== null ||
+      plan.delivery === null ||
+      "remote" in plan.delivery ||
+      plan.worktree_id !== undefined ||
+      plan.worktree === undefined
+    ) {
+      return plan;
+    }
+    if ("session" in plan.delivery.to) {
+      return plan;
+    }
+    if (plan.worktree === "inherit") {
+      const sourceSession = previousStepSessionOf(ctx.lines, ctx.fromSession);
+      const inherited =
+        sourceSession !== null && worktrees !== undefined
+          ? worktrees.sessionWorktree(sourceSession)
+          : null;
+      return inherited !== null ? { ...plan, worktree_id: inherited } : plan;
+    }
+    // worktree === "new"
+    const cached = createdByStep.get(plan.step);
+    if (cached !== undefined) {
+      return { ...plan, worktree_id: cached };
+    }
+    const targetProject = await resolveWorktreeTargetProject(
+      plan.delivery.to.workspace,
+      ctx.project,
+    );
+    if (!targetProject.ok) {
+      return {
+        ...plan,
+        delivery: null,
+        unresolved: {
+          reason: "worktree_failed",
+          message: targetProject.error.message,
+        },
+      };
+    }
+    if (worktrees === undefined) {
+      return {
+        ...plan,
+        delivery: null,
+        unresolved: {
+          reason: "worktree_failed",
+          message: "worktrees are not configured",
+        },
+      };
+    }
+    const seed = ctx.title?.trim() || ctx.workflow;
+    const created = await worktrees.create({
+      project: targetProject.value,
+      branchSeed: seed,
+    });
+    if (!created.ok) {
+      return {
+        ...plan,
+        delivery: null,
+        unresolved: {
+          reason: "worktree_failed",
+          message: created.error.message,
+        },
+      };
+    }
+    createdByStep.set(plan.step, created.value.id);
+    return { ...plan, worktree_id: created.value.id };
+  }
+
   // 상태를 읽어 command 입력을 만들고 state_seq로 건다. conflict면 다시 읽어 state_seq가 바뀌었을 때만
   // 최대 8번 건다(Promise.all 병렬 agent() handoff 경합 허용). 안 바뀌었으면 진짜 conflict다.
   async function apply(
@@ -577,6 +691,7 @@ export function createWorkflowService(
   ): Promise<Result<Output<typeof workflowInstanceApply>>> {
     let seen: string | null = null;
     let last: Result<never> | null = null;
+    const createdWorktrees = new Map<string, Id<"wkt">>();
     for (let attempt = 0; ; attempt++) {
       const read = await store.read(instance as Id<"wfi">);
       if (!read.ok) return read;
@@ -584,7 +699,40 @@ export function createWorkflowService(
       if (seen === state.instance.state_seq) return last!;
       const input = make(state);
       if (!input.ok) return input;
-      const done = await store.apply(input.value, {
+      const fromSession =
+        input.value.change.kind === "report" &&
+        input.value.by.kind === "agent"
+          ? (input.value.by.session as Id<"ses">)
+          : null;
+      const wtCtx = {
+        project: state.instance.project as Id<"prj">,
+        workflow: state.instance.workflow,
+        title: state.instance.title ?? null,
+        lines: state.lines,
+        fromSession,
+      };
+      let materializedInput = input.value;
+      if (materializedInput.handoffs !== undefined && materializedInput.handoffs.length > 0) {
+        const nextHandoffs: HandoffPlan[] = [];
+        for (const h of materializedInput.handoffs) {
+          nextHandoffs.push(
+            await materializePlanWorktree(h, wtCtx, createdWorktrees),
+          );
+        }
+        materializedInput = {
+          ...materializedInput,
+          handoff: nextHandoffs[0] ?? null,
+          handoffs: nextHandoffs,
+        };
+      } else if (materializedInput.handoff !== null) {
+        const nextHandoff = await materializePlanWorktree(
+          materializedInput.handoff,
+          wtCtx,
+          createdWorktrees,
+        );
+        materializedInput = { ...materializedInput, handoff: nextHandoff };
+      }
+      const done = await store.apply(materializedInput, {
         state_seq: state.instance.state_seq,
       });
       if (done.ok) {
@@ -1060,6 +1208,25 @@ export function createWorkflowService(
     const id = ids.newId("wfi") as Id<"wfi">;
     const initialTitle =
       explicitTitle ?? autoWorkflowTitle(input.text, validatedInputs);
+    const startHandoff = await materializePlanWorktree(
+      planHandoff({
+        instance: { id, project: project.value.id, participants, steps },
+        step,
+        cause: "start",
+        session: null,
+        received: input.text,
+        ...(validatedInputs !== undefined ? { inputs: validatedInputs } : {}),
+        sameSession: () => null,
+        remote,
+      }),
+      {
+        project: project.value.id,
+        workflow: name,
+        title: initialTitle,
+        lines: [],
+      },
+      new Map(),
+    );
     const created = await store.create({
       id,
       project: project.value.id,
@@ -1074,16 +1241,7 @@ export function createWorkflowService(
       participants,
       steps,
       started_by: by,
-      handoff: planHandoff({
-        instance: { id, project: project.value.id, participants, steps },
-        step,
-        cause: "start",
-        session: null,
-        received: input.text,
-        ...(validatedInputs !== undefined ? { inputs: validatedInputs } : {}),
-        sameSession: () => null,
-        remote,
-      }),
+      handoff: startHandoff,
     });
     if (created.ok && explicitTitle === null) {
       onTitleNeeded?.({
@@ -1337,14 +1495,108 @@ export function createWorkflowService(
       },
     };
 
-    const declaredStepOpen = state.instance.steps.find(
-      (s) => s.name === req.step,
-    )?.open;
+    const declaredStep = state.instance.steps.find((s) => s.name === req.step);
+    const declaredStepOpen = declaredStep?.open;
     const effectiveOpen: SessionOpenMode | undefined =
       state.instance.open_mode ??
       declaredStepOpen ??
       req.open ??
       participantOpen;
+    const participantWorktree =
+      req.participant !== undefined
+        ? (() => {
+            const p = state.instance.participants[req.participant];
+            return p !== undefined && !("kind" in p) ? p.worktree : undefined;
+          })()
+        : undefined;
+    const effectiveWorktreePolicy: WorktreePolicy | undefined =
+      req.worktree ?? declaredStep?.worktree ?? participantWorktree;
+    let resolvedWorktreeId: Id<"wkt"> | undefined;
+    if (
+      targetOn === undefined &&
+      sameSession === null &&
+      (req.session === undefined || req.session === "new") &&
+      effectiveWorktreePolicy !== undefined
+    ) {
+      if (effectiveWorktreePolicy === "inherit") {
+        const prevSession = previousStepSessionOf(state.lines);
+        const inherited =
+          prevSession !== null && worktrees !== undefined
+            ? worktrees.sessionWorktree(prevSession)
+            : null;
+        if (inherited !== null) resolvedWorktreeId = inherited;
+      } else if (effectiveWorktreePolicy === "new") {
+        const targetProject = await resolveWorktreeTargetProject(
+          targetAgent.workspace,
+          state.instance.project as Id<"prj">,
+        );
+        if (!targetProject.ok) {
+          const failedOut: WorkflowOutcome<WorkflowSoftOutput> = {
+            ok: false,
+            reason: targetProject.error.code,
+            message: targetProject.error.message,
+          };
+          await upsertCheckpoint({
+            instance: req.instance,
+            key: req.key,
+            kind: "agent",
+            state: "failed",
+            handle_ref: null,
+            error: {
+              reason: failedOut.reason,
+              message: failedOut.message,
+            },
+          });
+          release();
+          return failedOut;
+        }
+        if (worktrees === undefined) {
+          const failedOut: WorkflowOutcome<WorkflowSoftOutput> = {
+            ok: false,
+            reason: "unavailable",
+            message: "worktrees are not configured",
+          };
+          await upsertCheckpoint({
+            instance: req.instance,
+            key: req.key,
+            kind: "agent",
+            state: "failed",
+            handle_ref: null,
+            error: {
+              reason: failedOut.reason,
+              message: failedOut.message,
+            },
+          });
+          release();
+          return failedOut;
+        }
+        const createdWt = await worktrees.create({
+          project: targetProject.value,
+          branchSeed: state.instance.title?.trim() || state.instance.workflow,
+        });
+        if (!createdWt.ok) {
+          const failedOut: WorkflowOutcome<WorkflowSoftOutput> = {
+            ok: false,
+            reason: createdWt.error.code,
+            message: createdWt.error.message,
+          };
+          await upsertCheckpoint({
+            instance: req.instance,
+            key: req.key,
+            kind: "agent",
+            state: "failed",
+            handle_ref: null,
+            error: {
+              reason: failedOut.reason,
+              message: failedOut.message,
+            },
+          });
+          release();
+          return failedOut;
+        }
+        resolvedWorktreeId = createdWt.value.id;
+      }
+    }
     const participantMode =
       state.instance.participant_modes?.[req.participant ?? targetAgent.agent];
 
@@ -1359,6 +1611,9 @@ export function createWorkflowService(
         ...(effectiveOpen !== undefined ? { open: effectiveOpen } : {}),
         ...(participantMode !== undefined
           ? { permissionMode: participantMode }
+          : {}),
+        ...(resolvedWorktreeId !== undefined
+          ? { worktreeId: resolvedWorktreeId }
           : {}),
         sameSession,
         origin: {
@@ -2683,23 +2938,8 @@ export function createWorkflowService(
         const id = ids.newId("wfi") as Id<"wfi">;
         const initialTitle =
           explicitTitle ?? autoWorkflowTitle(input.text, validatedInputs);
-        const created = await store.create({
-          id,
-          project: project.value.id,
-          workflow: workflowName,
-          ...(initialTitle !== null ? { title: initialTitle } : {}),
-          input: input.text,
-          ...(validatedInputs !== undefined ? { inputs: validatedInputs } : {}),
-          ...(input.open !== undefined ? { open_mode: input.open } : {}),
-          ...(participantModes !== undefined
-            ? { participant_modes: participantModes }
-            : {}),
-          one_off: true,
-          ...(by.kind === "agent" ? { editor_session: by.session } : {}),
-          participants,
-          steps: effectiveSteps,
-          started_by: by,
-          handoff: planHandoff({
+        const oneOffHandoff = await materializePlanWorktree(
+          planHandoff({
             instance: {
               id,
               project: project.value.id,
@@ -2716,6 +2956,31 @@ export function createWorkflowService(
             sameSession: () => null,
             remote,
           }),
+          {
+            project: project.value.id,
+            workflow: workflowName,
+            title: initialTitle,
+            lines: [],
+          },
+          new Map(),
+        );
+        const created = await store.create({
+          id,
+          project: project.value.id,
+          workflow: workflowName,
+          ...(initialTitle !== null ? { title: initialTitle } : {}),
+          input: input.text,
+          ...(validatedInputs !== undefined ? { inputs: validatedInputs } : {}),
+          ...(input.open !== undefined ? { open_mode: input.open } : {}),
+          ...(participantModes !== undefined
+            ? { participant_modes: participantModes }
+            : {}),
+          one_off: true,
+          ...(by.kind === "agent" ? { editor_session: by.session } : {}),
+          participants,
+          steps: effectiveSteps,
+          started_by: by,
+          handoff: oneOffHandoff,
         });
         if (created.ok && explicitTitle === null) {
           onTitleNeeded?.({
@@ -3071,6 +3336,25 @@ export function createWorkflowService(
       const id = ids.newId("wfi") as Id<"wfi">;
       const initialTitle =
         explicitTitle ?? autoWorkflowTitle(input.text, validatedInputs);
+      const overrideHandoff = await materializePlanWorktree(
+        planHandoff({
+          instance: { id, project: project.value.id, participants, steps },
+          step,
+          cause: "start",
+          session: null,
+          received: input.text,
+          ...(validatedInputs !== undefined ? { inputs: validatedInputs } : {}),
+          sameSession: () => null,
+          remote,
+        }),
+        {
+          project: project.value.id,
+          workflow: name,
+          title: initialTitle,
+          lines: [],
+        },
+        new Map(),
+      );
       const created = await store.create({
         id,
         project: project.value.id,
@@ -3087,16 +3371,7 @@ export function createWorkflowService(
         participants,
         steps,
         started_by: by,
-        handoff: planHandoff({
-          instance: { id, project: project.value.id, participants, steps },
-          step,
-          cause: "start",
-          session: null,
-          received: input.text,
-          ...(validatedInputs !== undefined ? { inputs: validatedInputs } : {}),
-          sameSession: () => null,
-          remote,
-        }),
+        handoff: overrideHandoff,
       });
       if (created.ok && explicitTitle === null) {
         onTitleNeeded?.({
@@ -4014,6 +4289,7 @@ export function createWorkflowService(
     async retry(input: z.output<typeof workflowRetry.input>) {
       let seen: string | null = null;
       let last: Result<never> | null = null;
+      const retryWorktrees = new Map<string, Id<"wkt">>();
       for (let attempt = 0; ; attempt++) {
         const read = await store.read(input.instance as Id<"wfi">);
         if (!read.ok) return read;
@@ -4031,11 +4307,8 @@ export function createWorkflowService(
             lastReport !== undefined && lastReport.next === step
               ? lastReport.session
               : null;
-          applyInput = {
-            instance: state.instance.id,
-            change: { kind: "retried", step, session: null },
-            by: { kind: "user" },
-            handoff: planHandoff({
+          const retryHandoff = await materializePlanWorktree(
+            planHandoff({
               instance: state.instance,
               step,
               cause: "retry",
@@ -4048,6 +4321,19 @@ export function createWorkflowService(
               sameSession: sameSessionIn(state),
               remote,
             }),
+            {
+              project: state.instance.project as Id<"prj">,
+              workflow: state.instance.workflow,
+              title: state.instance.title ?? null,
+              lines: state.lines,
+            },
+            retryWorktrees,
+          );
+          applyInput = {
+            instance: state.instance.id,
+            change: { kind: "retried", step, session: null },
+            by: { kind: "user" },
+            handoff: retryHandoff,
           };
         } else {
           const { step, session, blockedByLine } = target.value;

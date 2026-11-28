@@ -57,6 +57,7 @@ export function normalizeNewStep(
     ...(step.needs !== undefined ? { needs: [...step.needs] } : {}),
     ...(step.join !== undefined ? { join: step.join } : {}),
     ...(step.open !== undefined ? { open: step.open } : {}),
+    ...(step.worktree !== undefined ? { worktree: step.worktree } : {}),
   };
 }
 

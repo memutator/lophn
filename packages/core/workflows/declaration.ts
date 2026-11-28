@@ -153,6 +153,7 @@ export function participantsOf(
             ...(p.workspace !== undefined && { workspace: p.workspace }),
             ...(p.on !== undefined && { on: p.on }),
             ...(p.open !== undefined && { open: p.open }),
+            ...(p.worktree !== undefined && { worktree: p.worktree }),
           };
   }
   return out;
@@ -173,6 +174,7 @@ export function stepsOf(declaration: WorkflowDeclaration): InstanceStep[] {
       ...(s.needs !== undefined ? { needs: s.needs } : {}),
       ...(s.join !== undefined ? { join: s.join } : {}),
       ...(s.open !== undefined ? { open: s.open } : {}),
+      ...(s.worktree !== undefined ? { worktree: s.worktree } : {}),
     };
   });
 }
@@ -280,6 +282,11 @@ export function entryOf(
       const participantOpen =
         target !== undefined && !("kind" in target) ? target.open : undefined;
       const open = s.open ?? participantOpen ?? (human ? "tab" : undefined);
+      const participantWorktree =
+        target !== undefined && !("kind" in target)
+          ? target.worktree
+          : undefined;
+      const worktree = s.worktree ?? participantWorktree;
       return {
         name: s.name,
         by: s.by,
@@ -289,6 +296,7 @@ export function entryOf(
         ...(s.needs !== undefined ? { needs: s.needs } : {}),
         ...(s.join !== undefined ? { join: s.join } : {}),
         ...(open !== undefined ? { open } : {}),
+        ...(worktree !== undefined ? { worktree } : {}),
       };
     }),
   };

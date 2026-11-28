@@ -64,6 +64,8 @@ import type { BodyPrepare } from "../../../lophn-agent/session/message-body.ts";
 import type { RewindFilesDeps } from "../../../lophn-agent/session/rewind/files.ts";
 import type { createQuestionWaits } from "../../../lophn-agent/tools/questions/mod.ts";
 import type { MachineIdentity } from "../../../machine/mod.ts";
+import type { ProjectCommandRuntime } from "../../../projects/commands/mod.ts";
+import type { WorktreeService } from "../../../projects/worktrees/mod.ts";
 import type { MailInbox } from "../../../remote/mail-entry.ts";
 import type { PhoneLink } from "../../../remote/mod.ts";
 import type { RunService } from "../../../runs/mod.ts";
@@ -416,6 +418,8 @@ type Late = {
   // mail이 낸다. 다른 컴퓨터에서 온 mail 하나를 적용하는 입구다. link의 `a2a/mail`과 폴더 길이 같이 쓴다. origin이 명단의 컴퓨터가
   // 아니면 forbidden이고, 그 컴퓨터의 터미널 입력 허락이 받은 session의 skip을 정한다.
   mailInbox: MailInbox;
+  projectCommandRuntime: ProjectCommandRuntime;
+  worktrees: WorktreeService;
 };
 
 const LATE_KEYS: Record<keyof Late, true> = {
@@ -517,6 +521,8 @@ const LATE_KEYS: Record<keyof Late, true> = {
   projectMatching: true,
   machineRecords: true,
   mailInbox: true,
+  projectCommandRuntime: true,
+  worktrees: true,
 };
 
 export type WiringContext = {

@@ -77,6 +77,7 @@ function ruleCategoryForCall(call: GateCall): PermissionRuleCategory | null {
     case "project_command":
     case "project_command_definition":
     case "workflow_run":
+    case "worktree_remove":
       return null;
   }
 }
@@ -743,6 +744,31 @@ export function evaluatePermission(
         outside_rewind: true,
         allowed_choices: ["once", "reject"],
         personOnly: true,
+      },
+      request,
+      context,
+    );
+  }
+
+  // ---------- worktree_remove ----------
+  if (call.kind === "worktree_remove") {
+    if (mode === "read_only") {
+      return modeDeny(
+        request,
+        "Removing git worktrees is blocked in read-only mode.",
+        "worktree_remove",
+      );
+    }
+    const target = call.branch
+      ? `worktree "${call.branch}" (${call.path})`
+      : `worktree (${call.path})`;
+    return finalizeContext(
+      {
+        kind: "ask",
+        reason: `Removing ${target} requires approval.`,
+        outside_rewind: true,
+        allowed_choices: ["once", "reject"],
+        categoryOverride: "worktree_remove",
       },
       request,
       context,

@@ -7,6 +7,7 @@ import {
   type ToolGateResult,
   toolGateCheck,
 } from "../../../../protocol/approvals/mod.ts";
+import type { Id } from "../../../../protocol/base/ids.ts";
 import type { BusEvent } from "../../../../protocol/events/bus.ts";
 import { workspaceSessionRead } from "../../../../protocol/lophn-agent/agent-sessions.ts";
 import type { AgentId } from "../../../../protocol/lophn-agent/workspaces.ts";
@@ -157,6 +158,23 @@ export const projectCommandsWiring: WiringFactory = () => {
       runtime = createProjectCommandRuntime({
         terminals: ctx.terminals,
         folders,
+        resolveWorktree: (project, worktreeId) => {
+          const wt = ctx.peek.worktrees;
+          if (wt === undefined) {
+            return err({
+              code: "unavailable",
+              message: "worktrees not wired",
+            });
+          }
+          const resolved = wt.resolveReady(project, worktreeId);
+          if (!resolved.ok) return resolved;
+          return ok({
+            id: resolved.value.id as Id<"wkt">,
+            repo_root: resolved.value.repo_root,
+            path: resolved.value.path,
+            branch: resolved.value.branch,
+          });
+        },
         clock: ctx.clock,
         ids,
         onRunChanged(project, run) {
@@ -181,6 +199,7 @@ export const projectCommandsWiring: WiringFactory = () => {
           fallbackRedactor(logRedactionSource, "text/plain", text) ??
           text,
       });
+      ctx.provide("projectCommandRuntime", runtime);
 
       const handlers = createProjectCommandHandlers({
         load,

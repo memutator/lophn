@@ -307,7 +307,12 @@ export function createRouter(deps: RouterDeps): Router {
     spawn: boolean,
     input: Pick<
       RouteInput,
-      "skipAllowed" | "permissionMode" | "member" | "open" | "workflowOrigin"
+      | "skipAllowed"
+      | "permissionMode"
+      | "member"
+      | "open"
+      | "workflowOrigin"
+      | "worktreeId"
     >,
   ): Result<Resolved> {
     const opened = directory.open(
@@ -325,6 +330,9 @@ export function createRouter(deps: RouterDeps): Router {
         ...(input.workflowOrigin == null
           ? {}
           : { workflowOrigin: input.workflowOrigin }),
+        ...(input.worktreeId === undefined
+          ? {}
+          : { worktreeId: input.worktreeId }),
       },
     );
     if (opened.ok) {

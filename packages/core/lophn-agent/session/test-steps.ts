@@ -29,4 +29,15 @@ alter table sessions add column permission_mode text not null default 'workspace
   check (permission_mode in ('read_only', 'ask', 'workspace', 'full'));
 update sessions set permission_mode = 'full' where skip = 1;`,
   },
+  {
+    // projects.worktrees step 없이 conversationTestSteps만 돌리는 test에서도 sessions.worktree_id 열이 있게 한다.
+    id: "lophn-agent.sessions.worktree-id.test-sessions",
+    sql: `
+alter table sessions add column worktree_id text;
+create trigger sessions_worktree_id_immutable
+before update of worktree_id on sessions
+begin
+  select raise(abort, 'session worktree_id is immutable');
+end;`,
+  },
 ];

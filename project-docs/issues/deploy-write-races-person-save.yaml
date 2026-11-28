@@ -1,0 +1,17 @@
+id: deploy-write-races-person-save
+title: agent의 skill 배포가 같은 순간 사람이 저장한 workspace 설정이나 agent 정의를 덮을 수 있다
+kind: bug
+status: open
+topic: agent-definition
+modules: [packages/core/main, packages/core/lophn-agent]
+now: |
+  `packages/core/main/daemon/wiring/skill-deploy.ts`의 배포·거두기 handler는 workspace `extensions.json`과 `agents/<id>.md`를 읽고 고쳐 다시 쓴다.
+  사람의 저장 길(`workspace-extension-settings`의 `change`)은 hash를 대조하지만 그 대조가 writer command 안에 있어 배포 handler는 쓰지 않고,
+  agent 정의의 store `write`에는 대조가 없다.
+impact: |
+  agent가 배포하는 사이 사람이 같은 workspace의 MCP·skill 설정이나 같은 agent 정의를 저장하면 둘 중 먼저 쓴 쪽이 사라진다. 사람은 저장한 설정이
+  돌아간 것을, 또는 배포가 없어진 것을 나중에야 안다.
+fix: |
+  - 배포 handler가 읽은 hash를 들고 쓰고, 어긋나면 한 번 다시 읽어 쓴다(작음). `extensions.json`은 writer의 대조를 꺼내 쓰고 agent 정의 store에는
+    대조를 더한다. 추천.
+  - 그대로 둔다(없음). 겹치는 순간이 짧다.

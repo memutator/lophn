@@ -731,7 +731,7 @@ export function Explorer({
 
   /**
    * 줄을 한 번 눌렀을 때. toggle이면 그 줄을 선택에 더하거나 빼고, range면 anchor부터 이 줄까지 고른다.
-   * 그 밖에는 이 줄 하나만 고르고, 폴더면 접고 편다. 파일은 더블 클릭이나 Enter/Space로 연다.
+   * 그 밖에는 이 줄 하나만 고르고, 폴더면 접고 펴며 파일이면 preview 탭으로 연다.
    */
   const selectRow = (
     row: FileRow,
@@ -754,6 +754,7 @@ export function Explorer({
     setSelection(only(row.id));
     // 고른 줄 하나만 남으므로 접히는 폴더 안의 줄은 이미 선택에 없다.
     if (row.folder) tree.toggle(row.id);
+    else onOpenFile(row.id, false);
   };
 
   /** 줄을 열 때(파일 더블 클릭, Enter/Space). 이 줄 하나만 고르고 폴더면 접고 펴며, 파일이면 탭으로 연다. */

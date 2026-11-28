@@ -44,7 +44,7 @@ interface RowProps {
   tabStop: boolean;
   /** 끌기 허용 여부. 읽기 전용 원격 workspace에서는 끈다. */
   draggable?: boolean;
-  /** 한 번 클릭: 줄을 고르고(modifier에 따라 toggle·range) 폴더면 접고 편다. */
+  /** 한 번 클릭: 줄을 고르고(modifier에 따라 toggle·range) 폴더면 접고 펴며 파일이면 preview 탭으로 연다. */
   onSelect: (
     row: FileRow,
     modifiers: { readonly toggle: boolean; readonly range: boolean },

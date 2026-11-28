@@ -1,0 +1,22 @@
+id: reader-recovery
+version: 0.23.190
+title: ledger reader를 한도 없이 다시 띄우고 격리 이유를 남기며, 끝내지 못한 turn을 다시 닫아 본다
+modules:
+  - packages/core/storage
+  - packages/core/lophn-agent
+platform_note: none
+change: |
+  - **reader pool(`reader-pool.ts`)**: 격리된 reader를 core 기동마다 6회까지만 다시 띄우던 한도(`respawn_exhausted`)를 없앴다. backoff를 250ms부터 60초까지 늘리고, 그 뒤로는 60초마다 계속 다시 띄운다. 다시 띄운 reader가 read를 한 번 제때 답하면 간격을 처음으로 되돌린다. 기동이 실패하면 `reader_respawn_failed` warn을 남긴다. option `respawnLimit`·`onExhausted`는 지웠다.
+  - **격리 log**: 격리할 때마다 `reader-pool` `reader_isolated` warn 한 줄에 cause를 남긴다. cause는 `read_timeout`(read key와 걸린 ms), `worker_error`(오류 이름과 code만), `known_ack_timeout`, `post_failed` 가운데 하나다.
+  - **turn 닫기(`prepare.ts` `closeStarted`)**: turn 읽기, 결과 저장, FinishTurn이 `unavailable`·`internal`·`conflict`로 실패하면 기록 없이 그만두던 것을, 1초부터 60초까지 늘려 약 15분 동안 다시 해 보도록 바꿨다. 닫히면 그 turn을 부른 call은 지금처럼 `abandoned`로 보낸 쪽에 실패로 돌아간다.
+why: |
+  VPS(vmi)의 디스크가 가끔 멈춰 read가 2초를 넘기면서 reader 격리가 몇 시간에 걸쳐 6번 쌓였다. 그 뒤로는 core를 재시작할 때까지 모든 read가 `unavailable`이었다. 화면에는 "Couldn't load"만 떴고 Try again도 듣지 않았다. 그때 돌던 turn은 끝내는 기록을 못 해 Working으로 영원히 남았고, 그 turn을 다른 컴퓨터에서 부른 call도 답을 영원히 기다렸다. 격리 이유가 log에 없어 원인도 추정밖에 못 했다.
+decisions:
+  - text: "reader 다시 띄우기에 한도를 두지 않고 60초 간격을 상한으로 둔다. 버린 길: 한도를 늘리기(지나가는 stall이 오래 쌓이면 같은 영구 장애가 된다), 한도 뒤 core 재시작(돌던 turn과 연결을 다 끊는다). 기동마다 죽는 reader는 60초에 한 번 TS를 읽는 비용만 든다."
+    by: agent
+  - text: "worker 오류는 이름과 code만 log에 남긴다. message에 SQL 값이 섞일 수 있어서다."
+    by: agent
+  - text: "closeStarted는 무한히 다시 하지 않고 약 15분 뒤 멈춘다. reader가 60초 안팎으로 돌아오므로 충분하고, 그 뒤는 core 재시작의 복구가 running turn을 닫는다."
+    by: agent
+  - text: "\"core 재시작이 필요하다\" 같은 화면 안내는 더하지 않는다. read가 저절로 돌아오므로 지금의 Try again이 맞는 안내가 된다."
+    by: agent

@@ -14,7 +14,7 @@ flows:
       - "prepare가 session 열림, agent 정의, 설정 한도, 지침 층, workspace 정보, model 해석(resolveModel), 쓸 tool 목록(extension 포함)을 읽고 resolved agent를 turn 기준에 고정한다. 바로 앞 turn이 restarted로 끝났고 그 turn에 uncertain tool call이 있으면 어느 호출이 돌았는지 모른다는 [machine] 알림을 대화 끝에 붙인다(읽지 못하면 알리지 않는다). 읽기나 쓰기가 실패하면 Err로 돌아가 입력은 queue에 남는다"
       - "정의 오류, model 없음, harness runtime, 지침 층 차단이면 StartTurn과 FinishTurn(failed)을 보내 그 turn만 닫는다. 입력은 소비된다"
       - "ready면 StartTurn을 보낸다. 거절되면 입력은 queue에 남는다. 확정되면 agent credential을 받고, 못 받으면 closeStarted(credential)로 failed(configuration_unavailable)로 닫는다"
-      - "StartTurn 뒤 queue에서 입력을 꺼낸다. 이미 없으면(사람이 지움) input_gone으로 닫는다. 있으면 session을 도는 중으로 두고 turn-loop에 넘긴다. loop가 finish_failed로 끝나면 driver가 closeStarted(finish_failed)로 failed(internal)로 닫는다"
+      - "StartTurn 뒤 queue에서 입력을 꺼낸다. 이미 없으면(사람이 지움) input_gone으로 닫는다. 있으면 session을 도는 중으로 두고 turn-loop에 넘긴다. loop가 finish_failed로 끝나면 driver가 closeStarted(finish_failed)로 failed(internal)로 닫는다. closeStarted는 turn 읽기, 결과 저장, FinishTurn이 unavailable·internal·conflict로 실패하면 1초부터 60초까지 늘려 약 15분 동안 다시 해 보고(그 사이 session은 도는 중이다), 그래도 못 닫으면 core 재시작의 복구가 닫는다"
       - "pump 예외는 log:diagnostics에 남기고 다음 주기에 다시 본다"
     outcomes:
       - id: started
@@ -48,7 +48,6 @@ flows:
     unclear:
       - "waiting은 로그도 응답도 없어 observe가 비었다. prepare Err를 log:diagnostics에 남길지 정한다(지금은 driver가 unavailable로만 돌려준다)"
       - "prepare가 Err를 돌려주면 driver는 unavailable로만 보고 입력을 queue에 둔다. session 닫기(archive·delete)는 endSession의 clearQueue로 queue를 비우므로 닫힌 session의 입력은 남지 않을 것으로 보인다. 확인이 필요하다"
-      - "closeStarted(why)는 readOf, storeValue, FinishTurn의 실패를 기록 없이 삼킨다. 그 경우 turn 행이 running으로 남을 수 있다(finish_failed 뒤의 닫기도 같다). 확인이 필요하다"
       - "closed-* outcome은 StartTurn 뒤 FinishTurn 두 번이라 TurnStarted와 TurnEnded가 모두 난다. 화면과 테스트가 이것을 전제하는지 확인이 필요하다"
 
   - id: workspace-info
@@ -142,7 +141,7 @@ flows:
         when: "loop가 예외를 던졌다(driver가 loop_threw로 닫는다), 호출 본문 만들기·blob 저장 같은 lophn 안의 오류(internal, conflict)로 model을 부르지 못했다, FinishTurn이 실패해 driver가 finish_failed로 닫았다"
       - id: finish-failed
         observe: [ledger:turns, log:diagnostics]
-        when: "끝낼 이유는 정했지만 FinishTurn을 확정하지 못했다(결과 저장 실패, FinishTurn 거절, turn 읽기 실패). LoopEnd finish_failed로 driver에 가고, driver가 그 turn을 internal로 닫는다(failed-internal). 닫지 못하면 행이 running으로 남는다"
+        when: "끝낼 이유는 정했지만 FinishTurn을 확정하지 못했다(결과 저장 실패, FinishTurn 거절, turn 읽기 실패). LoopEnd finish_failed로 driver에 가고, driver가 그 turn을 internal로 닫는다(failed-internal). 닫는 기록도 실패하면(reader 격리 등) 약 15분 동안 다시 해 보고, 그래도 못 닫으면 core 재시작까지 행이 running으로 남는다"
     crosses_process: true
     risk: []
     refs: []

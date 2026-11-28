@@ -109,6 +109,18 @@ import type { TurnStart } from "./work.ts";
 const EDIT_WORKFLOW_TITLE =
   /^Edit workflow:\s+([a-z0-9_-]+)\s+\((wfi_[0-9a-z]+)\)/;
 const CUSTOMIZE_WORKFLOW_TITLE = /^Customize workflow:\s+([a-z0-9_-]+)/;
+// closeStarted가 닫기를 다시 해 보는 간격(약 15분). 끝내는 기록이 실패한 원인(격리된 reader, 바쁜 디스크)은
+// 대개 지나가고, 닫지 못한 turn은 running으로 남아 session이 새 입력을 받지 못하며 이 turn을 부른 call도
+// 답을 영영 기다린다. 이 안에 닫지 못하면 core 재시작의 복구가 닫는다.
+const CLOSE_RETRY_MS: readonly number[] = [
+  0,
+  1000,
+  2000,
+  5000,
+  10000,
+  30000,
+  ...Array<number>(14).fill(60000),
+];
 
 function workflowEditorPromptNote(title: string | null): string | null {
   if (title === null) return null;
@@ -1159,6 +1171,50 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
     );
     if (!basis.ok) return basis;
 
+    // 한 번 닫아 본다. 닫았거나 이미 끝났거나 다시 해도 소용없는 거절이면 settled, 지나갈 수 있는 실패면 retry다.
+    async function closeOnce(
+      why: Parameters<PreparedTurn["closeStarted"]>[0],
+    ): Promise<"settled" | "retry"> {
+      const current = await readOf(machine, turnRead, { turn });
+      if (!current.ok) {
+        return current.error.code === "not_found" ? "settled" : "retry";
+      }
+      if (current.value.turn.state !== "running") return "settled";
+      const result = await storeValue(
+        deps.blobs,
+        deps.instructions.redact,
+        TURN_BLOB_PURPOSES.turn_result,
+        { turn, why },
+      );
+      if (!result.ok) return "retry";
+      const finished = await commandOf(
+        machine,
+        finishTurn,
+        {
+          turn,
+          outcome: {
+            kind: "failed",
+            reason:
+              why === "loop_threw" || why === "finish_failed"
+                ? "internal"
+                : "configuration_unavailable",
+          },
+          result: result.value.hash,
+          result_size: result.value.size,
+        },
+        { state_seq: current.value.turn.state_seq },
+        `${turn}:finish:${why}`,
+      );
+      if (finished.ok) return "settled";
+      const code = finished.error.code;
+      // conflict는 그 사이 state_seq가 바뀐 것이다. 다시 읽어 아직 running인지 본다.
+      return code === "unavailable" ||
+        code === "internal" ||
+        code === "conflict"
+        ? "retry"
+        : "settled";
+    }
+
     const begin: BeginTurnInput = {
       turn,
       session: start.session,
@@ -1211,33 +1267,11 @@ export function createTurnPreparer(deps: PreparerDeps): TurnPreparer {
             : started;
         },
         async closeStarted(why) {
-          const current = await readOf(machine, turnRead, { turn });
-          if (!current.ok || current.value.turn.state !== "running") return;
-          const result = await storeValue(
-            deps.blobs,
-            deps.instructions.redact,
-            TURN_BLOB_PURPOSES.turn_result,
-            { turn, why },
-          );
-          if (!result.ok) return;
-          await commandOf(
-            machine,
-            finishTurn,
-            {
-              turn,
-              outcome: {
-                kind: "failed",
-                reason:
-                  why === "loop_threw" || why === "finish_failed"
-                    ? "internal"
-                    : "configuration_unavailable",
-              },
-              result: result.value.hash,
-              result_size: result.value.size,
-            },
-            { state_seq: current.value.turn.state_seq },
-            `${turn}:finish:${why}`,
-          );
+          const never = new AbortController().signal;
+          for (const delay of CLOSE_RETRY_MS) {
+            if (delay > 0) await abortableWait(delay, never);
+            if ((await closeOnce(why)) === "settled") return;
+          }
         },
         loop(credential, inputs) {
           const built = loopFor(

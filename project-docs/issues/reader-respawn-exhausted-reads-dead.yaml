@@ -1,0 +1,20 @@
+id: reader-respawn-exhausted-reads-dead
+title: 디스크가 잠깐씩 멈추는 기계에서 reader 격리가 6번 쌓이면 core 재시작 전까지 모든 read가 unavailable이고 돌던 turn이 Working으로 남는다
+kind: bug
+status: fixed
+topic: platform
+modules: [packages/core/storage, packages/core/lophn-agent]
+now: |
+  vmi(VPS, protocol 6, 0.23.188)에서 일어났다. core는 04:09 UTC에 떴고 05:34에 turn 2개가 "reader가 현재 요청을 처리할 수 없다"로 끝나지 못했다. 07:08:51에 `reader-pool` `respawn_exhausted`(limit 6)가 났고, 그 뒤로 모든 read가 `unavailable`이었다. 증상은 셋이다.
+  - MainHome에서 부른 call의 turn은 첫 tool `session.list`부터 실패했다. 끝내는 기록도 못 해 `running`으로 남았다. `closeStarted`가 turn 읽기 실패를 그냥 넘겼기 때문이다.
+  - 보낸 쪽의 call은 `accepted/running`으로 계속 기다렸다.
+  - 화면에는 "Couldn't load this conversation / your projects / your apps"가 떴고 Try again도 듣지 않았다.
+  그 기계의 `/proc/pressure/io` full avg10은 약 15%였고, dmesg에 `blk_mq_timeout_work hogged CPU`가 며칠째 찍혀 있었다. 11-27에도 같은 `respawn_exhausted`가 났다. 격리 이유는 log에 남지 않았다. 그래서 read가 2초(`READ_TIMEOUT_MS`)를 넘겨서라는 것은 추정이다.
+impact: |
+  사람이 보는 동작: 싼 VPS나 바쁜 노트북에서 몇 시간 쓰면 lophn이 대화·목록을 전혀 읽지 못하고, 돌던 agent는 Working에서 멈춘다. 다른 컴퓨터에서 맡긴 일도 답이 오지 않는다. core를 재시작해야 낫는다.
+fix: |
+  - reader 다시 띄우기의 한도를 없애고 60초 간격을 상한으로 둔다. 격리마다 cause를 log에 남긴다.
+  - `closeStarted`가 지나갈 수 있는 실패(unavailable, internal, conflict)면 약 15분 동안 다시 해 본다.
+closed: |
+  `reader-pool.ts`가 격리된 reader를 한도 없이 다시 띄운다. backoff는 250ms부터 60초까지이고, 다시 띄운 reader가 read를 제때 답하면 처음으로 되돌린다. 격리마다 `reader_isolated`(cause)를, 기동 실패마다 `reader_respawn_failed`를 warn으로 남긴다. `prepare.ts` `closeStarted`는 닫지 못하면 1초부터 60초까지 늘려 약 15분 동안 다시 해 본다. change-log `reader-recovery`.
+guard: 없음. Worker를 띄우는 test는 사람에게 묻고 만든다(AGENTS.md).

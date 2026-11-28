@@ -35,6 +35,8 @@ type Slot = {
   pending?: Pending;
   timer?: ReturnType<typeof setTimeout>;
   startedAt?: number;
+  // 다시 띄운 뒤 아직 read를 제때 답한 적이 없다. 답하면 backoff를 처음으로 되돌린다.
+  revived?: boolean;
 };
 
 // reader 기동은 모든 등록 module을 TS 그대로 읽어 들이므로 느린 machine에서 몇 초씩 걸리고, 두 reader와
@@ -47,23 +49,34 @@ const WAITING_MAX = 64;
 // 뒤에 처리되므로 그보다 길다. 확인하지 못한 reader는 오래된 값을 쥔 채 서빙하지 않게 격리한다.
 const KNOWN_ACK_MS = 5000;
 
-// 격리된 reader slot을 다시 띄우는 한도와 간격(core 시작마다). 한도를 넘으면 더 띄우지 않고
-// 그 slot은 격리된 채 남는다(둘 다 그러면 read는 unavailable이다).
-const READER_RESPAWN_LIMIT = 6;
+// 격리된 reader slot을 다시 띄우는 간격. 마지막 값으로 계속 다시 띄우고 멈추지 않는다: 디스크가
+// 잠깐씩 멈추는 기계(VPS)에서는 격리가 몇 시간에 걸쳐 쌓이는데, 한도를 두면 지나가는 stall이 core를
+// 재시작할 때까지 모든 read를 막는 장애가 됐다. 다시 띄운 reader가 read를 한 번 제때 답하면 처음 간격으로
+// 돌아간다(기동마다 죽는 reader는 60초에 한 번만 띄운다).
 const RESPAWN_BACKOFF_MS: readonly number[] = [
-  250, 500, 1000, 2000, 4000, 8000,
+  250, 500, 1000, 2000, 4000, 8000, 15000, 30000, 60000,
 ];
+
+type IsolationCause =
+  | { cause: "read_timeout"; read: string; elapsed_ms: number }
+  | { cause: "worker_error"; error: string }
+  | { cause: "known_ack_timeout" }
+  | { cause: "post_failed" };
 
 type ReaderPoolOptions = {
   logger: Logger;
-  respawnLimit?: number;
   backoffMs?: readonly number[];
   // 다시 띄운 reader가 healthy가 된 뒤 부른다. 새 reader는 알려진 secret 값을 모르는 채(ready 아님)
   // 시작하므로 소유자가 현재 값을 다시 넣는다(secret store sync). 그동안 그 reader는 fail-closed다.
   onRespawn?: () => Promise<unknown> | void;
-  // 한도를 넘겨 더 다시 띄우지 않게 됐을 때 한 번 부른다. 기본은 logger.error 한 줄이다.
-  onExhausted?: (limit: number) => void;
 };
+
+// worker 오류의 message에는 SQL 값이 섞일 수 있어 이름과 code만 남긴다.
+function errorKind(error: unknown): string {
+  if (!(error instanceof Error)) return typeof error;
+  const code = (error as { code?: unknown }).code;
+  return typeof code === "string" ? `${error.name}:${code}` : error.name;
+}
 
 const unavailable = () =>
   err({
@@ -76,13 +89,13 @@ export async function createReaderPool(
   registrationModules: readonly URL[],
   options: ReaderPoolOptions,
 ): Promise<Result<ReaderPool>> {
-  const respawnLimit = options.respawnLimit ?? READER_RESPAWN_LIMIT;
   const backoff = options.backoffMs ?? RESPAWN_BACKOFF_MS;
+  const logger = options.logger;
   // 시작이 끝난 뒤에만 격리된 slot을 다시 띄운다(시작 실패는 pool 실패다).
   let serving = false;
-  let respawnsUsed = 0;
+  // 다시 띄운 reader가 read를 제때 답하기 전까지 이어진 다시 띄우기 수. backoff 위치다.
+  let attempts = 0;
   let respawning = false;
-  let exhaustedLogged = false;
   let respawnTimer: ReturnType<typeof setTimeout> | undefined;
   const keys = new Set<string>();
   const modules = registrationModules.map((url) => url.href);
@@ -116,8 +129,13 @@ export async function createReaderPool(
     if (wait.slots.size === 0) wait.settle(ok(undefined));
   }
 
-  function fail(slot: Slot) {
+  function fail(slot: Slot, why: IsolationCause) {
     if (slot.health !== "healthy" && !slot.syncing) return;
+    logger.warn({
+      component: "reader-pool",
+      event: "reader_isolated",
+      fields: { slot: slots.indexOf(slot), ...why },
+    });
     slot.syncing = false;
     slot.health = "unhealthy";
     clearTimeout(slot.timer);
@@ -130,42 +148,29 @@ export async function createReaderPool(
     scheduleRespawn();
   }
 
-  // 격리된 slot을 한 번에 하나씩 backoff 뒤에 다시 띄운다. 한도(core 시작마다)를 넘으면 멈추고
-  // 한 번만 알린다.
+  // 격리된 slot을 한 번에 하나씩 backoff 뒤에 다시 띄운다. 멈추지 않는다.
   function scheduleRespawn() {
     if (!serving || closed || respawning) return;
     const slot = slots.find((candidate) => candidate.health === "unhealthy");
     if (slot === undefined) return;
-    if (respawnsUsed >= respawnLimit) {
-      if (!exhaustedLogged) {
-        exhaustedLogged = true;
-        try {
-          if (options.onExhausted) options.onExhausted(respawnLimit);
-          else {
-            options.logger.error({
-              component: "reader-pool",
-              event: "respawn_exhausted",
-              message: "isolated readers stay isolated",
-              fields: { limit: respawnLimit },
-            });
-          }
-        } catch {
-          /* 알림 실패가 pool을 막지 않는다 */
-        }
-      }
-      return;
-    }
     respawning = true;
-    const delay = backoff[Math.min(respawnsUsed, backoff.length - 1)] ?? 0;
-    respawnsUsed++;
+    const delay = backoff[Math.min(attempts, backoff.length - 1)] ?? 0;
+    attempts++;
     respawnTimer = setTimeout(() => {
       respawnTimer = undefined;
       void respawn(slot).then((revived) => {
         respawning = false;
         if (closed) return;
         if (revived) {
+          slot.revived = true;
           pump();
           void Promise.resolve(options.onRespawn?.()).catch(() => undefined);
+        } else {
+          logger.warn({
+            component: "reader-pool",
+            event: "reader_respawn_failed",
+            fields: { slot: slots.indexOf(slot), attempt: attempts },
+          });
         }
         scheduleRespawn();
       });
@@ -250,7 +255,15 @@ export async function createReaderPool(
       slot.pending = pending;
       slot.startedAt = performance.now();
       // native SQL은 child event loop timer를 막으므로 parent wall-clock에서 감지한다.
-      slot.timer = setTimeout(() => fail(slot), READ_TIMEOUT_MS);
+      slot.timer = setTimeout(
+        () =>
+          fail(slot, {
+            cause: "read_timeout",
+            read: pending.key,
+            elapsed_ms: Math.round(performance.now() - slot.startedAt!),
+          }),
+        READ_TIMEOUT_MS,
+      );
       try {
         slot.worker.postMessage({
           id: pending.id,
@@ -311,18 +324,29 @@ export async function createReaderPool(
           const pending = slot.pending;
           if (!pending || reply.id !== pending.id) return;
           // reply가 timer보다 먼저 배달돼도 지난 실행 기한은 성공으로 바꾸지 않는다.
-          if (performance.now() - slot.startedAt! > READ_TIMEOUT_MS) {
-            fail(slot);
+          const elapsed = performance.now() - slot.startedAt!;
+          if (elapsed > READ_TIMEOUT_MS) {
+            fail(slot, {
+              cause: "read_timeout",
+              read: pending.key,
+              elapsed_ms: Math.round(elapsed),
+            });
             return;
           }
           clearTimeout(slot.timer);
           slot.pending = undefined;
+          if (slot.revived) {
+            slot.revived = false;
+            attempts = 0;
+          }
           pending.resolve(reply.result as Result<unknown>);
           pump();
         });
         // 서빙 중 오류는 slot을 격리한다.
-        worker.on("error", () => {
-          if (slot.worker === worker) fail(slot);
+        worker.on("error", (error) => {
+          if (slot.worker === worker) {
+            fail(slot, { cause: "worker_error", error: errorKind(error) });
+          }
         });
         resolve(true);
       };
@@ -406,7 +430,7 @@ export async function createReaderPool(
         // 반영을 확인하지 못한 reader는 격리한다(오래된 값으로 서빙하지 않는다).
         const late = [...waiting];
         settle(unavailable());
-        for (const slot of late) fail(slot);
+        for (const slot of late) fail(slot, { cause: "known_ack_timeout" });
       }, KNOWN_ACK_MS);
       const settle = (result: Result<void>) => {
         clearTimeout(timer);
@@ -418,7 +442,7 @@ export async function createReaderPool(
         try {
           slot.worker.postMessage({ known: { id, op, values: [...values] } });
         } catch {
-          fail(slot);
+          fail(slot, { cause: "post_failed" });
         }
       }
     });

@@ -935,18 +935,18 @@ flows:
     boundary: [storage]
     code: [packages/core/storage/ledger/reader-pool.ts, packages/core/storage/ledger/reads.ts, packages/core/main/daemon/runtime.ts]
     steps:
-      - "reader Worker가 error를 내거나 read 응답이 2초(READ_TIMEOUT_MS)를 넘기거나 known secret 등록을 5초 안에 확인하지 못하면 그 slot을 unhealthy로 격리한다. 기다리던 read는 unavailable이 된다"
+      - "reader Worker가 error를 내거나 read 응답이 2초(READ_TIMEOUT_MS)를 넘기거나 known secret 등록을 5초 안에 확인하지 못하면 그 slot을 unhealthy로 격리한다. 기다리던 read는 unavailable이 된다. 격리마다 reader_isolated warn 한 줄에 cause(read_timeout과 read key·걸린 ms, worker_error와 오류 이름, known_ack_timeout, post_failed)를 남긴다"
       - "격리한 Worker는 terminate한다. 동기 SQLite의 read를 취소했다고 주장하지 않는다"
-      - "한 번에 하나씩 backoff(250, 500, 1000, 2000, 4000, 8000ms)로 새 Worker를 띄운다. healthy가 되면 pool에 붙이고 onRespawn으로 known secret 값을 다시 넣는다"
-      - "core 기동마다 6회까지 다시 띄운다(실패한 기동도 한 회다). 넘으면 더 띄우지 않고 respawn_exhausted error 한 줄을 한 번 남긴다"
+      - "한 번에 하나씩 backoff(250ms부터 60초까지)로 새 Worker를 띄운다. healthy가 되면 pool에 붙이고 onRespawn으로 known secret 값을 다시 넣는다. 기동에 실패하면 reader_respawn_failed warn을 남기고 다음 간격으로 다시 띄운다"
+      - "한도 없이 다시 띄운다(마지막 간격 60초를 되풀이한다). 다시 띄운 reader가 read를 한 번 제때 답하면 간격을 처음으로 되돌린다. 디스크가 잠깐씩 멈추는 기계에서도 core 재시작 없이 read가 돌아온다"
     outcomes:
       - id: respawned
-        observe: ["process:새 reader Worker가 healthy"]
+        observe: ["process:새 reader Worker가 healthy", "log:reader-pool reader_isolated"]
         when: "격리된 slot이 healthy로 돌아왔다"
-      - id: exhausted
+      - id: respawn-failed
         code: unavailable
-        observe: ["log:reader-pool respawn_exhausted", "response"]
-        when: "재기동 한도를 넘어 그 slot은 격리된 채 남는다. 남은 healthy slot이 하나도 없으면 read는 unavailable이고, 다른 slot이 있으면 read는 그쪽이 받는다"
+        observe: ["log:reader-pool reader_respawn_failed", "response"]
+        when: "새 Worker 기동이 실패했다. 다음 간격에 다시 띄운다. 그동안 남은 healthy slot이 하나도 없으면 read는 unavailable이고, 다른 slot이 있으면 read는 그쪽이 받는다"
     crosses_process: false
     unclear:
       - "writer Worker는 이 respawn 대상이 아니다. writer가 죽었을 때의 경로는 이 flow에 없다"

@@ -82,7 +82,8 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
   한다. 없는 command나 비공개 command를 쓰는 public skill은 선언 오류다.
   공개 skill을 지우는 release는 막지 않고, 그 앱의 skill이 배포된 agent가 있으면 준비 결과의
   `removed_public_skills`에 그 skill이 실린다. 배포는 `lophn skill deploy`이고(내장 skill `deploy-skill`),
-  public skill이 없는 앱은 배포할 수 없어 밖의 호출마다 사람에게 묻는다.
+  public skill이 없는 앱은 배포할 수 없다: 사람이 지켜보는 agent의 밖 호출은 매번 사람에게 묻고, job·flow의 호출은 막힌다.
+  flow의 `tool()`은 그 flow의 agent에게 그 workspace에서 그 앱의 skill이 어느 층(전역, workspace, agent)으로든 닿고 꺼져 있지 않을 때 부를 수 있다.
 - `keys` — 앱이 내는 key(단축키) 목록이다. 항목은 `{id, title, key: {mac?, other}, context?}`다.
   - `id`는 이 앱 안의 이름이다(영문·숫자·`_ - .`, 1~64자, 겹치지 못한다). Settings › Keyboard에는
     `app.<앱 id>.<id>` command의 줄로 보이고 사람이 바꿀 수 있다. `title`은 그 줄의 이름이다(한 줄).

@@ -136,20 +136,21 @@ export function receiversOf(
   const deployments = createSkillDeployments(ctx);
   return async (app, skills) => {
     try {
-      const found = await deployments.receivers(app, skills);
-      if (found.ok) return found.value;
-      warn?.(`skill receivers of ${app} not read: ${found.error.message}`);
+      const read = await deployments.receivers(app, skills);
+      if (read.ok) return read.value;
+      warn?.(`skill receivers of ${app} not read: ${read.error.message}`);
     } catch (thrown) {
       warn?.(`skill receivers of ${app} not read: ${String(thrown)}`);
     }
-    return [];
+    // 읽지 못한 것은 "받는 곳 0"이 아니다: 읽지 못했다고 센다.
+    return { found: [], unreadable: 1 };
   };
 }
 
 export type Receivers = (
   app: string,
   skills?: readonly string[],
-) => Promise<readonly DeploymentEntry[]>;
+) => Promise<{ found: readonly DeploymentEntry[]; unreadable: number }>;
 
 // 받는 자리를 자리(층과 이름)마다 한 줄로 묶는다. 같은 자리의 skill 이름은 모은다.
 export function receiverPlaces(entries: readonly DeploymentEntry[]): {
@@ -910,7 +911,9 @@ export async function scanImpact(
     const scopedAgents = snapshot.agents.filter(
       (a) => a.workspace?.kind === "app" && a.workspace.id === app.id,
     );
-    const receivers = receiverPlaces((await deps.receivers?.(app.id)) ?? []);
+    const receiverRead = await deps.receivers?.(app.id);
+    const receivers = receiverPlaces(receiverRead?.found ?? []);
+    const unreadable = receiverRead?.unreadable ?? 0;
 
     immediate.push(
       `App data and ${releasesCount} release${releasesCount === 1 ? "" : "s"}`,
@@ -1044,7 +1047,15 @@ export async function scanImpact(
       }
     }
 
-    return ok({ target_label, immediate, impact: { declared, mentioned } });
+    return ok({
+      target_label,
+      immediate,
+      impact: {
+        declared,
+        mentioned,
+        ...(unreadable > 0 ? { unreadable } : {}),
+      },
+    });
   }
 
   if (target.kind === "agent") {
@@ -1567,7 +1578,7 @@ export async function scanReleaseContractUsers(
   // 3. public skill 변경 시 바뀐 skill을 배포받은 외부 자리(전역, harness, workspace, agent).
   if (changedSkills.size > 0) {
     const places = receiverPlaces(
-      (await receivers?.(app.id, [...changedSkills.keys()])) ?? [],
+      (await receivers?.(app.id, [...changedSkills.keys()]))?.found ?? [],
     );
     for (const place of places) {
       const changed = place.skills

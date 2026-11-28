@@ -999,7 +999,7 @@ flows:
       - packages/protocol/lophn-agent/skill-settings.ts
     steps:
       - "입력의 `to`(global, workspace, workspace:<이름>, agent:<handle>)를 층으로 풀고 앱(slug)과 skill 이름을 그 앱의 active release가 내놓은 public skill로 대조한다(deploy만. undeploy는 사라졌거나 비공개가 된 기록도 거둔다)"
-      - "사람 자격은 모두 묻지 않고 한다. agent 자격은 그 앱 자기 workspace의 session이거나 Home의 lophn이면 묻지 않고 하고, 그 밖의 agent는 `setting` 종류의 Gate ask(once, reject)로 사람에게 묻는다(tool_call이 그 카드를 연다)"
+      - "사람 자격은 모두 묻지 않고 한다. agent 자격은 그 앱 자기 workspace의 session이거나 Home의 lophn이면 묻지 않고 하고, 그 밖의 agent는 `setting` 종류의 Gate ask(once, reject)로 사람에게 묻는다(tool_call이 그 카드를 연다). 예외: `harness`(터미널 coding agent의 전역 skill 폴더에 복사된다)는 어느 agent든 늘 묻고 사람만 카드 없이 한다"
       - "사람이 없는 실행과 tool_call이 없는 호출은 묻지 못해 forbidden이고 문장이 앱 command를 부르면 묻는다고 알린다"
       - "층의 기록을 바꾼다: 전역은 settings.json의 lophn-agent.extensions.deployed_skills, workspace는 그 workspace의 extensions.json, agent는 정의 file의 deployed_skills다. skill 본문은 복사하지 않는다"
     outcomes:
@@ -1035,7 +1035,7 @@ flows:
       - packages/core/main/daemon/wiring/skill-deploy.ts
       - packages/protocol/lophn-agent/skill-settings.ts
     steps:
-      - "전역 설정, harness 설정, Home·모든 project·앱의 extensions.json, 모든 agent 정의의 배포 기록을 읽어 {앱, skill, 층, 이름, provided}로 돌려준다. provided는 그 앱의 active release가 지금 그 skill을 public으로 내놓는가이고, false인 기록(skill이 사라졌거나 비공개가 됐다, 앱이 지워졌다)도 싣는다"
+      - "전역 설정, harness 설정, Home·모든 project·앱의 extensions.json, 모든 agent 정의의 배포 기록을 읽어 {앱, skill, 층, 이름, provided}로 돌려준다. 사람과 Home의 lophn(session 행으로 확인)은 모두 보고, 다른 agent는 자기에게 닿는 자리(전역, harness, 자기 workspace와 그 workspace의 agent)만 보며, 자기 앱을 묻는 앱 session은 다른 자리를 이름 없이 수(`others`)로만 받는다. 읽지 못한 자리는 건너뛰되 수(`unreadable`)를 싣는다. provided는 그 앱의 active release가 지금 그 skill을 public으로 내놓는가이고, false인 기록(skill이 사라졌거나 비공개가 됐다, 앱이 지워졌다)도 싣는다"
       - 앱 slug를 주면 그 앱의 skill을 가진 모든 층만이다
     outcomes:
       - id: ok

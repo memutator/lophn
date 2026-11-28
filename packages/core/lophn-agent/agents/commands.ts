@@ -226,6 +226,19 @@ export function createAgentCommands(deps: AgentDeps): {
         if (compare.hash !== (loaded.file?.hash ?? null)) {
           return conflict("agent file");
         }
+        // `skills_off`는 앱 skill이 닿는지도 정한다(끈 skill의 배포는 닿지 않는다). agent는 끌 수는 있어도 사람이 끈 것을 켜지 못한다.
+        if (
+          agentActor(ctx) &&
+          (loaded.definition?.skills_off ?? []).some(
+            (name) => !(input.definition.skills_off ?? []).includes(name),
+          )
+        ) {
+          return err({
+            code: "forbidden",
+            message:
+              "an agent cannot switch a skill back on; the person removes entries from skills_off",
+          });
+        }
         if (
           agentActor(ctx) &&
           (!same(

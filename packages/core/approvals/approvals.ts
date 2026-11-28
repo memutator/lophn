@@ -127,8 +127,14 @@ export type ApprovalsService = Approvals & {
   // Gate가 앱 command 호출(tool call)을 보내도 된다고 끝냈다(배포되어 있거나 사람이 허락했다). 앱 호출 경로(core)가 닿지 않은 앱의 호출을
   // 그 호출을 Gate가 보낸 것인지로 본다: 사람이 허락하지 않은 배포 밖 호출은 Gate를 지나지 않은 호출이라 거절된다.
   // 기록은 판정한 것(앱 id와 command)에 묶인다: 같은 tool call id로 다른 앱이나 command를 부르는 호출은 판정되지 않은 호출이다.
+  // `consume`이면 쓴 기록을 지운다: 허락한 tool call 하나는 앱 호출 하나다. 읽기는 자동 retry가 같은 tool call로 다시 부르므로 지우지 않는다.
   recordGateRun(session: string, toolCall: string, judged: GateJudged): void;
-  gateRan(session: string, toolCall: string, judged: GateJudged): boolean;
+  gateRan(
+    session: string,
+    toolCall: string,
+    judged: GateJudged,
+    consume?: boolean,
+  ): boolean;
 };
 
 export function createApprovals(deps: ApprovalsDeps): ApprovalsService {
@@ -244,8 +250,13 @@ export function createApprovals(deps: ApprovalsDeps): ApprovalsService {
       gateRuns.set(session, calls);
     },
 
-    gateRan: (session, toolCall, judged) =>
-      gateRuns.get(session)?.has(gateKey(toolCall, judged)) === true,
+    gateRan(session, toolCall, judged, consume = false) {
+      const calls = gateRuns.get(session);
+      const key = gateKey(toolCall, judged);
+      if (calls?.has(key) !== true) return false;
+      if (consume) calls.delete(key);
+      return true;
+    },
 
     cancelTurnRequests(session, cause) {
       gateRuns.delete(session);

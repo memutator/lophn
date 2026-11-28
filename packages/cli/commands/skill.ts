@@ -203,7 +203,7 @@ const deployments = defineCommand({
   name: "skill.deployments",
   summary: "List who receives which app skills",
   description:
-    "List the deployed app skills: for each, the app, the skill and where it is deployed (global, harness, a workspace or an agent). `provided` is false when the app's active release no longer offers that skill as public (removed, made private, or the app is gone): receivers silently skip it, so undeploy it or deploy its replacement. With --app, only that app's skills: every place that holds one of them.",
+    "List the deployed app skills: for each, the app, the skill and where it is deployed (global, harness, a workspace or an agent). `provided` is false when the app's active release no longer offers that skill as public (removed, made private, or the app is gone): receivers silently skip it, so undeploy it or deploy its replacement. With --app, only that app's skills: every place that holds one of them. An agent sees only the places that concern it (every agent, coding agents, its own workspace and the agents of its own workspace); the Home lophn and the person see all. An app's own agent that asks about its own app gets its rows plus the count of the other places (`others`), not their names. `unreadable` counts places that could not be read, so the list may be incomplete.",
   input: z.strictObject({
     app: z.string().min(1).optional().describe("App slug"),
   }),
@@ -215,7 +215,7 @@ const deployments = defineCommand({
     if (!read.ok) return read;
     const gone = read.value.deployments.filter((one) => !one.provided).length;
     return ok({
-      summary: `${read.value.deployments.length} deployed skills${gone === 0 ? "" : `, ${gone} no longer provided by the app (provided: false; undeploy them or deploy the replacement)`}`,
+      summary: `${read.value.deployments.length} deployed skills${gone === 0 ? "" : `, ${gone} no longer provided by the app (provided: false; undeploy them or deploy the replacement)`}${read.value.others === 0 ? "" : `, ${read.value.others} more place${read.value.others === 1 ? "" : "s"} elsewhere receive it (names are not shown to an app's agent)`}${read.value.unreadable === 0 ? "" : `, could not read ${read.value.unreadable} place${read.value.unreadable === 1 ? "" : "s"}: this list may be incomplete`}`,
       content: read.value,
       arrayKeys: ["deployments"],
     });

@@ -1,3 +1,4 @@
+import { receivedFromLayers } from "./deployments.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Id } from "../../../protocol/base/ids.ts";
@@ -601,4 +602,26 @@ test("skill.read는 긴 본문을 자르지 않고 통째로 준다", async () =
   assert.ok(result.ok);
   assert.deepStrictEqual(result.value.content, { text: body });
   assert.strictEqual(result.value.complete, true);
+});
+
+// 앱에 닿는지의 규칙이다. 지우면 끈 skill의 배포가 앱을 닿게 하거나, 한 층을 읽지 못한 session이 다른 층의 배포로 묻지 않고 앱을 부른다.
+test("받는 배포는 세 층 어디서 끈 skill도 빼고, 한 층이라도 읽지 못하면 비어 있다", () => {
+  const app = "app_01h455vb4pex5v6nkc6gd5fd01";
+  const one = { app, skill: "guide" };
+  const two = { app, skill: "other" };
+  const layer = (off: string[] = []) => ({ deployed: [one, two], off });
+  const open = { global: layer(), workspace: layer(), agent: layer() };
+  assert.deepStrictEqual(receivedFromLayers(open), [one, two]);
+  for (const where of ["global", "workspace", "agent"] as const) {
+    assert.deepStrictEqual(
+      receivedFromLayers({ ...open, [where]: layer(["guide"]) }),
+      [two],
+      `switched off on ${where}`,
+    );
+    assert.deepStrictEqual(
+      receivedFromLayers({ ...open, [where]: null }),
+      [],
+      `${where} could not be read`,
+    );
+  }
 });

@@ -64,6 +64,15 @@ const stagedAcksSchema = z.object({
   batches: z.array(idSchema("stg")).max(STAGED_ACKS_MAX),
 });
 
+// agent 정의 글에서 사람이 직접 확인해야 하는 칸이다: 권한 단계와 앱 skill 배포(agent가 앱을 아는 길이고 묻지 않고 부르게 한다).
+// 내보낼 때 항목에 싣지만, 받은 batch가 싣거나 빼먹은 값은 믿지 않는다: 적용할 때 내용을 다시 읽어 정한다.
+function lockedAgentFields(content: string): string[] {
+  const locked: string[] = [];
+  if (/^permission_mode:/m.test(content)) locked.push("permissions");
+  if (/^deployed_skills:/m.test(content)) locked.push("deployed_skills");
+  return locked;
+}
+
 function hex16(random: RandomSource): string {
   const bytes = new Uint8Array(8);
   random.fill(bytes);
@@ -376,10 +385,7 @@ export function createSettingsExportService(deps: SettingsExportDeps) {
         } catch {
           return err({ code: "not_found", message: `agent not found: ${id}` });
         }
-        const locked: string[] = [];
-        if (/^permission_mode:/m.test(content)) locked.push("permissions");
-        // 앱 skill 배포는 agent가 앱을 아는 길이고 묻지 않고 부르게 한다. 받는 사람이 직접 확인해야 적용한다.
-        if (/^deployed_skills:/m.test(content)) locked.push("deployed_skills");
+        const locked = lockedAgentFields(content);
         return ok({
           kind: "agent",
           id: safe,
@@ -781,7 +787,11 @@ export function createSettingsExportService(deps: SettingsExportDeps) {
       for (const item of selected) {
         const sensitive =
           item.kind === "permission_rules" ||
-          (item.locked_fields !== undefined && item.locked_fields.length > 0);
+          (item.locked_fields !== undefined && item.locked_fields.length > 0) ||
+          (item.kind === "agent" &&
+            item.files.some(
+              (file) => lockedAgentFields(file.content).length > 0,
+            ));
         if (sensitive && !confirmPermissions) {
           requiresPermissionConfirmation = true;
           applied.push({

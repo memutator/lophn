@@ -321,7 +321,13 @@ export const skillsDeployments = defineMemory({
   method: "deployments",
   name: "ListSkillDeployments",
   input: z.strictObject({ app: slugSchema.optional() }),
-  output: z.object({ deployments: z.array(deploymentRowSchema) }),
+  output: z.object({
+    deployments: z.array(deploymentRowSchema),
+    // 자기 앱을 물은 앱 session에게: 다른 자리 중 그 skill을 받는 곳의 수(이름은 없다).
+    others: z.number().int().nonnegative(),
+    // 읽지 못해 이 목록에 없을 수 있는 자리의 수.
+    unreadable: z.number().int().nonnegative(),
+  }),
   actors: ["user", "agent"],
   errors: [...deployErrors],
 });

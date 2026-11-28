@@ -54,6 +54,8 @@ export interface CardView {
   readonly loss: readonly Line[];
   /** 이 release가 지우는 공개 skill·command를 받는 자리. 이 자리가 그것을 잃는다. */
   readonly removed: readonly Line[];
+  /** 받는 자리를 읽지 못한 수. 0이면 없다. */
+  readonly receiversUnreadable: number;
   /** 이전 활성 release가 없다. */
   readonly first: boolean;
   /** 되돌리기(rewind) 기록 밖의 호출인지. */
@@ -579,7 +581,13 @@ function activationView(
       value: `${one.name}: ${one.places.map(placeText).join(", ")}`,
     }),
   );
-  return { added, loss, removed, first: comparison.first };
+  return {
+    added,
+    loss,
+    removed,
+    receiversUnreadable: comparison.receivers_unreadable ?? 0,
+    first: comparison.first,
+  };
 }
 
 /** 받는 자리 한 곳: 모든 agent, 터미널 coding agent, workspace, agent. */
@@ -676,6 +684,7 @@ export function cardOf(
     added: NO_LINES,
     loss: NO_LINES,
     removed: NO_LINES,
+    receiversUnreadable: 0,
     first: false,
     choices: [] as readonly WaitingChoice[],
   };

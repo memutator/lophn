@@ -48,11 +48,11 @@ Authoring discipline:
 
 ## 4. App public skills
 
-The original of an app's public skill lives in the app source (`<app source>/.lophn/skills/<name>/SKILL.md`) and ships with each release. Copies elsewhere are deployments (`deploy-skill`): receivers cannot edit them, and a change goes to the app's own workspace.
+The original of an app's public skill lives in the app source (`<app source>/.lophn/skills/<name>/SKILL.md`) and ships with each release. Where it is deployed (`deploy-skill`), agents read the released skill but cannot edit it there, and a change goes to the app's own workspace. Only a deployment to coding agents (`harness`) writes files into their skill folders.
 
 Write it for an agent in another workspace that knows nothing about the app:
 - The description says when a stranger should read it; the body names the commands to call with `lophn <app> <command>` and how to read their results, with no reference to the app's internals or screens.
-- Cover every command the app exposes for outside use. An app without a public skill cannot be deployed, and every outside call to it asks the person.
+- Cover every command the app exposes for outside use. An app without a public skill cannot be deployed: an attended agent's outside call to it asks the person each time, and jobs and flows are refused.
 
 Steps:
 1. Folder name must equal frontmatter `name`.

@@ -484,6 +484,7 @@ export function createAppCalls(deps: AppCallsDeps): {
                   { agent: caller.agent, workspace: caller.workspace },
                   app,
                   caller.kind,
+                  { tool: input.name, public: declared.public },
                 )) ?? UNDEPLOYED_MESSAGE)
               : undefined;
           return recordDenied(base, "gate_blocked", told);

@@ -36,7 +36,7 @@ every conversation on it.
 | One agent only | `agent:<handle>` (`agent:lophn@<workspace>` for a lophn) |
 | The work of one project or app | `workspace` (the workspace you run in) or `workspace:<project, app or home>` |
 | Everyone, everywhere | `global` |
-| The person's coding agents (Claude Code, Codex, OpenCode) | `harness` |
+| The person's coding agents (Claude Code, Codex, OpenCode) | `harness` (the person is always asked) |
 
 - Every workspace has its own `lophn`, so `agent:lophn` alone is ambiguous: write
   `agent:lophn@home`, `agent:lophn@<project name>` or `agent:lophn@<app slug>`.
@@ -78,8 +78,12 @@ or an agent).
 
 ## Who is asked
 
-- In the app's own workspace you deploy that app's skills anywhere without
-  asking. Home's lophn deploys any app anywhere.
+- In the app's own workspace you deploy that app's skills to any agent,
+  workspace or `global` without asking. Home's lophn deploys any app there
+  without asking.
+- `harness` is different: the skill is written into the person's own coding
+  agents, which have a shell and no approval step, so the person always gets a
+  card for it, whoever you are. Only the person deploys it without a card.
 - In any other session the person gets a card and decides; if they refuse, the
   command fails with `forbidden` and their reason.
 - An unattended run (a job, a workflow step, a background run) is refused with
@@ -88,7 +92,12 @@ or an agent).
 ## Undeploy, and look before you change
 
 Before you rename or remove a public skill or one of its commands, read who has
-it: `lophn skill deployments --app <slug>`. An agent that still has the old name
+it: `lophn skill deployments --app <slug>`. In the app's own workspace you see
+the places that concern you (every agent, coding agents, this workspace and its
+agents) and a count of the other places, not their names; ask lophn at Home who
+they are. Anyone else sees only the places that concern them, and Home's lophn
+and the person see all. `provided: false` marks a skill the app no longer
+offers, and `unreadable` counts places that could not be read. An agent that still has the old name
 loses the skill after the release; deploy the new name where the old one was,
 then `lophn skill undeploy` the old. Deleting or archiving an app removes its
 deployments by itself.

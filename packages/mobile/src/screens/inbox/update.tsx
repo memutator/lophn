@@ -188,7 +188,7 @@ export function AppUpdateScreen({ place }: { place: PlaceOf<"app-update"> }) {
             ))}
           </>
         )}
-        {view.removed.length > 0 && (
+        {(view.removed.length > 0 || view.receiversUnreadable > 0) && (
           <>
             <View
               style={{
@@ -209,6 +209,13 @@ export function AppUpdateScreen({ place }: { place: PlaceOf<"app-update"> }) {
                 {line.value}
               </Line>
             ))}
+            {view.receiversUnreadable > 0 && (
+              <Text variant="note" tone="muted">
+                {t("waiting.notice.receivers-unreadable", {
+                  count: view.receiversUnreadable,
+                })}
+              </Text>
+            )}
           </>
         )}
       </Card>

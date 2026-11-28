@@ -426,7 +426,10 @@ export const appsWiring: WiringFactory = () => {
         session: string,
         toolCall: string,
         judged: { app: string; tool: string },
-      ) => ctx.peek.approvals?.gateRan(session, toolCall, judged) ?? false;
+        consume?: boolean,
+      ) =>
+        ctx.peek.approvals?.gateRan(session, toolCall, judged, consume) ??
+        false;
       const appGrantsOf = async (app: Id<"app">) => {
         const listed = await ctx.runtime.readers.read(
           appGrantsList,
@@ -444,9 +447,11 @@ export const appsWiring: WiringFactory = () => {
         ledger,
         link: appsControl.link,
         appReached,
-        async undeployedMessage(who, app, kind) {
+        async undeployedMessage(who, app, kind, command) {
           const access = await deployments.appAccess(who, app);
-          return access.ok ? undeployedMessage(access.value, kind) : null;
+          return access.ok
+            ? undeployedMessage(access.value, kind, command)
+            : null;
         },
         gateRan,
         appGrantsOf,

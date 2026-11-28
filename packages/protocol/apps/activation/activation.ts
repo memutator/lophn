@@ -167,6 +167,8 @@ export const activationComparisonSchema = z.object({
       }),
     )
     .optional(),
+  // 받는 자리를 읽지 못한 수. 있으면 위 목록이 모자랄 수 있다고 카드가 알린다(동의를 막지 않는다).
+  receivers_unreadable: z.number().int().nonnegative().optional(),
   // 이번 activation이 지나는 migration 단계 가운데 loss가 비지 않은 것.
   loss_steps: z.array(
     z.object({

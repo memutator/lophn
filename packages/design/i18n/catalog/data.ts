@@ -140,6 +140,8 @@ export const data = {
   "waiting.label.loss-drop-table": "Drops table",
   "waiting.label.loss-heading": "Data loss",
   "waiting.label.removed-heading": "Others lose it with this version",
+  "waiting.notice.receivers-unreadable":
+    "Could not read {count, plural, one {# place} other {# places}} that may receive this app's skills, so this list may be incomplete.",
   "waiting.label.removed-skill": "Skill",
   "waiting.label.removed-command": "Command",
   "waiting.label.place-global": "every agent",

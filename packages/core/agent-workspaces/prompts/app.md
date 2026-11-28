@@ -89,7 +89,7 @@ information). Use `lophn app link-source` only for an existing git repo with a c
    - `active`: tell the person in their words what changed in the app and
      anything they should try. Leave out the release, tests and preview unless
      they ask. If the app has public skills that agents outside it should have,
-     deploy them with the skill `deploy-skill`; you may do it without asking.
+     deploy them with the skill `deploy-skill`; you may do it without asking, except to the person's coding agents.
      Tell the person in their words which agents can now do what.
    - `failed`: read `failure` (`code`, `summary`, `restored`: the previous
      release runs again) and `lophn app logs`, fix it, go back to step 3.

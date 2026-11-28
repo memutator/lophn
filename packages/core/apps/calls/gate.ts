@@ -20,12 +20,16 @@ export type CallGateDeps = {
     session: string,
     toolCall: string,
     judged: { app: string; tool: string },
+    // 쓰고 나면 지운다. write·external 호출이다(read는 자동 retry가 같은 tool call로 다시 부른다).
+    consume?: boolean,
   ): boolean;
   // 닿지 않은 앱의 호출이 막혔을 때 그 호출자에게 하는 말이다. 호출자가 실제로 할 수 있는 일만 알린다(조립이 배포 규칙으로 쓴다). 없으면 일반 문장이다.
   undeployedMessage?(
     who: { agent: AgentId; workspace: Workspace | null },
     app: Id<"app">,
     kind: "agent" | "flow",
+    // 막힌 command. 앱에 닿았는데 command가 public이 아니어서 막혔을 수 있다.
+    command: { tool: string; public: boolean },
   ): Promise<string | null>;
   appGrantsOf(app: Id<"app">): Promise<Result<readonly AppGrant[]>>;
   // 이 기계의 call 정책에서 그 앱의 workspace가 private인가.
@@ -90,10 +94,12 @@ export async function callAllowed(
     if (!reached.ok) return reached;
     return ok(
       reached.value ||
-        deps.gateRan(caller.session, caller.toolCall, {
-          app: target.app,
-          tool: target.tool,
-        }),
+        deps.gateRan(
+          caller.session,
+          caller.toolCall,
+          { app: target.app, tool: target.tool },
+          target.effect !== "read",
+        ),
     );
   }
   const grants = await deps.appGrantsOf(caller.app);

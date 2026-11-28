@@ -1,6 +1,8 @@
 export const common = {
   "cascade.button.delete-and-clean-up": "Delete & clean up now",
   "cascade.button.delete-only": "Delete only",
+  "cascade.note.unreadable":
+    "Could not read {count, plural, one {# place} other {# places}} that may receive this app's skills, so this list may be incomplete.",
   "cascade.heading.affected":
     "Affected {count, plural, one {# place} other {# places}}",
   "cascade.heading.immediate": "Deleted immediately",

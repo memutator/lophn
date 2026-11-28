@@ -114,7 +114,10 @@ type ActivationDeps = {
   receivers?(
     app: string,
     skills?: readonly string[],
-  ): Promise<readonly { layer: string; at: string | null }[]>;
+  ): Promise<{
+    found: readonly { layer: string; at: string | null }[];
+    unreadable: number;
+  }>;
 };
 
 // 다른 module의 port다. 조립이 늦게 끼운다(`attach`). 끼우기 전에는 activation을 진행하지 않는다.
@@ -286,10 +289,13 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
     const { active, before } = read.value;
     type Removed = NonNullable<ActivationComparison["removed_for_receivers"]>;
     const removed: Removed = [];
+    let unreadable = 0;
     if (before !== null) {
       const now = read.value.stored.declaration;
       const places = async (skills?: readonly string[]) => {
-        const found = (await deps.receivers?.(release.app, skills)) ?? [];
+        const read = await deps.receivers?.(release.app, skills);
+        unreadable = Math.max(unreadable, read?.unreadable ?? 0);
+        const found = read?.found ?? [];
         const seen = new Map<string, { layer: string; at: string | null }>();
         for (const one of found) seen.set(`${one.layer}\0${one.at ?? ""}`, one);
         return [...seen.values()] as Removed[number]["places"];
@@ -315,6 +321,7 @@ export function createActivationDriver(deps: ActivationDeps): ActivationDriver {
     return ok(
       compareForActivation({
         removed,
+        receiversUnreadable: unreadable,
         previous:
           active === null || active.id === release.id
             ? null

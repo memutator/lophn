@@ -73,7 +73,7 @@ export function ActivationCard({
               </ul>
             </>
           ) : null}
-          {view.removed.length > 0 ? (
+          {view.removed.length > 0 || view.receiversUnreadable > 0 ? (
             <>
               <p className={styles.detailHead}>
                 <StatusMark
@@ -93,6 +93,13 @@ export function ActivationCard({
                   </li>
                 ))}
               </ul>
+              {view.receiversUnreadable > 0 ? (
+                <p className={styles.fine} role="status">
+                  {t("waiting.notice.receivers-unreadable", {
+                    count: view.receiversUnreadable,
+                  })}
+                </p>
+              ) : null}
             </>
           ) : null}
           <p className={styles.fine}>{t("waiting.notice.activation-fine")}</p>

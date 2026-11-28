@@ -55,6 +55,10 @@ test("앱 자기 workspace의 agent와 Home의 lophn만 묻지 않고 배포한�
   for (const [name, who, want] of rows) {
     assert.equal(mayDeployWithoutAsking(who, APP), want, name);
   }
+  // harness는 누구든 agent가 묻는다.
+  for (const [name, who] of rows) {
+    assert.equal(mayDeployWithoutAsking(who, APP, "harness"), false, name);
+  }
 });
 
 // 앱 `notes`(public skill guide와 비공개 skill internal)와 agent 정의 하나, 설정 대신 메모리 값을 쓰는 임시 data root다.
@@ -257,7 +261,12 @@ test("배포 명령은 묻지 않는 자격이 아니면 사람의 허락이 있
           ok(
             session === "ses_01hzzzzzzzzzzzzzzzzzzzzzzp"
               ? { agent: AGENT, workspace: PROJECT }
-              : { agent: "lophn_home" as never, workspace: null },
+              : session === "ses_01hzzzzzzzzzzzzzzzzzzzzzza"
+                ? {
+                    agent: "lophn_app" as never,
+                    workspace: { kind: "app", id: APP } as const,
+                  }
+                : { agent: "lophn_home" as never, workspace: null },
           ),
         askPerson: (_who, input) => {
           asked.push(input.call.lines[0]);
@@ -338,22 +347,44 @@ test("배포 명령은 묻지 않는 자격이 아니면 사람의 허락이 있
     );
     assert.deepStrictEqual(global.value, [guide]);
 
-    // 터미널 coding agent(harness)에 배포하는 것도 같은 규칙이다: 사람은 묻지 않고, 앱 workspace도 Home lophn도 아닌 agent는 묻는다.
+    // 터미널 coding agent(harness)는 agent가 쓴 글이 사람의 coding agent의 전역 skill 폴더에 쓰이는 일이라(shell이 있고 Gate가 없다) 앱 자기
+    // workspace의 agent와 Home의 lophn도 묻는다. 사람만 카드 없이 한다. 묻지 못하는 호출(tool call 없음)은 거절한다.
+    const APP_SESSION = "ses_01hzzzzzzzzzzzzzzzzzzzzzza";
     global.value = [];
     global.keys = [];
     assert.ok((await deploy(person, input("harness"))).ok);
     assert.deepStrictEqual(global.keys, [CODING_DEPLOYED_SKILLS_SETTING_KEY]);
+    const askedBefore = asked.length;
+    for (const session of [APP_SESSION, HOME_SESSION, PROJECT_SESSION]) {
+      global.harness = [];
+      const unaskable = await deploy(asAgent(session), input("harness"));
+      assert.ok(!unaskable.ok && unaskable.error.code === "forbidden");
+      assert.deepStrictEqual(global.harness, []);
+    }
+    assert.equal(asked.length, askedBefore);
+    for (const session of [APP_SESSION, HOME_SESSION]) {
+      global.harness = [];
+      answer = "rejected";
+      const refused = await deploy(
+        asAgent(session),
+        input("harness", { tool_call: "tcl_01hzzzzzzzzzzzzzzzzzzzzzza" }),
+      );
+      assert.ok(!refused.ok && refused.error.code === "forbidden");
+      assert.deepStrictEqual(global.harness, []);
+      answer = "run";
+      assert.ok(
+        (
+          await deploy(
+            asAgent(session),
+            input("harness", { tool_call: "tcl_01hzzzzzzzzzzzzzzzzzzzzzza" }),
+          )
+        ).ok,
+      );
+      assert.deepStrictEqual(global.harness, [guide]);
+    }
+    assert.equal(asked.length, askedBefore + 4);
     global.value = [];
-    const harnessUnaskable = await deploy(
-      asAgent(PROJECT_SESSION),
-      input("harness"),
-    );
-    assert.ok(
-      !harnessUnaskable.ok && harnessUnaskable.error.code === "forbidden",
-    );
-    assert.deepStrictEqual(global.value, []);
-    assert.equal(asked.length, 2);
-    global.value = [];
+    global.harness = [];
 
     // 모든 workspace에 `lophn`이 있다: 사람이 workspace 없이 주면 후보를 알리며 거절하고, agent session이 주면 자기 workspace의 lophn이다.
     const ambiguous = await deploy(person, input("agent:lophn"));
@@ -376,7 +407,7 @@ test("배포 명령은 묻지 않는 자격이 아니면 사람의 허락이 있
     global.value = [];
     assert.ok((await deploy(asAgent(HOME_SESSION), input("global"))).ok);
     assert.deepStrictEqual(global.value, [guide]);
-    assert.equal(asked.length, 2);
+    assert.equal(asked.length, askedBefore + 4);
   });
 });
 
@@ -453,7 +484,7 @@ test("앱의 skill을 받는 자리는 모든 층에서 한 목록으로 나오�
 
     const places = await deployments.receivers(APP, ["guide"]);
     assert.ok(places.ok);
-    assert.deepStrictEqual(places.value.map((one) => one.layer).sort(), [
+    assert.deepStrictEqual(places.value.found.map((one) => one.layer).sort(), [
       "agent",
       "global",
       "harness",
@@ -462,12 +493,12 @@ test("앱의 skill을 받는 자리는 모든 층에서 한 목록으로 나오�
     // 앱이 내놓지 않는 skill은 받는 것이 아니다.
     const none = await deployments.receivers(APP, ["internal"]);
     assert.ok(none.ok);
-    assert.deepStrictEqual(none.value, []);
+    assert.deepStrictEqual(none.value.found, []);
 
     const listed = await deployments.list("notes");
     assert.ok(listed.ok);
     assert.deepStrictEqual(
-      listed.value
+      listed.value.rows
         .filter((one) => one.layer === "global")
         .map((one) => [one.skill, one.provided]),
       [
@@ -475,5 +506,85 @@ test("앱의 skill을 받는 자리는 모든 층에서 한 목록으로 나오�
         ["internal", false],
       ],
     );
+  });
+});
+
+// P12. 배포 목록은 누가 묻느냐에 따라 보이는 범위가 다르다: 다른 agent에게 다른 workspace의 이름과 그 skill이 새면 안 된다.
+// 사람과 Home의 lophn은 모두 보고, 다른 agent는 자기에게 닿는 자리만, 자기 앱을 물은 앱 session은 다른 자리를 수로만 받는다.
+test("배포 목록은 agent에게 자기에게 닿는 자리만 보이고 자기 앱의 다른 자리는 수로만 센다", async () => {
+  await withRoot(async ({ root, global, deployments, ctx }) => {
+    global.value = [guide];
+    await mkdir(join(PROJECT_LAYER.extensionsFile(root, PROJECT), ".."), {
+      recursive: true,
+    });
+    await writeFile(
+      PROJECT_LAYER.extensionsFile(root, PROJECT),
+      JSON.stringify({
+        mcp_servers: [],
+        skills_off: [],
+        mcp_off: [],
+        deployed_skills: [guide],
+      }),
+    );
+    await writeFile(
+      join(root, "agents", `${AGENT}.md`),
+      `---\nhandle: helper\nname: helper\ndeployed_skills:\n  - app: ${APP}\n    skill: guide\n---\nbody\n`,
+    );
+    const sessions: Record<string, { agent: never; workspace: unknown }> = {
+      ses_01hzzzzzzzzzzzzzzzzzzzzzzp: {
+        agent: AGENT,
+        workspace: PROJECT,
+      },
+      ses_01hzzzzzzzzzzzzzzzzzzzzzza: {
+        agent: "lophn_app" as never,
+        workspace: { kind: "app", id: APP },
+      },
+      ses_01hzzzzzzzzzzzzzzzzzzzzzzh: {
+        agent: "lophn_home" as never,
+        workspace: null,
+      },
+    };
+    const handlers = new Map(
+      createSkillDeployHandlers({
+        deployments,
+        ledgerPath: (ctx as { ledgerPath: string }).ledgerPath,
+        sessionOf: (session) => ok((sessions[session] ?? null) as never),
+        askPerson: () => Promise.resolve(ok({ kind: "run" as const })),
+      }),
+    );
+    const read = async (who: string, input: object = {}) => {
+      const actor = who === "user" ? "user" : `agent:${who}`;
+      const done = await handlers.get("skills/deployments")!(
+        { actor, conditions: {} } as never,
+        input,
+      );
+      assert.ok(done.ok);
+      return done.value as {
+        deployments: { layer: string; at: string | null }[];
+        others: number;
+      };
+    };
+    const places = (out: {
+      deployments: { layer: string; at: string | null }[];
+    }) => out.deployments.map((one) => `${one.layer}:${one.at ?? ""}`).sort();
+
+    assert.deepStrictEqual(places(await read("user")), [
+      "agent:helper",
+      "global:",
+      `workspace:${PROJECT.id}`,
+    ]);
+    assert.deepStrictEqual(
+      places(await read("ses_01hzzzzzzzzzzzzzzzzzzzzzzh")),
+      ["agent:helper", "global:", `workspace:${PROJECT.id}`],
+    );
+    // project의 agent는 자기 project와 전역만 본다. 다른 workspace의 이름도 그 agent도 없다.
+    assert.deepStrictEqual(
+      places(await read("ses_01hzzzzzzzzzzzzzzzzzzzzzzp")),
+      ["global:", `workspace:${PROJECT.id}`],
+    );
+    // 앱 session이 자기 앱을 물으면 전역 줄과 다른 자리의 수만 받는다(project 하나와 agent 하나).
+    const own = await read("ses_01hzzzzzzzzzzzzzzzzzzzzzza", { app: "notes" });
+    assert.deepStrictEqual(places(own), ["global:"]);
+    assert.equal(own.others, 2);
   });
 });

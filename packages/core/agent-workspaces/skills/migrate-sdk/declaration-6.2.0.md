@@ -3,7 +3,7 @@
 Previous: 6.1.0
 Breaking: no. Move together with `@lophn/app-ui` 2.26.2 or `@lophn/app-ui-native` 1.12.2 (they depend on this exact version).
 
-An app's public skill now reaches other agents by deployment, not by assignment. `lophn app share` is gone. A person or an agent runs `lophn skill deploy <app> <skill> --to <where>` after the release is active; the built-in skill `deploy-skill` says where and how. Deployed skills follow the app's active release and receivers cannot edit them. An app with no public skill cannot be deployed, so every call to its commands from outside asks the person. The declaration itself did not change.
+An app's public skill now reaches other agents by deployment, not by assignment. `lophn app share` is gone. A person or an agent runs `lophn skill deploy <app> <skill> --to <where>` after the release is active; the built-in skill `deploy-skill` says where and how. Deployed skills follow the app's active release and receivers cannot edit them. An app with no public skill cannot be deployed: an attended agent's call to its commands from outside asks the person each time, and jobs and flows are refused. The declaration itself did not change.
 
 ```json
 // package.json, before
@@ -64,7 +64,7 @@ lophn changed the instruction text it gives app agents in this version. Update y
 +4. Write it under "Public skills" in DESIGN.md.
 +5. After `release activate`, read `deploy-skill` to give it to the agents that
 +   should have it. An app with no public skill cannot be deployed, and every
-+   outside call to its commands asks the person.
++   attended outside call to its commands asks the person, and jobs and flows are refused.
  
 @@ -354,3 +351,3 @@ about it.
     command of this app's workspace and this app's own commands (it may call
@@ -72,6 +72,11 @@ lophn changed the instruction text it gives app agents in this version. Update y
 +   them without a deployed skill). `tools` cannot name commands: it takes
     only built-in tool names, `mcp__<server>__<tool>` and `ext__<id>__<tool>`.
 # app AGENTS.md template
+@@ -58,3 +58,3 @@ Package를 쓴다.
+   보이고, 값은 앱 코드가 검사한다. 쓰는 법과 예는 설치 사본의
+-  `guide.md`(`.lophn/sdk/agent/1.19.0/guide.md`)다.
++  `guide.md`(`.lophn/sdk/agent/1.21.0/guide.md`)다.
+ - token과 기본 글꼴은 `@lophn/ui/tokens.css`·`base.css`로 받는다. 앱의 chrome(버튼,
 @@ -158,7 +158,6 @@ Package를 쓴다.
    `DESIGN.md`에도 적는다.
 -- release를 활성화한 뒤 `lophn app share --agent <name>... [--coding-agents] --reason <글>`로
@@ -81,19 +86,20 @@ lophn changed the instruction text it gives app agents in this version. Update y
 -  public skill을 복사한다.
 +- release를 활성화한 뒤 내장 skill `deploy-skill`을 읽고 `lophn skill deploy <앱> <skill> --to <어디>`로
 +  그 skill을 받을 agent·workspace·전역·사람의 coding agent(`harness`)에 배포한다. 이 앱 workspace의
-+  agent는 묻지 않고 배포한다. 배포한 skill은 받는 쪽이 고치지 못하고 앱의 active release를 따라간다.
-+  public skill이 없는 앱은 배포할 수 없고, 밖의 호출마다 사람에게 묻는다.
++  agent는 `harness`만 빼고 묻지 않고 배포한다(`harness`는 늘 사람에게 묻는다). 배포한 skill은 받는 쪽이 고치지 못하고 앱의 active release를 따라간다.
++  public skill이 없는 앱은 배포할 수 없다: 사람이 지켜보는 agent의 밖 호출은 매번 사람에게 묻고, job·flow의 호출은 막힌다.
  
 # declaration guide
-@@ -82,4 +82,5 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
+@@ -82,4 +82,6 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
    한다. 없는 command나 비공개 command를 쓰는 public skill은 선언 오류다.
 -  공개 skill을 지우는 release는 막지 않고, 그 앱을 할당받은 agent가 있으면 준비 결과의
 -  `removed_public_skills`에 그 skill이 실린다.
 +  공개 skill을 지우는 release는 막지 않고, 그 앱의 skill이 배포된 agent가 있으면 준비 결과의
 +  `removed_public_skills`에 그 skill이 실린다. 배포는 `lophn skill deploy`이고(내장 skill `deploy-skill`),
-+  public skill이 없는 앱은 배포할 수 없어 밖의 호출마다 사람에게 묻는다.
++  public skill이 없는 앱은 배포할 수 없다: 사람이 지켜보는 agent의 밖 호출은 매번 사람에게 묻고, job·flow의 호출은 막힌다.
++  flow의 `tool()`은 그 flow의 agent에게 그 workspace에서 그 앱의 skill이 어느 층(전역, workspace, agent)으로든 닿고 꺼져 있지 않을 때 부를 수 있다.
  - `keys` — 앱이 내는 key(단축키) 목록이다. 항목은 `{id, title, key: {mac?, other}, context?}`다.
-@@ -182,3 +183,3 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
+@@ -182,3 +184,3 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
      입력 필드 `start_time`의 flag는 `--start-time`이다. JSON 입력과 handler 이름은 원래 이름을 쓴다.
 -    실제 호출법은 `lophn <slug> --help`로 확인한다. 앱 command는 호출마다 현재 선언과 할당을 읽으므로
 +    실제 호출법은 `lophn <slug> --help`로 확인한다. 앱 command는 호출마다 현재 선언과 배포를 읽으므로

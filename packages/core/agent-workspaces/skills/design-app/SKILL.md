@@ -90,7 +90,7 @@ agent that files the person's receipts, are examples. If it is:
 4. Write it under "Public skills" in DESIGN.md.
 5. After `release activate`, read `deploy-skill` to give it to the agents that
    should have it. An app with no public skill cannot be deployed, and every
-   outside call to its commands asks the person.
+   attended outside call to its commands asks the person, and jobs and flows are refused.
 
 Removing or changing a public skill or command shows in `contract_changes` at
 release prepare. Keep the skill and its commands in step.

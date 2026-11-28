@@ -39,7 +39,7 @@ import {
 import {
   appReached,
   globalDeployedSkillsSetting,
-  receivedDeployments,
+  receivedFromLayers,
   skillsOffSetting,
 } from "../../../lophn-agent/extensions/mod.ts";
 import {
@@ -219,22 +219,28 @@ export function createSkillDeployments(ctx: Ctx) {
     return written.ok ? ok(undefined) : written;
   }
 
-  // 한 session이 받는 배포: 전역, 그 workspace, 그 agent 층을 합치고 그 세 층의 `skills_off`가 끈 skill의 기록을 뺀다(`receivedDeployments`).
-  // 읽지 못한 배포 층은 없는 것이다(fails closed). 읽지 못한 끄기는 없는 것이라 켠 채다.
+  // 한 session이 받는 배포다. 세 층(전역, 그 workspace, 그 agent)을 `receivedFromLayers`로 모은다: turn 길(`deploymentsOf`)과 같은 한 규칙이고,
+  // 한 층이라도 읽지 못하면 받는 배포가 없다(fails closed).
   async function reaching(who: DeployWho): Promise<SkillDeployment[]> {
-    const global = await read({ layer: "global" });
     const workspace = await readWorkspace(who.workspace);
     const agent = snapshot((sql) => agentDirectory(sql).agent(who.agent));
-    const info = agent.ok ? agent.value : null;
-    return receivedDeployments({
-      ...(global.ok ? { global: global.value } : {}),
-      ...(workspace.ok ? { workspace: workspace.value.deployed_skills } : {}),
-      ...(info === null ? {} : { agent: [...info.deployedSkills] }),
-      off: [
-        ...(ctx.settings.get(skillsOffSetting) ?? []),
-        ...(workspace.ok ? workspace.value.skills_off : []),
-        ...(info?.skillsOff ?? []),
-      ],
+    return receivedFromLayers({
+      global: {
+        deployed: ctx.settings.get(globalDeployedSkillsSetting) ?? [],
+        off: ctx.settings.get(skillsOffSetting) ?? [],
+      },
+      workspace: workspace.ok
+        ? {
+            deployed: workspace.value.deployed_skills,
+            off: workspace.value.skills_off,
+          }
+        : null,
+      agent: agent.ok
+        ? {
+            deployed: [...(agent.value?.deployedSkills ?? [])],
+            off: [...(agent.value?.skillsOff ?? [])],
+          }
+        : null,
     });
   }
 
@@ -299,7 +305,9 @@ export function createSkillDeployments(ctx: Ctx) {
   // 모든 자리의 배포 기록이다(전역, harness, workspace, agent). 앱과 skill은 id와 이름을 같이 갖고, `provided`는 그 앱의 active release가 지금
   // 그 skill을 public으로 내놓는가다. 내놓지 않는 기록(skill이 지워졌거나 비공개가 됐다, 앱이 지워지거나 보관됐다)도 싣는다:
   // 읽는 쪽이 말없이 빼는 것을 여기서는 보인다. 앱을 읽는 쪽 모두가 이 한 목록을 쓴다.
-  async function entries(): Promise<Result<DeploymentEntry[]>> {
+  async function entries(): Promise<
+    Result<{ found: DeploymentEntry[]; unreadable: number }>
+  > {
     const places = snapshot((sql) => {
       const deps = workspaceDepsOf(sql);
       const apps = loadApps(sql, undefined);
@@ -348,6 +356,8 @@ export function createSkillDeployments(ctx: Ctx) {
     });
     if (!places.ok) return places;
     const found: DeploymentEntry[] = [];
+    // 읽지 못한 자리의 수다. 건너뛰되 센다: 목록이 모자란다는 것을 보이는 쪽이 알린다.
+    let unreadable = 0;
     const add = (
       layer: SkillDeploymentRow["layer"],
       at: string | null,
@@ -369,38 +379,73 @@ export function createSkillDeployments(ctx: Ctx) {
     };
     const global = await read({ layer: "global" });
     if (global.ok) add("global", null, undefined, global.value);
+    else unreadable += 1;
     const harness = await read({ layer: "harness" });
     if (harness.ok) add("harness", null, undefined, harness.value);
+    else unreadable += 1;
     const home = await read({ layer: "workspace", workspace: null });
     if (home.ok) add("workspace", "home", null, home.value);
+    else unreadable += 1;
     for (const place of [...places.value.projects, ...places.value.apps]) {
       const one = await read({
         layer: "workspace",
         workspace: place.workspace,
       });
       if (one.ok) add("workspace", place.name, place.workspace, one.value);
+      else unreadable += 1;
     }
     for (const agent of places.value.agents) {
       add("agent", agent.at, agent.workspace, agent.deployed);
     }
-    return ok(found);
+    return ok({ found, unreadable });
   }
 
   // `lophn skill deployments`와 화면의 목록이다. 앱 slug를 주면 그 앱의 것만이다. 앱은 slug로 보이고(앱이 이미 없으면 기록의 id).
-  async function list(slug?: string): Promise<Result<SkillDeploymentRow[]>> {
+  // `scope`가 있으면 그 agent에게 닿는 자리의 줄만 낸다(전역, harness, 자기 workspace, 자기 workspace의 agent). 자기 앱을 물으면 다른 자리는
+  // 이름 없이 수만 `others`로 센다(P12: 앱 session은 다른 그릇이 무엇을 받는지 읽지 못한다). `unreadable`은 읽지 못한 자리 수다.
+  async function list(
+    slug?: string,
+    scope?: { workspace: AgentWorkspace | null },
+  ): Promise<
+    Result<{
+      rows: SkillDeploymentRow[];
+      others: number;
+      unreadable: number;
+    }>
+  > {
     const all = await entries();
     if (!all.ok) return all;
-    return ok(
-      all.value
-        .filter((one) => slug === undefined || (one.slug ?? one.app) === slug)
-        .map((one) => ({
-          app: one.slug ?? one.app,
-          skill: one.skill,
-          layer: one.layer,
-          at: one.at,
-          provided: one.provided,
-        })),
+    const matching = all.value.found.filter(
+      (one) => slug === undefined || (one.slug ?? one.app) === slug,
     );
+    const visible = (one: DeploymentEntry): boolean =>
+      scope === undefined ||
+      one.layer === "global" ||
+      one.layer === "harness" ||
+      sameWorkspace(one.workspace ?? null, scope.workspace);
+    const shown = matching.filter(visible);
+    const asksOwnApp =
+      scope?.workspace?.kind === "app" &&
+      slug !== undefined &&
+      matching.some((one) => one.app === scope.workspace?.id);
+    const others = !asksOwnApp
+      ? 0
+      : new Set(
+          matching
+            .filter((one) => !visible(one))
+            .map((one) => `${one.layer}\0${one.at ?? ""}`),
+        ).size;
+    return ok({
+      rows: shown.map((one) => ({
+        app: one.slug ?? one.app,
+        skill: one.skill,
+        layer: one.layer,
+        at: one.at,
+        provided: one.provided,
+      })),
+      others,
+      unreadable: all.value.unreadable,
+    });
   }
 
   // 그 앱(id)의 skill을 지금 받는 바깥 자리다: 앱이 지금 내놓는 skill의 배포만(`provided`), 앱 자기 workspace와 그 workspace의 agent,
@@ -409,11 +454,12 @@ export function createSkillDeployments(ctx: Ctx) {
   async function receivers(
     app: string,
     skills?: readonly string[],
-  ): Promise<Result<DeploymentEntry[]>> {
+  ): Promise<Result<{ found: DeploymentEntry[]; unreadable: number }>> {
     const all = await entries();
-    if (!all.ok) return all;
-    return ok(
-      all.value.filter(
+    // 전체를 읽지 못하면 목록이 비는 것이 아니라 읽지 못한 것이다: 호출한 쪽이 "받는 곳 0"으로 보이지 않게 센다.
+    if (!all.ok) return ok({ found: [], unreadable: 1 });
+    return ok({
+      found: all.value.found.filter(
         (one) =>
           one.app === app &&
           one.provided &&
@@ -421,7 +467,8 @@ export function createSkillDeployments(ctx: Ctx) {
           !(one.workspace?.kind === "app" && one.workspace.id === app) &&
           (skills === undefined || skills.includes(one.skill)),
       ),
-    );
+      unreadable: all.value.unreadable,
+    });
   }
 
   // 앱을 지우거나 보관할 때 그 앱(id)의 배포를 모든 자리에서 거둔다. 읽지 못하거나 쓰지 못한 자리는 로그에 그 자리를 남기고 건너뛴다:
@@ -497,9 +544,19 @@ export type SkillDeployments = ReturnType<typeof createSkillDeployments>;
 // 닿지 않은 앱의 호출이 막혔을 때 그 호출자가 읽는 말이다. 호출자가 실제로 할 수 있는 일만 쓴다: public skill이 없으면 배포할 것이 없고(앱 자기
 // workspace의 agent가 써야 한다), agent는 묻지 않고 배포할 자격이 있을 때만 배포하라고 하고, flow는 사람이 없어 배포도 허락 받기도 못한다.
 export function undeployedMessage(
-  access: { slug: string; skills: readonly string[]; mayDeploy: boolean },
+  access: {
+    reached: boolean;
+    slug: string;
+    skills: readonly string[];
+    mayDeploy: boolean;
+  },
   kind: "agent" | "flow",
+  command: { tool: string; public: boolean },
 ): string {
+  // 앱에는 닿았는데 command가 public이 아니면 배포 탓이 아니다: 비공개 command는 그 앱 workspace의 agent만 부른다.
+  if (access.reached && !command.public) {
+    return `the call is not granted: command ${command.tool} of app ${access.slug} is not public; only an agent in the app's own workspace calls a private command`;
+  }
   const head = `the call is not granted: no skill of app ${access.slug} is deployed to this ${kind === "flow" ? "flow's workspace" : "agent"} (and received), and the person did not allow this call`;
   if (access.skills.length === 0) {
     return `${head}. The app has no public skill, so there is nothing to deploy; the agent in the app's own workspace has to write one`;
@@ -513,7 +570,7 @@ export function undeployedMessage(
 }
 
 const DENIED_HINT =
-  "only the person, an agent in the app's own workspace and the Home lophn deploy without asking. Calling the app's command (`lophn <app> <command>`) asks the person to allow it, and allowing it always deploys the app's skills to that workspace.";
+  "only the person, an agent in the app's own workspace and the Home lophn deploy without asking (and nobody but the person deploys to harness without a card). Calling the app's command (`lophn <app> <command>`) asks the person to allow it, and allowing it always deploys the app's skills to that workspace.";
 
 // workspace를 가리키는 말: `home`, project 이름이나 id, 앱 slug·이름이나 id. Home은 null이다.
 function resolveWorkspace(
@@ -531,16 +588,27 @@ function resolveWorkspace(
     if (found !== null) return ok(keyed);
   }
   const project = deps.projects.projectByName(ref);
-  if (project !== null) return ok({ kind: "project", id: project.id });
   const slugged = loadApps(sql, undefined);
   const bySlug = slugged.ok
     ? slugged.value.find((one) => one.slug === ref)
     : undefined;
-  if (bySlug !== undefined) return ok({ kind: "app", id: bySlug.id });
-  const app = deps.apps.appByName(ref);
-  return app.ok
-    ? ok({ kind: "app", id: app.value.id })
-    : err({ code: "not_found", message: `workspace ${ref} not found` });
+  const byName = bySlug === undefined ? deps.apps.appByName(ref) : undefined;
+  const app =
+    bySlug !== undefined
+      ? bySlug.id
+      : byName?.ok === true
+        ? byName.value.id
+        : undefined;
+  // 프로젝트 이름과 앱 slug·이름이 같으면 어느 쪽인지 모른다: 후보를 id로 알린다.
+  if (project !== null && app !== undefined) {
+    return err({
+      code: "invalid_input",
+      message: `${ref} names both a project and an app; say which with workspace:${project.id} or workspace:${app}`,
+    });
+  }
+  if (project !== null) return ok({ kind: "project", id: project.id });
+  if (app !== undefined) return ok({ kind: "app", id: app });
+  return err({ code: "not_found", message: `workspace ${ref} not found` });
 }
 
 const sameWorkspace = (
@@ -647,8 +715,14 @@ function describe(layer: Layer, sql: Query): string {
 }
 
 // 묻지 않고 배포하는 자격이다: 그 앱 자기 workspace의 agent(그 앱의 skill을 어느 층에든)와 Home의 lophn(어느 앱이든 어느 층에든).
-// 그 밖의 agent는 사람에게 묻는다. 사람 자신은 여기를 거치지 않는다.
-export function mayDeployWithoutAsking(who: DeployWho, app: string): boolean {
+// 그 밖의 agent는 사람에게 묻는다. 사람 자신은 여기를 거치지 않는다. 예외 하나: `harness`는 agent가 쓴 글을 사람의 coding agent의 전역 skill
+// 폴더에 쓰고 그 agent들은 shell이 있고 Gate가 없으므로, 누구든 agent는 늘 사람에게 묻는다(사람이 없는 실행은 거절).
+export function mayDeployWithoutAsking(
+  who: DeployWho,
+  app: string,
+  layer?: Layer["layer"],
+): boolean {
+  if (layer === "harness") return false;
   return (
     (who.workspace?.kind === "app" && who.workspace.id === app) ||
     (who.workspace === null && who.agent === LOPHN_HOME_ID)
@@ -734,7 +808,7 @@ export function createSkillDeployHandlers(
     const { target, app, place } = resolved.value.value;
 
     if (caller.value !== null) {
-      if (!mayDeployWithoutAsking(caller.value, app)) {
+      if (!mayDeployWithoutAsking(caller.value, app, target.layer)) {
         const session = actor?.kind === "agent" ? actor.id : undefined;
         const conditions = who.conditions;
         const toolCall = (raw as { tool_call?: string }).tool_call;
@@ -806,13 +880,33 @@ export function createSkillDeployHandlers(
     ],
     [
       key(skillsDeployments),
-      async (_who, raw) => {
+      async (who, raw) => {
         const parsed = skillsDeployments.input.safeParse(raw);
         if (!parsed.success) {
           return err({ code: "invalid_input", message: "invalid input" });
         }
-        const rows = await deps.deployments.list(parsed.data.app);
-        return rows.ok ? ok({ deployments: rows.value }) : rows;
+        // 누가 묻느냐에 따라 보이는 범위가 다르다: 사람과 Home의 lophn(session 행으로 확인)은 모두, 다른 agent는 자기에게 닿는 자리만이다.
+        const actor = parseActor(who.actor);
+        let scope: { workspace: AgentWorkspace | null } | undefined;
+        if (actor?.kind === "agent") {
+          const caller = deps.sessionOf(actor.id);
+          if (!caller.ok) return caller;
+          if (caller.value === null) {
+            return err({ code: "forbidden", message: "unknown agent session" });
+          }
+          const home =
+            caller.value.workspace === null &&
+            caller.value.agent === LOPHN_HOME_ID;
+          if (!home) scope = { workspace: caller.value.workspace };
+        }
+        const found = await deps.deployments.list(parsed.data.app, scope);
+        return found.ok
+          ? ok({
+              deployments: found.value.rows,
+              others: found.value.others,
+              unreadable: found.value.unreadable,
+            })
+          : found;
       },
     ],
   ];

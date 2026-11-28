@@ -112,7 +112,15 @@ export function CascadeImpactDetails({
   }
   if (report === null) return null;
   const declared = report.impact.declared;
-  if (declared.length === 0) return null;
+  const unreadable = report.impact.unreadable ?? 0;
+  // 읽지 못한 자리가 있으면 목록이 모자랄 수 있다고 알린다. 동작은 막지 않는다.
+  const unreadableNote =
+    unreadable > 0 ? (
+      <p className={styles.note} role="status" data-impact-unreadable="">
+        {t("cascade.note.unreadable", { count: unreadable })}
+      </p>
+    ) : null;
+  if (declared.length === 0) return unreadableNote;
   return (
     <div className={styles.section} data-cascade-impact="">
       {report.immediate.length === 0 ? null : (
@@ -148,6 +156,7 @@ export function CascadeImpactDetails({
           ))}
         </ul>
       </div>
+      {unreadableNote}
       <p className={styles.note}>{t("cascade.note.handoff")}</p>
     </div>
   );

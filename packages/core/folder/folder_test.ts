@@ -2355,7 +2355,9 @@ test("settings_export: permission_rules와 locked_fields는 confirm_permissions=
 
     const skillBody = "# Review skill\n";
     const rulesBody = JSON.stringify({ global: [], projects: {} });
-    const agentBody = "---\npermission_mode: allow\n---\nHello\n";
+    // 항목에 locked_fields를 싣지 않아도 내용(앱 skill 배포)이 확인을 요구한다: 받은 batch가 싣는 값은 믿지 않는다.
+    const agentBody =
+      "---\ndeployed_skills:\n  - app: app_01hzzzzzzzzzzzzzzzzzzzzzza\n    skill: guide\n---\nHello\n";
 
     // 경로 탈출 거부.
     const badPath = await sender.send(userAuth, {
@@ -2417,7 +2419,6 @@ test("settings_export: permission_rules와 locked_fields는 confirm_permissions=
               sha256: await sha256Hex(agentBody),
             },
           ],
-          locked_fields: ["permissions"],
         },
       ],
     });

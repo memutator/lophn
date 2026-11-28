@@ -22,6 +22,8 @@ export function compareForActivation(input: {
   next: { data_changes: readonly DataChange[] };
   // 이 release가 지우는 공개 skill·command와 그것을 받는 자리(메인 thread가 배포 목록에서 읽어 준다). 없으면 비어 있다.
   removed?: ActivationComparison["removed_for_receivers"];
+  // 받는 자리를 읽지 못한 수. 있으면 위 목록이 모자랄 수 있다.
+  receiversUnreadable?: number;
 }): ActivationComparison {
   const { previous } = input;
   const gap = compareFacts(input.grants, input.facts);
@@ -35,6 +37,9 @@ export function compareForActivation(input: {
     added_resources: gap.added_resources,
     added_tools: gap.added_tools,
     removed_for_receivers: [...(input.removed ?? [])],
+    ...((input.receiversUnreadable ?? 0) > 0
+      ? { receivers_unreadable: input.receiversUnreadable }
+      : {}),
     loss_steps: input.next.data_changes
       .filter((change) => change.from >= from && (change.loss ?? []).length > 0)
       .map((change) => ({

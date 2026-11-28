@@ -1,7 +1,9 @@
 export {
   appReached,
   gatherDeployments,
+  type LayerRead,
   receivedDeployments,
+  receivedFromLayers,
 } from "./deployments.ts";
 export {
   extensionSettings,

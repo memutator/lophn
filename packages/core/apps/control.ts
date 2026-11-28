@@ -268,7 +268,10 @@ type AppsControlDeps = {
   receivers?(
     app: string,
     skills?: readonly string[],
-  ): Promise<readonly { layer: string; at: string | null }[]>;
+  ): Promise<{
+    found: readonly { layer: string; at: string | null }[];
+    unreadable: number;
+  }>;
   // 알려진 secret까지 지운 log 줄. 안전화를 끝내지 못하면 null이다.
   redact(line: string): string | null;
   // supervisor 상태 맞춤 검사 간격(ms). 기본 1000.
@@ -725,7 +728,7 @@ export function createAppsControl(deps: AppsControlDeps): AppsControl {
       // 받는 자리는 전역 설정과 정의 file을 읽어야 해서 core 메인 thread가 센다(writer Worker는 세지 못한다).
       const placeCount = async (skills?: readonly string[]) =>
         new Set(
-          ((await deps.receivers?.(app, skills)) ?? []).map(
+          ((await deps.receivers?.(app, skills))?.found ?? []).map(
             (one) => `${one.layer}\0${one.at ?? ""}`,
           ),
         ).size;

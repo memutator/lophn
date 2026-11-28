@@ -201,6 +201,30 @@ test("lophn은 지우거나 handle·avatar를 바꿀 수 없고, handle은 전�
     assert.ok(!refusedRemote.ok);
     assert.equal(refusedRemote.error.code, "forbidden");
 
+    // `skills_off`는 앱 skill이 닿는지도 정한다: 사람이 끈 것을 agent가 다시 켜지 못하고, 더 끄는 것은 된다.
+    const base = { handle: "reviewer", name: "Reviewer", body: "x" };
+    const person = commands.change.handle(
+      tx,
+      user,
+      { agent: AGENT, definition: { ...base, skills_off: ["guide"] } } as never,
+      { hash: reviewerHash },
+    );
+    assert.ok(person.ok);
+    const turnedOff = store.read(agentSlotOf(root, AGENT));
+    assert.ok(turnedOff.ok && turnedOff.value !== null);
+    const tryChange = (skills_off: string[]) =>
+      commands.change.handle(
+        tx,
+        agent,
+        { agent: AGENT, definition: { ...base, skills_off } } as never,
+        { hash: turnedOff.value!.hash },
+      );
+    const cleared = tryChange([]);
+    assert.ok(!cleared.ok && cleared.error.code === "forbidden");
+    const swapped = tryChange(["other"]);
+    assert.ok(!swapped.ok && swapped.error.code === "forbidden");
+    assert.ok(tryChange(["guide", "other"]).ok);
+
     const after = store.read(lophnSlot);
     assert.ok(after.ok && after.value?.hash === beforeHash);
     const ids = store.agentIds();

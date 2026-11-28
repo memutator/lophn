@@ -478,28 +478,31 @@ test("workspace-reader scans declared vs mentioned impact, skips archived worksp
     assert.strictEqual(snap.value.summary.custom_agents, 1);
 
     // 받는 자리는 배포 목록 한 길에서 온다(전역, harness, workspace, agent). 여기서는 agent 하나와 전역 하나가 받는다.
-    const receivers = async () => [
-      {
-        app: APP_TARGET,
-        slug: "billing",
-        skill: "billing-guide",
-        provided: true,
-        layer: "agent" as const,
-        at: "reviewer",
-        workspace: null,
-        active: true,
-      },
-      {
-        app: APP_TARGET,
-        slug: "billing",
-        skill: "billing-guide",
-        provided: true,
-        layer: "global" as const,
-        at: null,
-        workspace: undefined,
-        active: true,
-      },
-    ];
+    const receivers = async () => ({
+      unreadable: 0,
+      found: [
+        {
+          app: APP_TARGET,
+          slug: "billing",
+          skill: "billing-guide",
+          provided: true,
+          layer: "agent" as const,
+          at: "reviewer",
+          workspace: null,
+          active: true,
+        },
+        {
+          app: APP_TARGET,
+          slug: "billing",
+          skill: "billing-guide",
+          provided: true,
+          layer: "global" as const,
+          at: null,
+          workspace: undefined,
+          active: true,
+        },
+      ],
+    });
     const appImpact = await scanImpact(
       { sql, dataRoot: root, receivers },
       { kind: "app", app: APP_TARGET },

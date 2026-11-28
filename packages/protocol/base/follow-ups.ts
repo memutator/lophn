@@ -76,6 +76,8 @@ export type MentionedRef = z.infer<typeof mentionedRefSchema>;
 export const impactSummarySchema = z.object({
   declared: z.array(declaredRefSchema),
   mentioned: z.array(mentionedRefSchema),
+  // 읽지 못해 위 목록에 없을 수 있는 skill 배포 자리의 수. 목록이 모자랄 수 있다는 알림이고 동작을 막지 않는다.
+  unreadable: z.number().int().nonnegative().optional(),
 });
 export type ImpactSummary = z.infer<typeof impactSummarySchema>;
 

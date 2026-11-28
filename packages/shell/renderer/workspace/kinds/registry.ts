@@ -13,6 +13,7 @@ import { artifactKind } from "./artifact.tsx";
 import { browserKind } from "./browser.tsx";
 import { browserDevtoolsKind } from "./browser-devtools.tsx";
 import { documentEditorKind } from "./document-editor.tsx";
+import { gitDiffKind } from "./git-diff.tsx";
 import { inboxKind } from "./inbox.tsx";
 import { jobsKind } from "./jobs.tsx";
 import type { TabKindDef } from "./kind.ts";
@@ -24,6 +25,7 @@ import { workflowKind } from "./workflow.tsx";
 
 const BUILT_IN_TAB_KINDS = [
   documentEditorKind,
+  gitDiffKind,
   appPanelKind,
   appScreenKind,
   appPreviewKind,

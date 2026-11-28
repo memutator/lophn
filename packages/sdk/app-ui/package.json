@@ -1,6 +1,6 @@
 {
   "name": "@lophn/app-ui",
-  "version": "2.27.0",
+  "version": "2.28.0",
   "type": "module",
   "lophn": {
     "supported_from": "2.3.0"

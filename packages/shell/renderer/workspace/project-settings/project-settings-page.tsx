@@ -1,5 +1,5 @@
 // project settings 탭 본문. General(이름·목적·다른 컴퓨터·폴더, Workspaces panel 상세 dialog와 같은 form, 그 아래 보관), Quick launch(왼쪽 sidebar 아래 단추의 순서),
-// App panels(단추로 고정할 앱 panel) 세 구역이다. 빠른 실행은 전역 값(Settings › Quick launch)을 따르거나 이 project만의 값을 둔다.
+// Commands, Worktrees(새 worktree 준비), App panels(단추로 고정할 앱 panel) 구역이다. 빠른 실행은 전역 값(Settings › Quick launch)을 따르거나 이 project만의 값을 둔다.
 
 import { t } from "@lophn/i18n";
 import { ErrorState, Skeleton, useDelayedLoading } from "@lophn/ui/feedback";
@@ -24,6 +24,7 @@ import {
   QuickOrderList,
   useAppPanelApps,
 } from "./quick-launch-editor.tsx";
+import { WorktreeSettingsSection } from "./worktree-settings.tsx";
 
 export interface ProjectSettingsPageProps {
   readonly projectId: string;
@@ -186,6 +187,15 @@ export function ProjectSettingsPage(props: ProjectSettingsPageProps) {
           projectId={props.projectId}
           agents={props.agents}
         />
+      </section>
+      <section className={styles.section} data-section="worktrees">
+        <h2 className={styles.sectionTitle}>
+          {t("worktree-open.heading.worktrees")}
+        </h2>
+        <p className={styles.note}>
+          {t("worktree-open.notice.worktrees-lead")}
+        </p>
+        <WorktreeSettingsSection projectId={props.projectId} />
       </section>
       {change === undefined ? null : (
         <section className={styles.section} data-section="app-panels">

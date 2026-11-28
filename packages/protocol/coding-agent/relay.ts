@@ -2,8 +2,8 @@ import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
 import { defineMemory, defineRead } from "../base/route.ts";
 import { workflowOriginSchema } from "../base/workflow-origin.ts";
-import { terminalProjectSchema } from "./terminals.ts";
 import type { AcpCliSession, AcpRewindPreview } from "./gui-harness.ts";
+import { terminalProjectSchema } from "./terminals.ts";
 
 // coding session: 사람 터미널에서 도는 coding agent CLI 하나다. core가 터미널과 tracker, GUI handle과 그 ACP 상태를 원본으로
 // 메모리에 둔다. ledger에는 행이 없다. session id는 desktop GUI 화면과 같은 `ses_<터미널 ULID>`(`guiSessionId`)이고 대화는 기존
@@ -130,6 +130,8 @@ export const codingSessionsOpen = defineMemory({
     // custom harness agent 프로필로 열 때 지정한다(project workspace만, resume과 함께 쓰지 않는다).
     agent: idSchema("agt").optional(),
     resume: z.strictObject({ session: idSchema("ses") }).optional(),
+    // 이 worktree에서 연다(cwd와 worktree env). 없으면 원래 폴더다.
+    worktree_id: idSchema("wkt").optional(),
     key: z.string().min(1).max(200),
   }),
   output: z.strictObject({ session: idSchema("ses") }),

@@ -1354,14 +1354,14 @@ flows:
     title: 앱 화면이 project 하나의 git worktree 목록과 최신 상태를 읽기 전용으로 읽고 변경 알림을 받는다
     actor: app
     entries: []
-    uses: [ipc:app:projects-worktrees, ipc:app:projects-worktrees-changed, route:worktrees/list]
+    uses: [ipc:app:projects-worktrees, ipc:app:event, route:worktrees/list]
     boundary: [shell, projects]
-    code: [packages/shell/main/app-frame/app-projects.ts, packages/shell/main/app-frame/app-ipc.ts, packages/shell/preload/app-tool.ts, packages/sdk/app-ui/use-worktrees.ts]
+    code: [packages/shell/main/app-frame/app-projects.ts, packages/shell/main/app-frame/app-ipc.ts, packages/shell/preload/app-tool.ts, packages/sdk/app-ui/use-worktrees.ts, packages/core/main/daemon/wiring/worktrees.ts]
     steps:
       - "sender가 살아 있는 앱 view의 main frame이 아니면 forbidden이다(app-ipc)"
       - "project 인자(prj_ id, pri_ identity 또는 project 이름)를 푼 뒤 사람 자격으로 worktrees.list를 읽는다"
       - "파일시스템 경로(path·repo_root·git_common_dir)를 뺀 읽기 전용 AppWorktree 목록만 돌려준다"
-      - "core가 WorktreesChanged·WorktreeStatusChanged를 내면 같은 기계에 묶인 앱 view에 app:projects-worktrees-changed로 알린다"
+      - "core가 worktree 목록·상태 바뀜을 앱 event (lophn, worktree.changed)로 낸다(status는 150ms 묶음, 만들기·지우기·브랜치는 바로). 선언의 subscriptions에 적은 앱만 app:event로 받고 useWorktrees가 다시 읽는다"
     outcomes:
       - id: listed
         observe: [response]

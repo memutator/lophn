@@ -85,12 +85,15 @@ export function HoverList({
   id,
   trigger,
   sections,
+  headContent,
   extraContent,
   tip,
 }: {
   id: string;
   trigger: ReactElement;
   sections: readonly HoverSection[];
+  /** 묶음 앞에 놓는 머리(예: 새 세션을 열 worktree 고르기). */
+  headContent?: ReactNode;
   /** 묶음 뒤에 이어 붙이는 공용 목록(예: Project commands). */
   extraContent?: ReactNode;
   /** 목록이 없을 때 trigger의 tooltip. */
@@ -102,6 +105,7 @@ export function HoverList({
   }
   return (
     <Popover hover trigger={trigger}>
+      {headContent}
       {shown.map((section, index) => (
         <Fragment key={section.id}>
           {index === 0 ? null : <div className={styles.quickHoverDivider} />}

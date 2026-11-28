@@ -21,6 +21,8 @@ export type Control =
     }
   | { readonly kind: "choice"; readonly options: readonly string[] }
   | { readonly kind: "list" }
+  /** 글 하나(경로 같은 것). 틀린 값은 core가 rejected로 돌려준다. */
+  | { readonly kind: "text" }
   | { readonly kind: "fixed" };
 
 type Schema = Readonly<Record<string, unknown>>;
@@ -63,6 +65,16 @@ export function controlOf(type: Schema): Control {
     (type.items as Schema | undefined)?.type === "string"
   ) {
     return { kind: "list" };
+  }
+  // `""`(비우면 기본) 또는 글 하나인 설정(`projects.worktrees_folder`)도 글 칸이다.
+  const members = (type.anyOf ?? type.oneOf) as unknown;
+  if (
+    type.type === "string" ||
+    (Array.isArray(members) &&
+      members.length > 0 &&
+      members.every((one) => (one as Schema | null)?.type === "string"))
+  ) {
+    return { kind: "text" };
   }
   return { kind: "fixed" };
 }

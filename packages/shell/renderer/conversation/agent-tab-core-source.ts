@@ -143,8 +143,8 @@ function createSource(
       signIn === undefined ? undefined : (input) => signIn(core, env, input),
     cancelCall: (call) => cancelCallOf(env, call),
 
-    async openSession({ id }): Promise<SourceResult<void>> {
-      const opened = await openSession(env, id);
+    async openSession({ id, worktree }): Promise<SourceResult<void>> {
+      const opened = await openSession(env, id, worktree);
       return opened.ok ? { ok: true, value: undefined } : opened;
     },
     stopSession: (session) => stopSessionOf(env, session),

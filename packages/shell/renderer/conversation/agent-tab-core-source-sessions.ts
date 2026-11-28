@@ -317,9 +317,15 @@ export async function readSessions(
 export async function openSession(
   env: Env,
   id: string,
+  worktree?: string,
 ): Promise<SourceResult<{ state_seq: string }>> {
   const opened = await env.command(workspaceSessionOpen, {
-    input: { id, agent: env.agent, workspace: env.workspace },
+    input: {
+      id,
+      agent: env.agent,
+      workspace: env.workspace,
+      ...(worktree === undefined ? {} : { worktree_id: worktree }),
+    },
     compare: {},
     key: `sessions-open-${id}`,
   });

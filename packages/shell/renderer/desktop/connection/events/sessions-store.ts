@@ -36,6 +36,8 @@ export interface SessionEntry {
   readonly workflowOrigin?: WorkflowOrigin | null;
   /** 사람이 보지 않는 사이 turn이 끝났다(Agent 탭의 finished 점). core가 정한다(`unseen`). */
   readonly unseen: boolean;
+  /** 열 때 묶은 worktree(`wkt_…`). 원래 폴더거나 아직 snapshot을 읽지 않았으면 null. */
+  readonly worktree?: string | null;
 }
 
 /** 다른 컴퓨터에서 도는 팀원의 자리. 끝난 자리는 빠진다. */
@@ -86,6 +88,7 @@ interface Record_ {
   workspace: Workspace | null;
   spawnedBy: string | null;
   workflowOrigin: WorkflowOrigin | null;
+  worktree: string | null;
 }
 
 interface SessionsStore {
@@ -120,6 +123,7 @@ export function createSessionsStore(
         spawnedBy: record.spawnedBy,
         workflowOrigin: record.workflowOrigin,
         unseen: unseen?.get().marks.has(session) ?? false,
+        worktree: record.worktree,
       });
     }
     state.set({ sessions, members: [...members.values()] });
@@ -160,6 +164,7 @@ export function createSessionsStore(
       const existing = records.get(snapshot.session);
       if (existing !== undefined) {
         existing.workflowOrigin = snapshot.workflow_origin ?? null;
+        existing.worktree = snapshot.worktree_id ?? null;
       }
     }
     publish();
@@ -193,6 +198,7 @@ export function createSessionsStore(
         workspace: null,
         spawnedBy: null,
         workflowOrigin: null,
+        worktree: null,
       };
       records.set(session, record);
     }
@@ -216,6 +222,7 @@ export function createSessionsStore(
           workspace,
           spawnedBy: spawned_by,
           workflowOrigin: workflow_origin ?? parentOrigin,
+          worktree: records.get(event.session)?.worktree ?? null,
         });
         break;
       }
@@ -282,6 +289,7 @@ export function createSessionsStore(
         workspace: snapshot.workspace,
         spawnedBy: snapshot.spawned_by,
         workflowOrigin: snapshot.workflow_origin ?? null,
+        worktree: snapshot.worktree_id ?? null,
       });
     }
     records = next;

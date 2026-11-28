@@ -19,6 +19,7 @@ import {
   commonIcons,
   editorIcons,
   shellIcons,
+  sourceControlIcons,
   workspaceIcons,
 } from "../../icons/mod.ts";
 import { PanelEmpty } from "../../shell/panel-rows.tsx";
@@ -36,13 +37,19 @@ import type {
 } from "../source.ts";
 import { checkNewName, checkRename, renameRange } from "./explorer-names.ts";
 import { imageNameOf, pathsFromText } from "./explorer-paste.ts";
-import { NameRow, Row } from "./explorer-row.tsx";
+import { useWorktreeUi } from "../worktrees/context.tsx";
+import type { CheckoutRef } from "../worktrees/source.ts";
+import { branchLabelOf, changedCountOf } from "../worktrees/use-worktrees.ts";
+import type { WorktreeEntry } from "../../../../protocol/projects/worktrees.ts";
+import { type BranchRowInfo, NameRow, Row } from "./explorer-row.tsx";
 import {
+  type ExtraRoot,
   type FileRow,
   joinPath,
   parentOf,
   useFileTree,
 } from "./use-file-tree.ts";
+import { type GitCheckout, useGitMarks } from "./use-git-marks.ts";
 import styles from "./explorer.module.css";
 
 /** 열린 탭을 정리하는 쪽의 답. 사람이 저장 안 된 탭을 닫지 않기로 하면 cancelled다. */
@@ -84,6 +91,33 @@ const outermost = (paths: readonly string[]) =>
   );
 
 const ADD_FOLDER = "add-folder";
+const NEW_WORKTREE = "new-worktree";
+
+/** worktree가 이 등록 폴더에서 났는가. 등록 폴더가 저장소 안쪽 폴더여도 같은 저장소다. */
+const bornIn = (entry: WorktreeEntry, folder: string) =>
+  entry.record.repo_root === folder ||
+  contains(entry.record.repo_root, folder) ||
+  contains(folder, entry.record.repo_root);
+
+function branchInfoOf(entry: WorktreeEntry): BranchRowInfo {
+  const branch = branchLabelOf(entry);
+  const state =
+    entry.record.status === "creating" || entry.record.status === "removing"
+      ? entry.record.status
+      : entry.status.presence === "unmounted"
+        ? "unmounted"
+        : entry.record.status === "missing" ||
+            entry.status.presence === "missing"
+          ? "missing"
+          : undefined;
+  return {
+    branch,
+    ...(entry.record.label === branch ? {} : { label: entry.record.label }),
+    path: entry.record.path,
+    changed: changedCountOf(entry.status),
+    ...(state === undefined ? {} : { state }),
+  };
+}
 
 /**
  * tree 머리 왼쪽. `▾ PHRONER`를 누르면 연결 폴더 가운데 루트를 고른다. 행 오른쪽 x는 그 폴더를 project에서 빼고
@@ -97,6 +131,7 @@ function RootPicker({
   onRoot,
   onAdd,
   onRemove,
+  onNewWorktree,
 }: {
   roots: readonly RootChoice[];
   root: RootChoice;
@@ -105,6 +140,8 @@ function RootPicker({
   onRoot: (path: string) => void;
   onAdd: () => void;
   onRemove: (path: string) => void;
+  /** 고른 루트 폴더에서 worktree 만들기. 없으면 항목이 없다. */
+  onNewWorktree?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -180,8 +217,27 @@ function RootPicker({
               },
             ]
           : []),
+        ...(onNewWorktree === undefined
+          ? []
+          : [
+              {
+                id: NEW_WORKTREE,
+                label: t("worktree.button.new-worktree-from", {
+                  name: root.name,
+                }),
+                leading: <MenuIcon icon={sourceControlIcons.newBranch} />,
+                data: { "data-root-new-worktree": "" },
+                separatorBefore: !canAdd,
+              },
+            ]),
       ]}
-      onSelect={(id) => (id === ADD_FOLDER ? onAdd() : onRoot(id))}
+      onSelect={(id) =>
+        id === ADD_FOLDER
+          ? onAdd()
+          : id === NEW_WORKTREE
+            ? onNewWorktree?.()
+            : onRoot(id)
+      }
     />
   );
 }
@@ -305,6 +361,15 @@ type Dialog =
       readonly kind: "remove-folder";
       readonly path: string;
       readonly failed: boolean;
+    }
+  | {
+      readonly kind: "discard";
+      readonly checkout: CheckoutRef;
+      readonly path: string;
+      readonly relPath: string;
+      /** untracked 파일은 되돌릴 것이 없어 지운다. */
+      readonly untracked: boolean;
+      readonly failed: string | null;
     };
 
 interface ExplorerProps {
@@ -384,7 +449,57 @@ export function Explorer({
   const readOnly = !isLocal && (grant === "denied" || writeForbidden);
   const roots = rootChoices(folders);
   const root = roots.find((item) => item.path === rootPath) ?? roots[0];
-  const tree = useFileTree(source, root?.found ? root.path : null);
+  const ui = useWorktreeUi();
+  // 이 루트 폴더에서 난 worktree. 지금 루트의 맨 위에 가지로 선다.
+  const branchEntries =
+    ui === null || root === undefined || !root.found
+      ? []
+      : ui.worktrees.entries.filter((entry) => bornIn(entry, root.path));
+  const extras: ExtraRoot[] = branchEntries.map((entry) => ({
+    worktree: entry.record.id,
+    path: entry.record.path,
+    name: branchLabelOf(entry),
+  }));
+  const tree = useFileTree(source, root?.found ? root.path : null, extras);
+  const branchPaths = new Set(extras.map((extra) => extra.path));
+  const isBranch = (id: string) => branchPaths.has(id);
+  const gitWrite = ui !== null && !readOnly && !ui.readOnly;
+  const checkouts: GitCheckout[] =
+    root === undefined || !root.found || ui === null
+      ? []
+      : [
+          { checkout: { kind: "folder", path: root.path }, root: root.path },
+          ...tree.rows.flatMap((row): GitCheckout[] => {
+            if (row.worktree === undefined || !row.expanded) return [];
+            const entry = ui.worktrees.byId(row.worktree);
+            return entry === undefined
+              ? []
+              : [
+                  {
+                    checkout: { kind: "worktree", id: row.worktree },
+                    root: row.id,
+                    stamp: entry.status.updated_at,
+                  },
+                ];
+          }),
+        ];
+  const git = useGitMarks(
+    ui?.sourceControl ?? null,
+    ui?.project ?? null,
+    checkouts,
+    tree.rows,
+    !isLocal,
+  );
+  // 다른 기계의 worktree 폴더는 그 기계의 `project_files/*`가 worktree 경로로 읽고 쓴다.
+  const rootsSignature =
+    ui?.worktrees.entries.map((entry) => entry.record.path).join("\n") ?? "";
+  useEffect(() => {
+    if (ui === null || source.registerRoots === undefined) return;
+    source.registerRoots(
+      ui.project,
+      ui.worktrees.entries.map((entry) => entry.record.path),
+    );
+  }, [source, ui?.project, rootsSignature]);
   const [selection, setSelection] = useState<Selection>(NOTHING);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [dialog, setDialog] = useState<Dialog | null>(null);
@@ -445,23 +560,37 @@ export function Explorer({
   });
 
   // 고른 탭의 파일을 tree에서 펼쳐 고른다. 다른 연결 폴더의 파일이면 그 폴더로 루트를 옮긴다.
+  /** 그 경로가 든 등록 폴더(그 폴더에서 난 worktree 안이어도 그 폴더). */
+  const ownerRoot = (path: string) =>
+    roots.find((item) => contains(item.path, path)) ??
+    roots.find((item) =>
+      (ui?.worktrees.entries ?? []).some(
+        (entry) =>
+          bornIn(entry, item.path) && contains(entry.record.path, path),
+      ),
+    );
+  const inTree = (path: string) =>
+    root !== undefined &&
+    (contains(root.path, path) ||
+      [...branchPaths].some((branch) => contains(branch, path)));
+
   useEffect(() => {
     if (current === null || root === undefined) return;
-    if (!contains(root.path, current)) {
-      const owner = roots.find((item) => contains(item.path, current));
+    if (!inTree(current)) {
+      const owner = ownerRoot(current);
       if (owner !== undefined) onRoot(owner.path);
       return;
     }
     tree.reveal(current);
     setSelection(only(current));
     show(current, false);
-  }, [current, root?.path]);
+  }, [current, root?.path, rootsSignature]);
 
   // Reveal in Explorer. 자동 드러내기와 같지만 그 줄에 focus까지 준다.
   useEffect(() => {
     if (reveal === null || root === undefined) return;
-    if (!contains(root.path, reveal.path)) {
-      const owner = roots.find((item) => contains(item.path, reveal.path));
+    if (!inTree(reveal.path)) {
+      const owner = ownerRoot(reveal.path);
       if (owner !== undefined) onRoot(owner.path);
     }
     tree.reveal(reveal.path);
@@ -505,7 +634,8 @@ export function Explorer({
   const clipPaths = (row: FileRow | null): string[] => {
     const chosen = selectedRows().map((item) => item.id);
     const paths = chosen.length > 0 ? chosen : row === null ? [] : [row.id];
-    return outermost(paths);
+    // worktree 폴더 자체는 Explorer가 옮기거나 지우지 않는다(Remove…가 가드를 거쳐 지운다).
+    return outermost(paths.filter((path) => !isBranch(path)));
   };
 
   /** 고른 경로를 앱 clipboard와 OS clipboard(text)에 복사한다. 붙여넣을 것이 없으면 false다. */
@@ -815,6 +945,10 @@ export function Explorer({
   };
   const startRename = (row: FileRow) => {
     if (readOnly) return;
+    if (row.worktree !== undefined) {
+      ui?.openRename(row.worktree);
+      return;
+    }
     setDraft({ kind: "rename", path: row.id, folder: row.folder });
   };
 
@@ -936,10 +1070,17 @@ export function Explorer({
 
   const askTrash = (row: FileRow) => {
     if (readOnly) return;
+    if (row.worktree !== undefined) {
+      ui?.openRemove(row.worktree);
+      return;
+    }
     const chosen = selectedRows();
     const paths = outermost(
-      (chosen.length > 0 ? chosen : [row]).map((item) => item.id),
+      (chosen.length > 0 ? chosen : [row])
+        .map((item) => item.id)
+        .filter((id) => !isBranch(id)),
     );
+    if (paths.length === 0) return;
     // 문구에 쓸 줄: 마지막으로 고른 줄, 그 줄이 위 폴더에 딸려 가면 그 폴더.
     const shown = paths.find(
       (path) => path === row.id || contains(path, row.id),
@@ -995,12 +1136,15 @@ export function Explorer({
 
   /** 이 줄을 그 폴더로 옮기는 것이 변화를 만드는가: 같은 폴더나 자기 안은 아니다. */
   const movable = (path: string, toDir: string) =>
-    parentOf(path) !== toDir && path !== toDir && !contains(path, toDir);
+    !isBranch(path) &&
+    parentOf(path) !== toDir &&
+    path !== toDir &&
+    !contains(path, toDir);
 
   const dropDirOf = (row: FileRow | null) => targetFolder(row);
 
   const onDragStart = (row: FileRow, event: DragEvent<HTMLDivElement>) => {
-    if (readOnly) {
+    if (readOnly || row.worktree !== undefined) {
       event.preventDefault();
       return;
     }
@@ -1122,6 +1266,27 @@ export function Explorer({
     if (!(await onAddFolder())) setFolderFailed(true);
   };
 
+  const confirmDiscard = async (d: Extract<Dialog, { kind: "discard" }>) => {
+    if (ui === null) return;
+    const project = ui.project;
+    const res = await ui.sourceControl.discard(
+      d.checkout.kind === "worktree"
+        ? { project, worktree: d.checkout.id }
+        : { project, folder: d.checkout.path },
+      {
+        paths: [d.relPath],
+        ...(d.untracked ? { include_untracked: true } : {}),
+      },
+    );
+    if (!res.ok) {
+      setDialog({ ...d, failed: res.error.message });
+      return;
+    }
+    setDialog(null);
+    tree.refresh();
+    git.refresh();
+  };
+
   const confirmRemoveFolder = async (path: string) => {
     if (await onRemoveFolder(path)) setDialog(null);
     else if (dialog?.kind === "remove-folder") {
@@ -1132,7 +1297,12 @@ export function Explorer({
   // ---- 오른쪽 클릭 menu ----
 
   const relativePath = (path: string) => {
-    const owner = folders
+    const owner = [
+      ...folders,
+      ...(ui?.worktrees.entries ?? []).map((entry) => ({
+        path: entry.record.path,
+      })),
+    ]
       .filter((folder) => path === folder.path || contains(folder.path, path))
       .sort((a, b) => b.path.length - a.path.length)[0];
     return owner === undefined || path === owner.path
@@ -1143,7 +1313,132 @@ export function Explorer({
   /** 고른 줄(없으면 이 줄)이 있어야 할 수 있는 menu 항목을 끈다. */
   const canAct = (target: FileRow | null) => clipPaths(target).length > 0;
 
-  const menuItems = (target: FileRow | null): MenuItem[] => [
+  /** worktree 가지 줄의 menu. 폴더 줄의 파일 동작 대신 worktree 동작만 둔다. */
+  const branchItems = (row: FileRow): MenuItem[] => {
+    const entry = ui?.worktrees.byId(row.worktree);
+    const live =
+      entry !== undefined &&
+      entry.record.status === "ready" &&
+      entry.status.presence === "present";
+    return [
+      ...(gitWrite
+        ? [
+            {
+              id: "wt-open-agent",
+              label: t("worktree.button.open-agent-here"),
+              leading: <MenuIcon icon={commonIcons.agents} />,
+              disabled: !live,
+            },
+            {
+              id: "wt-open-terminal",
+              label: t("worktree.button.open-terminal-here"),
+              leading: <MenuIcon icon={workspaceIcons.terminal} />,
+              disabled: !live,
+            },
+          ]
+        : []),
+      {
+        id: "wt-view-sc",
+        label: t("worktree.button.view-in-source-control"),
+        leading: <MenuIcon icon={sourceControlIcons.branch} />,
+        disabled: !live,
+      },
+      {
+        id: "wt-copy-path",
+        label: t("project-workspace.button.explorer-copy-path"),
+        leading: <MenuIcon icon={workspaceIcons.copy} />,
+        separatorBefore: true,
+      },
+      {
+        id: "wt-copy-branch",
+        label: t("worktree.button.copy-branch"),
+        leading: <MenuIcon icon={workspaceIcons.copy} />,
+        disabled: entry === undefined || entry.status.branch === null,
+      },
+      ...(isLocal
+        ? [
+            {
+              id: "wt-reveal",
+              label: t("project-workspace.button.explorer-reveal"),
+              leading: <MenuIcon icon={workspaceIcons.revealInFiles} />,
+              disabled: !live,
+            },
+          ]
+        : []),
+      ...(gitWrite
+        ? [
+            {
+              id: "wt-rename",
+              label: t("worktree.button.rename-menu"),
+              leading: <MenuIcon icon={editorIcons.edit} />,
+            },
+            {
+              id: "wt-remove",
+              label:
+                entry?.record.provenance === "adopted"
+                  ? t("worktree.button.untrack-menu")
+                  : t("worktree.button.remove-menu"),
+              leading: <MenuIcon icon={workspaceIcons.trash} />,
+              separatorBefore: true,
+              disabled:
+                entry === undefined ||
+                entry.record.status === "creating" ||
+                entry.record.status === "removing",
+            },
+          ]
+        : []),
+    ];
+  };
+
+  /** git 변경이 있는 파일 줄의 Open Diff·Discard Changes…. */
+  const gitItems = (target: FileRow | null): MenuItem[] => {
+    if (target === null || target.folder || ui === null) return [];
+    const info = git.gitOf(target);
+    if (info.mark === null || info.mark.inherited || info.checkout === null) {
+      return [];
+    }
+    return [
+      {
+        id: "open-diff",
+        label: t("worktree.button.open-diff"),
+        leading: <MenuIcon icon={sourceControlIcons.commit} />,
+        separatorBefore: true,
+      },
+      ...(gitWrite
+        ? [
+            {
+              id: "discard-changes",
+              label: t("worktree.button.discard-changes"),
+              leading: <MenuIcon icon={sourceControlIcons.discard} />,
+            },
+          ]
+        : []),
+    ];
+  };
+
+  const rootCheckout: CheckoutRef = { kind: "folder", path: root.path };
+  const newWorktreeItems = (target: FileRow | null): MenuItem[] =>
+    target === null && gitWrite && git.tracked(rootCheckout)
+      ? [
+          {
+            id: "new-worktree",
+            label: t("worktree.button.new-worktree"),
+            leading: <MenuIcon icon={sourceControlIcons.newBranch} />,
+            separatorBefore: true,
+          },
+        ]
+      : [];
+
+  const menuItems = (target: FileRow | null): MenuItem[] =>
+    target?.worktree !== undefined
+      ? branchItems(target)
+      : [
+          ...fileItems(target),
+          ...gitItems(target),
+          ...newWorktreeItems(target),
+        ];
+
+  const fileItems = (target: FileRow | null): MenuItem[] => [
     ...(readOnly
       ? []
       : [
@@ -1242,8 +1537,61 @@ export function Explorer({
       : [target?.id ?? root.path];
   };
 
+  const runBranchMenu = (id: string, row: FileRow) => {
+    const worktree = row.worktree;
+    if (worktree === undefined || ui === null) return;
+    const entry = ui.worktrees.byId(worktree);
+    if (id === "wt-open-agent") ui.openAgent(worktree);
+    else if (id === "wt-open-terminal") ui.openTerminal(worktree);
+    else if (id === "wt-view-sc") {
+      ui.showInSourceControl({ kind: "worktree", id: worktree });
+    } else if (id === "wt-copy-path") {
+      void systemClipboard.writeText(row.id);
+    } else if (id === "wt-copy-branch") {
+      const branch = entry?.status.branch;
+      if (branch != null) void systemClipboard.writeText(branch);
+    } else if (id === "wt-reveal") void source.reveal(row.id);
+    else if (id === "wt-rename") ui.openRename(worktree);
+    else if (id === "wt-remove") ui.openRemove(worktree);
+  };
+
   const runMenu = (id: string, target: FileRow | null) => {
+    if (target?.worktree !== undefined) {
+      runBranchMenu(id, target);
+      return;
+    }
     const path = target?.id ?? root.path;
+    if (id === "new-worktree") {
+      ui?.openCreate({ folder: root.path });
+      return;
+    }
+    if (target !== null && (id === "open-diff" || id === "discard-changes")) {
+      const info = git.gitOf(target);
+      if (info.checkout === null || info.relPath === null || ui === null) {
+        return;
+      }
+      if (id === "open-diff") {
+        ui.openDiff(
+          {
+            checkout: info.checkout,
+            path: info.relPath,
+            scope: { kind: "working" },
+            ...(info.mark === null ? {} : { status: info.mark.letter }),
+          },
+          { preview: true },
+        );
+      } else {
+        setDialog({
+          kind: "discard",
+          checkout: info.checkout,
+          path: target.id,
+          relPath: info.relPath,
+          untracked: info.mark?.letter === "U",
+          failed: null,
+        });
+      }
+      return;
+    }
     if (id === "new-file" || id === "new-folder") {
       startCreate(id === "new-file" ? "file" : "folder", target);
     } else if (id === "cut") cutToClipboard(target);
@@ -1380,7 +1728,15 @@ export function Explorer({
         cut={clipboard?.mode === "cut" && clipboard.paths.includes(row.id)}
         dropping={row.id === dropTarget}
         tabStop={row.id === tabStop}
-        draggable={!readOnly}
+        draggable={!readOnly && row.worktree === undefined}
+        {...(() => {
+          if (row.worktree !== undefined) {
+            const entry = ui?.worktrees.byId(row.worktree);
+            return entry === undefined ? {} : { branch: branchInfoOf(entry) };
+          }
+          const info = git.gitOf(row);
+          return { git: info.mark, ignored: info.ignored };
+        })()}
         onSelect={selectRow}
         onOpen={(one) => openRow(one, true)}
         onMenu={(one, at) => {
@@ -1405,6 +1761,7 @@ export function Explorer({
   const trash = dialog?.kind === "trash" ? dialog : null;
   const move = dialog?.kind === "move" ? dialog : null;
   const removing = dialog?.kind === "remove-folder" ? dialog : null;
+  const discarding = dialog?.kind === "discard" ? dialog : null;
   const nameOf = (path: string) => path.slice(path.lastIndexOf("/") + 1);
 
   return (
@@ -1414,7 +1771,10 @@ export function Explorer({
         readOnly={readOnly}
         onNewFile={() => startCreate("file", activeRow)}
         onNewFolder={() => startCreate("folder", activeRow)}
-        onRefresh={tree.refresh}
+        onRefresh={() => {
+          tree.refresh();
+          git.refresh();
+        }}
         onCollapseAll={() => {
           // 접으면 루트의 한 단만 남는다.
           const top = new Set(
@@ -1435,6 +1795,9 @@ export function Explorer({
           onRemove={(path) =>
             setDialog({ kind: "remove-folder", path, failed: false })
           }
+          {...(gitWrite && git.tracked(rootCheckout)
+            ? { onNewWorktree: () => ui?.openCreate({ folder: root.path }) }
+            : {})}
         />
       </PanelTitle>
       <div
@@ -1586,6 +1949,36 @@ export function Explorer({
                 }
           }
           onConfirm={() => void confirmRemoveFolder(removing.path)}
+          onClose={() => setDialog(null)}
+        />
+      )}
+      {discarding === null ? null : (
+        <FileConfirm
+          title={t("worktree.title.discard", {
+            name: nameOf(discarding.path),
+          })}
+          text={
+            discarding.failed !== null
+              ? discarding.failed
+              : discarding.untracked
+                ? t("worktree.notice.discard-untracked", {
+                    name: nameOf(discarding.path),
+                  })
+                : t("worktree.notice.discard-tracked", {
+                    name: nameOf(discarding.path),
+                  })
+          }
+          confirm={
+            discarding.failed !== null
+              ? null
+              : {
+                  label: discarding.untracked
+                    ? t("worktree.button.delete-file")
+                    : t("worktree.button.discard"),
+                  danger: true,
+                }
+          }
+          onConfirm={() => void confirmDiscard(discarding)}
           onClose={() => setDialog(null)}
         />
       )}

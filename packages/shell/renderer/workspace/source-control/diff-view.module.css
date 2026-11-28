@@ -1,0 +1,168 @@
+/* git_diff 탭. 줄 색은 reading kit의 diff token과 같다. */
+.view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: var(--space-0);
+  background: var(--color-surface-base);
+  outline: none;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+}
+
+.path {
+  min-width: var(--space-0);
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: var(--type-small-size);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.badge {
+  padding: var(--space-0) var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-muted);
+  font-family: var(--font-mono);
+  font-size: var(--type-caption-size);
+}
+
+.counts {
+  display: flex;
+  gap: var(--space-1);
+  font-family: var(--font-numeric);
+  font-size: var(--type-caption-size);
+}
+
+.add {
+  color: var(--status-good-text);
+}
+
+.del {
+  color: var(--status-critical-text);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.scroll {
+  flex: 1;
+  min-height: var(--space-0);
+  overflow: auto;
+}
+
+.center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-8) var(--space-4);
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+.note {
+  color: var(--color-text-muted);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+}
+
+.table[data-layout="split"] {
+  table-layout: fixed;
+}
+
+.num {
+  width: var(--editor-gutter);
+  padding: var(--space-0) var(--space-2);
+  color: var(--color-text-muted);
+  text-align: right;
+  vertical-align: top;
+  user-select: none;
+}
+
+.code {
+  padding: var(--space-0) var(--space-2);
+  white-space: pre;
+  vertical-align: top;
+}
+
+.view[data-wrap] .code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.code[data-kind="add"] {
+  background: var(--diff-add-line);
+}
+
+.code[data-kind="del"] {
+  background: var(--diff-delete-line);
+}
+
+.code[data-empty] {
+  background: var(--color-surface-subtle);
+}
+
+.mark {
+  display: inline-block;
+  width: var(--space-4);
+  color: var(--color-text-muted);
+  user-select: none;
+}
+
+.hunk {
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-surface-subtle);
+  color: var(--color-text-muted);
+}
+
+tr[data-current] .hunk {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.noteRow {
+  padding: var(--space-0) var(--space-2);
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+  padding: var(--space-6);
+}
+
+.image {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-0);
+}
+
+.image figcaption {
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+}
+
+.image img {
+  max-width: 100%;
+  border: var(--border-width) solid var(--color-border-subtle);
+}

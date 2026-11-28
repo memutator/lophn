@@ -221,6 +221,7 @@ function otherMachineData(
       ...baseWorkspace,
       ...NO_LOCAL_FILES,
       ...remoteFiles.workspaceFiles,
+      registerRoots: remoteFiles.registerRoots,
       async project(id) {
         const read = await baseWorkspace.project(id);
         if (read.ok)

@@ -68,6 +68,7 @@ import { InboxNamesProvider } from "../desktop/connection/waiting/names.ts";
 import type { JobsSource } from "../desktop/jobs/source.ts";
 import {
   machineItemOf,
+  useMachineGrant,
   useMachinesView,
 } from "../desktop/machines/context.tsx";
 import { OnlyHere } from "../desktop/machines/only-here.tsx";
@@ -90,8 +91,8 @@ import {
   workspaceScope,
 } from "../desktop/palette/workspace-scope.ts";
 import type { NewSessionStart } from "../desktop/router.ts";
-import type { SettingsPane } from "../desktop/settings/model.ts";
 import { useCodingPrefs } from "../desktop/settings/connections/prefs-store.tsx";
+import type { SettingsPane } from "../desktop/settings/model.ts";
 import { launchKey } from "../desktop/settings/quick-launch/source.ts";
 import { useQuickPrefs } from "../desktop/settings/quick-launch/store.tsx";
 import type { ProjectsSource } from "../desktop/workspaces/projects/source.ts";
@@ -224,7 +225,7 @@ import {
   workflowInstanceDeskStatus,
 } from "../workflow/model.ts";
 import { NewTabMenu } from "./add-tab-menu.tsx";
-import { agentOf, sessionOf } from "./agent/tab-fields.ts";
+import { agentOf, sessionOf, worktreeOf } from "./agent/tab-fields.ts";
 import { lophnIdAt } from "./agents/agent-key.ts";
 import { panelChoices, useScreensRead } from "./app-panel-tab.tsx";
 import { focusTabBody } from "./focus-tab.ts";
@@ -259,6 +260,7 @@ import {
 import { openArtifact } from "./kinds/artifact.tsx";
 import { openBrowserTab, shownProfile } from "./kinds/browser.tsx";
 import { openFile } from "./kinds/document-editor.tsx";
+import { openGitDiff } from "./kinds/git-diff.tsx";
 import type { TabHost } from "./kinds/host.ts";
 import { openInbox } from "./kinds/inbox.tsx";
 import { openJobs } from "./kinds/jobs.tsx";
@@ -328,6 +330,7 @@ import type {
   WorkflowInstanceSummaryView,
   WorkspaceSource,
 } from "./source.ts";
+import { createSourceControlStore } from "./source-control/store.ts";
 import { TabBoundary } from "./tab-boundary.tsx";
 import { surfaceApi, useSurfaceRequests } from "./use-surface-requests.ts";
 import { useTabHostSlices } from "./use-tab-host-slices.ts";
@@ -338,8 +341,23 @@ import {
   planWorkflowDeskSync,
 } from "./workflow-desk-sync.ts";
 import styles from "./workspace-window.module.css";
-import type { CheckoutRef } from "./worktrees/source.ts";
-import { useProjectWorktrees } from "./worktrees/use-worktrees.ts";
+import type { BranchTagInfo } from "./worktrees/branch-tag.tsx";
+import {
+  CheckoutPicker,
+  type CheckoutPickerModel,
+} from "./worktrees/checkout-picker.tsx";
+import { type WorktreeUi, WorktreeUiContext } from "./worktrees/context.tsx";
+import { useWorktreeDialogs } from "./worktrees/dialogs.tsx";
+import {
+  type CheckoutRef,
+  createSourceControlSource,
+} from "./worktrees/source.ts";
+import { useMainBranches } from "./worktrees/use-main-branch.ts";
+import {
+  branchLabelOf,
+  changedCountOf,
+  useProjectWorktrees,
+} from "./worktrees/use-worktrees.ts";
 
 /** 이 창이 보일 수 있는 workspace: Home, project, 앱. */
 export type WindowWorkspace = WorkspaceRef;
@@ -657,6 +675,8 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     setRightOpen(true);
     setScFocus({ checkout, nonce: Date.now() });
   };
+  // Source Control 패널의 창 상태(체크아웃마다 커밋 초안·보기 모양·접힘, 고정한 대상). project를 바꾸면 새로 시작한다.
+  const scStore = useMemo(() => createSourceControlStore(), [workspaceId]);
   // 떠 있는 안내(읽기 실패)를 닫은 상태.
   const [noticesHidden, setNoticesHidden] = useState(false);
   const hideNotices = () => setNoticesHidden(true);
@@ -1489,11 +1509,14 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
 
   // 정의된 agent를 새 session으로 연다. project workspace의 harness runtime 프로필은 background AgentTab이 아니라
   // 그 정의의 harness_config·deny가 실린 harness-gui 터미널 탭으로 연다.
-  const openDefinedAgent = (target: {
-    readonly assignment: string;
-    readonly name: string;
-    readonly runtime?: AgentRuntime;
-  }): boolean => {
+  const openDefinedAgent = (
+    target: {
+      readonly assignment: string;
+      readonly name: string;
+      readonly runtime?: AgentRuntime;
+    },
+    at: { readonly worktree?: string; readonly prompt?: string } = {},
+  ): boolean => {
     if (
       isHarnessRuntime(target.runtime) &&
       projectId !== null &&
@@ -1505,6 +1528,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
           project: projectId,
           harness,
           agent: target.assignment,
+          ...(at.worktree === undefined ? {} : { worktree_id: at.worktree }),
           key: `open-${crypto.randomUUID()}`,
         })
         .then((opened) => {
@@ -1523,22 +1547,34 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
       return true;
     }
     if (agentViewSource === undefined) return false;
-    openAgent(host, { agent: target.assignment, name: target.name });
+    openAgent(host, {
+      agent: target.assignment,
+      name: target.name,
+      ...(at.worktree === undefined ? {} : { worktree: at.worktree }),
+      ...(at.prompt === undefined ? {} : { prompt: at.prompt }),
+    });
     return true;
   };
 
   // 새 session을 연다: coding agent는 그 명령어의 새 터미널, 정의된 agent는 runtime에 따라 Agent 탭 또는 harness-gui 탭이다(안 주면 기본 lophn).
   // agent 목록이나 터미널을 아직 쓸 수 없으면 열지 않고 false다.
-  const openNew = (start: NewSessionStart): boolean => {
+  const openNew = (
+    start: NewSessionStart,
+    at: { readonly worktree?: string; readonly prompt?: string } = {},
+  ): boolean => {
     if (start.command !== undefined) {
       if (terminal === undefined) return false;
-      openTerminalTab(host, { command: start.command, docked: true });
+      openTerminalTab(host, {
+        command: start.command,
+        docked: true,
+        ...(at.worktree === undefined ? {} : { worktree: at.worktree }),
+      });
       return true;
     }
     const wanted = start.agent ?? lophnIdAt(workspace);
     const row = sidebarAgents.agents.find((item) => item.assignment === wanted);
     if (row === undefined) return false;
-    return openDefinedAgent(row);
+    return openDefinedAgent(row, at);
   };
   const openLophn = (): boolean => openNew({});
   // 이 workspace의 설정 단추가 여는 탭(project는 Project settings, 앱은 App details). Home은 없다.
@@ -1553,18 +1589,23 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
         : undefined;
   const onSettingsAt = props.onSettingsAt;
   // + hover 목록과 탭 줄 + menu가 같이 쓰는, 고른 agent로 새 session을 여는 길.
-  const startChoice = (choice: AgentChoice) => {
+  // worktree를 주면 그 worktree에서 연다(+ 메뉴의 대상 고르기, Explorer의 Open agent here).
+  const startChoice = (choice: AgentChoice, worktree?: string) => {
+    const at = worktree === undefined ? {} : { worktree };
     if (choice.kind === "agent") {
-      openDefinedAgent({
-        assignment: choice.id,
-        name: choice.name,
-        ...(choice.runtime === undefined ? {} : { runtime: choice.runtime }),
-      });
+      openDefinedAgent(
+        {
+          assignment: choice.id,
+          name: choice.name,
+          ...(choice.runtime === undefined ? {} : { runtime: choice.runtime }),
+        },
+        at,
+      );
       return;
     }
     const command = codingCommand(codingPrefs.commands, choice.id as HarnessId);
     if (command !== undefined) {
-      openTerminalTab(host, { command, docked: true });
+      openTerminalTab(host, { command, docked: true, ...at });
     }
   };
   const agentChoiceList = agentChoices(
@@ -1870,6 +1911,222 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
       },
     },
   );
+  // ---- worktree: 화면들이 나누는 값(WorktreeUiContext), 새 세션·터미널의 대상, 탭·세션 꼬리표 ----
+  const sourceControl = useMemo(
+    () => createSourceControlSource(data.core),
+    [data.core],
+  );
+  const worktreeGrant = useMachineGrant(!data.here);
+  const worktreeReadOnly =
+    !data.here &&
+    (worktreeGrant === "denied" ||
+      (projectWorktrees.loaded && !projectWorktrees.canMutate));
+  const projectFolderPaths = useMemo(
+    () => (loaded.project?.folders ?? []).map((folder) => folder.path),
+    [loaded.project],
+  );
+  const worktreeDialogs = useWorktreeDialogs({
+    project: projectId ?? "",
+    folders: projectFolderPaths,
+    worktrees: projectWorktrees,
+    readOnly: worktreeReadOnly,
+    commandName: (id) =>
+      localProjectCommands.commands.find((cmd) => cmd.id === id)?.name ?? null,
+  });
+  const hasWorktrees =
+    projectId !== null && projectWorktrees.entries.length > 0;
+  const mainBranches = useMainBranches(
+    sourceControl,
+    projectId,
+    projectFolderPaths,
+    hasWorktrees,
+    projectWorktrees.entries,
+  );
+  // + 메뉴와 왼쪽 sidebar +가 연 세션·터미널의 체크아웃. 한 번 열면 원래 폴더(null)로 돌아간다.
+  const [openTarget, setOpenTarget] = useState<string | null>(null);
+  const readyTarget =
+    openTarget !== null &&
+    projectWorktrees.ready.some((one) => one.record.id === openTarget)
+      ? openTarget
+      : null;
+  const takeTarget = (): { worktree?: string } => {
+    const target = readyTarget;
+    setOpenTarget(null);
+    return target === null ? {} : { worktree: target };
+  };
+  const mainBranchOf = (folder?: string | null): string | null =>
+    mainBranches.get(folder ?? projectFolderPaths[0] ?? "") ??
+    mainBranches.get(projectFolderPaths[0] ?? "") ??
+    null;
+  const checkoutPicker: CheckoutPickerModel | undefined =
+    projectId === null || projectWorktrees.ready.length === 0
+      ? undefined
+      : {
+          choices: [
+            {
+              id: null,
+              label:
+                mainBranchOf() === null
+                  ? t("worktree-open.label.main-plain")
+                  : t("worktree-open.label.main", {
+                      branch: mainBranchOf() ?? "",
+                    }),
+              changed: 0,
+            },
+            ...projectWorktrees.ready.map((entry) => ({
+              id: entry.record.id,
+              label: branchLabelOf(entry),
+              changed: changedCountOf(entry.status),
+            })),
+          ],
+          selected: readyTarget,
+          select: setOpenTarget,
+          ...(worktreeReadOnly
+            ? {}
+            : {
+                onNew: () =>
+                  worktreeDialogs.openCreate({
+                    onCreated: (record) => setOpenTarget(record.id),
+                  }),
+              }),
+        };
+  // 탭이 묶인 worktree. agent·터미널은 연 때의 것(열린 session은 core가 아는 것), 파일 탭은 그 경로가 든 worktree다.
+  const worktreeOfTab = (tab: TabItem): string | null => {
+    if (tab.kind === "agent" || tab.kind === "terminal") {
+      const own = worktreeOf(tab);
+      if (own !== null) return own;
+      const session = tab.kind === "agent" ? sessionOf(tab) : null;
+      return session === null
+        ? null
+        : (sessionStates.find((one) => one.session === session)?.worktree ??
+            null);
+    }
+    const path = pathOfTab(tab);
+    return path === null
+      ? null
+      : (projectWorktrees.byPath(path)?.record.id ?? null);
+  };
+  // 탭이 닿는 체크아웃. Show in Source Control과 꼬리표가 쓴다. 다른 기계의 탭이나 체크아웃과 상관없는 탭(browser 등)은 null이다.
+  const checkoutOfTab = (tab: TabItem): CheckoutRef | null => {
+    if (projectId === null || tab.machine !== undefined) return null;
+    const worktree = worktreeOfTab(tab);
+    if (worktree !== null) return { kind: "worktree", id: worktree };
+    const path = pathOfTab(tab);
+    if (path !== null) {
+      const folder = projectFolderPaths.find((one) =>
+        path.startsWith(`${one.replace(/\/+$/, "")}/`),
+      );
+      return folder === undefined ? null : { kind: "folder", path: folder };
+    }
+    if (tab.kind === "agent" || tab.kind === "terminal") {
+      const folder = projectFolderPaths[0];
+      return folder === undefined ? null : { kind: "folder", path: folder };
+    }
+    return null;
+  };
+  const branchTagOfCheckout = (
+    checkout: CheckoutRef | null,
+  ): BranchTagInfo | undefined => {
+    if (checkout === null || !hasWorktrees) return undefined;
+    if (checkout.kind === "worktree") {
+      const entry = projectWorktrees.byId(checkout.id);
+      if (entry === undefined) return undefined;
+      return {
+        branch: branchLabelOf(entry),
+        label: entry.record.label,
+        path: entry.record.path,
+        dirty: entry.status.dirty,
+      };
+    }
+    const branch = mainBranchOf(checkout.path);
+    return branch === null ? undefined : { branch, path: checkout.path };
+  };
+  const branchTagOfTab = (tab: TabItem): BranchTagInfo | undefined =>
+    branchTagOfCheckout(checkoutOfTab(tab));
+  // 왼쪽 sidebar의 session 줄. 이 창에 탭이 있으면 그 탭을, 없으면 core가 아는 session의 worktree를 본다.
+  const branchOfSidebar = (item: SidebarSession): BranchTagInfo | null => {
+    if (!hasWorktrees) return null;
+    const tabs = allTabs(latestLayout.current);
+    const tab =
+      item.kind === "session"
+        ? tabs.find(
+            (one) => one.kind === "agent" && sessionOf(one) === item.ref,
+          )
+        : item.kind === "draft" || item.kind === "terminal"
+          ? tabs.find((one) => one.key === item.ref)
+          : undefined;
+    if (tab !== undefined) return branchTagOfTab(tab) ?? null;
+    if (item.kind !== "session") return null;
+    const worktree =
+      sessionStates.find((one) => one.session === item.ref)?.worktree ?? null;
+    return (
+      branchTagOfCheckout(
+        worktree !== null
+          ? { kind: "worktree", id: worktree }
+          : projectFolderPaths[0] === undefined
+            ? null
+            : { kind: "folder", path: projectFolderPaths[0] },
+      ) ?? null
+    );
+  };
+  const worktreeUi: WorktreeUi | null =
+    projectId === null
+      ? null
+      : {
+          project: projectId,
+          machine,
+          here: data.here,
+          readOnly: worktreeReadOnly,
+          folders: projectFolderPaths,
+          worktrees: projectWorktrees,
+          sourceControl,
+          openCreate: worktreeDialogs.openCreate,
+          openRemove: worktreeDialogs.openRemove,
+          openRename: worktreeDialogs.openRename,
+          openAgent: (worktree, options) => {
+            const at = {
+              ...(worktree === null ? {} : { worktree }),
+              ...(options?.prompt === undefined
+                ? {}
+                : { prompt: options.prompt }),
+            };
+            const choice =
+              options?.choice === undefined
+                ? undefined
+                : agentChoiceList.find(
+                    (one) => `${one.kind}:${one.id}` === options.choice,
+                  );
+            if (choice !== undefined && options?.prompt === undefined) {
+              startChoice(choice, worktree ?? undefined);
+              return;
+            }
+            openNew({}, at);
+          },
+          openTerminal: (worktree) =>
+            void openTerminalTab(
+              hostRef.current,
+              worktree === null ? {} : { worktree },
+            ),
+          showInSourceControl,
+          revealInExplorer: (path) => revealInExplorer(path),
+          openDiff: (spec, options) => {
+            // root가 있어야 diff 탭의 Copy Path·Reveal·Open File이 절대 경로를 안다.
+            const root =
+              spec.checkout.kind === "folder"
+                ? spec.checkout.path
+                : projectWorktrees.byId(spec.checkout.id)?.record.path;
+            openGitDiff(hostRef.current, spec, {
+              ...options,
+              ...(root === undefined ? {} : { root }),
+            });
+          },
+          openFile: (path, options) =>
+            openFile(
+              hostRef.current,
+              path,
+              options?.preview === true ? { preview: true } : {},
+            ),
+        };
   const remoteCommandGroups = useRemoteProjectCommandGroups(
     data.here && projectId !== null ? (loaded.project?.identity ?? null) : null,
     machineLists,
@@ -2521,6 +2778,9 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     unsaved: isUnsaved(tab.key),
     renamable: renamable(tab),
     ...(stripMachine(tab) === undefined ? {} : { machine: stripMachine(tab) }),
+    ...(branchTagOfTab(tab) === undefined
+      ? {}
+      : { branch: branchTagOfTab(tab) }),
     ...marksOf(tab),
   });
 
@@ -2851,6 +3111,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
       keys: windowCommands?.overrides() ?? {},
       // 다른 기계의 project도 설정 행이 없다(그 기계에서 바꾼다).
       home: projectId === null || !data.here,
+      worktrees: projectId !== null && !worktreeReadOnly,
       search:
         palette.search && projectId !== null
           ? (query) =>
@@ -2875,7 +3136,12 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
           else if (target.action === "project-settings") {
             openProjectSettings(host);
           } else if (target.action === "terminal") openTerminalTab(host);
-          else if (target.action === "float") {
+          else if (target.action === "new-worktree") {
+            worktreeDialogs.openCreate();
+          } else if (target.action === "source-control") {
+            setPanel("source-control");
+            setRightOpen(true);
+          } else if (target.action === "float") {
             const tab = focusTab(latestDesk());
             if (tab !== undefined) floatByKey(tab.key);
           } else if (target.action === "dock") {
@@ -3131,6 +3397,15 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
       case "sidebar.toggle":
         setLeftOpen((open) => !open);
         return;
+      case "source-control.focus":
+        if (projectId === null) return;
+        setPanel("source-control");
+        setRightOpen(true);
+        return;
+      case "worktree.new":
+        if (projectId === null || worktreeReadOnly) return;
+        worktreeDialogs.openCreate();
+        return;
       case "explorer.focus":
         if (projectId === null) return;
         setPanel("explorer");
@@ -3179,6 +3454,8 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
     ...(projectId === null
       ? ([
           "explorer.focus",
+          "source-control.focus",
+          "worktree.new",
           "desk.new",
           "desk.next",
           "desk.prev",
@@ -3480,6 +3757,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
         ? { handable: true, handTo: targetsFor(tab.owner) }
         : {}),
       handed: tab.handedTab !== undefined,
+      checkout: checkoutOfTab(tab) !== null,
     };
   };
 
@@ -3568,6 +3846,11 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
       case "reveal":
         if (path !== null) revealInExplorer(path);
         return;
+      case "show-in-source-control": {
+        const checkout = checkoutOfTab(tab);
+        if (checkout !== null) showInSourceControl(checkout);
+        return;
+      }
     }
   };
 
@@ -3930,6 +4213,31 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
               ),
             activeWorkflow: desk.workflow,
             onNewWorkflow: () => void openLophn(),
+            sourceControl: {
+              store: scStore,
+              focus: scFocus,
+              active:
+                currentTab === undefined ? null : checkoutOfTab(currentTab),
+              worktrees: projectWorktrees,
+              core: data.core,
+              events: data.events,
+              remote: !data.here || source.remote === true,
+              openDiff: (spec, options) =>
+                openGitDiff(host, spec, {
+                  preview: options.preview,
+                  root:
+                    spec.checkout.kind === "folder"
+                      ? spec.checkout.path
+                      : (projectWorktrees.byId(spec.checkout.id)?.record.path ??
+                        null),
+                }),
+              openFile: (path, options) =>
+                openFile(host, path, options.preview ? { preview: true } : {}),
+              revealInExplorer,
+              ...(data.here && source.remote !== true
+                ? { revealInOs: (path: string) => void source.reveal(path) }
+                : {}),
+            },
             explorer: {
               current:
                 currentTab?.kind === "document_editor" ? currentTab.key : null,
@@ -4336,7 +4644,8 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
                       {...(terminal === undefined
                         ? {}
                         : {
-                            onTerminal: () => openTerminalTab(host),
+                            onTerminal: () =>
+                              openTerminalTab(host, takeTarget()),
                             ...(projectId === null
                               ? {}
                               : {
@@ -4361,8 +4670,12 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
                         ? {}
                         : {
                             choices: agentChoiceList,
-                            onChoice: startChoice,
+                            onChoice: (choice) =>
+                              startChoice(choice, takeTarget().worktree),
                           })}
+                      {...(checkoutPicker === undefined
+                        ? {}
+                        : { checkouts: checkoutPicker })}
                       {...(agents === null || !data.here
                         ? {}
                         : { onAgents: () => openAgents(host) })}
@@ -4416,14 +4729,28 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
                   activeProjectCommandGroups={projectCommandGroups}
                   projectCommandActions={projectCommandActions}
                   onCommandPreview={openCommandPreview}
-                  onNewSession={() => void openLophn()}
+                  onNewSession={() => void openNew({}, takeTarget())}
                   {...(props.onNewSessionAt === undefined
                     ? {}
                     : { onNewSessionAt: props.onNewSessionAt })}
-                  onNewChoice={startChoice}
-                  onNewCoding={(command) =>
-                    openTerminalTab(host, { command, docked: true })
+                  onNewChoice={(choice) =>
+                    startChoice(choice, takeTarget().worktree)
                   }
+                  onNewCoding={(command) =>
+                    openTerminalTab(host, {
+                      command,
+                      docked: true,
+                      ...takeTarget(),
+                    })
+                  }
+                  {...(checkoutPicker === undefined
+                    ? {}
+                    : {
+                        checkoutPicker: (
+                          <CheckoutPicker model={checkoutPicker} />
+                        ),
+                      })}
+                  {...(hasWorktrees ? { branchOf: branchOfSidebar } : {})}
                   onOpenOn={(session, on) =>
                     void openSessionTab(session, undefined, on)
                   }
@@ -4667,6 +4994,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
               }}
             />
           )}
+          {worktreeDialogs.element}
           {tabMenu === null || menuTab === undefined ? null : (
             <TabContextMenu
               at={tabMenu}
@@ -4736,9 +5064,11 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
           )}
         >
           <HandSessionsContext.Provider value={handSessions}>
-            {workspaceViews === null
-              ? content
-              : createPortal(content, workspaceViews.context)}
+            <WorktreeUiContext.Provider value={worktreeUi}>
+              {workspaceViews === null
+                ? content
+                : createPortal(content, workspaceViews.context)}
+            </WorktreeUiContext.Provider>
           </HandSessionsContext.Provider>
         </OwnerProvider>
       </AppWorkspaceProvider>

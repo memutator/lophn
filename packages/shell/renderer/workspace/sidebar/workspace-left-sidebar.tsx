@@ -4,13 +4,13 @@
 import { t } from "@lophn/i18n";
 import { Toast } from "@lophn/ui/overlay";
 import {
+  type ReactNode,
   useCallback,
   useEffect,
   useMemo,
   useState,
   useSyncExternalStore,
 } from "react";
-
 import { HARNESS_ADAPTERS } from "../../../../protocol/coding-agent/harness-adapter.ts";
 import type { HarnessId } from "../../../../protocol/coding-agent/harness-id.ts";
 import { HOME_TERMINAL_PROJECT } from "../../../../protocol/coding-agent/terminals.ts";
@@ -113,6 +113,7 @@ import {
 } from "../project-commands/use-project-commands.ts";
 import type { WorkspaceSource } from "../source.ts";
 import type { WindowWorkspace } from "../workspace-window.tsx";
+import type { BranchTagInfo } from "../worktrees/branch-tag.tsx";
 import { CloneNote, type CloneState, cloneResult } from "./clone-note.tsx";
 import { useHiddenRecent } from "./hidden-recent.ts";
 import { movedTab, putTab, sessionTab } from "./move-tab.ts";
@@ -199,6 +200,10 @@ export interface WorkspaceLeftSidebarProps {
   onNewSessionAt?: (workspace: WorkspaceRef, start: NewSessionStart) => void;
   /** 이 workspace의 + hover 목록에서 고른 agent. 탭 줄 + menu와 같은 길이다. */
   onNewChoice: (choice: AgentChoice) => void;
+  /** 이 workspace 줄의 + hover 목록 위에 서는 체크아웃(worktree) 고르기. worktree가 없으면 없다. */
+  checkoutPicker?: ReactNode;
+  /** 이 workspace 줄 session의 브랜치 꼬리표. */
+  branchOf?: (item: SidebarSession) => BranchTagInfo | null;
   onNewCoding: (command: string) => void;
   /** 이 project의 session을 desk 규칙으로 연다. */
   onOpenHere: (session: string, agent: string) => void;
@@ -1211,6 +1216,19 @@ export function WorkspaceLeftSidebar(props: WorkspaceLeftSidebarProps) {
             <CloneNote clone={clone} onDismiss={() => setClone(key, null)} />
           );
         }}
+        checkoutPicker={(ref) =>
+          workspaceKey(ref) === workspaceKey(current)
+            ? (props.checkoutPicker ?? null)
+            : null
+        }
+        {...(props.branchOf === undefined
+          ? {}
+          : {
+              branchOf: (ref: WorkspaceRef, item: SidebarSession) =>
+                workspaceKey(ref) === workspaceKey(current)
+                  ? (props.branchOf?.(item) ?? null)
+                  : null,
+            })}
         commandsPopover={(ref) => {
           if (ref.kind !== "project" || ref.machine !== undefined) return null;
           const groups = commandGroupsFor(ref);

@@ -70,6 +70,7 @@ import type { Output } from "../../../../protocol/server/mod.ts";
 import { workflowOriginSchema } from "../../../../protocol/workflows/origin.ts";
 import { codingAgentsSetting, shellSettings } from "../../../config/mod.ts";
 import { HARNESS_GUI_ADAPTERS } from "../../../harness-gui/index.ts";
+import { platformRootFrom } from "../../../install-and-update/mod.ts";
 import {
   loadSession,
   workspaceOf,
@@ -112,7 +113,6 @@ import {
   SHELL_INIT_ENV,
   writeShellInit,
 } from "../../../terminals/host/shell-integration.ts";
-import { platformRootFrom } from "../../../install-and-update/mod.ts";
 import { installedLayout } from "../entry-layout.ts";
 import { redactDeep } from "./acp-build.ts";
 import { createProductRedactor, type WiringFactory } from "./context.ts";
@@ -824,6 +824,7 @@ export const terminalAgentsWiring: WiringFactory = () => {
                 harness: string;
                 agent?: string;
                 resume?: { session: string };
+                worktree_id?: string;
                 key: string;
               };
               installer.ensureOnce(body.harness);

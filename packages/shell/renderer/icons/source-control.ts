@@ -21,6 +21,7 @@ import {
   Square,
   TriangleAlert,
   Undo2,
+  WholeWord,
   WrapText,
 } from "lucide-react";
 
@@ -49,5 +50,6 @@ export const sourceControlIcons = {
   resolved: Check,
   splitView: SplitSquareHorizontal,
   wrap: WrapText,
+  space: WholeWord,
   pushed: CircleDot,
 } as const;

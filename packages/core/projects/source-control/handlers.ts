@@ -4,15 +4,25 @@
 // 불변식(spec 3.4.2): 충돌 상태·충돌 마커 커밋 거부, 해당 checkout에 도는 turn이 있으면 switch 거부,
 // pull은 --ff-only, force push 없음, 인증 실패 시 묻는 창 없이 unauthorized + 사람이 칠 명령 한 줄.
 import { constants as fsConstants } from "node:fs";
-import { access } from "node:fs/promises";
-import { isAbsolute, join } from "node:path";
+import { access, readFile, readdir, realpath, stat } from "node:fs/promises";
+import { isAbsolute, join, relative } from "node:path";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import {
   type SourceControlBranch,
   type SourceControlCommit,
+  type SourceControlOperation,
   type SourceControlTarget,
+  sourceControlAbort,
   sourceControlBranchCreate,
+  sourceControlBranchDelete,
+  sourceControlBranchRename,
+  sourceControlFetch,
+  sourceControlFileAt,
+  sourceControlIgnored,
+  sourceControlMarkResolved,
+  sourceControlSuggestCancel,
+  sourceControlSuggestMessage,
   sourceControlBranches,
   sourceControlCommit,
   sourceControlDiff,
@@ -33,7 +43,6 @@ import {
   assertSafeRefName,
   type GitRunner,
   inspectGitRepo,
-  isGitAuthError,
   listGitWorktrees,
   parsePorcelainV2Z,
   readGitDirectoryPath,
@@ -41,8 +50,27 @@ import {
   runGit,
   safeRealpath,
 } from "../worktrees/mod.ts";
+import {
+  conflictMarkersInDiff,
+  fairDiff,
+  gitFailure,
+  hasConflictMarkers,
+  refused,
+} from "./failures.ts";
+import type { CommitMessageQueue } from "./suggest.ts";
 
 const DIFF_MAX_CHARS = 512 * 1024;
+const STATUS_FILES_MAX = 10_000;
+const COMMIT_TIMEOUT_MS = 5 * 60_000;
+const NETWORK_TIMEOUT_MS = 2 * 60_000;
+const FILE_AT_MAX_BYTES = 5 * 1024 * 1024;
+const SUGGEST_DIFF_BUDGET = 160_000;
+const COMMIT_HOOKS = [
+  "pre-commit",
+  "prepare-commit-msg",
+  "commit-msg",
+  "post-commit",
+] as const;
 const COMMIT_FIELD_SEP = "\x1f";
 const COMMIT_RECORD_SEP = "\x1e";
 
@@ -64,6 +92,12 @@ export type SourceControlHandlersDeps = {
   mutex?: RepoGitMutex;
   git?: GitRunner;
   onChanged?(project: Id<"prj">, worktree?: Id<"wkt">): void;
+  // AI 커밋 메시지. 없으면 단추를 끈다.
+  suggest?: {
+    // lophn agent의 기본 model이 있는가. 없으면 이유(툴팁).
+    available(): Promise<{ available: boolean; reason: string | null }>;
+    queue: CommitMessageQueue;
+  };
 };
 
 type ResolvedTarget = {
@@ -139,18 +173,109 @@ async function readGitOperationsState(gitDir: string) {
   };
 }
 
-// 단독 `=======` 줄(Markdown setext 제목 밑줄 등) 오탐을 피하고 git 충돌 시작/끝 마커만 잡는다.
-const CONFLICT_MARKER_LINE = /^(?:<{7}|>{7})(?: |$)/;
+function operationOf(ops: {
+  in_merge: boolean;
+  in_rebase: boolean;
+  in_cherry_pick: boolean;
+  in_revert: boolean;
+}): SourceControlOperation | null {
+  if (ops.in_rebase) return "rebase";
+  if (ops.in_merge) return "merge";
+  if (ops.in_cherry_pick) return "cherry_pick";
+  if (ops.in_revert) return "revert";
+  return null;
+}
 
-function hasConflictMarkersInDiff(diff: string): boolean {
-  for (const line of diff.split(/\r?\n/)) {
-    if (!line.startsWith("+") || line.startsWith("+++")) continue;
-    const body = line.slice(1);
-    if (CONFLICT_MARKER_LINE.test(body)) {
-      return true;
+const ABORT_COMMAND: Record<SourceControlOperation, string> = {
+  merge: "merge",
+  rebase: "rebase",
+  cherry_pick: "cherry-pick",
+  revert: "revert",
+};
+
+// 커밋 때 돌 hook. core.hooksPath를 따르는 `--git-path hooks`를 본다(husky 같은 hook 관리자).
+async function commitHooksOf(cwd: string, git: GitRunner): Promise<string[]> {
+  const res = await git(cwd, ["rev-parse", "--git-path", "hooks"]);
+  if (res.code !== 0) return [];
+  const raw = res.stdout.trim();
+  const dir = isAbsolute(raw) ? raw : join(cwd, raw);
+  let names: string[];
+  try {
+    names = await readdir(dir);
+  } catch {
+    return [];
+  }
+  const found: string[] = [];
+  for (const hook of COMMIT_HOOKS) {
+    if (!names.includes(hook)) continue;
+    try {
+      const info = await stat(join(dir, hook));
+      if (process.platform === "win32" || (info.mode & 0o111) !== 0) {
+        found.push(hook);
+      }
+    } catch {
+      // 사라진 hook은 돌지 않는다.
     }
   }
-  return false;
+  return found;
+}
+
+// ssh가 passphrase를 묻다 멈추지 않게 한다. 사람이 ssh 명령을 정해 두었으면 건드리지 않는다.
+async function networkEnv(
+  cwd: string,
+  git: GitRunner,
+): Promise<Record<string, string>> {
+  if (
+    process.env.GIT_SSH_COMMAND !== undefined ||
+    process.env.GIT_SSH !== undefined
+  ) {
+    return {};
+  }
+  const configured = await git(cwd, ["config", "--get", "core.sshCommand"]);
+  if (configured.code === 0 && configured.stdout.trim() !== "") return {};
+  return { GIT_SSH_COMMAND: "ssh -o BatchMode=yes" };
+}
+
+function parseNumstatZ(
+  stdout: string,
+): Map<string, { additions: number; deletions: number } | null> {
+  const stats = new Map<
+    string,
+    { additions: number; deletions: number } | null
+  >();
+  const parts = stdout.split("\0");
+  for (let at = 0; at < parts.length; at += 1) {
+    const head = parts[at];
+    if (head === undefined || head === "") continue;
+    const fields = head.split("\t");
+    if (fields.length < 3) continue;
+    let path = fields.slice(2).join("\t");
+    // rename은 `add\tdel\t` 뒤에 옛 경로·새 경로가 NUL로 이어 온다.
+    if (path === "") {
+      path = parts[at + 2] ?? "";
+      at += 2;
+    }
+    const additions = Number(fields[0]);
+    const deletions = Number(fields[1]);
+    stats.set(
+      path,
+      fields[0] === "-" || !Number.isFinite(additions)
+        ? null
+        : { additions, deletions },
+    );
+  }
+  return stats;
+}
+
+async function insideRoot(root: string, path: string): Promise<boolean> {
+  try {
+    const real = await realpath(path);
+    const base = await realpath(root);
+    const rel = relative(base, real);
+    return rel !== "" && !rel.startsWith("..") && !isAbsolute(rel);
+  } catch {
+    return false;
+  }
 }
 
 function parseLogRecords(stdout: string): SourceControlCommit[] {
@@ -350,9 +475,41 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
       });
     }
     const parsedStatus = parsePorcelainV2Z(res.stdout);
-    const ops = await readGitOperationsState(target.value.gitDir);
+    const cwd = target.value.cwd;
+    const [ops, remotes, hooks, unstagedStat, stagedStat, suggest] =
+      await Promise.all([
+        readGitOperationsState(target.value.gitDir),
+        git(cwd, ["remote"]),
+        commitHooksOf(cwd, git),
+        git(cwd, ["--no-optional-locks", "diff", "--numstat", "-z"]),
+        git(cwd, [
+          "--no-optional-locks",
+          "diff",
+          "--cached",
+          "--numstat",
+          "-z",
+        ]),
+        deps.suggest === undefined
+          ? Promise.resolve({
+              available: false,
+              reason: "AI commit messages are not available here",
+            })
+          : deps.suggest.available(),
+      ]);
+    const unstagedStats = parseNumstatZ(unstagedStat.stdout);
+    const stagedStats = parseNumstatZ(stagedStat.stdout);
+    const truncated = parsedStatus.files.length > STATUS_FILES_MAX;
+    const files = parsedStatus.files.slice(0, STATUS_FILES_MAX).map((file) => ({
+      ...file,
+      ...(file.staged
+        ? { staged_stat: stagedStats.get(file.path) ?? null }
+        : {}),
+      ...(file.unstaged
+        ? { unstaged_stat: unstagedStats.get(file.path) ?? null }
+        : {}),
+    }));
     return ok({
-      cwd: target.value.cwd,
+      cwd,
       branch: parsedStatus.branch,
       detached: parsedStatus.detached,
       head_sha: parsedStatus.head_sha,
@@ -360,8 +517,14 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
       ahead: parsedStatus.ahead,
       behind: parsedStatus.behind,
       ...ops,
-      files: parsedStatus.files,
+      operation: operationOf(ops),
+      unborn: parsedStatus.head_sha === null,
+      has_remote: remotes.code === 0 && remotes.stdout.trim() !== "",
+      hooks,
+      truncated,
+      files,
       can_write: canWriteFor(who),
+      suggest,
     });
   };
 
@@ -377,27 +540,73 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
     if (!scope.ok) return scope;
     const target = await resolveTarget(parsed.data);
     if (!target.ok) return target;
-    const args = ["--no-optional-locks", "diff", "--no-color"];
-    if (parsed.data.staged === true) args.push("--cached");
-    if (parsed.data.context_lines !== undefined) {
-      args.push(`-U${parsed.data.context_lines}`);
-    }
+    let safePath: string | undefined;
     if (parsed.data.path !== undefined) {
-      const safePath = assertSafeRepoRelPath(parsed.data.path);
-      if (!safePath.ok) return safePath;
-      args.push("--", safePath.value);
+      const checked = assertSafeRepoRelPath(parsed.data.path);
+      if (!checked.ok) return checked;
+      safePath = checked.value;
     }
-    const res = await git(target.value.cwd, args);
-    if (res.code !== 0) {
-      return err({
-        code: "unavailable",
-        message: res.stderr.trim() || "git diff failed",
-      });
+    const options = [
+      "--no-color",
+      "--no-ext-diff",
+      ...(parsed.data.ignore_whitespace === true ? ["-w"] : []),
+      ...(parsed.data.context_lines === undefined
+        ? []
+        : [`-U${parsed.data.context_lines}`]),
+    ];
+    const cwd = target.value.cwd;
+    let untracked = false;
+    let args: string[];
+    if (parsed.data.commit !== undefined) {
+      const sha = assertSafeRefName(parsed.data.commit, "commit");
+      if (!sha.ok) return sha;
+      // parent 쪽 diff. root 커밋은 빈 tree 대비이고 merge 커밋은 첫 parent 대비다.
+      args = [
+        "--no-optional-locks",
+        "--literal-pathspecs",
+        "show",
+        "--format=",
+        "-m",
+        "--first-parent",
+        ...options,
+        sha.value,
+        "--",
+        ...(safePath === undefined ? [] : [safePath]),
+      ];
+    } else {
+      if (parsed.data.staged !== true && safePath !== undefined) {
+        const others = await git(cwd, [
+          "--no-optional-locks",
+          "--literal-pathspecs",
+          "ls-files",
+          "--others",
+          "--exclude-standard",
+          "--",
+          safePath,
+        ]);
+        untracked = others.code === 0 && others.stdout.trim() !== "";
+      }
+      args = untracked
+        ? ["diff", "--no-index", ...options, "--", "/dev/null", safePath!]
+        : [
+            "--no-optional-locks",
+            "--literal-pathspecs",
+            "diff",
+            ...(parsed.data.staged === true ? ["--cached"] : []),
+            ...options,
+            "--",
+            ...(safePath === undefined ? [] : [safePath]),
+          ];
+    }
+    const res = await git(cwd, args);
+    // --no-index는 차이가 있으면 1로 끝난다.
+    if (res.code !== 0 && !(untracked && res.code === 1)) {
+      return gitFailure(res, "git diff failed");
     }
     const truncated = res.stdout.length > DIFF_MAX_CHARS;
     const text = truncated ? res.stdout.slice(0, DIFF_MAX_CHARS) : res.stdout;
     const binary = /Binary files .+ differ|GIT binary patch/.test(text);
-    return ok({ diff: text, truncated, binary });
+    return ok({ diff: text, truncated, binary, untracked });
   };
 
   const stage: MemoryHandler = async (who, raw) => {
@@ -444,7 +653,9 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
         }
       }
       const args =
-        parsed.data.all === true ? ["add", "-A"] : ["add", "--", ...safePaths];
+        parsed.data.all === true
+          ? ["add", "-A"]
+          : ["--literal-pathspecs", "add", "--", ...safePaths];
       const res = await git(target.value.cwd, args, { retryLocks: true });
       if (res.code !== 0) {
         return err({
@@ -507,12 +718,12 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
         args =
           parsed.data.all === true
             ? ["reset", "HEAD", "--"]
-            : ["reset", "HEAD", "--", ...safePaths];
+            : ["--literal-pathspecs", "reset", "HEAD", "--", ...safePaths];
       } else {
         args =
           parsed.data.all === true
             ? ["rm", "--cached", "-r", "--", "."]
-            : ["rm", "--cached", "--", ...safePaths];
+            : ["--literal-pathspecs", "rm", "--cached", "--", ...safePaths];
       }
       const res = await git(target.value.cwd, args, { retryLocks: true });
       if (res.code !== 0) {
@@ -544,6 +755,20 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
     }
     const target = await resolveTarget(parsed.data);
     if (!target.ok) return target;
+
+    // spec 5.5: 같은 체크아웃에서 agent turn이 도는 동안 전체 버리기는 그 turn의 작업을 지운다.
+    if (
+      parsed.data.all === true &&
+      deps.hasActiveTurnInCheckout(
+        target.value.project,
+        target.value.worktreeId,
+      )
+    ) {
+      return refused(
+        "active_agent",
+        "cannot discard all changes while an agent turn is running in this checkout",
+      );
+    }
 
     const safePaths: string[] = [];
     if (parsed.data.all !== true) {
@@ -603,7 +828,7 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
         if (trackedTargets.length > 0) {
           const restore = await git(
             target.value.cwd,
-            ["checkout", "--", ...trackedTargets],
+            ["--literal-pathspecs", "checkout", "--", ...trackedTargets],
             { retryLocks: true },
           );
           if (restore.code !== 0) {
@@ -617,7 +842,7 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
         if (untrackedTargets.length > 0) {
           const clean = await git(
             target.value.cwd,
-            ["clean", "-fd", "--", ...untrackedTargets],
+            ["--literal-pathspecs", "clean", "-fd", "--", ...untrackedTargets],
             { retryLocks: true },
           );
           if (clean.code !== 0) {
@@ -640,7 +865,9 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
     return done;
   };
 
-  // spec 3.4.2 불변식 1: MERGE_HEAD/CHERRY_PICK_HEAD/REVERT_HEAD/unmerged index 또는 충돌 마커가 있으면 커밋 거부.
+  // spec 3.4.2 불변식 1과 spec 5.5 커밋 전 검사: 미해결 충돌·충돌 마커·빈 staged·중첩 저장소 gitlink를 거절한다.
+  // 진행 중 merge·cherry-pick·revert는 미해결이 0이면 커밋으로 마무리한다(Complete Merge). rebase는 커밋으로 잇지 않는다.
+  // hook과 서명은 저장소 설정대로 돈다(--no-verify·--no-gpg-sign을 붙이지 않는다).
   const commit: MemoryHandler = async (who, raw) => {
     const allowed = requireWriteUser(who);
     if (!allowed.ok) return allowed;
@@ -653,86 +880,109 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
     }
     const target = await resolveTarget(parsed.data);
     if (!target.ok) return target;
+    const cwd = target.value.cwd;
 
     const done = await mutex.run(target.value.gitCommonDir, async () => {
       const ops = await readGitOperationsState(target.value.gitDir);
-      if (
-        ops.in_merge ||
-        ops.in_rebase ||
-        ops.in_cherry_pick ||
-        ops.in_revert
-      ) {
-        return err({
-          code: "conflict" as const,
-          message:
-            "cannot commit while a merge, rebase, cherry-pick, or revert is in progress",
-          details: { reason: "merge_in_progress" },
-        });
+      if (ops.in_rebase) {
+        return refused(
+          "operation_in_progress",
+          "a rebase is in progress; continue or abort it in the terminal",
+        );
       }
-      const st = await git(target.value.cwd, [
+      const finishing = ops.in_merge || ops.in_cherry_pick || ops.in_revert;
+      const st = await git(cwd, [
         "--no-optional-locks",
         "status",
         "--porcelain=v2",
         "--branch",
         "-z",
       ]);
-      if (st.code !== 0) {
-        return err({
-          code: "unavailable" as const,
-          message: st.stderr.trim() || "git status failed",
-        });
-      }
+      if (st.code !== 0) return gitFailure(st, "git status failed");
       const parsedStatus = parsePorcelainV2Z(st.stdout);
       if (parsedStatus.conflicted_count > 0) {
-        return err({
-          code: "conflict" as const,
-          message: "cannot commit while unmerged conflict entries remain",
-          details: { reason: "unresolved_conflicts" },
-        });
+        return refused(
+          "unresolved_conflicts",
+          "cannot commit while unmerged conflict entries remain",
+        );
       }
-      if (parsedStatus.staged_count === 0) {
-        return err({
-          code: "conflict" as const,
-          message: "nothing staged to commit",
-          details: { reason: "nothing_staged" },
-        });
+      if (parsedStatus.staged_count === 0 && !finishing) {
+        return refused("nothing_staged", "nothing staged to commit");
       }
-      const stagedDiff = await git(target.value.cwd, [
+      const stagedDiff = await git(cwd, [
         "--no-optional-locks",
         "diff",
         "--cached",
         "--no-color",
+        "--no-ext-diff",
       ]);
-      if (
-        stagedDiff.code === 0 &&
-        hasConflictMarkersInDiff(stagedDiff.stdout)
-      ) {
-        return err({
-          code: "conflict" as const,
-          message:
-            "staged changes contain unresolved conflict markers (<<<<<<< / ======= / >>>>>>>)",
-          details: { reason: "conflict_markers" },
-        });
+      const markers =
+        stagedDiff.code === 0 ? conflictMarkersInDiff(stagedDiff.stdout) : [];
+      if (markers.length > 0) {
+        return refused(
+          "conflict_markers",
+          "staged changes contain unresolved conflict markers (<<<<<<< / >>>>>>>)",
+          { markers },
+        );
+      }
+      // 미추적 중첩 저장소를 `git add`하면 내용 없이 gitlink 한 줄만 커밋된다.
+      const added = await git(cwd, [
+        "--no-optional-locks",
+        "diff",
+        "--cached",
+        "--raw",
+        "--diff-filter=A",
+        "-z",
+      ]);
+      const gitlinks: string[] = [];
+      if (added.code === 0) {
+        const parts = added.stdout.split("\0");
+        for (let at = 0; at + 1 < parts.length; at += 2) {
+          if (/^:\d{6} 160000 /.test(parts[at] ?? "")) {
+            gitlinks.push(parts[at + 1] ?? "");
+          }
+        }
+      }
+      if (gitlinks.length > 0) {
+        const declared = await git(cwd, [
+          "config",
+          "-f",
+          ".gitmodules",
+          "--get-regexp",
+          "^submodule\\..*\\.path$",
+        ]);
+        const paths = new Set(
+          declared.code === 0
+            ? declared.stdout
+                .split(/\r?\n/)
+                .map((line) => line.split(" ").slice(1).join(" "))
+            : [],
+        );
+        const nested = gitlinks.filter((path) => !paths.has(path));
+        if (nested.length > 0) {
+          return refused(
+            "nested_repository",
+            "staged changes add a nested git repository without its files; unstage it or add it as a submodule",
+            { paths: nested },
+          );
+        }
       }
 
-      const commitArgs = ["commit", "-F", "-"];
-      const res = await git(target.value.cwd, commitArgs, {
+      const hooks = await commitHooksOf(cwd, git);
+      const res = await git(cwd, ["commit", "-F", "-"], {
         stdin: parsed.data.message,
         retryLocks: true,
+        timeoutMs: COMMIT_TIMEOUT_MS,
       });
       if (res.code !== 0) {
-        return err({
-          code: "conflict" as const,
-          message:
-            res.stderr.trim() || res.stdout.trim() || "git commit failed",
+        return gitFailure(res, "git commit failed", {
+          hookFailure: hooks.some(
+            (hook) => hook === "pre-commit" || hook === "commit-msg",
+          ),
         });
       }
-      const head = await git(target.value.cwd, ["rev-parse", "HEAD"]);
-      const branch = await git(target.value.cwd, [
-        "symbolic-ref",
-        "--short",
-        "HEAD",
-      ]);
+      const head = await git(cwd, ["rev-parse", "HEAD"]);
+      const branch = await git(cwd, ["symbolic-ref", "--short", "HEAD"]);
       return ok({
         sha: head.stdout.trim(),
         branch:
@@ -1037,7 +1287,7 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
         code: "conflict",
         message:
           "cannot switch branches while an agent turn is running in this checkout",
-        details: { reason: "active_turn_in_checkout" },
+        details: { reason: "active_agent" },
       });
     }
 
@@ -1126,7 +1376,7 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
         code: "conflict",
         message:
           "cannot switch branches while an agent turn is running in this checkout",
-        details: { reason: "active_turn_in_checkout" },
+        details: { reason: "active_agent" },
       });
     }
 
@@ -1137,21 +1387,20 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
         { retryLocks: true },
       );
       if (res.code !== 0) {
-        const isConflict =
-          /already checked out|would be overwritten|local changes/i.test(
-            res.stderr,
+        if (/invalid reference|did not match any/i.test(res.stderr)) {
+          return err({
+            code: "not_found" as const,
+            message: res.stderr.trim() || "branch not found",
+          });
+        }
+        if (/already (checked out|used by worktree)/i.test(res.stderr)) {
+          return refused(
+            "branch_checked_out",
+            res.stderr.trim() || "branch is checked out in another worktree",
           );
-        const isNotFound = /invalid reference|did not match any/i.test(
-          res.stderr,
-        );
-        return err({
-          code: isNotFound
-            ? ("not_found" as const)
-            : isConflict
-              ? ("conflict" as const)
-              : ("unavailable" as const),
-          message: res.stderr.trim() || "git switch failed",
-        });
+        }
+        // 자동 stash 하지 않는다. 바뀐 파일이 덮이면 git이 멈추고 그 이유를 그대로 보인다.
+        return gitFailure(res, "git switch failed");
       }
       const head = await git(target.value.cwd, ["rev-parse", "HEAD"]);
       return ok({
@@ -1197,10 +1446,10 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
         parsed.data.branch ??
         (curBranchRes.code === 0 ? curBranchRes.stdout.trim() : "");
       if (branch === "") {
-        return err({
-          code: "conflict" as const,
-          message: "cannot push from detached HEAD without specifying branch",
-        });
+        return refused(
+          "git_error",
+          "cannot push from detached HEAD without specifying branch",
+        );
       }
       const remote = parsed.data.remote ?? "origin";
       const args = [
@@ -1210,25 +1459,18 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
         remote,
         branch,
       ];
+      const remotes = await git(target.value.cwd, ["remote"]);
+      if (remotes.code === 0 && remotes.stdout.trim() === "") {
+        return refused("no_remote", "no remote configured");
+      }
       const res = await git(target.value.cwd, args, {
-        timeoutMs: 60_000,
+        timeoutMs: NETWORK_TIMEOUT_MS,
         retryLocks: true,
+        extraEnv: await networkEnv(target.value.cwd, git),
       });
       if (res.code !== 0) {
-        if (isGitAuthError(res.stderr)) {
-          const cmd = `git -C ${shellQuote(target.value.cwd)} ${args.map(shellQuote).join(" ")}`;
-          return err({
-            code: "unauthorized" as const,
-            message: `git push authentication failed; run in terminal: ${cmd}`,
-            details: { reason: "git_auth_failed", command: cmd },
-          });
-        }
-        return err({
-          code: /non-fast-forward|rejected/i.test(res.stderr)
-            ? ("conflict" as const)
-            : ("unavailable" as const),
-          message: res.stderr.trim() || "git push failed",
-        });
+        const cmd = `git -C ${shellQuote(target.value.cwd)} ${args.map(shellQuote).join(" ")}`;
+        return gitFailure(res, "git push failed", { command: cmd });
       }
       return ok({
         remote,
@@ -1278,26 +1520,14 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
         }
       }
       const res = await git(target.value.cwd, args, {
-        timeoutMs: 60_000,
+        timeoutMs: NETWORK_TIMEOUT_MS,
         retryLocks: true,
+        extraEnv: await networkEnv(target.value.cwd, git),
       });
       if (res.code !== 0) {
-        if (isGitAuthError(res.stderr)) {
-          const cmd = `git -C ${shellQuote(target.value.cwd)} ${args.map(shellQuote).join(" ")}`;
-          return err({
-            code: "unauthorized" as const,
-            message: `git pull authentication failed; run in terminal: ${cmd}`,
-            details: { reason: "git_auth_failed", command: cmd },
-          });
-        }
-        return err({
-          code: /Not possible to fast-forward|diverging|local changes/i.test(
-            res.stderr,
-          )
-            ? ("conflict" as const)
-            : ("unavailable" as const),
-          message: res.stderr.trim() || "git pull --ff-only failed",
-        });
+        const cmd = `git -C ${shellQuote(target.value.cwd)} ${args.map(shellQuote).join(" ")}`;
+        // diverged면 merge·rebase를 하지 않고 멈춘다(--ff-only). 화면이 "Branch has diverged from upstream"을 보인다.
+        return gitFailure(res, "git pull --ff-only failed", { command: cmd });
       }
       const afterHead = (
         await git(target.value.cwd, ["rev-parse", "HEAD"])
@@ -1321,6 +1551,420 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
     return done;
   };
 
+  const fetchRemote: MemoryHandler = async (who, raw) => {
+    const allowed = requireWriteUser(who);
+    if (!allowed.ok) return allowed;
+    const parsed = sourceControlFetch.input.safeParse(raw);
+    if (!parsed.success) {
+      return err({ code: "invalid_input", message: "invalid fetch input" });
+    }
+    if (parsed.data.remote !== undefined) {
+      const safeRemote = assertSafeRefName(parsed.data.remote, "remote");
+      if (!safeRemote.ok) return safeRemote;
+    }
+    const target = await resolveTarget(parsed.data);
+    if (!target.ok) return target;
+    const cwd = target.value.cwd;
+    const remotes = await git(cwd, ["remote"]);
+    if (remotes.code === 0 && remotes.stdout.trim() === "") {
+      return refused("no_remote", "no remote configured");
+    }
+    // FETCH_HEAD를 쓰지 않아 다른 worktree·터미널의 fetch와 다투지 않는다.
+    const args = [
+      "fetch",
+      "--quiet",
+      "--prune",
+      "--no-write-fetch-head",
+      "--no-auto-maintenance",
+      ...(parsed.data.remote === undefined ? [] : ["--", parsed.data.remote]),
+    ];
+    const res = await git(cwd, args, {
+      timeoutMs: NETWORK_TIMEOUT_MS,
+      extraEnv: await networkEnv(cwd, git),
+    });
+    if (res.code !== 0) {
+      const cmd = `git -C ${shellQuote(cwd)} ${args.map(shellQuote).join(" ")}`;
+      return gitFailure(res, "git fetch failed", { command: cmd });
+    }
+    deps.onChanged?.(
+      target.value.project,
+      target.value.worktreeId ?? undefined,
+    );
+    return ok({
+      remote: parsed.data.remote ?? null,
+      summary: res.stderr.trim().split(/\r?\n/)[0] || "fetched",
+    });
+  };
+
+  const abort: MemoryHandler = async (who, raw) => {
+    const allowed = requireWriteUser(who);
+    if (!allowed.ok) return allowed;
+    const parsed = sourceControlAbort.input.safeParse(raw);
+    if (!parsed.success) {
+      return err({ code: "invalid_input", message: "invalid abort input" });
+    }
+    const target = await resolveTarget(parsed.data);
+    if (!target.ok) return target;
+    const done = await mutex.run(target.value.gitCommonDir, async () => {
+      const ops = await readGitOperationsState(target.value.gitDir);
+      const operation = operationOf(ops);
+      if (operation === null) {
+        return refused(
+          "no_operation",
+          "no merge, rebase, cherry-pick or revert is in progress",
+        );
+      }
+      const res = await git(
+        target.value.cwd,
+        [ABORT_COMMAND[operation], "--abort"],
+        { retryLocks: true },
+      );
+      if (res.code !== 0)
+        return gitFailure(res, `git ${operation} --abort failed`);
+      return ok({ operation });
+    });
+    if (done.ok) {
+      deps.onChanged?.(
+        target.value.project,
+        target.value.worktreeId ?? undefined,
+      );
+    }
+    return done;
+  };
+
+  // 마커가 남은 파일을 해결로 표시하면 충돌 마커가 그대로 커밋될 수 있다(`git add -A` 함정).
+  const markResolved: MemoryHandler = async (who, raw) => {
+    const allowed = requireWriteUser(who);
+    if (!allowed.ok) return allowed;
+    const parsed = sourceControlMarkResolved.input.safeParse(raw);
+    if (!parsed.success) {
+      return err({
+        code: "invalid_input",
+        message:
+          parsed.error.issues[0]?.message ?? "invalid mark_resolved input",
+      });
+    }
+    const safePaths: string[] = [];
+    for (const p of parsed.data.paths) {
+      const checked = assertSafeRepoRelPath(p);
+      if (!checked.ok) return checked;
+      safePaths.push(checked.value);
+    }
+    const target = await resolveTarget(parsed.data);
+    if (!target.ok) return target;
+    const cwd = target.value.cwd;
+    const done = await mutex.run(target.value.gitCommonDir, async () => {
+      if (parsed.data.keep !== "deletion") {
+        const marked: string[] = [];
+        for (const path of safePaths) {
+          const full = join(cwd, path);
+          if (!(await insideRoot(cwd, full))) continue;
+          try {
+            if (hasConflictMarkers(await readFile(full, "utf8")))
+              marked.push(path);
+          } catch {
+            // 지워진 쪽을 남기는 충돌은 읽을 파일이 없다.
+          }
+        }
+        if (marked.length > 0) {
+          return refused(
+            "conflict_markers",
+            "these files still contain conflict markers",
+            { files: marked },
+          );
+        }
+      }
+      const args =
+        parsed.data.keep === "deletion"
+          ? ["--literal-pathspecs", "rm", "--quiet", "--", ...safePaths]
+          : ["--literal-pathspecs", "add", "--", ...safePaths];
+      const res = await git(cwd, args, { retryLocks: true });
+      if (res.code !== 0)
+        return gitFailure(res, "git could not mark files as resolved");
+      return ok({ resolved: safePaths.length });
+    });
+    if (done.ok) {
+      deps.onChanged?.(
+        target.value.project,
+        target.value.worktreeId ?? undefined,
+      );
+    }
+    return done;
+  };
+
+  const branchRename: MemoryHandler = async (who, raw) => {
+    const allowed = requireWriteUser(who);
+    if (!allowed.ok) return allowed;
+    const parsed = sourceControlBranchRename.input.safeParse(raw);
+    if (!parsed.success) {
+      return err({
+        code: "invalid_input",
+        message: "invalid branch_rename input",
+      });
+    }
+    const from = assertSafeRefName(parsed.data.from, "from");
+    if (!from.ok) return from;
+    const to = assertSafeRefName(parsed.data.to, "to");
+    if (!to.ok) return to;
+    const target = await resolveTarget(parsed.data);
+    if (!target.ok) return target;
+    const cwd = target.value.cwd;
+    const done = await mutex.run(target.value.gitCommonDir, async () => {
+      const format = await git(cwd, ["check-ref-format", "--branch", to.value]);
+      if (format.code !== 0) {
+        return err({
+          code: "invalid_input" as const,
+          message: `invalid branch name "${to.value}"`,
+        });
+      }
+      const res = await git(cwd, ["branch", "-m", from.value, to.value], {
+        retryLocks: true,
+      });
+      if (res.code !== 0) {
+        if (/already exists/i.test(res.stderr)) {
+          return refused("branch_exists", res.stderr.trim());
+        }
+        return gitFailure(res, "git branch -m failed");
+      }
+      return ok({ name: to.value });
+    });
+    if (done.ok) {
+      deps.onChanged?.(
+        target.value.project,
+        target.value.worktreeId ?? undefined,
+      );
+    }
+    return done;
+  };
+
+  // `git branch -d`만 쓴다. 병합되지 않은 브랜치는 지우지 않는다(강제 삭제 단추는 없다).
+  const branchDelete: MemoryHandler = async (who, raw) => {
+    const allowed = requireWriteUser(who);
+    if (!allowed.ok) return allowed;
+    const parsed = sourceControlBranchDelete.input.safeParse(raw);
+    if (!parsed.success) {
+      return err({
+        code: "invalid_input",
+        message: "invalid branch_delete input",
+      });
+    }
+    const name = assertSafeRefName(parsed.data.name, "name");
+    if (!name.ok) return name;
+    const target = await resolveTarget(parsed.data);
+    if (!target.ok) return target;
+    const cwd = target.value.cwd;
+    const done = await mutex.run(target.value.gitCommonDir, async () => {
+      const listed = await listGitWorktrees(
+        target.value.repoRoot,
+        target.value.gitCommonDir,
+        git,
+      );
+      const holder = listed.ok
+        ? listed.value.find((wt) => wt.branch === name.value)
+        : undefined;
+      if (holder !== undefined) {
+        return refused(
+          "branch_checked_out",
+          `branch "${name.value}" is checked out in ${holder.path}`,
+        );
+      }
+      const res = await git(cwd, ["branch", "-d", name.value], {
+        retryLocks: true,
+      });
+      if (res.code !== 0) {
+        if (/not fully merged/i.test(res.stderr)) {
+          return refused(
+            "unmerged",
+            `branch "${name.value}" is not fully merged; it was kept`,
+          );
+        }
+        if (/not found/i.test(res.stderr)) {
+          return err({
+            code: "not_found" as const,
+            message: res.stderr.trim(),
+          });
+        }
+        return gitFailure(res, "git branch -d failed");
+      }
+      return ok({ deleted: true as const });
+    });
+    if (done.ok) {
+      deps.onChanged?.(
+        target.value.project,
+        target.value.worktreeId ?? undefined,
+      );
+    }
+    return done;
+  };
+
+  const ignored: ReadHandler = async (who, raw) => {
+    const parsed = sourceControlIgnored.input.safeParse(raw);
+    if (!parsed.success) {
+      return err({ code: "invalid_input", message: "invalid ignored input" });
+    }
+    const scope = await checkAgentProjectScope(
+      who,
+      parsed.data.project as Id<"prj">,
+    );
+    if (!scope.ok) return scope;
+    const paths: string[] = [];
+    for (const p of parsed.data.paths) {
+      const checked = assertSafeRepoRelPath(p);
+      if (checked.ok) paths.push(checked.value);
+    }
+    if (paths.length === 0) return ok({ ignored: [] });
+    const target = await resolveTarget(parsed.data);
+    if (!target.ok) return target;
+    const res = await git(
+      target.value.cwd,
+      ["--no-optional-locks", "check-ignore", "--stdin", "-z"],
+      { stdin: `${paths.join("\0")}\0` },
+    );
+    // 1은 무시되는 것이 하나도 없다는 뜻이다.
+    if (res.code === 1) return ok({ ignored: [] });
+    if (res.code !== 0) return gitFailure(res, "git check-ignore failed");
+    return ok({ ignored: res.stdout.split("\0").filter((p) => p !== "") });
+  };
+
+  const fileAt: ReadHandler = async (who, raw) => {
+    const parsed = sourceControlFileAt.input.safeParse(raw);
+    if (!parsed.success) {
+      return err({ code: "invalid_input", message: "invalid file_at input" });
+    }
+    const scope = await checkAgentProjectScope(
+      who,
+      parsed.data.project as Id<"prj">,
+    );
+    if (!scope.ok) return scope;
+    const safePath = assertSafeRepoRelPath(parsed.data.path);
+    if (!safePath.ok) return safePath;
+    const target = await resolveTarget(parsed.data);
+    if (!target.ok) return target;
+    const cwd = target.value.cwd;
+    const rev = parsed.data.rev;
+    if (rev === "worktree") {
+      const full = join(cwd, safePath.value);
+      if (!(await insideRoot(cwd, full))) {
+        return ok({ base64: null, size: 0, too_large: false });
+      }
+      try {
+        const info = await stat(full);
+        if (info.size > FILE_AT_MAX_BYTES) {
+          return ok({ base64: null, size: info.size, too_large: true });
+        }
+        const bytes = await readFile(full);
+        return ok({
+          base64: bytes.toString("base64"),
+          size: bytes.length,
+          too_large: false,
+        });
+      } catch {
+        return ok({ base64: null, size: 0, too_large: false });
+      }
+    }
+    let spec: string;
+    if (rev === "index") spec = `:${safePath.value}`;
+    else {
+      // 커밋 diff의 앞 그림은 `<sha>^`(첫 parent)다. 끝의 `^` 하나만 받고 나머지는 ref 규칙으로 본다.
+      const parent = rev.endsWith("^");
+      const safeRev = assertSafeRefName(parent ? rev.slice(0, -1) : rev, "rev");
+      if (!safeRev.ok) return safeRev;
+      spec = `${safeRev.value}${parent ? "^" : ""}:${safePath.value}`;
+    }
+    const size = await git(cwd, [
+      "--no-optional-locks",
+      "cat-file",
+      "-s",
+      spec,
+    ]);
+    if (size.code !== 0) return ok({ base64: null, size: 0, too_large: false });
+    const bytes = Number(size.stdout.trim());
+    if (!Number.isFinite(bytes) || bytes > FILE_AT_MAX_BYTES) {
+      return ok({ base64: null, size: bytes || 0, too_large: true });
+    }
+    const blob = await git(
+      cwd,
+      ["--no-optional-locks", "cat-file", "blob", spec],
+      {
+        binary: true,
+        maxOutputBytes: FILE_AT_MAX_BYTES + 1,
+      },
+    );
+    if (blob.code !== 0) return gitFailure(blob, "git cat-file failed");
+    return ok({ base64: blob.stdout, size: bytes, too_large: false });
+  };
+
+  // 정한 것 14: 만든 글을 돌려줄 뿐 커밋하지 않는다. 재료는 staged diff(파일별 공평 분배)와 최근 커밋 제목이다.
+  const suggestMessage: MemoryHandler = async (who, raw) => {
+    const allowed = requireWriteUser(who);
+    if (!allowed.ok) return allowed;
+    const parsed = sourceControlSuggestMessage.input.safeParse(raw);
+    if (!parsed.success) {
+      return err({ code: "invalid_input", message: "invalid suggest input" });
+    }
+    if (deps.suggest === undefined) {
+      return refused("no_model", "AI commit messages are not available here");
+    }
+    const available = await deps.suggest.available();
+    if (!available.available) {
+      return refused(
+        "no_model",
+        available.reason ?? "no default model is set for the lophn agent",
+      );
+    }
+    const target = await resolveTarget(parsed.data);
+    if (!target.ok) return target;
+    const cwd = target.value.cwd;
+    const [staged, names, recent] = await Promise.all([
+      git(cwd, [
+        "--no-optional-locks",
+        "diff",
+        "--cached",
+        "--no-color",
+        "--no-ext-diff",
+        "-M",
+      ]),
+      git(cwd, [
+        "--no-optional-locks",
+        "diff",
+        "--cached",
+        "--name-only",
+        "-z",
+      ]),
+      git(cwd, ["--no-optional-locks", "log", "-n", "10", "--format=%s"]),
+    ]);
+    if (staged.code !== 0)
+      return gitFailure(staged, "git diff --cached failed");
+    if (staged.stdout.trim() === "") {
+      return refused(
+        "nothing_staged",
+        "stage changes before asking for a message",
+      );
+    }
+    const asked = await deps.suggest.queue.ask({
+      request: parsed.data.request,
+      diff: fairDiff(staged.stdout, SUGGEST_DIFF_BUDGET),
+      files: names.stdout.split("\0").filter((name) => name !== ""),
+      recent_subjects:
+        recent.code === 0
+          ? recent.stdout.split(/\r?\n/).filter((line) => line.trim() !== "")
+          : [],
+    });
+    return asked.ok ? ok({ message: asked.value }) : asked;
+  };
+
+  const suggestCancel: MemoryHandler = async (who, raw) => {
+    const allowed = requireWriteUser(who);
+    if (!allowed.ok) return allowed;
+    const parsed = sourceControlSuggestCancel.input.safeParse(raw);
+    if (!parsed.success) {
+      return err({ code: "invalid_input", message: "invalid cancel input" });
+    }
+    return ok({
+      cancelled: deps.suggest?.queue.cancel(parsed.data.request) ?? false,
+    });
+  };
+
   return {
     status,
     diff,
@@ -1335,5 +1979,14 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
     switchBranch,
     push,
     pull,
+    fetchRemote,
+    abort,
+    markResolved,
+    branchRename,
+    branchDelete,
+    ignored,
+    fileAt,
+    suggestMessage,
+    suggestCancel,
   };
 }

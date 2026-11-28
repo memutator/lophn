@@ -1,0 +1,55 @@
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+}
+
+.progress {
+  color: var(--color-text-muted);
+}
+
+.error {
+  color: var(--status-critical-text);
+  overflow-wrap: anywhere;
+}
+
+.list {
+  margin: 0;
+  padding-left: var(--space-4);
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+}
+
+.facts dt {
+  color: var(--color-text-muted);
+}
+
+.facts dd {
+  margin: 0;
+  min-width: 0;
+}
+
+.path {
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: var(--type-caption-size);
+}
+
+.checks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}

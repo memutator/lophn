@@ -40,37 +40,10 @@ export function register(ctx: ShellContext, views: AppViews): AppCalls {
   const appMachines = createAppMachines({ call: views.caller });
   const appSessionsApi = createAppSessions({ call: views.caller });
   const appAgents = createAppAgents({ call: views.caller });
-  // 앱 화면이 연 session의 ACP 갱신과 project worktree 변경 알림.
-  ctx.relay.conditions.push({
-    types: ["AcpUpdated", "WorktreesChanged", "WorktreeStatusChanged"],
-  });
-  const forwardWorktreeEvent = (
-    event: { type?: unknown; payload?: unknown },
-    machine: string | null,
-  ) => {
-    if (
-      event.type !== "WorktreesChanged" &&
-      event.type !== "WorktreeStatusChanged"
-    ) {
-      return;
-    }
-    const payload = event.payload as
-      | { project?: unknown; worktree?: unknown }
-      | undefined;
-    if (typeof payload?.project !== "string") return;
-    views.appFrame.broadcastWorktreesChanged(
-      {
-        project: payload.project,
-        ...(typeof payload.worktree === "string"
-          ? { worktree: payload.worktree }
-          : {}),
-      },
-      machine,
-    );
-  };
+  // 앱 화면이 연 session의 ACP 갱신. worktree 변경은 core가 앱 event(`lophn`의 `worktree.changed`)로 낸다.
+  ctx.relay.conditions.push({ types: ["AcpUpdated"] });
   ctx.relay.events.push((event) => {
     if (event.type === "AcpUpdated") appAgent.updated(event.payload, null);
-    else forwardWorktreeEvent(event, null);
   });
   // 다른 기계의 view가 붙은 session의 갱신(`app-views`가 그 기계에 건다). 그 기계에 묶인 view에만 간다.
   ctx.machines.onFrame((machine, message) => {
@@ -81,8 +54,6 @@ export function register(ctx: ShellContext, views: AppViews): AppCalls {
         event.payload as { session: string; update: unknown },
         machine,
       );
-    } else {
-      forwardWorktreeEvent(event, machine);
     }
   });
   views.onViewClosed((view_session) => appAgent.forget(view_session));

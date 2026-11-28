@@ -1,7 +1,7 @@
+import { t } from "@lophn/i18n";
 import { MenuIcon, Toast, Tooltip } from "@lophn/ui/overlay";
 import { Button } from "@lophn/ui/primitives";
 import { useObservedSize } from "@lophn/ui/shared";
-import { t } from "@lophn/i18n";
 import {
   type ClipboardEvent,
   type DragEvent,
@@ -12,20 +12,19 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-
-import type { TerminalRuntime } from "../../../protocol/coding-agent/terminals.ts";
 import { isGuiHarness } from "../../../protocol/acp/mod.ts";
+import type { TerminalRuntime } from "../../../protocol/coding-agent/terminals.ts";
 import { terminalSessionId } from "../../../protocol/lophn-agent/session-tag.ts";
 import { STAY } from "../app-frame/annotate/use-view-toast.ts";
-import { useReportVisible } from "../conversation/report-visible.ts";
-import { useScopeMachineItem } from "../desktop/machines/context.tsx";
 import { useWindowCommands } from "../commands/react.tsx";
 import type { Disposable } from "../commands/registry.ts";
+import { useReportVisible } from "../conversation/report-visible.ts";
+import { useScopeMachineItem } from "../desktop/machines/context.tsx";
 import { conversationIcons } from "../icons/mod.ts";
 import { useOwner } from "../parts/agent-session/owner.tsx";
 import { useCardHead } from "../parts/card-head/card-head.tsx";
-import type { TerminalDeps } from "./deps.ts";
 import { MachineTag } from "../shell/left-sidebar.tsx";
+import type { TerminalDeps } from "./deps.ts";
 import { ExitBanner } from "./exit-banner.tsx";
 import {
   endingOf,
@@ -34,11 +33,11 @@ import {
   phaseOfRefusal,
   phaseOfRuntime,
 } from "./model.ts";
+import { resolvePath } from "./path-links.ts";
 import type { TerminalEntry } from "./store.ts";
 import styles from "./terminal.module.css";
 import { blockedReason, useGuiToggle } from "./terminal-gui.tsx";
 import type { TerminalView } from "./xterm-view.ts";
-import { resolvePath } from "./path-links.ts";
 
 interface TerminalTabProps {
   tabKey: string;
@@ -55,6 +54,8 @@ interface TerminalTabProps {
     title: string | null;
     folderRef: string;
     terminalRef: string;
+    /** core가 이 터미널을 연 worktree. 원래 폴더면 null. */
+    worktree: string | null;
   }) => void;
   /** Ctrl/Cmd-click한 link를 이 터미널 옆 browser 탭으로 연다(사람의 설정이 browser 탭일 때). */
   openLinkTab?: (url: string) => void;
@@ -269,6 +270,7 @@ export function TerminalTab({
         title: folderTitle(runtime.cwd_at_start),
         folderRef: runtime.folder_ref,
         terminalRef: runtime.terminal_ref,
+        worktree: runtime.worktree_id ?? null,
       });
     },
     [store, tabKey, onStarted],
@@ -282,7 +284,7 @@ export function TerminalTab({
       }
       if (!store.beginOpen(tabKey)) return;
       // 다시 열기·실행 명령은 처음 한 번만 보낸다. 다시 시작이 같은 명령을 또 치지 않게 비운다.
-      const { resume, command, cwd } = store.get(tabKey) ?? {};
+      const { resume, command, cwd, worktree } = store.get(tabKey) ?? {};
       store.update(tabKey, {
         requested: true,
         folderRef: folder,
@@ -296,6 +298,7 @@ export function TerminalTab({
           project,
           ...(folder === null ? {} : { folder_ref: folder }),
           ...(cwd === undefined ? {} : { cwd }),
+          ...(worktree === undefined ? {} : { worktree_id: worktree }),
           ...(resume === undefined ? {} : { resume }),
           ...(command === undefined ? {} : { command }),
         });

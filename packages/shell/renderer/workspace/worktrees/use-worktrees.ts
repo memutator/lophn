@@ -111,7 +111,10 @@ export function useProjectWorktrees(
         }
         if (message.kind !== "event") return;
         const ev = message.event;
-        if (ev.type === "WorktreesChanged" && ev.payload.project === projectId) {
+        if (
+          ev.type === "WorktreesChanged" &&
+          ev.payload.project === projectId
+        ) {
           void fetchList();
         } else if (
           ev.type === "WorktreeStatusChanged" &&

@@ -57,12 +57,29 @@ export function register(ctx: ShellContext): Registered {
     return found;
   }
 
+  /** ready worktree 경로. 연결 폴더처럼 Explorer와 편집기가 읽고 쓴다. 못 읽으면 빈 목록이다(연결 폴더는 그대로 열린다). */
+  async function worktreeRoots(): Promise<string[]> {
+    const reply = await ctx.coreInternal("read", "worktrees", "roots", {});
+    if (!reply.ok) return [];
+    const value = reply.value as { roots?: { path: string }[] };
+    return (value.roots ?? []).map((root) => root.path);
+  }
+
   const fileAdapter = createFileAdapter({
     dataRoot,
-    folders: async () =>
-      (await activeProjects())?.flatMap((project) =>
-        project.folders.map((folder) => folder.path),
-      ) ?? null,
+    folders: async () => {
+      const [projects, worktrees] = await Promise.all([
+        activeProjects(),
+        worktreeRoots(),
+      ]);
+      if (projects === null) return null;
+      return [
+        ...projects.flatMap((project) =>
+          project.folders.map((folder) => folder.path),
+        ),
+        ...worktrees,
+      ];
+    },
     trash: (path) =>
       process.platform === "linux"
         ? gioTrash(path).catch(() => shell.trashItem(path))

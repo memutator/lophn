@@ -37,6 +37,8 @@ export type GitRunner = (
     maxOutputBytes?: number;
     retryLocks?: boolean;
     extraEnv?: Readonly<Record<string, string>>;
+    // stdout을 base64로 돌려준다(그림 같은 blob).
+    binary?: boolean;
   },
 ) => Promise<GitRunResult>;
 
@@ -60,6 +62,40 @@ function sleep(ms: number): Promise<void> {
   });
 }
 
+// 사람 shell의 git 환경 가운데 lophn의 호출을 다른 저장소로 돌리거나 묻는 창을 띄울 수 있는 것은 지운다.
+const INHERITED_GIT_ENV = [
+  "GIT_DIR",
+  "GIT_WORK_TREE",
+  "GIT_COMMON_DIR",
+  "GIT_INDEX_FILE",
+  "GIT_OBJECT_DIRECTORY",
+  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+  "GIT_NAMESPACE",
+  "GIT_PREFIX",
+] as const;
+
+export function gitChildEnv(
+  extra?: Readonly<Record<string, string>>,
+): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { ...process.env };
+  for (const name of INHERITED_GIT_ENV) delete env[name];
+  // LC_ALL=C는 hook이 물려받는 LC_CTYPE까지 C로 만들어 hook의 UTF-8 출력을 깬다. 사람의 locale은 두고
+  // LANGUAGE=C로 git 진단 글만 영어로 고정해 실패 분류가 이어지게 한다(gettext는 LANGUAGE를 LC_ALL보다 먼저 본다).
+  return {
+    ...env,
+    LANGUAGE: "C",
+    GIT_TERMINAL_PROMPT: "0",
+    GCM_INTERACTIVE: "never",
+    GIT_ASKPASS: "",
+    SSH_ASKPASS: "",
+    SSH_ASKPASS_REQUIRE: "never",
+    GIT_PAGER: "cat",
+    NO_COLOR: "1",
+    GIT_OPTIONAL_LOCKS: "0",
+    ...(extra ?? {}),
+  };
+}
+
 function runGitOnce(
   cwd: string,
   args: readonly string[],
@@ -68,30 +104,31 @@ function runGitOnce(
     stdin?: string;
     maxOutputBytes?: number;
     extraEnv?: Readonly<Record<string, string>>;
+    binary?: boolean;
   },
 ): Promise<GitRunResult> {
   const timeoutMs = options?.timeoutMs ?? GIT_DEFAULT_TIMEOUT_MS;
   const maxBytes = options?.maxOutputBytes ?? GIT_MAX_OUTPUT_BYTES;
+  // env 스크러빙으로 깨질 수 있는 GIT_CONFIG_* 대신 -c argv로 준다. fsmonitor·외부 diff 도구는 lophn 호출에서 돌리지 않는다.
   const fullArgs = [
     ...(process.platform === "win32" ? ["-c", "core.longpaths=true"] : []),
+    "-c",
+    "core.fsmonitor=false",
+    "-c",
+    "diff.external=",
     "-C",
     cwd,
     ...args,
   ];
+  // POSIX는 process group으로 띄워 시간이 넘으면 hook·ssh 같은 손자까지 함께 끝낸다.
+  const group = process.platform !== "win32";
   return new Promise((resolvePromise) => {
     const child = spawn("git", fullArgs, {
       shell: false,
       windowsHide: true,
+      detached: group,
       stdio: [options?.stdin !== undefined ? "pipe" : "ignore", "pipe", "pipe"],
-      env: {
-        ...process.env,
-        LC_ALL: "C",
-        GIT_TERMINAL_PROMPT: "0",
-        GCM_INTERACTIVE: "never",
-        GIT_ASKPASS: "",
-        GIT_OPTIONAL_LOCKS: "0",
-        ...(options?.extraEnv ?? {}),
-      },
+      env: gitChildEnv(options?.extraEnv),
     });
 
     const stdoutChunks: Buffer[] = [];
@@ -103,7 +140,13 @@ function runGitOnce(
 
     const timer = setTimeout(() => {
       timedOut = true;
-      child.kill("SIGKILL");
+      try {
+        if (group && child.pid !== undefined)
+          process.kill(-child.pid, "SIGKILL");
+        else child.kill("SIGKILL");
+      } catch {
+        child.kill("SIGKILL");
+      }
     }, timeoutMs);
     timer.unref?.();
 
@@ -145,7 +188,9 @@ function runGitOnce(
       clearTimeout(timer);
       resolvePromise({
         code: timedOut ? 124 : (code ?? 1),
-        stdout: Buffer.concat(stdoutChunks).toString("utf8"),
+        stdout: Buffer.concat(stdoutChunks).toString(
+          options?.binary === true ? "base64" : "utf8",
+        ),
         stderr: redactGitUrlCredentials(
           Buffer.concat(stderrChunks).toString("utf8"),
         ),

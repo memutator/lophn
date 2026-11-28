@@ -7,7 +7,6 @@
 // 다른 기계의 앱 화면(live만)은 그 기계의 core가 view 표·화면 byte·grant를 내준다(`machines/call`). 그 view의 partition과
 // host label에 기계가 들어 이 컴퓨터와 다른 기계의 같은 앱이 저장소와 origin을 나누지 않는다(session-policy.ts).
 import { APP_EVENT_CHANNEL } from "../../ipc/app-events.ts";
-import { APP_PROJECTS_WORKTREES_CHANGED_CHANNEL } from "../../ipc/app-projects.ts";
 import {
   appEntryUrl,
   createFileReader,
@@ -587,17 +586,6 @@ export function createAppFrame(deps: AppFrameDeps) {
         return;
       }
       void refreshEntry(entry);
-    },
-
-    /** `machine`의 core가 낸 worktree 변경 알림을 그 기계에 묶인 모든 앱 view로 보낸다. */
-    broadcastWorktreesChanged(
-      payload: { project: string; worktree?: string },
-      machine: string | null,
-    ): void {
-      for (const entry of entries.values()) {
-        if (entry.machine !== machine) continue;
-        entry.contents?.send(APP_PROJECTS_WORKTREES_CHANGED_CHANNEL, payload);
-      }
     },
 
     /** 그 창에 열린 view의 참조. 앱 화면 내용·DOM·캡처는 싣지 않는다. */

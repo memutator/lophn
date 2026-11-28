@@ -73,6 +73,8 @@ export interface RemoteFilesAdapter {
     projectId: string,
     folders: readonly { readonly path: string }[],
   ): void;
+  /** project의 ready worktree 경로를 경로 풀기 index에 올린다. core `project_files/*`가 그 경로를 `folder`로 받는다. 등록 폴더와 따로 들어 project index 갱신이 지우지 않는다. */
+  registerRoots(projectId: string, paths: readonly string[]): void;
   /** `otherMachineData.workspace`에 얹을 파일 관련 method 묶음. */
   readonly workspaceFiles: Pick<
     WorkspaceSource,
@@ -198,6 +200,12 @@ export function createRemoteFiles(
   const fileCache = new Map<string, CachedFile>();
   const fileInFlight = new Map<string, Promise<FileReply<FileText>>>();
 
+  const projectRoots = new Map<string, readonly string[]>();
+
+  function registerRoots(projectId: string, paths: readonly string[]): void {
+    projectRoots.set(projectId, [...paths]);
+  }
+
   function registerProject(
     projectId: string,
     folders: readonly { readonly path: string }[],
@@ -238,7 +246,8 @@ export function createRemoteFiles(
   function locateSync(absPath: string): LocatedPath | null {
     const target = trimTrailing(normalizePath(absPath));
     let best: { project: string; folder: string; root: string } | null = null;
-    for (const [project, folders] of projectFolders) {
+    const all = [...projectFolders, ...projectRoots];
+    for (const [project, folders] of all) {
       for (const folder of folders) {
         const root = trimTrailing(normalizePath(folder));
         const match =
@@ -755,6 +764,7 @@ export function createRemoteFiles(
 
   return {
     registerProject,
+    registerRoots,
     workspaceFiles: {
       remote: true,
       list,

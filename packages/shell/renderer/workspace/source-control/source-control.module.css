@@ -1,0 +1,542 @@
+/* Source Control 패널과 git_diff 탭. 줄 높이와 들여쓰기는 Explorer tree와 같은 token을 쓴다. */
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: var(--space-0);
+  padding-bottom: var(--space-4);
+}
+
+.menuAnchor {
+  position: fixed;
+  width: var(--space-0);
+  height: var(--space-0);
+  pointer-events: none;
+}
+
+/* 머리 줄의 대상 고르기. */
+.pickHead {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: var(--space-0);
+  height: var(--control-sm-height);
+  padding: var(--space-0) var(--space-3);
+  border: var(--space-0);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--type-small-size);
+  cursor: pointer;
+}
+
+.pickHead:hover {
+  background: var(--color-surface-muted);
+  color: var(--color-text-primary);
+}
+
+.pickHead:focus-visible {
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: calc(var(--border-focus-offset) * -1);
+}
+
+.pickTitle {
+  overflow: hidden;
+  font-weight: var(--font-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pinnedMark {
+  flex: none;
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+}
+
+.pickRow {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: var(--space-0);
+}
+
+.pickRow[data-indent] {
+  padding-left: var(--tree-indent);
+}
+
+.pickName {
+  flex: 1;
+  min-width: var(--space-0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.countBadge {
+  flex: none;
+  min-width: var(--badge-size);
+  padding: var(--space-0) var(--space-1);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-muted);
+  color: var(--color-text-secondary);
+  font-size: var(--badge-font);
+  text-align: center;
+}
+
+/* 배너: 읽기 전용, 충돌, 사라진 worktree, 상한 초과. */
+.banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-0) var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-subtle);
+  color: var(--color-text-secondary);
+  font-size: var(--type-small-size);
+}
+
+.banner[data-tone="danger"] {
+  border-color: var(--status-critical-marker);
+  color: var(--status-critical-text);
+}
+
+.banner[data-tone="warning"] {
+  border-color: var(--status-warning-marker);
+  color: var(--status-warning-text);
+}
+
+.bannerActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* 브랜치 바. */
+.branchBar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-0) var(--space-2);
+}
+
+.branchButton {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: var(--space-0);
+  height: var(--control-sm-height);
+  padding: var(--space-0) var(--space-2);
+  border: var(--space-0);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--type-small-size);
+  cursor: pointer;
+}
+
+.branchButton:hover {
+  background: var(--color-surface-muted);
+}
+
+.branchLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.syncCounts {
+  display: flex;
+  flex: none;
+  gap: var(--space-1);
+  color: var(--color-text-secondary);
+  font-family: var(--font-numeric);
+  font-size: var(--type-caption-size);
+}
+
+.syncButtons {
+  display: flex;
+  flex: none;
+}
+
+.branchPopover {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: var(--search-select-list);
+  max-height: var(--search-select-list);
+  padding: var(--space-1);
+}
+
+.branchList {
+  overflow-y: auto;
+}
+
+.branchHeading {
+  padding: var(--space-1) var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+}
+
+.branchRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--menu-row);
+  padding: var(--space-0) var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--type-small-size);
+  cursor: pointer;
+}
+
+.branchRow:hover,
+.branchRow:focus-visible {
+  background: var(--floating-hover);
+  outline: none;
+}
+
+.branchRow[data-disabled] {
+  color: var(--color-text-disabled);
+  cursor: default;
+}
+
+.branchCheck {
+  display: flex;
+  flex: none;
+  width: var(--icon-size-small);
+}
+
+.branchName {
+  flex: 1;
+  min-width: var(--space-0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.refBadge {
+  flex: none;
+  max-width: var(--chip-width);
+  overflow: hidden;
+  padding: var(--space-0) var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-muted);
+  color: var(--color-text-secondary);
+  font-size: var(--type-caption-size);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 커밋 칸. */
+.commitBox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-0) var(--space-3);
+}
+
+.commitInput {
+  position: relative;
+}
+
+.commitText {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--control-lg-height);
+  padding: var(--space-2) var(--control-md-height) var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--color-border-base);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-base);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-line);
+  resize: none;
+}
+
+.commitText:focus-visible {
+  outline: var(--border-focus-width) solid var(--color-focus);
+  outline-offset: var(--space-0);
+}
+
+.commitAi {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+}
+
+.commitActions {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.commitProgress {
+  color: var(--color-text-secondary);
+  font-size: var(--type-caption-size);
+}
+
+/* 오류 카드. */
+.errorCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-0) var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--status-critical-marker);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-subtle);
+  font-size: var(--type-small-size);
+}
+
+.errorHead {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.errorSummary {
+  flex: 1;
+  color: var(--status-critical-text);
+}
+
+.errorList {
+  margin: var(--space-0);
+  padding-left: var(--space-5);
+  font-family: var(--font-mono);
+  font-size: var(--type-caption-size);
+}
+
+.errorCommand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--type-caption-size);
+}
+
+.errorCommand code {
+  flex: 1;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  white-space: pre;
+}
+
+.errorDetails summary {
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.errorDetails pre {
+  max-height: var(--search-select-list);
+  overflow: auto;
+  margin: var(--space-1) var(--space-0) var(--space-0);
+  font-family: var(--font-mono);
+  font-size: var(--type-caption-size);
+  white-space: pre-wrap;
+}
+
+.filterInput {
+  box-sizing: border-box;
+  margin: var(--space-0) var(--space-3);
+  height: var(--control-sm-height);
+  padding: var(--space-0) var(--space-2);
+  border: var(--border-width) solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-base);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--type-small-size);
+}
+
+.branchPopover .filterInput {
+  margin: var(--space-0);
+}
+
+/* 파일 줄. */
+.fileList {
+  display: flex;
+  flex-direction: column;
+}
+
+.fileRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--tree-row);
+  padding-right: var(--space-2);
+  font-size: var(--type-small-size);
+  cursor: pointer;
+}
+
+.fileRow:hover,
+.fileRow:focus-visible {
+  background: var(--color-surface-muted);
+  outline: none;
+}
+
+.fileIcon {
+  display: flex;
+  flex: none;
+}
+
+.fileName {
+  flex: none;
+  max-width: 60%;
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fileName[data-deleted] {
+  text-decoration: line-through;
+}
+
+.fileDir {
+  flex: 1;
+  min-width: var(--space-0);
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rowActions {
+  display: none;
+  flex: none;
+}
+
+.fileRow:hover .rowActions,
+.fileRow:focus-within .rowActions {
+  display: flex;
+}
+
+.stat {
+  display: flex;
+  flex: none;
+  gap: var(--space-1);
+  font-family: var(--font-numeric);
+  font-size: var(--type-caption-size);
+}
+
+.statAdd {
+  color: var(--status-good-text);
+}
+
+.statDel {
+  color: var(--status-critical-text);
+}
+
+.letter {
+  flex: none;
+  width: var(--icon-size-small);
+  font-family: var(--font-mono);
+  font-size: var(--type-caption-size);
+  font-weight: var(--font-weight-semibold);
+  text-align: center;
+}
+
+.letter[data-tone="modified"] {
+  color: var(--status-warning-text);
+}
+
+.letter[data-tone="added"] {
+  color: var(--status-good-text);
+}
+
+.letter[data-tone="deleted"],
+.letter[data-tone="conflicted"] {
+  color: var(--status-critical-text);
+}
+
+.letter[data-tone="renamed"] {
+  color: var(--color-link);
+}
+
+/* Commits 섹션. */
+.history {
+  display: flex;
+  flex-direction: column;
+}
+
+.commitRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--tree-row);
+  padding: var(--space-0) var(--space-2) var(--space-0) var(--space-3);
+  font-size: var(--type-small-size);
+  cursor: pointer;
+}
+
+.commitRow:hover,
+.commitRow:focus-visible {
+  background: var(--color-surface-muted);
+  outline: none;
+}
+
+.pushMark {
+  box-sizing: border-box;
+  flex: none;
+  width: var(--space-2);
+  height: var(--space-2);
+  border: var(--border-width) solid var(--color-text-secondary);
+  border-radius: var(--radius-full);
+}
+
+.pushMark[data-pushed] {
+  background: var(--color-text-secondary);
+}
+
+.commitSubject {
+  flex: 1;
+  min-width: var(--space-0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.commitMeta {
+  flex: none;
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+  white-space: nowrap;
+}
+
+.commitFiles {
+  padding-left: var(--tree-indent);
+}
+
+.loadMore {
+  margin: var(--space-1) var(--space-3);
+  padding: var(--space-1);
+  border: var(--space-0);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-link);
+  font: inherit;
+  font-size: var(--type-small-size);
+  cursor: pointer;
+}
+
+.dialogBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.dialogBody p {
+  margin: var(--space-0);
+}
+
+.dangerText {
+  color: var(--status-critical-text);
+}

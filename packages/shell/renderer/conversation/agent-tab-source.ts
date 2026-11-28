@@ -766,7 +766,11 @@ export interface AgentTabSource {
 
   // session
   /** 첫 말을 보내기 전에 만든다. */
-  openSession(input: { id: string }): Promise<SourceResult<void>>;
+  /** worktree를 주면 그 worktree에 묶인 session이다(core가 열 때 고정한다). */
+  openSession(input: {
+    id: string;
+    worktree?: string;
+  }): Promise<SourceResult<void>>;
   /** 그 session에서 도는 turn을 멈춘다. 도는 turn이 없으면 할 일이 없어 ok다. */
   stopSession(session: string): Promise<SourceResult<void>>;
   /**

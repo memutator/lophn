@@ -137,9 +137,8 @@ export type AppWorktree = {
 export type LophnAppProjects = {
   list(): Promise<Result<{ projects: AppProject[] }>>;
   /** 그 project의 worktree 목록과 최신 git 상태를 읽는다(`project`는 `prj_` id, `pri_` identity 또는 project 이름). */
+  /** 바뀜은 앱 event `("lophn", "worktree.changed")`로 받는다(선언의 `subscriptions`가 필요하다). */
   worktrees(project: string): Promise<Result<{ worktrees: AppWorktree[] }>>;
-  /** worktree 목록이나 상태가 바뀔 때 project id(`prj_`)를 알린다. 돌려주는 함수로 푼다. */
-  onWorktreesChanged(listener: (project: string) => void): () => void;
 };
 
 /**

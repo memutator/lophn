@@ -53,6 +53,10 @@ import {
   workspaceSessionCompactRequests,
   workspaceSessionRead,
 } from "../../../protocol/lophn-agent/mod.ts";
+import {
+  sourceControlMessageRequestDone,
+  sourceControlMessageRequestTake,
+} from "../../../protocol/projects/source-control.ts";
 import { machinesAppTools } from "../../../protocol/remote/mod.ts";
 import {
   workflowInstanceSetAiTitle,
@@ -133,6 +137,9 @@ export const RUNTIME_MACHINE_ROUTES = [
   // workflow instance 시작 직후 전역 기본 model로 제목을 짓는다.
   workflowTitleRequestTake,
   workflowInstanceSetAiTitle,
+  // Source Control의 AI 커밋 메시지 요청을 가져가 기본 model로 짓고 돌려준다.
+  sourceControlMessageRequestTake,
+  sourceControlMessageRequestDone,
 ] as const;
 
 // machine credential이 가져야 하는 operation 이름이다.

@@ -261,3 +261,76 @@
   height: var(--space-0);
   pointer-events: none;
 }
+
+/* git 상태 문자. 파일 이름 색도 같은 뜻으로 칠한다(M 경고, A·U 추가, D·C 위험, R 정보). */
+.gitMark {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding-left: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--type-caption-size);
+}
+
+.treeRow[data-git="M"] {
+  color: var(--status-warning-text);
+}
+
+.treeRow[data-git="A"],
+.treeRow[data-git="U"] {
+  color: var(--status-good-text);
+}
+
+.treeRow[data-git="D"],
+.treeRow[data-git="C"] {
+  color: var(--status-critical-text);
+}
+
+.treeRow[data-git="D"] .treeLabel {
+  text-decoration: line-through;
+}
+
+.treeRow[data-git="C"] .gitMark {
+  font-weight: var(--font-weight-semibold);
+}
+
+.treeRow[data-git="R"] {
+  color: var(--status-neutral-text);
+}
+
+.treeRow[data-ignored] {
+  color: var(--color-text-disabled);
+}
+
+/* worktree 가지 줄: 아이콘, 이름(+ 브랜치 부제), 이상 상태, 바뀐 파일 수. */
+.branchLabel {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  min-width: var(--space-0);
+}
+
+.branchSub {
+  margin-left: var(--space-2);
+  color: var(--color-text-muted);
+}
+
+.branchState {
+  flex: 0 0 auto;
+  margin-left: var(--space-2);
+  color: var(--status-warning-text);
+  font-size: var(--type-caption-size);
+}
+
+.branchCount {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: var(--space-0) var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  font-size: var(--type-caption-size);
+}
+
+.treeRow[data-worktree-state] .branchLabel {
+  opacity: 0.7;
+}

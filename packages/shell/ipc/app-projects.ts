@@ -2,5 +2,3 @@
 
 export const APP_PROJECTS_LIST_CHANNEL = "app:projects-list";
 export const APP_PROJECTS_WORKTREES_CHANNEL = "app:projects-worktrees";
-export const APP_PROJECTS_WORKTREES_CHANGED_CHANNEL =
-  "app:projects-worktrees-changed";

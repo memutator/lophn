@@ -8,6 +8,7 @@ import {
   commonIcons,
   editorIcons,
   shellIcons,
+  sourceControlIcons,
   workspaceIcons,
 } from "../icons/mod.ts";
 import { OwnerMark } from "../parts/agent-session/owner.tsx";
@@ -37,6 +38,8 @@ export type TabAction =
   | "copy-path"
   | "copy-relative-path"
   | "reveal"
+  /** 그 탭의 체크아웃(worktree나 원래 폴더)을 Source Control 패널에 고정한다. */
+  | "show-in-source-control"
   /** 넘긴 browser 탭을 사람에게 되돌린다. */
   | "take-back"
   /** browser 탭을 그 session에 넘긴다(`hand:<session id>`). */
@@ -94,6 +97,8 @@ export interface TabMenuState {
   readonly handTo?: readonly HandTarget[];
   /** 사람이 session에 넘긴 탭이다. Take back이 선다. */
   readonly handed?: boolean;
+  /** 탭이 git 체크아웃(worktree 또는 원래 폴더)에 닿는다. Show in Source Control이 선다. */
+  readonly checkout?: boolean;
 }
 
 // Hand to(하위 menu)와 Take back. 탭을 다른 session에 다시 넘기면 Take back과 Hand to가 같이 선다.
@@ -320,6 +325,16 @@ function baseItems(state: TabMenuState): MenuItem[] {
             id: "reveal",
             label: t("shell.button.tab-reveal"),
             leading: <MenuIcon icon={workspaceIcons.revealInExplorer} />,
+          },
+        ]
+      : []),
+    ...(state.checkout === true
+      ? [
+          {
+            id: "show-in-source-control",
+            label: t("worktree-open.button.show-in-source-control"),
+            leading: <MenuIcon icon={sourceControlIcons.branch} />,
+            separatorBefore: true,
           },
         ]
       : []),

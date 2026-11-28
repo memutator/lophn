@@ -4,7 +4,7 @@
 import { t } from "@lophn/i18n";
 import { Menu, MenuIcon, type MenuItem } from "@lophn/ui/overlay";
 import { FileIcon, IconButton } from "@lophn/ui/primitives";
-import type { ReactNode } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import { ProfileMark } from "../browser/browser-chrome.tsx";
 import { useBrowserProfiles } from "../browser/profiles.tsx";
 import { useKeyLabel } from "../commands/react.tsx";
@@ -23,6 +23,12 @@ import {
   projectCommandsMenuItems,
 } from "./project-commands/commands-menu.tsx";
 import type { ProjectCommandGroup } from "./project-commands/use-project-commands.ts";
+import {
+  CHECKOUT_NEW,
+  type CheckoutPickerModel,
+  checkoutMenuItems,
+  checkoutOfItem,
+} from "./worktrees/checkout-picker.tsx";
 
 interface NewTabMenuProps {
   onDocument?: () => void;
@@ -44,6 +50,8 @@ interface NewTabMenuProps {
   onAppScreen?: () => void;
   /** 연결된 다른 기계마다 "Pages on <기계>" 항목이 선다. 그 기계의 browser page 목록 탭을 연다. */
   onPages?: (machine: string) => void;
+  /** project에 worktree가 있으면 Agent·Terminal을 어느 체크아웃에서 열지 고르는 머리 묶음. 없으면 지금과 같다. */
+  checkouts?: CheckoutPickerModel;
 }
 
 const PROFILE_ITEM = "browser-profile:";
@@ -72,6 +80,11 @@ export function NewTabMenu(props: NewTabMenuProps) {
       };
     });
   const root: MenuItem[] = [];
+  // 대상 줄을 고르면 Menu가 닫히지 않게 한다(고른 뒤 Agent·Terminal을 이어서 누른다).
+  const [open, setOpen] = useState(false);
+  const keepOpen = useRef(false);
+  const checkouts = props.checkouts;
+  if (checkouts !== undefined) root.push(...checkoutMenuItems(checkouts));
   if (props.onDocument)
     root.push({
       id: "document",
@@ -82,6 +95,7 @@ export function NewTabMenu(props: NewTabMenuProps) {
         </MenuIcon>
       ),
       ...keyed("new.document"),
+      ...(checkouts === undefined ? {} : { separatorBefore: true }),
     });
   if (props.onTerminal) {
     const cmdItems =
@@ -178,8 +192,24 @@ export function NewTabMenu(props: NewTabMenuProps) {
       ...(panelItems.length > 0 ? { selectable: true, items: panelItems } : {}),
     });
   }
+  // 문서 항목이 없으면 대상 묶음 다음 첫 항목 위에 구분선을 긋는다.
+  if (checkouts !== undefined && props.onDocument === undefined) {
+    const first = root.findIndex(
+      (item) =>
+        checkoutOfItem(item.id) === undefined && item.id !== CHECKOUT_NEW,
+    );
+    if (first >= 0) root[first] = { ...root[first]!, separatorBefore: true };
+  }
   return (
     <Menu
+      open={open}
+      onOpenChange={(next) => {
+        if (!next && keepOpen.current) {
+          keepOpen.current = false;
+          return;
+        }
+        setOpen(next);
+      }}
       trigger={
         <IconButton
           icon={commonIcons.add}
@@ -190,7 +220,14 @@ export function NewTabMenu(props: NewTabMenuProps) {
       }
       items={root}
       onSelect={(id) => {
-        if (id === "document") props.onDocument?.();
+        const picked = checkoutOfItem(id);
+        if (picked !== undefined) {
+          keepOpen.current = true;
+          checkouts?.select(picked);
+          return;
+        }
+        if (id === CHECKOUT_NEW) checkouts?.onNew?.();
+        else if (id === "document") props.onDocument?.();
         else if (id === "terminal") props.onTerminal?.();
         else if (id === "browser") props.onBrowser?.();
         else if (id === "agents") props.onAgents?.();

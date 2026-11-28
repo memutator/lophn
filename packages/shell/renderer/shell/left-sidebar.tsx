@@ -50,6 +50,10 @@ import { TabStateDot } from "../parts/tab-state-dot/tab-state-dot.tsx";
 import { HandSessionsContext } from "../workspace/hand.ts";
 import { tabKindOf } from "../workspace/kinds/registry.ts";
 import { HandoffRow } from "../workspace/sidebar/handoff-row.tsx";
+import {
+  BranchTag,
+  type BranchTagInfo,
+} from "../workspace/worktrees/branch-tag.tsx";
 import { agentSections, Keyed } from "./agent-sections.tsx";
 import { type WorkspaceRef, workspaceKey } from "./desk-model.ts";
 import styles from "./left-sidebar.module.css";
@@ -132,6 +136,13 @@ export interface LeftSidebarProps {
   renderNote?: (workspace: SidebarWorkspace) => ReactNode;
   /** project 줄의 + hover 목록 아래에 붙이는 Commands 공용 목록. */
   commandsPopover?: (workspace: WorkspaceRef) => ReactNode;
+  /** project 줄의 + hover 목록 위에 붙이는 체크아웃(worktree) 고르기. worktree가 없으면 null이다. */
+  checkoutPicker?: (workspace: WorkspaceRef) => ReactNode;
+  /** session 줄 끝의 브랜치 꼬리표. 없으면(null) 붙이지 않는다. */
+  branchOf?: (
+    workspace: WorkspaceRef,
+    item: SidebarSession,
+  ) => BranchTagInfo | null;
   /** project 아래에 agent session처럼 보이는 실행 중·실패 command 줄. */
   workspaceCommands?: (workspace: WorkspaceRef) => readonly SidebarCommand[];
   /**
@@ -304,6 +315,7 @@ function SessionRow({
   onMenu,
   dot = true,
   machineName,
+  branch,
   onDragStart,
   dropSession,
 }: {
@@ -315,6 +327,8 @@ function SessionRow({
   /** false면 줄 끝 점을 그리지 않는다. 점은 줄 밖의 Stop 단추가 대신 보인다. */
   dot?: boolean;
   machineName?: string;
+  /** 이 session이 도는 체크아웃의 브랜치 꼬리표. */
+  branch?: BranchTagInfo | null;
   onDragStart?: (event: PointerEvent<HTMLButtonElement>) => void;
   /** 끄는 browser 탭을 이 줄에 놓으면 이 session에 넘긴다(tab-drag.tsx). 이 컴퓨터의 열린 lophn session 줄만이다(hand.ts). */
   dropSession?: string;
@@ -360,6 +374,7 @@ function SessionRow({
         name={machineName}
         {...(member === null ? {} : { className: styles.memberTag })}
       />
+      <BranchTag info={branch} />
       {member === null ? null : (
         <span className={styles.memberState} data-member-note="">
           {member.text}
@@ -414,6 +429,8 @@ export function LeftSidebar({
   onWorkspaceMenu,
   renderNote,
   commandsPopover,
+  checkoutPicker,
+  branchOf,
   workspaceCommands,
   onRowDrag,
 }: LeftSidebarProps) {
@@ -556,6 +573,7 @@ export function LeftSidebar({
           item.kind !== "member" && (!actions || onStopSession === undefined)
         }
         machineName={nameOf(item.machine)}
+        branch={branchOf?.(workspace.ref, item) ?? null}
         onClick={() => onSession(workspace, item)}
         {...(canDrag(item) ? { onDragStart: dragFrom(workspace, item) } : {})}
         {...(item.kind === "session" && handSessions?.has(item.ref) === true
@@ -877,6 +895,7 @@ export function LeftSidebar({
                   newSessionKeys,
                   (choice) => onNewSessionWith(choice, workspace.ref),
                 )}
+                headContent={checkoutPicker?.(workspace.ref)}
                 extraContent={commandsPopover?.(workspace.ref)}
                 tip={
                   here && newSessionKeys !== null ? (
@@ -1085,6 +1104,7 @@ export function LeftSidebar({
                 selected={here && sessionKey(item) === selected}
                 recent
                 machineName={nameOf(item.machine)}
+                branch={branchOf?.(workspace.ref, item) ?? null}
                 onClick={() => onSession(workspace, item)}
                 {...(canDrag(item)
                   ? { onDragStart: dragFrom(workspace, item) }

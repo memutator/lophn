@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { EventBridge } from "./use-event.ts";
 
 // 앱 view preload bridge `lophnApp.projects.worktrees`의 SDK 쪽 사본(protocol/shell/app-bridge-types.ts).
 // 경로(path·repo_root·git_common_dir)는 앱 code에 넘기지 않는다.
@@ -45,6 +46,18 @@ export interface Worktree {
   git: WorktreeGitStatus;
 }
 
+/** `("lophn", "worktree.changed")` event의 payload. 가벼운 알림이고 목록은 `worktrees()`로 다시 읽는다. */
+export interface WorktreeChangedEvent {
+  projectId: string;
+  projectIdentity: string | null;
+  /** null이면 project 전체다. */
+  worktreeId: string | null;
+  reason: "created" | "removed" | "updated" | "status" | "branch";
+  at: string;
+}
+
+export const WORKTREE_CHANGED_EVENT = "worktree.changed";
+
 export interface WorktreesBridge {
   projects: {
     worktrees?(
@@ -53,8 +66,8 @@ export interface WorktreesBridge {
       | { ok: true; value: { worktrees: Worktree[] } }
       | { ok: false; error: { code: string; message: string } }
     >;
-    onWorktreesChanged?(listener: (project: string) => void): () => void;
   };
+  events?: EventBridge;
 }
 
 function worktreesBridge(): WorktreesBridge | undefined {
@@ -78,7 +91,8 @@ export interface UseWorktrees {
 /**
  * project 하나의 git worktree 목록과 상태를 읽는다(읽기 전용).
  * `project`는 `prj_` id, `pri_` identity, 또는 project 이름이다. `null`·`undefined`면 빈 목록으로 준비한다.
- * core가 worktree 변경·상태 알림을 내면 자동으로 다시 읽는다.
+ * 앱 선언의 `subscriptions`에 `{ source: "lophn", event: "worktree.changed" }`를 적었으면 바뀔 때 저절로 다시 읽는다.
+ * 적지 않았으면 `reload()`로 읽는다.
  * 앱 view 밖이거나 이 기능이 없는 lophn이면 `failed`(`unavailable`)다.
  */
 export function useWorktrees(
@@ -124,19 +138,17 @@ export function useWorktrees(
   }, [app, project, round]);
 
   useEffect(() => {
-    if (
-      project == null ||
-      project === "" ||
-      app?.projects?.onWorktreesChanged === undefined
-    ) {
+    if (project == null || project === "" || app?.events === undefined) {
       return;
     }
-    return app.projects.onWorktreesChanged((changedProject) => {
+    return app.events.subscribe("lophn", WORKTREE_CHANGED_EVENT, (payload) => {
+      const changed = payload as Partial<WorktreeChangedEvent> | null;
       const known = resolvedProjectId.current;
       if (
         known === null ||
-        changedProject === known ||
-        changedProject === project
+        changed?.projectId === known ||
+        changed?.projectId === project ||
+        changed?.projectIdentity === project
       ) {
         setRound((n) => n + 1);
       }

@@ -187,7 +187,9 @@ export function createWorktreesSource(core: CoreSource): WorktreesSource {
     list: (project, options) =>
       call(core, worktreesList, {
         project,
-        ...(options?.includeExternal === true ? { include_external: true } : {}),
+        ...(options?.includeExternal === true
+          ? { include_external: true }
+          : {}),
       }),
     get: (worktree, options) =>
       call(core, worktreesGet, {
@@ -196,13 +198,11 @@ export function createWorktreesSource(core: CoreSource): WorktreesSource {
       }),
     create: (input) => call(core, worktreesCreate, input),
     rename: (input) => call(core, worktreesRename, input),
-    preflight: (worktree) =>
-      call(core, worktreesRemovePreflight, { worktree }),
+    preflight: (worktree) => call(core, worktreesRemovePreflight, { worktree }),
     remove: (input) => call(core, worktreesRemove, input),
     settings: (project) => call(core, worktreesSettingsGet, { project }),
     setSettings: (input) => call(core, worktreesSettingsSet, input),
-    detectInclude: (project) =>
-      call(core, worktreesDetectInclude, { project }),
+    detectInclude: (project) => call(core, worktreesDetectInclude, { project }),
   };
 }
 
@@ -301,7 +301,8 @@ export function createSourceControlSource(
 ): SourceControlSource {
   return {
     status: (target) => call(core, sourceControlStatus, target),
-    diff: (target, rest) => call(core, sourceControlDiff, { ...target, ...rest }),
+    diff: (target, rest) =>
+      call(core, sourceControlDiff, { ...target, ...rest }),
     stage: (target, rest) =>
       call(core, sourceControlStage, { ...target, ...rest }),
     unstage: (target, rest) =>

@@ -4,7 +4,7 @@
   align-items: center;
   gap: var(--space-1);
   min-width: var(--space-0);
-  max-width: 120px;
+  max-width: calc(var(--space-12) * 2);
   overflow: hidden;
   padding: 0 var(--space-1);
   border-radius: var(--radius-sm);

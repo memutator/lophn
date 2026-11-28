@@ -1,0 +1,57 @@
+id: git-worktree-stage2
+version: 0.23.190
+platform_note: none
+title: "git worktree 2단계(화면): Source Control 패널·git_diff 탭·Explorer worktree 가지·worktree 창·열 때 고르기와 브랜치 꼬리표·Project settings › Worktrees"
+modules:
+  - packages/protocol
+  - packages/core/projects
+  - packages/core/lophn-agent
+  - packages/core/main
+  - packages/core/config
+  - packages/core/terminal-agents
+  - packages/core/agent-workspaces
+  - packages/core/apps
+  - packages/sdk
+  - packages/design
+  - packages/shell/ipc
+  - packages/shell/main
+  - packages/shell/preload
+  - packages/shell/renderer
+change: |
+  - **Source Control 패널**: 오른쪽 sidebar Explorer 다음 panel `source-control`(Ctrl/Cmd+Shift+G). 대상 고르기(활성 탭 따라가기와 고정), Conflicts·Staged Changes·Changes 묶음(flat/tree, 필터, 파일·폴더·일괄 stage/unstage/discard, tracked·untracked를 나눈 discard 확인), 커밋 입력(Mod+Enter, Commit & Push, hook 실행 중 표시), AI 커밋 메시지, 접는 Commits 섹션, 브랜치 바(검색, 만들기·바꾸기·이름 바꾸기·`-d` 지우기, 다른 worktree 점프), ↑↓와 Fetch·Pull(`--ff-only`)·Push·Publish, 충돌 배너(Complete·Abort·Ask agent to resolve), 빈 상태·오류 카드(reason별 안내, 접은 stderr, 인증 명령 한 줄), 원격 읽기 전용. 체크아웃별 초안·보기·접힘은 창이 든다.
+  - **`git_diff` 탭**: inline·side-by-side(새 설정 `shell.diff_view`), F7/Shift+F7, 공백 무시, 줄 바꿈, Open File, 빠른 stage·unstage·discard, 대용량·바이너리·그림·untracked 처리. layout에 저장하지 않는다.
+  - **Explorer × worktree**: 루트 폴더 위 worktree 가지(펼치면 그 worktree 파일, 모든 파일 동작 그대로), 체크아웃별 git 상태 글자·폴더 점·`.gitignore` 흐림, worktree·폴더·파일 오른쪽 클릭 menu. shell main 파일 adapter와 다른 컴퓨터의 `project_files/*`가 ready worktree 경로를 받는다(새 route `worktrees/roots`).
+  - **worktree 창**: 만들기(원래 폴더, 기준 ref, 브랜치, label, 복사·setup 요약), 지우기(managed는 preflight, adopted는 Untrack), 이름 바꾸기. Explorer·+ menu·Ctrl+K `worktree.new`에서 연다. `worktree_remove` 승인 카드가 브랜치·preflight 수와 선택을 보인다.
+  - **열 때 고르기와 꼬리표**: ready worktree가 있으면 + menu·왼쪽 sidebar +에 Main·worktree·`+ New worktree…` 고르기, 고른 체크아웃의 `worktree_id`로 lophn agent(`sessions/open`)·coding agent(`coding_sessions/open`에 `worktree_id` 추가)·터미널을 연다. 탭과 세션 줄의 `BranchTag`, 탭 menu "Show in Source Control".
+  - **Project settings › Worktrees**: 복사 규칙, setup·teardown Project Command, `run_setup`, `.worktreeinclude` 감지·가져오기. Settings › General은 문자열 설정(`projects.worktrees_folder` 포함)을 글 칸으로 고친다.
+  - **source control core 추가**(spec 5.5): 새 route `source_control/{fetch,abort,mark_resolved,branch_rename,branch_delete,ignored,file_at,suggest_message,suggest_cancel}`와 agent-runtime 전용 `message_request_take|done`. status에 파일별 줄 증감·진행 중 연산·unborn·remote 유무·hook 이름·10,000 상한·AI 가능 여부, diff에 커밋 범위·공백 무시·untracked. 커밋 전 검사(마커 경로·줄, 미추적 중첩 저장소, merge 마무리 허용·rebase 거절), 실패 `details.reason`·`stderr`(16 KiB) 분류, 전 경로 비대화형 하드닝(`LANGUAGE=C`, `SSH_ASKPASS*`, `GIT_PAGER`, 상속 `GIT_DIR` 등 제거, `-c core.fsmonitor=false -c diff.external=`, `--literal-pathspecs`, ssh `BatchMode`, process group 종료, commit 5분·network 2분 시간). 전체 discard는 도는 turn이 있으면 거절한다. `commit`의 `amend` 입력을 뺐다.
+  - **AI 커밋 메시지**: staged diff를 파일별 공평 분배로 160 KB 안에 자르고 최근 제목을 붙여 core 메모리 queue에 두면 agent-runtime pump가 lophn agent 기본 model로 짓는다. 커밋하지 않는다.
+  - **앱 SDK**: worktree 바뀜을 전용 bridge 알림 대신 앱 event `("lophn", "worktree.changed")`(150ms 묶음)로 낸다. `@lophn/app-ui` 2.28.0(`useWorktrees`가 그 event로 다시 읽음, `WorktreeChangedEvent`·`WORKTREE_CHANGED_EVENT` export). `lophnApp.projects.onWorktreesChanged`와 IPC `app:projects-worktrees-changed`를 지웠다.
+why: |
+  로드맵 `git-worktree.md` 2단계: worktree를 Explorer·세션 열기·탭에서 보이고, 사람이 오른쪽 sidebar에서 변경·커밋·브랜치·동기화·충돌을 다루게 한다(정한 것 5~7, 9, 13~17).
+decisions:
+  - text: "stage·버리기는 파일·일괄까지, AI 커밋 메시지는 입력 칸만 채운다, `--amend`·`--no-verify`·force push·3-way 충돌 뷰어·큰 그래프 화면은 없다."
+    by: person
+  - text: "AI 커밋 메시지는 workflow 제목처럼 agent-runtime pump가 lophn agent 기본 model로 짓는다(core에는 외부 fetch가 없다). 요청은 메모리 queue라 재시작 때 잃는다."
+    by: agent
+  - text: "git 실행 locale은 `LC_ALL=C`가 아니라 `LANGUAGE=C`다(hook의 UTF-8 출력을 지킨다)."
+    by: agent
+  - text: "merge·cherry-pick·revert는 미해결 0이면 커밋으로 마무리하고 rebase는 커밋으로 잇지 않는다(Abort만)."
+    by: agent
+  - text: "`git_diff` 탭은 layout에 저장하지 않는다. diff 보기 방식은 core 설정 `shell.diff_view`에 둔다."
+    by: agent
+  - text: "앱의 worktree 알림은 `call.settled`와 같은 앱 event 모델로 바꾼다(구독 선언 필요)."
+    by: agent
+follow_up: |
+  - `+ New worktree…`는 만든 worktree를 대상으로 고를 뿐 요청한 세션·터미널을 바로 열지 않는다.
+  - Source Control 다중 선택 일괄 바, sidebar 탭 수 배지, 접힌 context 펼치기, diff 구문 강조가 없다.
+  - 다른 workspace의 sidebar 줄과 `SessionStarted`로만 알게 된 session에는 브랜치 꼬리표가 늦게 서거나 서지 않는다.
+  - 폰 화면은 하지 않았다(로드맵 범위 밖).
+checklist:
+  - "worktree가 있는 project에서 Explorer 가지·파일 git 글자가 서고 펼쳐 파일을 연다"
+  - "+ menu로 worktree에서 agent·터미널을 열면 탭과 세션 줄에 브랜치 꼬리표가 선다. worktree 없는 project의 + menu는 그대로다"
+  - "Source Control에서 stage·unstage·discard, diff inline/side-by-side, AI 메시지 채워 커밋, 히스토리 파일 diff, 브랜치 만들기·바꾸기, push·pull"
+  - "pre-commit 실패 시 stderr가 펼쳐 보이고, 마커가 남은 파일 커밋이 거절되고, diverged pull이 merge하지 않는다"
+  - "merge 충돌 배너·Conflicts·Mark as Resolved·Abort·Ask agent"
+  - "Explorer Remove…의 preflight와 adopted Untrack"
+  - "다른 컴퓨터 project에서 허락이 없으면 패널·Explorer가 읽기 전용"

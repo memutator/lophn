@@ -12,9 +12,9 @@ import {
 import type { ComposerMachine } from "../../conversation/composer/agent-composer.tsx";
 import { MachineTag } from "../../shell/left-sidebar.tsx";
 import type { AgentViewSlice } from "../kinds/host.ts";
+import styles from "./agent-tab.module.css";
 import { copiesOfProject, type ProjectCopy } from "./machine-copies.ts";
 import { sourceWorkspaceOf } from "./tab-fields.ts";
-import styles from "./agent-tab.module.css";
 
 interface AgentTabProps {
   /** agent id. lophn이거나 `agt_…`다. */
@@ -31,6 +31,11 @@ interface AgentTabProps {
   session: string | null;
   onSession: (session: string | null) => void;
   host: AgentViewHost;
+  /** 새 session을 묶을 worktree. */
+  worktree: string | null;
+  /** 새 session의 첫 말로 저절로 보낼 글. */
+  prompt?: string;
+  onPromptSent: () => void;
   /** 지금 탭 제목. session 제목(없으면 agent 이름)과 다를 때만 고친다. */
   title: string;
   onTitle: (name: string) => void;
@@ -87,6 +92,10 @@ export function AgentTab(props: AgentTabProps) {
       {...(machine === undefined ? {} : { machine })}
       host={props.host}
       {...(slice.now === undefined ? {} : { now: slice.now })}
+      {...(props.worktree === null ? {} : { worktree: props.worktree })}
+      {...(props.prompt === undefined
+        ? {}
+        : { autoSend: props.prompt, onAutoSent: props.onPromptSent })}
     />
   );
 }

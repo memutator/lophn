@@ -166,6 +166,7 @@ test("source_control enforces user-only writes, conflict commit guard, active-tu
         }
         return gitOk("");
       }
+      if (cmdArgs[0] === "remote") return gitOk("origin\n");
       if (cmdArgs[0] === "switch") return gitOk("");
       if (cmdArgs[0] === "commit") return gitOk("[main bbb222] test\n");
       if (cmdArgs[0] === "rev-parse" && cmdArgs[1] === "HEAD") {
@@ -223,17 +224,30 @@ test("source_control enforces user-only writes, conflict commit guard, active-tu
     assert.equal(agentCommit.ok, false);
     if (!agentCommit.ok) assert.equal(agentCommit.error.code, "forbidden");
 
-    // 2. commit rejected when MERGE_HEAD exists
+    // 2. rebase in progress refuses commit; a merge with every conflict resolved is finished by commit (Complete Merge)
+    await mkdir(join(gitDir, "rebase-merge"));
+    const rebaseCommit = await handlers.commit(USER_CTX, {
+      ...target,
+      message: "during rebase",
+    });
+    assert.equal(rebaseCommit.ok, false);
+    if (!rebaseCommit.ok) {
+      assert.equal(rebaseCommit.error.details?.reason, "operation_in_progress");
+    }
+    await rm(join(gitDir, "rebase-merge"), { recursive: true });
     await writeFile(join(gitDir, "MERGE_HEAD"), "123456\n");
-    const mergeCommit = await handlers.commit(USER_CTX, {
+    stagedUnmerged = true;
+    const unresolvedMerge = await handlers.commit(USER_CTX, {
       ...target,
       message: "during merge",
     });
-    assert.equal(mergeCommit.ok, false);
-    if (!mergeCommit.ok) {
-      assert.equal(mergeCommit.error.code, "conflict");
-      assert.equal(mergeCommit.error.details?.reason, "merge_in_progress");
-    }
+    assert.equal(unresolvedMerge.ok, false);
+    stagedUnmerged = false;
+    const finishedMerge = await handlers.commit(USER_CTX, {
+      ...target,
+      message: "merge done",
+    });
+    assert.equal(finishedMerge.ok, true);
     await rm(join(gitDir, "MERGE_HEAD"));
 
     // 3. commit rejected when unmerged entries exist
@@ -322,6 +336,117 @@ test("source_control enforces user-only writes, conflict commit guard, active-tu
           pushAuth.error.details.command.includes("git -C"),
       );
     }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+// 새 쓰기 route의 데이터 보호: 브랜치 지우기는 `-d`뿐이고 병합되지 않았으면 남긴다, 마커가 남은 파일은 해결로 표시하지 않는다,
+// 미추적 중첩 저장소(gitlink)는 커밋하지 않는다, agent turn이 도는 체크아웃에서 전체 버리기를 하지 않는다.
+test("source_control keeps unmerged branches, marked files, nested repos and running-turn checkouts", async () => {
+  const root = await mkdtemp(join(tmpdir(), "lophn-sc-guard-"));
+  try {
+    const repo = join(root, "repo");
+    const gitDir = join(repo, ".git");
+    await mkdir(gitDir, { recursive: true });
+    await writeFile(
+      join(repo, "conflict.ts"),
+      "<<<<<<< HEAD\na\n=======\nb\n>>>>>>> other\n",
+    );
+    const calls: (readonly string[])[] = [];
+    const fakeGit: GitRunner = async (_cwd, args) => {
+      calls.push(args);
+      const cmd = args.filter(
+        (a) => a !== "--no-optional-locks" && a !== "--literal-pathspecs",
+      );
+      if (cmd[0] === "rev-parse" && cmd.includes("--is-bare-repository")) {
+        return gitOk("false\n");
+      }
+      if (cmd[0] === "rev-parse" && cmd.includes("--show-toplevel")) {
+        return gitOk(`${repo}\n`);
+      }
+      if (
+        cmd[0] === "rev-parse" &&
+        (cmd.includes("--git-common-dir") || cmd.includes("--git-dir"))
+      ) {
+        return gitOk(`${gitDir}\n`);
+      }
+      if (cmd[0] === "worktree" && cmd[1] === "list") {
+        return gitOk(
+          `worktree ${repo}\nHEAD aaa1111\nbranch refs/heads/main\n\n`,
+        );
+      }
+      if (cmd[0] === "branch" && cmd[1] === "-d") {
+        return gitFail(
+          "error: The branch 'feature' is not fully merged.\nIf you are sure you want to delete it, run 'git branch -D feature'.",
+        );
+      }
+      if (cmd[0] === "status") {
+        return gitOk(
+          [
+            "# branch.oid aaa111",
+            "# branch.head main",
+            "1 A. N... 000000 160000 160000 a b vendor/lib",
+          ].join("\0"),
+        );
+      }
+      if (cmd[0] === "diff" && cmd.includes("--raw")) {
+        return gitOk(":000000 160000 0000000 abcdef1 A\0vendor/lib\0");
+      }
+      if (cmd[0] === "config") return gitFail("", 1);
+      return gitOk();
+    };
+    const handlers = createSourceControlHandlers({
+      projectFolders: () => ok([repo]),
+      resolveReadyWorktree: () => err({ code: "not_found", message: "none" }),
+      hasActiveTurnInCheckout: () => true,
+      isDevice: () => false,
+      granted: () => false,
+      sessionProject: async () => ok(PRJ),
+      git: fakeGit,
+    });
+    const target = { project: PRJ, folder: repo };
+
+    const deleted = await handlers.branchDelete(USER_CTX, {
+      ...target,
+      name: "feature",
+    });
+    assert.equal(deleted.ok, false);
+    if (!deleted.ok) assert.equal(deleted.error.details?.reason, "unmerged");
+    assert.ok(
+      !calls.some((args) => args.includes("-D") || args.includes("--force")),
+    );
+
+    const resolved = await handlers.markResolved(USER_CTX, {
+      ...target,
+      paths: ["conflict.ts"],
+    });
+    assert.equal(resolved.ok, false);
+    if (!resolved.ok)
+      assert.equal(resolved.error.details?.reason, "conflict_markers");
+    assert.ok(!calls.some((args) => args.includes("add")));
+
+    const committed = await handlers.commit(USER_CTX, {
+      ...target,
+      message: "vendor",
+    });
+    assert.equal(committed.ok, false);
+    if (!committed.ok)
+      assert.equal(committed.error.details?.reason, "nested_repository");
+    assert.ok(!calls.some((args) => args[0] === "commit"));
+
+    const discarded = await handlers.discard(USER_CTX, {
+      ...target,
+      all: true,
+    });
+    assert.equal(discarded.ok, false);
+    if (!discarded.ok)
+      assert.equal(discarded.error.details?.reason, "active_agent");
+    assert.ok(
+      !calls.some(
+        (args) => args.includes("checkout") || args.includes("clean"),
+      ),
+    );
   } finally {
     await rm(root, { recursive: true, force: true });
   }

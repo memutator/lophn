@@ -7,6 +7,8 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
 import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
+import { parseActor } from "../../../../protocol/base/mod.ts";
+import { modelDefaultRead } from "../../../../protocol/lophn-agent/mod.ts";
 import {
   type ToolGateResult,
   toolGateCheck,
@@ -18,6 +20,18 @@ import { stopTurn } from "../../../../protocol/lophn-agent/turns.ts";
 import {
   SOURCE_CONTROL_MEMORY_ROUTES,
   SOURCE_CONTROL_READ_ROUTES,
+  SOURCE_CONTROL_RUNTIME_ROUTES,
+  sourceControlAbort,
+  sourceControlBranchDelete,
+  sourceControlBranchRename,
+  sourceControlFetch,
+  sourceControlFileAt,
+  sourceControlIgnored,
+  sourceControlMarkResolved,
+  sourceControlMessageRequestDone,
+  sourceControlMessageRequestTake,
+  sourceControlSuggestCancel,
+  sourceControlSuggestMessage,
   sourceControlBranchCreate,
   sourceControlBranches,
   sourceControlCommit,
@@ -43,18 +57,23 @@ import {
   worktreesRemove,
   worktreesRemovePreflight,
   worktreesRename,
+  worktreesRoots,
   worktreesSettingsGet,
   worktreesSettingsSet,
   worktreesStore,
 } from "../../../../protocol/projects/worktrees.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
+import { WORKTREE_CHANGED_EVENT } from "../../../../protocol/apps/events.ts";
 import { loadProjectCommands } from "../../../projects/commands/mod.ts";
 import {
   activeProjectFolderPaths,
   projectExists,
   projectFolderPaths,
 } from "../../../projects/lookups.ts";
-import { createSourceControlHandlers } from "../../../projects/source-control/mod.ts";
+import {
+  CommitMessageQueue,
+  createSourceControlHandlers,
+} from "../../../projects/source-control/mod.ts";
 import {
   createWorktreeHandlers,
   createWorktreeService,
@@ -90,7 +109,12 @@ const UNWIRED_READ = () =>
 const WORKTREES_ADMIN_CONTEXT: AuthenticatedContext = {
   ...WORKTREES_CONTEXT,
   scope: {
-    operations: [worktreesStore.name, workspaceSessionRead.name, stopTurn.name],
+    operations: [
+      worktreesStore.name,
+      workspaceSessionRead.name,
+      stopTurn.name,
+      modelDefaultRead.name,
+    ],
     targets: {},
   },
 };
@@ -104,7 +128,11 @@ export function createCoreRegistration() {
         handle: UNWIRED_READ,
       }),
     ),
-    memoryRoutes: [...WORKTREE_MEMORY_ROUTES, ...SOURCE_CONTROL_MEMORY_ROUTES],
+    memoryRoutes: [
+      ...WORKTREE_MEMORY_ROUTES,
+      ...SOURCE_CONTROL_MEMORY_ROUTES,
+      ...SOURCE_CONTROL_RUNTIME_ROUTES,
+    ],
   };
 }
 
@@ -170,7 +198,99 @@ export const worktreesWiring: WiringFactory = () => {
         return done.ok ? ok(undefined) : done;
       };
 
+      // 앱 view의 `("lophn", "worktree.changed")`(spec 5.4.2). 구독을 선언한 앱만 받는다. status는 같은 (project, worktree)마다
+      // 150ms 묶고 앞 snapshot과 다를 때만 내고, 만들기·지우기·브랜치 바뀜은 바로 낸다.
+      const knownWorktrees = new Map<string, Set<string>>();
+      const lastStatus = new Map<string, string>();
+      const statusTimers = new Map<string, ReturnType<typeof setTimeout>>();
+      const publishAppEvent = (
+        project: Id<"prj">,
+        worktree: Id<"wkt"> | null,
+        reason: "created" | "removed" | "updated" | "status" | "branch",
+      ) => {
+        if (!ctx.eventDelivery.hasSubscribers("lophn")) return;
+        const identity = withSql(
+          (sql) =>
+            (
+              sql.get("select identity from projects where id = ?", [
+                project,
+              ]) as { identity: string } | undefined
+            )?.identity ?? null,
+        );
+        void ctx.eventDelivery
+          .publish({
+            publisher: "lophn",
+            release: null,
+            source: "lophn",
+            event: WORKTREE_CHANGED_EVENT,
+            payload: {
+              projectId: project,
+              projectIdentity: identity.ok ? identity.value : null,
+              worktreeId: worktree,
+              reason,
+              at: ctx.clock.now(),
+            },
+            chain: [],
+            parent: null,
+            audience: () => true,
+          })
+          .then((published) => {
+            if (!published.ok) {
+              ctx.telemetry.logger.warn({
+                component: "worktrees",
+                event: "worktree_changed_publish_failed",
+                fields: { message: published.error.message },
+              });
+            }
+          });
+      };
+      const appChanged = (project: Id<"prj">, worktree?: Id<"wkt">) => {
+        if (worktree === undefined) {
+          publishAppEvent(project, null, "updated");
+          return;
+        }
+        const row = withSql((sql) => loadWorktreeById(sql, worktree));
+        const live =
+          row.ok && row.value !== null && row.value.status !== "removed";
+        const known = knownWorktrees.get(project) ?? new Set<string>();
+        knownWorktrees.set(project, known);
+        const reason = !live
+          ? "removed"
+          : known.has(worktree)
+            ? "updated"
+            : "created";
+        if (live) known.add(worktree);
+        else known.delete(worktree);
+        publishAppEvent(project, worktree, reason);
+      };
+      const appStatusChanged = (
+        project: Id<"prj">,
+        status: { worktree_id: string; branch: string | null },
+      ) => {
+        const id = status.worktree_id as Id<"wkt">;
+        const snapshot = JSON.stringify({ ...status, updated_at: null });
+        const before = lastStatus.get(id);
+        if (before === snapshot) return;
+        lastStatus.set(id, snapshot);
+        const branchMoved =
+          before !== undefined &&
+          (JSON.parse(before) as { branch: string | null }).branch !==
+            status.branch;
+        if (branchMoved) {
+          publishAppEvent(project, id, "branch");
+          return;
+        }
+        clearTimeout(statusTimers.get(id));
+        const timer = setTimeout(() => {
+          statusTimers.delete(id);
+          publishAppEvent(project, id, "status");
+        }, 150);
+        timer.unref?.();
+        statusTimers.set(id, timer);
+      };
+
       const emitChanged = (project: Id<"prj">, worktree?: Id<"wkt">) => {
+        appChanged(project, worktree);
         ctx.bus.publish({
           type: "WorktreesChanged",
           subject: project,
@@ -393,6 +513,7 @@ export const worktreesWiring: WiringFactory = () => {
         },
         patchRecord: (project, patch) => storeWrite(project, { patch }),
         onStatusChanged(project, status) {
+          appStatusChanged(project, status);
           ctx.bus.publish({
             type: "WorktreeStatusChanged",
             subject: project,
@@ -456,7 +577,28 @@ export const worktreesWiring: WiringFactory = () => {
         onSettingsChanged: (project) => emitChanged(project),
       });
 
+      const messageQueue = new CommitMessageQueue();
       const scHandlers = createSourceControlHandlers({
+        suggest: {
+          queue: messageQueue,
+          async available() {
+            const read = await ctx.runtime.readers.read(
+              modelDefaultRead,
+              WORKTREES_ADMIN_CONTEXT,
+              {},
+            );
+            const chosen =
+              read.ok &&
+              (read.value as { default: unknown | null }).default !== null;
+            return chosen
+              ? { available: true, reason: null }
+              : {
+                  available: false,
+                  reason:
+                    "Set a default model for the lophn agent in Settings › Models to write commit messages",
+                };
+          },
+        },
         projectFolders,
         resolveReadyWorktree: (project, worktreeId) =>
           service!.resolveReady(project, worktreeId),
@@ -520,6 +662,47 @@ export const worktreesWiring: WiringFactory = () => {
           [key(sourceControlSwitch), scHandlers.switchBranch],
           [key(sourceControlPush), scHandlers.push],
           [key(sourceControlPull), scHandlers.pull],
+          [key(sourceControlFetch), scHandlers.fetchRemote],
+          [key(sourceControlAbort), scHandlers.abort],
+          [key(sourceControlMarkResolved), scHandlers.markResolved],
+          [key(sourceControlBranchRename), scHandlers.branchRename],
+          [key(sourceControlBranchDelete), scHandlers.branchDelete],
+          [key(sourceControlSuggestMessage), scHandlers.suggestMessage],
+          [key(sourceControlSuggestCancel), scHandlers.suggestCancel],
+          // agent-runtime만 AI 커밋 메시지 요청을 가져가고 답한다.
+          [
+            key(sourceControlMessageRequestTake),
+            (who) =>
+              parseActor(who.actor)?.kind !== "machine"
+                ? err({
+                    code: "forbidden",
+                    message: "only agent runtime takes commit message requests",
+                  })
+                : ok({ request: messageQueue.take() }),
+          ],
+          [
+            key(sourceControlMessageRequestDone),
+            (who, raw) => {
+              if (parseActor(who.actor)?.kind !== "machine") {
+                return err({
+                  code: "forbidden",
+                  message: "only agent runtime answers commit message requests",
+                });
+              }
+              const parsed =
+                sourceControlMessageRequestDone.input.safeParse(raw);
+              if (!parsed.success) {
+                return err({ code: "invalid_input", message: "invalid input" });
+              }
+              return ok({
+                accepted: messageQueue.done(
+                  parsed.data.request,
+                  parsed.data.message,
+                  parsed.data.error,
+                ),
+              });
+            },
+          ],
         ],
         reads: (reads) => {
           reads.set(key(worktreesList), wtHandlers.list);
@@ -532,6 +715,21 @@ export const worktreesWiring: WiringFactory = () => {
           reads.set(key(sourceControlLog), scHandlers.log);
           reads.set(key(sourceControlShow), scHandlers.show);
           reads.set(key(sourceControlBranches), scHandlers.branches);
+          reads.set(key(sourceControlIgnored), scHandlers.ignored);
+          reads.set(key(sourceControlFileAt), scHandlers.fileAt);
+          reads.set(key(worktreesRoots), () => {
+            const rows = withSql((sql) =>
+              loadWorktreesByStatuses(sql, ["ready"]),
+            );
+            if (!rows.ok) return rows;
+            return ok({
+              roots: rows.value.map((row) => ({
+                project: row.project_id,
+                worktree: row.id,
+                path: row.path,
+              })),
+            });
+          });
         },
       });
     },

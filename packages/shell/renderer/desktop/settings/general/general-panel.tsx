@@ -277,6 +277,15 @@ function Control({
           change={change}
         />
       );
+    case "text":
+      return (
+        <TextInput
+          key={String(value)}
+          start={typeof value === "string" ? value : ""}
+          rejected={rejected}
+          change={change}
+        />
+      );
     case "choice":
       return (
         <Select
@@ -290,6 +299,32 @@ function Control({
         />
       );
   }
+}
+
+function TextInput({
+  start,
+  rejected,
+  change,
+}: {
+  start: string;
+  rejected: boolean;
+  change: (value: unknown) => Promise<void>;
+}) {
+  const [text, setText] = useState(start);
+  function commit(): void {
+    if (text !== start || rejected) void change(text.trim());
+  }
+  return (
+    <Input
+      value={text}
+      spellCheck={false}
+      onChange={(event) => setText(event.target.value)}
+      onBlur={commit}
+      onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
+        if (event.key === "Enter") commit();
+      }}
+    />
+  );
 }
 
 function RangeInput({

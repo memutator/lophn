@@ -108,6 +108,18 @@ export const appEventPublications = defineRead({
 export const APP_DATA_CHANGED_EVENT = "data.changed";
 export const dataChangedPayloadSchema = z.strictObject({});
 
+// `worktree.changed` event(발행자 `lophn`): project의 worktree 목록이나 git 상태가 바뀌었다. 구독을 선언한 앱이 받는다.
+// 가벼운 알림이다(앱이 `worktrees()`로 다시 읽는다). status는 core가 (project, worktree)마다 150ms 묶는다.
+export const WORKTREE_CHANGED_EVENT = "worktree.changed";
+export const worktreeChangedPayloadSchema = z.strictObject({
+  projectId: z.string().min(1),
+  projectIdentity: z.string().min(1).nullable(),
+  // null이면 project 전체(설정 바뀜, 다시 맞추기)다.
+  worktreeId: z.string().min(1).nullable(),
+  reason: z.enum(["created", "removed", "updated", "status", "branch"]),
+  at: z.string().min(1),
+});
+
 export const APP_EVENT_ROUTES = [
   appEventPublish,
   appEventPublications,

@@ -117,6 +117,8 @@ export function openTerminal(
     title?: string;
     /** 터미널이 있는 기계. 없으면 workspace의 기계다. */
     machine?: string;
+    /** 이 worktree(`wkt_…`)에서 연다. cwd는 core가 그 worktree 경로로 정한다. */
+    worktree?: string;
     /** 저장한 session을 다시 열 때 미리 채워 두는 이름(사람이 고정한 이름이나 기억한 session 제목). */
     seed?: {
       readonly harness: string;
@@ -137,7 +139,9 @@ export function openTerminal(
   // resume은 CLI가 cwd별로 session을 찾으므로 Explorer root가 아니라 주어진 폴더(없으면 첫 폴더)에서 연다.
   const cwd =
     options.cwd ??
-    (options.folderRef === undefined && options.resume === undefined
+    (options.folderRef === undefined &&
+    options.resume === undefined &&
+    options.worktree === undefined
       ? host.explorerRoot
       : undefined);
   if (options.terminal !== undefined) {
@@ -151,6 +155,7 @@ export function openTerminal(
       ...(options.resume === undefined ? {} : { resume: options.resume }),
       ...(options.command === undefined ? {} : { command: options.command }),
       ...(cwd === undefined ? {} : { cwd }),
+      ...(options.worktree === undefined ? {} : { worktree: options.worktree }),
     });
   }
   const tab: TabItem = {
@@ -162,6 +167,7 @@ export function openTerminal(
       auto,
       ...(options.terminal === undefined ? {} : { terminal: options.terminal }),
       ...(options.dedicated === true ? { dedicated: true } : {}),
+      ...(options.worktree === undefined ? {} : { worktree: options.worktree }),
       ...(options.projectCommand === undefined
         ? {}
         : {
@@ -194,15 +200,20 @@ export function openTerminal(
       if (found === undefined) return;
       // GUI 탭은 xterm이 서지 않아 generation을 아는 길이 이것뿐이다.
       terminal.store.noteRuntime(found);
-      host.patchTab(key, (current) =>
-        current.folder === undefined
-          ? startedPatch(current, {
-              title: folderTitle(found.cwd_at_start),
-              folderRef: found.folder_ref,
-              terminalRef: attached,
-            })
-          : {},
-      );
+      host.patchTab(key, (current) => {
+        if (current.folder === undefined) {
+          return startedPatch(current, {
+            title: folderTitle(found.cwd_at_start),
+            folderRef: found.folder_ref,
+            terminalRef: attached,
+            worktree: found.worktree_id ?? null,
+          });
+        }
+        const worktree = found.worktree_id ?? null;
+        return worktree === null || current.fields?.worktree === worktree
+          ? {}
+          : { fields: { ...current.fields, worktree } };
+      });
     });
   }
   if (options.open !== undefined) {
@@ -224,13 +235,24 @@ export function openTerminal(
 /** 터미널이 시작했거나 붙었다. 시작 폴더와 터미널 참조를 탭 제목과 layout에 남긴다. */
 function startedPatch(
   current: TabItem,
-  info: { title: string | null; folderRef: string; terminalRef: string },
+  info: {
+    title: string | null;
+    folderRef: string;
+    terminalRef: string;
+    worktree?: string | null;
+  },
 ): Partial<TabItem> {
   const auto = info.title ?? autoOf(current);
+  const worktree = info.worktree ?? null;
   return {
     title: personOf(current) ?? rememberedOf(current)?.title ?? auto,
     folder: info.folderRef,
-    fields: { ...current.fields, auto, terminal: info.terminalRef },
+    fields: {
+      ...current.fields,
+      auto,
+      terminal: info.terminalRef,
+      ...(worktree === null ? {} : { worktree }),
+    },
   };
 }
 

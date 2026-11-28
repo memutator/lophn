@@ -97,6 +97,26 @@ const WORDING: Readonly<Record<Exclude<Command, "app.panel">, Wording>> = {
     name: "settings.label.key-explorer-focus",
     help: "settings.note.key-explorer-focus",
   },
+  "source-control.focus": {
+    name: "worktree-open.label.key-source-control-focus",
+    help: "worktree-open.note.key-source-control-focus",
+  },
+  "source-control.commit": {
+    name: "worktree-open.label.key-source-control-commit",
+    help: "worktree-open.note.key-source-control-commit",
+  },
+  "diff.next-change": {
+    name: "worktree-open.label.key-diff-next-change",
+    help: "worktree-open.note.key-diff-next-change",
+  },
+  "diff.prev-change": {
+    name: "worktree-open.label.key-diff-prev-change",
+    help: "worktree-open.note.key-diff-prev-change",
+  },
+  "worktree.new": {
+    name: "worktree-open.label.key-worktree-new",
+    help: "worktree-open.note.key-worktree-new",
+  },
   "search.open": {
     name: "settings.label.key-search-open",
     help: "settings.note.key-search-open",
@@ -405,6 +425,10 @@ export const SECTIONS: readonly { section: KeySection; title: MessageKey }[] = [
   { section: "view", title: "settings.heading.key-section-view" },
   { section: "agent", title: "settings.heading.key-section-agent" },
   { section: "terminal", title: "settings.heading.key-section-terminal" },
+  {
+    section: "source-control",
+    title: "worktree-open.heading.key-section-source-control",
+  },
   { section: "browser", title: "settings.heading.key-section-browser" },
   { section: "app", title: "settings.heading.key-section-app" },
   {

@@ -413,12 +413,7 @@ export function register(
   const sendWatch = (machine: string) =>
     ctx.machines.watch(machine as Id<"mch">, APP_VIEWS_WATCHER, [
       {
-        types: [
-          "AppViewEvent",
-          "AppRemoved",
-          "WorktreesChanged",
-          "WorktreeStatusChanged",
-        ],
+        types: ["AppViewEvent", "AppRemoved"],
       },
       ...(sessionsOn.get(machine) ?? [])
         .slice(-WATCHED_SESSIONS_MAX)

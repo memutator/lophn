@@ -449,6 +449,8 @@ export interface WorkspaceSource {
   onDirectoryUpdated?(
     listener: (path: string, entries: readonly FolderEntry[]) => void,
   ): () => void;
+  /** 다른 기계 workspace에서 project의 worktree 경로를 등록 폴더처럼 읽고 쓰게 알린다. 이 컴퓨터는 main이 core에서 읽어 없다. */
+  registerRoots?(project: string, paths: readonly string[]): void;
   /** 새 파일·폴더. 없는 위쪽 폴더도 만들고, 이미 있으면 `conflict`다(덮어쓰지 않는다). */
   create(path: string, kind: "file" | "folder"): Promise<FileOpResult>;
   /** 이름 바꾸기이자 옮기기. 대상이 있으면 `conflict`, 폴더를 자기 안으로 옮기면 `invalid_input`이다. */

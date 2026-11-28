@@ -69,6 +69,11 @@ export type Command =
   | "files.quick-open"
   | "sidebar.toggle"
   | "explorer.focus"
+  | "source-control.focus"
+  | "source-control.commit"
+  | "diff.next-change"
+  | "diff.prev-change"
+  | "worktree.new"
   | "terminal.focus"
   | "sidebar.toggle-right"
   | "nav.back"
@@ -124,6 +129,7 @@ export type KeySection =
   | "view"
   | "agent"
   | "terminal"
+  | "source-control"
   | "browser"
   | "app"
   | "contributed";
@@ -372,6 +378,8 @@ export const KEYBINDINGS: readonly Binding[] = [
     other: ["Ctrl+KeyP"],
     mac: ["Cmd+KeyP"],
   },
+  // worktree는 사람이 명시적으로 만든다. 기본 키는 없고 팔레트(Ctrl+K)에 선다.
+  { command: "worktree.new", section: "open", ...NONE },
 
   {
     command: "sidebar.toggle",
@@ -384,6 +392,12 @@ export const KEYBINDINGS: readonly Binding[] = [
     section: "view",
     other: ["Ctrl+Shift+KeyE"],
     mac: ["Cmd+Shift+KeyE"],
+  },
+  {
+    command: "source-control.focus",
+    section: "view",
+    other: ["Ctrl+Shift+KeyG"],
+    mac: ["Cmd+Shift+KeyG"],
   },
   {
     command: "terminal.focus",
@@ -600,6 +614,29 @@ export const KEYBINDINGS: readonly Binding[] = [
     context: "terminal",
     other: ["Ctrl+Shift+KeyV"],
     mac: [],
+  },
+
+  // Source Control 패널의 커밋 입력 칸과 git_diff 탭. handler는 그 화면이 올린다.
+  {
+    command: "source-control.commit",
+    section: "source-control",
+    context: "sourceControlCommit",
+    other: ["Ctrl+Enter"],
+    mac: ["Cmd+Enter"],
+  },
+  {
+    command: "diff.next-change",
+    section: "source-control",
+    context: "gitDiff",
+    other: ["F7"],
+    mac: ["F7"],
+  },
+  {
+    command: "diff.prev-change",
+    section: "source-control",
+    context: "gitDiff",
+    other: ["Shift+F7"],
+    mac: ["Shift+F7"],
   },
 
   // browser page의 bookmark. page에 focus가 있으면 main이, 머리에 있으면 renderer가 이 줄을 본다.

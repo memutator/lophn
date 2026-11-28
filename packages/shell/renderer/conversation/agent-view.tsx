@@ -164,6 +164,11 @@ interface AgentViewProps {
   machine?: ComposerMachine;
   /** header 오른쪽 끝(Compact 우측)에 놓을 조각. */
   trailing?: ReactNode;
+  /** 새 session을 이 worktree(`wkt_…`)에 묶어 연다. 연 뒤에는 바뀌지 않는다. */
+  worktree?: string;
+  /** 새 session의 첫 말로 저절로 보낼 글("Ask agent to resolve"). 보내면 `onAutoSent`로 알린다. */
+  autoSend?: string;
+  onAutoSent?: () => void;
   /** header ⋯ menu 끝에 더할 항목(터미널 탭의 "Open in terminal"). */
   extraMenu?: {
     readonly items: readonly MenuItem[];
@@ -724,7 +729,10 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
   const ensureSession = async (): Promise<string | null> => {
     if (session !== null) return session;
     const id = newId("ses", now());
-    const opened = await source.openSession({ id });
+    const opened = await source.openSession({
+      id,
+      ...(props.worktree === undefined ? {} : { worktree: props.worktree }),
+    });
     if (!opened.ok) {
       setProblem("open-failed");
       return null;
@@ -799,6 +807,28 @@ function Screen(props: AgentViewProps & ViewSeed & { data: ViewData }) {
     drafts.save(target, { outgoing });
     await deliver(target, outgoing);
   };
+
+  // 저절로 보낼 첫 말. 글을 입력칸에 넣고, 다음 그리기에서 그 글이 draft에 있으면 보낸다(send가 draft를 읽는다).
+  const autoSend = session === null ? props.autoSend : undefined;
+  const [autoStage, setAutoStage] = useState<"idle" | "filled" | "sent">(
+    "idle",
+  );
+  useEffect(() => {
+    if (autoSend === undefined || agent === null || autoStage !== "idle") {
+      return;
+    }
+    drafts.save(key, {
+      text: autoSend,
+      selection: [autoSend.length, autoSend.length],
+    });
+    setAutoStage("filled");
+  }, [autoSend, agent, autoStage, key]);
+  useEffect(() => {
+    if (autoStage !== "filled" || draft.text !== autoSend) return;
+    setAutoStage("sent");
+    props.onAutoSent?.();
+    void send();
+  }, [autoStage, draft.text, autoSend]);
 
   // 첨부한 이미지는 보내기 전에 올려 image block으로, 파일은 resource_link block으로 글 뒤에 싣는다. 하나라도 못
   // 올리면 보내지 않고 글과 첨부는 그대로 남는다.

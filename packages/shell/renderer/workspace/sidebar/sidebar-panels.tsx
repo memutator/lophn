@@ -19,7 +19,7 @@ import {
   type MachineRef,
 } from "../../desktop/machines/scope.tsx";
 import type { SidebarPanelPick } from "../../desktop/settings/quick-launch/source.ts";
-import { shellIcons } from "../../icons/mod.ts";
+import { shellIcons, sourceControlIcons } from "../../icons/mod.ts";
 import { PanelEmpty } from "../../shell/panel-rows.tsx";
 import { PanelActions, RightSidebar } from "../../shell/right-sidebar.tsx";
 import {
@@ -27,6 +27,10 @@ import {
   type WorkspacesPanelProps,
 } from "../../shell/workspaces-panel.tsx";
 import type { ProjectView, WorkspaceSource } from "../source.ts";
+import {
+  SourceControlPanel,
+  type SourceControlPanelDeps,
+} from "../source-control/panel.tsx";
 import { ArtifactPanel } from "./artifact-panel.tsx";
 import { JobPanel } from "./job-panel.tsx";
 import type { PanelSession } from "./panel-types.ts";
@@ -63,6 +67,8 @@ export interface SidebarCtx {
     readonly activeWorkflow?: string;
     /** workflow를 만들어 달라고 말할 이 project의 lophn 대화를 연다. agent 탭을 열 수 없는 창에는 없다. */
     readonly onNewWorkflow?: () => void;
+    /** Source Control 패널의 통로와 창 상태. 없으면 그 panel을 두지 않는다. */
+    readonly sourceControl?: SourceControlPanelDeps;
   } | null;
   readonly home: WorkspacesPanelProps | null;
   readonly app: {
@@ -101,6 +107,23 @@ function builtinPanels(): readonly SidebarPanel[] {
             source={project.source}
             here={here !== false}
             {...project.explorer}
+          />
+        ),
+    },
+    {
+      key: "source-control",
+      label: t("source-control.label.sidebar-tab"),
+      icon: sourceControlIcons.branch,
+      kinds: ["project"],
+      available: (ctx) =>
+        ctx.project?.view != null && ctx.project.sourceControl !== undefined,
+      render: ({ project }) =>
+        project?.view == null || project.sourceControl === undefined ? null : (
+          <SourceControlPanel
+            key={project.view.id}
+            project={project.view.id}
+            folders={project.view.folders.map((folder) => folder.path)}
+            deps={project.sourceControl}
           />
         ),
     },

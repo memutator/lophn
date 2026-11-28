@@ -114,7 +114,10 @@ import {
   `project`는 `prj_` id, `pri_` identity, 또는 project 이름이다(`null`·`undefined`면 빈 목록).
   `{state, reload}`이고 `state`는 `{status: "loading"}`·`{status: "ready", worktrees}`·`{status: "failed", code}`다.
   각 항목은 `{id, project_id, label, branch, base_ref, provenance, status, created_at, updated_at, git}`이며 파일시스템 경로(`path` 등)는 싣지 않는다.
-  core가 worktree 변경·상태 알림을 내면 자동으로 다시 읽는다. 앱 view 밖이면 `unavailable`이다.
+  앱 선언의 `subscriptions`에 `{ source: "lophn", event: "worktree.changed" }`를 적으면 worktree가 만들어지거나 지워지거나
+  브랜치·git 상태가 바뀔 때 저절로 다시 읽는다(적지 않으면 `reload()`로 읽는다). 같은 알림을 `useEvent("lophn", "worktree.changed", …)`로
+  직접 받을 수도 있다: payload는 `{projectId, projectIdentity, worktreeId, reason, at}`이고 `reason`은
+  `created`·`removed`·`updated`·`status`·`branch`다. 앱 view 밖이면 `unavailable`이다.
 - `useMachines(app?)` — 사람의 컴퓨터(폰 제외)와 이 화면의 backend가 도는 컴퓨터를 화면이 열릴 때 한 번 읽는다.
   `{state, reload}`이고 `state`는 `{status: "loading"}`·`{status: "ready", machines}`·`{status: "failed", code}`다.
   machine은 `{id, name, status, current, always_on}`이다. `id`는 `mch_` id로 `connectCommands(…, { on })`에

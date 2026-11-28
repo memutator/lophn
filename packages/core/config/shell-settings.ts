@@ -264,6 +264,15 @@ const readingWidthSetting = declareSetting({
   description: "The column width of documents and agent conversations.",
 });
 
+// git_diff 탭의 표시 모드. 탭의 토글이 바꾸고 모든 diff 탭이 같이 따른다.
+const diffViewSetting = declareSetting({
+  key: "shell.diff_view",
+  type: z.enum(["inline", "side-by-side"]),
+  default: "inline",
+  description:
+    "How Source Control diff tabs show changes: one column (`inline`) or old and new side by side (`side-by-side`).",
+});
+
 const densitySetting = declareSetting({
   key: "shell.density",
   type: oneOf(DENSITIES),
@@ -619,6 +628,7 @@ export const shellSettings = [
   readingFontWeightSetting,
   textSizeSetting,
   readingWidthSetting,
+  diffViewSetting,
   densitySetting,
   webLinksSetting,
   localLinksSetting,

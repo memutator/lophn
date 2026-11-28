@@ -38,7 +38,7 @@ export interface WorktreeUi {
   /** 만들기 창. folder는 원래 폴더(여럿이면 고른 것). */
   openCreate(options?: {
     readonly folder?: string;
-    readonly then?: AfterCreate;
+    readonly onCreated?: AfterCreate;
   }): void;
   /** 지우기 확인 창(managed는 preflight, adopted는 Untrack). */
   openRemove(worktree: string): void;

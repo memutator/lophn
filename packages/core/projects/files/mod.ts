@@ -88,15 +88,28 @@ async function rootOf(
   if (!loaded.ok) return loaded;
   const project = loaded.value;
   if (project === null) return notFound("project not found");
-  const folder =
+  let path =
     input.folder === undefined
-      ? project.folders[0]
-      : project.folders.find((item) => item.path === input.folder);
-  if (folder === undefined) {
+      ? project.folders[0]?.path
+      : project.folders.find((item) => item.path === input.folder)?.path;
+  // 다른 컴퓨터의 Explorer는 이 project의 ready worktree도 연결 폴더처럼 연다.
+  if (path === undefined && input.folder !== undefined) {
+    const folder = input.folder;
+    const worktree = deps.snapshot((sql) =>
+      ok(
+        sql.get(
+          "select path from project_worktrees where project_id = ? and path = ? and status = 'ready'",
+          [input.project, folder],
+        ) as { path: string } | undefined,
+      ),
+    );
+    if (worktree.ok && worktree.value !== undefined) path = worktree.value.path;
+  }
+  if (path === undefined) {
     return invalid("folder is not a connected folder of the project");
   }
   try {
-    return ok({ root: await realpath(folder.path) });
+    return ok({ root: await realpath(path) });
   } catch {
     return notFound("folder not found");
   }

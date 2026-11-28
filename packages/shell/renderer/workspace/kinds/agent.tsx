@@ -24,9 +24,11 @@ import { AgentNotReady, AgentTab } from "../agent/agent-tab.tsx";
 import type { ProjectCopy } from "../agent/machine-copies.ts";
 import {
   agentOf,
+  promptOf,
   sessionOf,
   sourceWorkspaceOf,
   workspaceOf,
+  worktreeOf,
 } from "../agent/tab-fields.ts";
 import type { TabItem } from "../model.ts";
 import { openAgents } from "./agents.tsx";
@@ -71,6 +73,10 @@ interface OpenAgentInput extends SessionTabOpen {
   /** 다른 기계의 session이면 그 기계와 그 기계 안의 workspace(`home`, project id, app id). */
   readonly machine?: string;
   readonly workspace?: string;
+  /** 새 session을 이 worktree에 묶는다. 열린 session은 core가 아는 worktree를 쓴다. */
+  readonly worktree?: string;
+  /** 새 session의 첫 말로 저절로 보낸다. 주면 늘 새 탭이다. */
+  readonly prompt?: string;
 }
 
 function agentTabs(host: TabHost): readonly TabItem[] {
@@ -86,7 +92,7 @@ function reusable(host: TabHost, input: OpenAgentInput): TabItem | undefined {
       return false;
     }
     return session === null
-      ? sessionOf(tab) === null
+      ? sessionOf(tab) === null && worktreeOf(tab) === (input.worktree ?? null)
       : sessionOf(tab) === session;
   });
 }
@@ -135,7 +141,7 @@ export function distinctAgentTab(
  */
 export function openAgent(host: TabHost, input: OpenAgentInput): boolean {
   if (host.agentView === null) return false;
-  const found = reusable(host, input);
+  const found = input.prompt === undefined ? reusable(host, input) : undefined;
   if (found !== undefined) {
     host.openTab(found, input.options);
     return true;
@@ -151,6 +157,10 @@ export function openAgent(host: TabHost, input: OpenAgentInput): boolean {
       agent: input.agent,
       workspace: input.workspace ?? fieldOf(host.workspace),
       ...(session === null ? {} : { session }),
+      ...(input.worktree === undefined ? {} : { worktree: input.worktree }),
+      ...(input.prompt === undefined || session !== null
+        ? {}
+        : { prompt: input.prompt }),
     },
   };
   if (input.float === true) host.openFloat(tab, undefined, input.options);
@@ -396,6 +406,14 @@ export const agentKind: TabKindDef = {
             })
           }
           host={viewHost(tab, host, slice)}
+          worktree={worktreeOf(tab)}
+          prompt={promptOf(tab)}
+          onPromptSent={() =>
+            host.patchTab(tab.key, (current) => {
+              const { prompt: _prompt, ...rest } = current.fields ?? {};
+              return { fields: rest };
+            })
+          }
           title={tab.title}
           onTitle={(name) => host.patchTab(tab.key, () => ({ title: name }))}
         />

@@ -33,6 +33,8 @@ type WorkspaceAction =
   | "settings"
   | "project-settings"
   | "terminal"
+  | "new-worktree"
+  | "source-control"
   | "float"
   | "dock"
   | "minimize";
@@ -75,6 +77,8 @@ interface WorkspaceScopeInput {
   readonly keys: KeyOverrides;
   /** Home이면 project 설정 행이 없다. */
   readonly home?: boolean;
+  /** git project라 worktree 만들기와 Source Control 행이 선다. */
+  readonly worktrees?: boolean;
   /** 이 프로젝트의 키워드 검색. */
   readonly search?: (query: string) => Promise<readonly FileFound[]>;
   readonly go: (target: WorkspaceTarget) => void;
@@ -183,6 +187,22 @@ function actions(input: WorkspaceScopeInput): PaletteEntry<WorkspaceTarget>[] {
             t("common.button.palette-terminal"),
             "terminal",
             keyOf("new.terminal"),
+          ),
+        ]
+      : []),
+    ...(input.worktrees === true
+      ? [
+          action(
+            "new-worktree",
+            t("worktree-open.button.new-worktree"),
+            "panel",
+            keyOf("worktree.new"),
+          ),
+          action(
+            "source-control",
+            t("worktree-open.label.key-source-control-focus"),
+            "panel",
+            keyOf("source-control.focus"),
           ),
         ]
       : []),

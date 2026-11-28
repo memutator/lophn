@@ -460,16 +460,19 @@ function permissionView(request: TurnRequest, names: InboxNames) {
       const target = subject.branch ?? subject.worktree;
       const dirty = subject.dirty_count + subject.untracked_count > 0;
       return {
-        title:
+        title: t(
           subject.provenance === "adopted"
-            ? `Detach worktree ${target}`
-            : `Remove worktree ${target}`,
-        description:
+            ? "worktree.title.waiting-untrack"
+            : "worktree.title.waiting-remove",
+          { name: target },
+        ),
+        description: t(
           subject.provenance === "adopted"
-            ? "Detaches the adopted worktree from lophn without deleting files."
+            ? "worktree.notice.waiting-untrack"
             : dirty
-              ? "Removes this worktree from disk. Uncommitted changes are present."
-              : "Removes this worktree from disk.",
+              ? "worktree.notice.waiting-remove-dirty"
+              : "worktree.notice.waiting-remove",
+        ),
         factsPinned: true,
         outsideRewind,
         facts: [
@@ -482,8 +485,28 @@ function permissionView(request: TurnRequest, names: InboxNames) {
             ? []
             : [
                 {
-                  label: t("waiting.label.fact-target"),
+                  label: t("worktree.label.branch"),
                   value: subject.branch,
+                  style: "text" as const,
+                },
+              ]),
+          ...(subject.provenance === "adopted"
+            ? []
+            : [
+                {
+                  label: t("worktree.label.changes"),
+                  value: t("worktree.label.changes-count", {
+                    changed: subject.dirty_count,
+                    untracked: subject.untracked_count,
+                  }),
+                  style: "text" as const,
+                },
+                {
+                  label: t("worktree.label.unpushed"),
+                  value:
+                    subject.ahead === null
+                      ? t("worktree.label.unpushed-unknown")
+                      : String(subject.ahead),
                   style: "text" as const,
                 },
               ]),

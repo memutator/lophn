@@ -267,6 +267,11 @@ links:
   - {entry: "key:sidebar.toggle", flow: sidebar-toggle-left}
   - {entry: "key:sidebar.toggle-right", flow: sidebar-toggle-right}
   - {entry: "key:explorer.focus", flow: explorer-focus}
+  - {entry: "key:source-control.focus", flow: source-control-focus}
+  - {entry: "key:source-control.commit", flow: source-control-panel}
+  - {entry: "key:diff.next-change", flow: git-diff-tab}
+  - {entry: "key:diff.prev-change", flow: git-diff-tab}
+  - {entry: "key:worktree.new", flow: worktree-dialogs}
   - {entry: "key:terminal.focus", flow: terminal-tab-focus}
   - {entry: "key:nav.back", flow: nav-trail}
   - {entry: "key:nav.forward", flow: nav-trail}

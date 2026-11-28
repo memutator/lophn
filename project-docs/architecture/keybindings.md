@@ -58,7 +58,9 @@ desktop 창의 단축키 설계다. 사람이 누른 키는 창마다 한 곳이
 
 context는 DOM 속성이다. 요소에 `data-key-context="<이름>"`을 달면 된다. keydown target에서 위로 올라가며 만난 이름이 안쪽부터의 stack이고 맨 끝은 `global`이다. binding은 `context` 하나를 가질 수 있다.
 
-이름: `terminal`(터미널 화면), `browser`(browser 탭), `agentView`·`agentView:<harness>`(agent 화면, GUI 탭은 harness 이름이 안쪽), `composer`, `slashMenu`, `modal`(카드·찾기 줄·이름 입력처럼 Esc·Tab·화살표가 제 뜻인 곳), `app:<app id>`(앱 webview).
+이름: `terminal`(터미널 화면), `browser`(browser 탭), `agentView`·`agentView:<harness>`(agent 화면, GUI 탭은 harness 이름이 안쪽), `composer`, `slashMenu`, `modal`(카드·찾기 줄·이름 입력처럼 Esc·Tab·화살표가 제 뜻인 곳), `app:<app id>`(앱 webview), `sourceControlCommit`(Source Control 커밋 입력 칸, `source-control.commit` = Mod+Enter), `gitDiff`(`git_diff` 탭, `diff.next-change`·`diff.prev-change` = F7·Shift+F7).
+
+Source Control: `source-control.focus`(Mod+Shift+G, section `view`)가 오른쪽 sidebar를 Source Control로 바꾸고 연다. `worktree.new`(section `open`)는 기본 키가 없고 팔레트의 "New worktree…"로 만들기 창을 연다.
 
 context는 chord를 "가질" 수 있다(owns). 가진 chord는 그보다 바깥 binding이 받지 않는다.
 - `terminal`: Linux·Windows의 Ctrl+글자 하나.

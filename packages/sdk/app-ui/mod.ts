@@ -53,7 +53,9 @@ export {
 export {
   type UseWorktrees,
   useWorktrees,
+  WORKTREE_CHANGED_EVENT,
   type Worktree,
+  type WorktreeChangedEvent,
   type WorktreeGitStatus,
   type WorktreePresence,
   type WorktreeProvenance,

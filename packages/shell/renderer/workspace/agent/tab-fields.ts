@@ -30,6 +30,22 @@ export function sessionOf(tab: TabItem): string | null {
     : null;
 }
 
+const WORKTREE_ID = /^wkt_[0-7][0-9a-hjkmnp-tv-z]{25}$/;
+
+/** 탭(agent·터미널)이 묶인 worktree. 원래 폴더면 null이다. */
+export function worktreeOf(tab: TabItem): string | null {
+  const worktree = tab.fields?.worktree;
+  return typeof worktree === "string" && WORKTREE_ID.test(worktree)
+    ? worktree
+    : null;
+}
+
+/** 새 session이 저절로 보낼 첫 말. 보내면 지운다. */
+export function promptOf(tab: TabItem): string | undefined {
+  const prompt = tab.fields?.prompt;
+  return typeof prompt === "string" && prompt.length > 0 ? prompt : undefined;
+}
+
 const APP_WORKSPACE = /^app_/;
 
 /** 탭을 연 자리 key를 agent source의 workspace로 옮긴다. app id는 `app_`로 시작해 project id와 갈린다. */

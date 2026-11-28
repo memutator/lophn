@@ -88,6 +88,8 @@ export interface TerminalCore {
     project: string;
     harness: string;
     agent?: string;
+    /** 이 worktree에서 연다. */
+    worktree_id?: string;
     key: string;
   }): Promise<TerminalReply<{ session: string }>>;
   /** `TerminalOutputAppended`·`TerminalRuntimeChanged`와 연결의 ready·끊김. 해지를 돌려준다. */

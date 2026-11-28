@@ -2381,6 +2381,185 @@ flows:
     crosses_process: false
     docs: [architecture/workspace-layout.md]
 
+  - id: source-control-focus
+    title: "오른쪽 sidebar를 Source Control panel로 바꾸고 연다"
+    actor: person
+    entries: [ui:source-control-focus]
+    when: "source-control.focus 키, 팔레트의 Show Source Control, 탭 menu의 Show in Source Control, Explorer의 View in Source Control"
+    boundary: [shell]
+    code:
+      - packages/shell/renderer/workspace/workspace-window.tsx
+      - packages/shell/renderer/workspace/sidebar/sidebar-panels.tsx
+    steps:
+      - "project 창이면 panel을 source-control로 고르고 오른쪽 sidebar를 연다. 탭 menu·Explorer에서 왔으면 그 체크아웃을 고정 대상으로 넘긴다"
+      - "Home·앱 창에는 project가 없어 command를 올리지 않는다"
+    outcomes:
+      - id: shown
+        observe: ["screen:shell-project"]
+    crosses_process: false
+    docs: [architecture/workspace-layout.md, architecture/worktree.md]
+
+  - id: source-control-panel
+    title: "Source Control panel에서 바뀐 파일을 stage·버리고 커밋하고 히스토리·브랜치·동기화·충돌을 다룬다"
+    actor: person
+    entries: [ui:source-control-panel]
+    when: "오른쪽 sidebar의 Source Control panel"
+    boundary: [shell, projects]
+    code:
+      - packages/shell/renderer/workspace/source-control/panel.tsx
+      - packages/shell/renderer/workspace/source-control/changes.tsx
+      - packages/shell/renderer/workspace/source-control/commit-box.tsx
+      - packages/shell/renderer/workspace/source-control/history.tsx
+      - packages/shell/renderer/workspace/source-control/branch-bar.tsx
+      - packages/shell/renderer/workspace/source-control/store.ts
+    uses:
+      - route:source_control/status
+      - route:source_control/stage
+      - route:source_control/unstage
+      - route:source_control/discard
+      - route:source_control/commit
+      - route:source_control/log
+      - route:source_control/show
+      - route:source_control/branches
+      - route:source_control/branch_create
+      - route:source_control/switch
+      - route:source_control/branch_rename
+      - route:source_control/branch_delete
+      - route:source_control/fetch
+      - route:source_control/pull
+      - route:source_control/push
+      - route:source_control/abort
+      - route:source_control/mark_resolved
+      - route:source_control/suggest_message
+      - route:source_control/suggest_cancel
+    steps:
+      - "대상은 활성 탭을 따라간다(탭의 worktree, 아니면 탭 경로가 든 등록 폴더). 사람이 고르면 고정되고 고정한 worktree가 사라지면 그 원래 폴더로 돌아간다"
+      - "Conflicts·Staged Changes·Changes 묶음을 flat·tree로 보이고 파일·폴더·일괄 stage·unstage·discard를 한다. discard 확인은 tracked 되돌리기와 untracked 영구 삭제를 나눠 센다"
+      - "커밋은 빈 메시지·staged 0·미해결 충돌·rebase·다른 쓰기 중에 끄고, 도는 동안 status.hooks로 Running <hook>…과 경과 초를 보인다. Commit & Push는 upstream이 없으면 Publish한다"
+      - "Sparkles는 suggest_message로 받은 글을 입력 칸에 채우고(커밋하지 않는다) 멈춤은 suggest_cancel이다. 기본 model이 없으면 단추를 끈다. Commits 섹션은 펼칠 때 50개씩 읽고 커밋의 파일은 git_diff 탭(commit 범위)이다"
+      - "브랜치 바는 검색·Local/Remote·만들기·바꾸기·이름 바꾸기·지우기(-d)이고 다른 lophn 체크아웃이 쓰는 브랜치는 그 체크아웃으로 건너가고 바깥 worktree가 쓰는 것은 끈다"
+      - "충돌 배너는 진행 중 연산과 미해결 수, Complete(미해결 0, rebase 아님)·Abort·Ask agent to resolve(그 체크아웃의 새 lophn session에 충돌 파일과 연산을 첫 말로 보낸다)다"
+      - "실패는 reason별 안내와 접은 stderr, 인증 실패의 터미널 명령 한 줄을 보인다. 다른 컴퓨터에서 쓰기 허락이 없으면 읽기 전용 배너와 꺼진 쓰기 단추다. 체크아웃별 커밋 초안·보기 방식·접힘은 창이 든 store에 남는다. 각 동작 뒤, WorktreesChanged·WorktreeStatusChanged, 창 focus, 보이는 동안 3초(원격 15초)마다 다시 읽는다"
+    outcomes:
+      - id: shown
+        observe: ["screen:shell-project"]
+      - id: refused
+        when: "core가 쓰기를 거절했다(충돌·마커·hook·서명·diverged·미병합 브랜치 등)"
+        observe: ["screen:shell-project"]
+      - id: read-only
+        when: "다른 컴퓨터의 project이고 터미널 입력 허락이 없다"
+        observe: ["screen:shell-project"]
+    crosses_process: true
+    risk: [data-loss]
+    docs: [architecture/worktree.md, architecture/workspace-layout.md]
+
+  - id: git-diff-tab
+    title: "git_diff 탭에서 한 파일의 working·staged·커밋 diff를 inline·side-by-side로 본다"
+    actor: person
+    entries: [ui:git-diff-tab]
+    when: "Source Control 파일 줄 누르기, Explorer의 Open Diff, Commits의 파일 줄, F7·Shift+F7"
+    boundary: [shell, projects]
+    code:
+      - packages/shell/renderer/workspace/kinds/git-diff.tsx
+      - packages/shell/renderer/workspace/source-control/diff-view.tsx
+      - packages/shell/renderer/workspace/source-control/diff-setting.ts
+    uses: [route:source_control/diff, route:source_control/file_at, route:source_control/stage, route:source_control/unstage, route:source_control/discard]
+    steps:
+      - "한 번 누름은 preview 탭, 두 번·Enter는 고정 탭이다(document_editor와 같은 규칙). layout에 저장하지 않는다"
+      - "보기 방식은 설정 shell.diff_view다. 다음·이전 변경, 공백 무시, 줄 바꿈, Open File, working·staged면 빠른 Stage·Unstage·Discard가 있다"
+      - "1 MiB·5,000줄·core truncated는 Diff too large와 Open File, 바이너리는 안내 글, 그림은 file_at으로 앞뒤를 보이고 untracked는 모두 더한 줄이다"
+    outcomes:
+      - id: shown
+        observe: ["screen:shell-project"]
+      - id: too-large
+        when: "diff가 상한을 넘었다"
+        observe: ["screen:shell-project"]
+    crosses_process: true
+    docs: [architecture/worktree.md, architecture/workspace-layout.md]
+
+  - id: explorer-worktree-branches
+    title: "Explorer에서 등록 폴더 아래 worktree 가지와 파일 줄의 git 상태를 보고 worktree를 다룬다"
+    actor: person
+    entries: [ui:explorer-worktree-branches]
+    when: "Files panel, worktree 가지 줄·등록 폴더·바뀐 파일의 오른쪽 클릭"
+    boundary: [shell, projects]
+    code:
+      - packages/shell/renderer/workspace/sidebar/explorer.tsx
+      - packages/shell/renderer/workspace/sidebar/use-file-tree.ts
+      - packages/shell/renderer/workspace/sidebar/use-git-marks.ts
+    uses: [route:worktrees/list, route:source_control/status, route:source_control/ignored, route:source_control/discard]
+    steps:
+      - "지금 루트 폴더에서 난 worktree가 파일 위에 가지 줄(브랜치·label, 바뀐 수, missing·unmounted·creating 표시)로 서고 펼치면 그 worktree의 파일이다. 열린 파일이 worktree 안이면 그 가지를 펼쳐 드러낸다"
+      - "체크아웃마다 따로 읽은 상태로 파일 글자 M·A·U·D·R·C와 폴더 점(지운 것 제외)을 그리고 상태 없는 무시 파일을 흐리게 한다"
+      - "가지 줄 menu는 Open agent here·Open terminal here·View in Source Control·Copy path·Copy branch name·Reveal in OS(이 컴퓨터만)·Rename…·Remove…, 등록 폴더는 New worktree…, 바뀐 파일은 Open Diff·Discard Changes…다. 읽기 전용이면 쓰기 항목이 없다"
+    outcomes:
+      - id: shown
+        observe: ["screen:shell-project"]
+    crosses_process: true
+    docs: [architecture/worktree.md, architecture/workspace-layout.md]
+
+  - id: worktree-dialogs
+    title: "worktree 만들기·지우기·이름 바꾸기 창"
+    actor: person
+    entries: [ui:worktree-dialogs]
+    when: "Explorer의 New worktree…·Rename…·Remove…, + menu·왼쪽 sidebar +의 + New worktree…, worktree.new(팔레트 New worktree…), Source Control의 Remove record"
+    boundary: [shell, projects]
+    code:
+      - packages/shell/renderer/workspace/worktrees/dialogs.tsx
+    uses: [route:worktrees/create, route:worktrees/remove_preflight, route:worktrees/remove, route:worktrees/rename]
+    steps:
+      - "만들기: 원래 폴더(여럿일 때), 기준 ref, 브랜치(비우면 자동), label과 이 project의 복사 규칙·setup 요약을 보이고 만드는 동안 진행, 실패하면 이유, 성공하면 warnings를 보인다"
+      - "지우기: managed는 preflight(바뀐·untracked 수, 앞선 커밋, submodule, lock·중첩·위험 경로)를 보이고 필요할 때만 force·stop sessions를 켜게 하며 병합된 브랜치만 지우기를 고르게 한다. adopted는 Untrack 확인이다"
+      - "이름 바꾸기: label과 선택 브랜치 이름 바꾸기"
+    outcomes:
+      - id: done
+        observe: ["screen:shell-project"]
+      - id: refused
+        when: "core가 가드로 거절했다"
+        observe: ["screen:shell-project"]
+    crosses_process: true
+    risk: [data-loss]
+    docs: [architecture/worktree.md]
+
+  - id: worktree-open-picker
+    title: "새 세션·터미널을 열 때 체크아웃(원래 폴더나 worktree)을 고르고 탭·세션 줄에 브랜치 꼬리표를 단다"
+    actor: person
+    entries: [ui:worktree-open-picker]
+    when: "탭 줄 + menu, 왼쪽 sidebar +, Explorer의 Open agent·terminal here"
+    boundary: [shell, projects]
+    code:
+      - packages/shell/renderer/workspace/worktrees/checkout-picker.tsx
+      - packages/shell/renderer/workspace/add-tab-menu.tsx
+      - packages/shell/renderer/workspace/worktrees/branch-tag.tsx
+      - packages/shell/renderer/shell/tab-strip.tsx
+    uses: [route:terminals/open, route:sessions/open, route:coding_sessions/open]
+    steps:
+      - "ready worktree가 0개면 지금과 같다. 1개 이상이면 Main(<branch>)·worktree들·+ New worktree… 고르기가 서고 고른 체크아웃의 worktree_id로 agent·터미널을 연다. 단축키는 늘 Main이다"
+      - "worktree에 묶인 탭·세션 줄은 브랜치 꼬리표를 늘 달고 원래 폴더의 것은 worktree가 있을 때만 단다"
+    outcomes:
+      - id: opened
+        observe: ["screen:shell-project"]
+    crosses_process: true
+    docs: [architecture/workspace-layout.md, architecture/worktree.md]
+
+  - id: project-settings-worktrees
+    title: "Project settings › Worktrees에서 복사 규칙·setup·teardown을 정하고 .worktreeinclude를 가져온다"
+    actor: person
+    entries: [ui:project-settings-worktrees]
+    when: "Project settings 탭의 Worktrees 칸"
+    boundary: [shell, projects]
+    code:
+      - packages/shell/renderer/workspace/project-settings/worktree-settings.tsx
+    uses: [route:worktrees/settings_get, route:worktrees/settings_set, route:worktrees/detect_include]
+    steps:
+      - "copy_patterns를 더하고 빼고 setup·teardown Project Command와 run_setup을 고른 뒤 저장한다(사람만)"
+      - "Detect from repository가 .worktreeinclude 후보를 보이고 하나씩 Add로 가져온다(저절로 쓰지 않는다)"
+    outcomes:
+      - id: saved
+        observe: ["screen:shell-project"]
+    crosses_process: true
+    docs: [architecture/worktree.md]
+
   - id: explorer-select
     title: "Files panel에서 여러 줄을 고르고 고른 줄 전부에 한 동작을 한다"
     actor: person

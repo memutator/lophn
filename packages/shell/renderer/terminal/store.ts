@@ -29,6 +29,8 @@ export interface TerminalEntry {
   readonly command?: string;
   /** 처음 여는 한 번만 core가 이 폴더(등록 폴더 안)에서 shell을 연다. 열 때 비운다. */
   readonly cwd?: string;
+  /** 이 탭이 묶인 worktree(`wkt_…`). core가 그 worktree 경로에서 shell을 연다. 다시 열 때도 같은 worktree다. */
+  readonly worktree?: string;
   /**
    * snapshot을 PTY 치수로 다시 쓴 횟수. 쓴 뒤 view는 PTY 치수라, 탭이 이 값을 보고 칸에 다시 맞춘다(치수가 다르면 PTY도).
    */
@@ -304,7 +306,12 @@ export class TerminalStore {
   request(
     key: string,
     folderRef: string | null = null,
-    once: { resume?: TerminalResume; command?: string; cwd?: string } = {},
+    once: {
+      resume?: TerminalResume;
+      command?: string;
+      cwd?: string;
+      worktree?: string;
+    } = {},
   ): void {
     this.#entries.set(key, {
       requested: true,
@@ -315,6 +322,7 @@ export class TerminalStore {
       ...(once.resume === undefined ? {} : { resume: once.resume }),
       ...(once.command === undefined ? {} : { command: once.command }),
       ...(once.cwd === undefined ? {} : { cwd: once.cwd }),
+      ...(once.worktree === undefined ? {} : { worktree: once.worktree }),
     });
     this.#changed();
   }

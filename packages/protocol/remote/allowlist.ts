@@ -252,17 +252,26 @@ import {
   projectCommandsStop,
 } from "../projects/project-commands.ts";
 import {
+  sourceControlAbort,
   sourceControlBranchCreate,
+  sourceControlBranchDelete,
   sourceControlBranches,
+  sourceControlBranchRename,
   sourceControlCommit,
   sourceControlDiff,
   sourceControlDiscard,
+  sourceControlFetch,
+  sourceControlFileAt,
+  sourceControlIgnored,
   sourceControlLog,
+  sourceControlMarkResolved,
   sourceControlPull,
   sourceControlPush,
   sourceControlShow,
   sourceControlStage,
   sourceControlStatus,
+  sourceControlSuggestCancel,
+  sourceControlSuggestMessage,
   sourceControlSwitch,
   sourceControlUnstage,
 } from "../projects/source-control.ts";
@@ -479,12 +488,14 @@ export const REMOTE_ALLOWED_ROUTES = [
   worktreesAdopt,
   worktreesRename,
   worktreesRemove,
-  // source control: 읽기(status·diff·log·show·branches)는 연결된 기기에 허용, 쓰기는 REMOTE_PERSON_ROUTES
+  // source control: 읽기(status·diff·log·show·branches·ignored·file_at)는 연결된 기기에 허용, 쓰기는 REMOTE_PERSON_ROUTES
   sourceControlStatus,
   sourceControlDiff,
   sourceControlLog,
   sourceControlShow,
   sourceControlBranches,
+  sourceControlIgnored,
+  sourceControlFileAt,
   // 다른 컴퓨터가 넘긴 앱 command의 입구. 허락받은 컴퓨터만 core가 받는다(`by` 없는 폰은 forbidden)
   appRemoteCall,
   // 다른 컴퓨터의 agent가 보낸 mail의 입구. 명단의 컴퓨터만 받는다(handler가 본다. 폰은 forbidden)
@@ -657,6 +668,13 @@ export const REMOTE_PERSON_ROUTES = [
   sourceControlSwitch,
   sourceControlPush,
   sourceControlPull,
+  sourceControlFetch,
+  sourceControlAbort,
+  sourceControlMarkResolved,
+  sourceControlBranchRename,
+  sourceControlBranchDelete,
+  sourceControlSuggestMessage,
+  sourceControlSuggestCancel,
   // 받은 transfer 정리는 허락받은 기기만
   transfersClear,
   // workflow·설정 정의 넘기기와 적용(허락받은 기기만)

@@ -14,12 +14,12 @@
   - project 등록 폴더(main checkout)를 기본으로 유지하면서, 필요한 만큼 managed worktree를 만들고 기존 외부 worktree를 안전하게 adopt한다.
   - worktree마다 격리된 작업 경로·환경 변수·file scope·터미널·project command 실행을 제공한다.
   - 3중 소유권 검증(`provenance`, managed root 경계, `git_common_dir`/`.git` 포인터), hard/soft remove 가드, 기동 시 crash 복구, per-repo 직렬화로 사용자 데이터 손실을 막는다.
-  - 사람 전용 source control 기본 동작(`stage`, `unstage`, `commit`, `switch`, `pull`, `push`)을 core route로 제공한다.
+  - 사람 전용 source control 동작(`stage`, `unstage`, `discard`, `commit`, 브랜치 만들기·바꾸기·이름 바꾸기·지우기, `fetch`, `pull`, `push`, 충돌 `abort`·`mark_resolved`)과 AI 커밋 메시지를 core route로 제공하고, 오른쪽 sidebar Source Control 패널과 Explorer worktree 가지가 그 위에 선다.
   - workflow step(`worktree: "new" | "inherit"`)과 `team spawn --worktree`가 worktree를 1급 개념으로 다룬다.
 - 비목표:
   - 저장소 안에 `.lophn*` 설정 파일 쓰기나 commit 유도.
   - 다른 컴퓨터로 worktree 레코드나 작업 디렉터리를 자동 동기화하기(worktree는 기계별 로컬 개념이다).
-  - 강제 push(`--force`), interactive rebase/merge 충돌 편집기, 자동 squash/cherry-pick, PR/issue 관리.
+  - 강제 push(`--force`), `--amend`, `--no-verify`, hunk·줄 단위 stage, 3-way 충돌 뷰어, interactive rebase, 자동 squash/cherry-pick, PR/issue 관리, 큰 브랜치 그래프 화면.
   - workflow 종료·중단 또는 session archive 시 worktree 자동 삭제(삭제는 명시적 요청과 승인·가드 통과 때만 한다).
   - `desk_key`를 worktree 레코드에 묶기(desk 배치는 shell layout의 일이다).
 
@@ -58,7 +58,7 @@ creating ──(git worktree add + env prep 성공)──▶ ready ◀──(rec
 
 ### git 실행, 직렬화, 감시
 
-- **비대화형 하드닝 `runGit`**: 모든 git 호출은 `LC_ALL=C`, `GIT_TERMINAL_PROMPT=0`, `GCM_INTERACTIVE=never`, `GIT_ASKPASS=""`, `GIT_OPTIONAL_LOCKS=0`, Windows `core.longpaths=true`로 실행하고 타임아웃·출력 상한을 둔다. `stderr`의 HTTP(S) URL 자격증명(`https://user:token@...`)은 반환 전에 `[REDACTED]@`로 마스킹한다(SSH `git@host`는 유지). 인증 실패 시 자격 창을 띄우지 않고 `unauthorized` 오류와 사람이 터미널에서 실행할 1줄 `git -C <path> ...` 명령을 돌려준다.
+- **비대화형 하드닝 `runGit`**: 모든 git 호출은 셸 없는 고정 argv로 `LANGUAGE=C`, `GIT_TERMINAL_PROMPT=0`, `GCM_INTERACTIVE=never`, `GIT_ASKPASS=""`, `SSH_ASKPASS=""`, `SSH_ASKPASS_REQUIRE=never`, `GIT_PAGER=cat`, `NO_COLOR=1`, `GIT_OPTIONAL_LOCKS=0`, `-c core.fsmonitor=false -c diff.external=`, Windows `core.longpaths=true`로 실행하고, 사람 shell에서 물려받은 `GIT_DIR`·`GIT_WORK_TREE`·`GIT_INDEX_FILE` 등을 지운다. `LC_ALL=C`가 아니라 `LANGUAGE=C`인 것은 hook이 물려받는 사람의 `LC_CTYPE`(UTF-8)을 지키면서 git 진단 글만 영어로 고정하려는 것이다. POSIX는 process group으로 띄워 시간이 넘으면 hook·ssh 손자까지 끝낸다. 타임아웃은 기본 30초, commit 5분, push·pull·fetch 2분이다. push·pull·fetch는 사람이 ssh 명령을 정하지 않았으면 `ssh -o BatchMode=yes`로 passphrase 물음에서 멈추지 않는다. 경로 인자는 `--literal-pathspecs`와 `--` 뒤로 넘긴다. `stderr`의 HTTP(S) URL 자격증명(`https://user:token@...`)은 반환 전에 `[REDACTED]@`로 마스킹한다(SSH `git@host`는 유지). 인증 실패 시 자격 창을 띄우지 않고 `unauthorized` 오류와 사람이 터미널에서 실행할 1줄 `git -C <path> ...` 명령을 돌려준다.
 - **per-repo mutex와 lock retry**: 같은 `git_common_dir`을 공유하는 mutating git 작업은 저장소 단위 직렬 mutex를 거친다. `.git/index.lock` 등 일시적 락 충돌은 `[50, 150, 400]`ms 백오프로 재시도한다.
 - **좁은 watcher와 `unmounted` 방어**: 전체 working tree를 재귀 감시하지 않고 `.git/HEAD`, `.git/packed-refs`, `.git/worktrees/<admin>/HEAD`만 좁게 감시해 `WorktreeStatusChanged`를 발행한다. 외장 디스크 분리나 네트워크 마운트 해제처럼 `repo_root`가 보이지 않으면 `presence: "unmounted"`로 표시하고 절대 삭제·정리하지 않는다. Windows/WSL 교차 OS 경로의 worktree가 감지되면 타 OS 항목에 임시 `locked` 파일을 배타 생성(`wx`)해 보호한 뒤 `git worktree prune`을 실행하고 `locked` 파일을 치운다.
 
@@ -87,13 +87,29 @@ core 기동 시 `creating` 또는 `removing` 상태로 남은 행을 정산한�
 
 ### Source Control (core route)
 
-- `source_control/{status,diff,log,show,branches,stage,unstage,discard,commit,branch_create,switch,pull,push}` 13개 route를 제공하며 대상은 `{ project, worktree?, folder? }`(생략 시 project의 첫 git 등록 폴더)이다.
-- **권한 경계**: 쓰기 route 8개(`stage`, `unstage`, `discard`, `commit`, `branch_create`, `switch`, `pull`, `push`)는 user 자격 전용이며 agent 호출은 `forbidden`이다. 읽기 route 5개(`status`, `diff`, `log`, `show`, `branches`)는 agent가 호출할 때 자기 project 범위(`sessionProject`·`conditions.project`)를 검사해 다른 project 접근을 `forbidden`으로 차단한다.
+- 대상은 `{ project, worktree?, folder? }`(생략 시 project의 첫 git 등록 폴더)이다.
+  - 읽기: `status`(바뀐 파일과 파일별 줄 증감, 진행 중 연산, unborn, remote 유무, 커밋 hook 이름, 10,000개 상한, AI 메시지 가능 여부), `diff`(working·staged·커밋 하나 `parent..commit`, 공백 무시, untracked는 빈 tree 대비), `log`, `show`, `branches`, `ignored`(`git check-ignore`), `file_at`(그림 diff의 앞뒤 blob, `HEAD`·`index`·`worktree`·sha, 5 MiB 상한).
+  - 쓰기(사람 자격만): `stage`, `unstage`, `discard`, `commit`, `branch_create`, `switch`, `branch_rename`, `branch_delete`, `fetch`, `pull`, `push`, `abort`, `mark_resolved`, `suggest_message`, `suggest_cancel`.
+- **권한 경계**: 쓰기는 user 자격 전용이며 agent 호출은 `forbidden`이다(agent는 터미널의 git을 쓴다). 다른 컴퓨터의 기기는 받는 컴퓨터의 터미널 입력 허락이 있어야 쓴다. 읽기는 agent가 부를 때 자기 project 범위를 검사한다.
+- **커밋 전 검사**(spec 5.5):
+  - 미해결 unmerged 항목, staged diff에 같은 파일의 `<<<<<<<`와 `>>>>>>>`가 함께 있음(경로·줄을 돌려준다, 단독 `=======`은 보지 않는다), `.gitmodules`에 없는 새 gitlink(미추적 중첩 저장소를 `git add`한 것)를 `conflict`로 거절한다.
+  - staged가 0이면 거절한다. 다만 merge·cherry-pick·revert 진행 중이고 미해결이 0이면 커밋으로 마무리한다(화면의 Complete Merge). rebase 진행 중에는 커밋으로 잇지 않는다.
+  - hook과 서명은 저장소 설정대로 돈다(`--no-verify`·`--no-gpg-sign`을 붙이지 않는다). `--amend`는 없다.
+- **실패 분류**: 실패는 `details.reason`(`auth_failed`, `host_key_unverified`, `non_fast_forward`, `push_rejected`, `remote_unreachable`, `no_remote`, `no_upstream`, `diverged`, `merge_conflict`, `dirty_worktree`, `active_agent`, `hook_failed`, `gpg_failed`, `timeout`, `git_error` 등)과 자격증명을 가린 출력 `details.stderr`(stdout을 이어 붙인 끝 16 KiB, hook은 stdout에 쓰는 일이 많다)를 싣는다. 인증 실패는 사람이 터미널에서 칠 명령 한 줄 `details.command`를 준다.
 - **안전 가드**:
-  - `commit`: `MERGE_HEAD`/`rebase-merge`/`rebase-apply`/`CHERRY_PICK_HEAD`/`REVERT_HEAD` 존재, unmerged 인덱스 엔트리, 또는 staged diff 내 git 충돌 마커(`<<<<<<<` / `>>>>>>>`)가 있으면 `conflict`로 거절한다(단독 `=======` 줄은 오탐하지 않는다).
-  - `switch`·`branch_create(checkout: true)`: 대상 worktree(또는 main checkout)에 실행 중인 agent turn이 있으면 `conflict`로 거절한다.
-  - `pull`: 항상 `--ff-only`로만 실행한다.
-  - `push`: force push 플래그를 노출하지 않으며 `set_upstream: true`일 때 `-u`를 붙인다.
+  - `switch`·`branch_create(checkout: true)`·전체 `discard`: 그 체크아웃에 도는 agent turn이 있으면 `conflict`(`active_agent`). switch는 자동 stash 하지 않는다.
+  - `pull`은 늘 `--ff-only`다. 갈라졌으면 merge·rebase를 하지 않고 `diverged`로 멈춘다. `push`는 force를 노출하지 않고 처음 올리는 브랜치는 `set_upstream`으로 `-u`를 붙인다. `fetch`는 `--no-write-fetch-head --no-auto-maintenance --prune`이다.
+  - `branch_delete`는 `git branch -d`뿐이다. 병합되지 않았으면 남기고 `unmerged`로 알린다. 어느 worktree가 쓰는 브랜치는 지우지 않는다.
+  - `mark_resolved`는 마커가 남은 파일을 거절한다(`conflict_markers`). `keep: "deletion"`은 삭제 충돌에서 지운 쪽을 고른다.
+- **AI 커밋 메시지**(`suggest_message`): core는 staged diff를 파일별로 공평하게 나눠 160 KB 안에 자르고 최근 커밋 제목 10개를 붙여 메모리 queue에 둔다. core에는 외부 fetch가 없어 agent-runtime의 pump가 요청을 가져가 lophn agent의 전역 기본 model 한 번 호출로 글을 짓고 돌려준다(workflow 제목과 같은 길). 사람의 호출은 답·취소(`suggest_cancel`)·60초 시간 넘김까지 열려 있다. 글만 돌려주고 커밋하지 않는다. 기본 model이 없으면 `status.suggest`가 이유를 싣고 화면이 단추를 끈다.
+
+### 화면
+
+- **Source Control 패널**: 오른쪽 sidebar Explorer 다음 panel이다. 대상은 원래 폴더와 그 밑 worktree이고 기본은 활성 탭을 따라간다(탭의 worktree, 아니면 탭 경로가 든 폴더). 사람이 고르면 고정되고 고정한 worktree가 지워지면 그 원래 폴더로 돌아간다. 바뀐 파일(Conflicts·Staged Changes·Changes), 커밋 입력과 AI 메시지, Commits 섹션, 브랜치 바, ↑↓와 Fetch·Pull·Push, 충돌 배너가 한 패널에 선다. 체크아웃별 커밋 초안·보기 방식·접힘은 창이 들고 있어 패널을 닫아도 남는다.
+- **`git_diff` 탭**: 바뀐 파일·커밋 파일을 누르면 메인 영역에 연다(한 번 누름은 preview). layout에 저장하지 않는다(다시 켜면 지운 worktree를 가리키는 탭이 남지 않게). inline·side-by-side(설정 `shell.diff_view`), 다음/이전 변경, 공백 무시, 줄 바꿈, 빠른 stage·unstage·discard, 대용량·바이너리·그림·untracked 처리.
+- **Explorer 가지**: 지금 루트 폴더에서 난 worktree가 그 폴더의 파일 위에 가지 줄로 선다. 펼치면 그 worktree의 파일이고, 파일 줄에 체크아웃별 git 상태 글자와 `.gitignore` 흐림이 선다. worktree는 `folders[]`에 넣지 않는다. shell main의 파일 adapter와 다른 컴퓨터의 `project_files/*`는 ready worktree 경로를 연결 폴더처럼 받는다(`worktrees/roots`).
+- **세션·터미널 열기와 꼬리표**: ready worktree가 있으면 + 메뉴와 왼쪽 sidebar +에 대상 고르기가 서고, worktree에 묶인 탭과 세션 줄에 브랜치 꼬리표가 선다. worktree가 없는 project는 지금과 같다.
+- **만들기·지우기·이름 바꾸기 창**: 만들기는 Explorer·+ 메뉴·Ctrl+K(`worktree.new`)에서 연다. 지우기는 managed면 preflight 결과를 보이고 adopted면 Untrack만 한다.
 
 ### 권한, Workflow, 팀, 앱 SDK, 원격
 
@@ -104,7 +120,7 @@ core 기동 시 `creating` 또는 `removing` 상태로 남은 행을 정산한�
 - **Workflow & Team Spawn**:
   - YAML `steps.<name>.worktree`, `participants.<key>.worktree`, `@lophn/flow` `agent({ worktree })`는 `"new" | "inherit"`을 지원한다. `"new"`는 instance 제목 slug를 seed로 새 managed worktree를 만들고(실패 시 step을 `not_handed`/`worktree_failed`로 `blocked`), `"inherit"`은 직전 step session의 `worktree_id`를 이어받는다. workflow 종료·중단은 worktree를 자동 삭제하지 않는다.
   - `team spawn --worktree new | inherit | <wkt_id>`(기본 `"inherit"`): 같은 project 내에서 부모의 `worktree_id`를 기본 상속하거나 새 worktree 또는 지정 worktree에 자식을 연다.
-- **App View SDK**: 앱 화면에 읽기 전용 `lophnApp.projects.worktrees(project)`와 `onWorktreesChanged` 이벤트, `@lophn/app-ui`의 `useWorktrees` hook을 제공한다. 보안 경계상 앱 SDK 응답에는 로컬 파일시스템 절대 경로를 싣지 않는다.
+- **App View SDK**: 앱 화면에 읽기 전용 `lophnApp.projects.worktrees(project)`와 `@lophn/app-ui`의 `useWorktrees` hook을 제공한다. 바뀜은 앱 event `("lophn", "worktree.changed")`(payload `{projectId, projectIdentity, worktreeId, reason, at}`)이고 선언의 `subscriptions`에 적은 앱만 받는다. core는 status를 (project, worktree)마다 150ms 묶고 앞 snapshot과 다를 때만 내며, 만들기·지우기·브랜치 바뀜은 바로 낸다. 앱의 쓰기는 없다(core 경계가 `forbidden`). 보안 경계상 앱 SDK 응답에는 로컬 파일시스템 절대 경로를 싣지 않는다.
 - **원격(Remote)**: `worktrees/*`와 `source_control/*`는 기기 route allowlist에 포함된다. 읽기는 명단의 기기에 열리고, 변경 route는 `terminal_input` 허락("Allow controlling this computer")이 켜진 기기에서만 허용된다. agent의 `--on` 원격 호출은 차단된다.
 
 ## 지키는 것
@@ -117,7 +133,7 @@ core 기동 시 `creating` 또는 `removing` 상태로 남은 행을 정산한�
 6. **git 호출은 항상 비대화형이며 저장소 단위로 직렬화된다.** 자격 팝업을 띄우지 않고, 인증 실패 시 사람이 실행할 1줄 명령을 돌려준다.
 7. **session의 `worktree_id`는 불변이다.** `removing`·`removed`·`missing` 상태의 worktree에는 새 session·터미널을 열지 않는다.
 8. **agent의 worktree 삭제는 항상 승인을 거친다.** 무인(`unattended`) 실행에서는 삭제가 차단된다.
-9. **source control 쓰기는 사람 전용이며 충돌 커밋·턴 중 브랜치 전환·비-ff pull·force push를 허용하지 않는다.**
+9. **source control 쓰기는 사람 전용이며 충돌 커밋·턴 중 브랜치 전환과 전체 버리기·비-ff pull·force push·미병합 브랜치 지우기를 허용하지 않는다.** hook과 서명을 건너뛰지 않는다.
 10. **worktree는 workflow 종료나 session archive로 자동 삭제되지 않는다.**
 
 ## 경계와 계약
@@ -125,10 +141,12 @@ core 기동 시 `creating` 또는 `removing` 상태로 남은 행을 정산한�
 - **ID 접두사**: `wkt`. 예약 앱 slug: `worktree`.
 - **route**:
   - `worktrees/list`, `worktrees/get`, `worktrees/remove_preflight`, `worktrees/create`, `worktrees/adopt`, `worktrees/rename`, `worktrees/remove`, `worktrees/settings_get`, `worktrees/settings_set`, `worktrees/detect_include`.
-  - `source_control/status`, `source_control/diff`, `source_control/log`, `source_control/show`, `source_control/branches`, `source_control/stage`, `source_control/unstage`, `source_control/discard`, `source_control/commit`, `source_control/branch_create`, `source_control/switch`, `source_control/pull`, `source_control/push`.
+  - `source_control/{status,diff,log,show,branches,ignored,file_at}`(읽기), `source_control/{stage,unstage,discard,commit,branch_create,switch,branch_rename,branch_delete,fetch,pull,push,abort,mark_resolved,suggest_message,suggest_cancel}`(사람 쓰기), `source_control/{message_request_take,message_request_done}`(agent-runtime 전용).
+  - `worktrees/roots`(shell main의 파일 adapter가 읽는 ready worktree 경로).
 - **event(남지 않음, `REMOTE_ALLOWED_EVENTS` 포함)**: `WorktreesChanged { project, worktree? }`, `WorktreeStatusChanged { project, status }` (`status.worktree_id` 포함).
 - **CLI**: `lophn worktree list|get|status|create|adopt|rename|remove`, `lophn team spawn --worktree new|inherit|<wkt_id>`.
-- **SDK**: `@lophn/flow` `2.2.0`(`agent({ worktree })`), `@lophn/app-ui` `2.27.0`(`useWorktrees`), `@lophn/agent` `1.21.0`(`worktree_remove` GateCall).
+- **앱 event**: `("lophn", "worktree.changed")`.
+- **SDK**: `@lophn/flow` `2.2.0`(`agent({ worktree })`), `@lophn/app-ui` `2.28.0`(`useWorktrees`가 `worktree.changed`로 다시 읽음), `@lophn/agent` `1.21.0`(`worktree_remove` GateCall).
 - **저장(ledger)**: schema step `projects.worktrees`(`project_worktrees`, `project_worktree_settings`, `sessions.worktree_id`).
 - **설정**: `projects.worktrees_folder`(`locked: true`, 기본 `<data root>/worktrees`).
 
@@ -138,4 +156,7 @@ core 기동 시 `creating` 또는 `removing` 상태로 남은 행을 정산한�
 - **`WorktreeRecord`에 `desk_key`를 두지 않는다.** 이유: desk·탭 배치는 shell layout의 관심사이고 core ledger에 UI 배치 키를 섞지 않는다. (`git-worktree.md` 로드맵)
 - **worktree 메타데이터는 컴퓨터 사이 동기화하지 않는다.** 이유: worktree 경로·브랜치·로컬 작업 상태는 기계마다 고유하다.
 - **`team spawn --worktree new`는 writer Worker tx 바깥에서 먼저 worktree를 생성하고, 뒤따르는 spawn command가 실패하면 즉시 롤백한다.** 이유: git subprocess와 파일 복사를 SQLite writer tx 안에서 실행할 수 없으며, 실패 시 고아 worktree가 남지 않아야 한다.
+- **AI 커밋 메시지는 workflow 제목처럼 agent-runtime pump가 짓는다.** 이유: core에는 외부 fetch가 없고 provider 호출 길(model 묶기, redaction)은 lophn agent의 것 하나다. 요청은 메모리 queue라 재시작하면 잃지만 사람이 다시 누르면 된다.
+- **앱의 worktree 바뀜은 전용 bridge 알림이 아니라 앱 event `("lophn", "worktree.changed")`다.** 이유: 다른 lophn event(`call.settled`)와 같은 구독 선언·전달·수명 모델을 쓰고, 다른 컴퓨터에 묶인 view도 그 컴퓨터의 event 전달로 받는다.
+- **`LC_ALL=C` 대신 `LANGUAGE=C`.** 이유: hook이 물려받는 locale을 C로 만들면 hook의 UTF-8 출력과 커밋 메시지가 깨진다.
 - **1단계(화면 밖)와 2단계(renderer/폰 화면 UI)를 분리해 구현한다.** 이유: core·protocol·CLI·SDK 계약과 안전 경계를 먼저 고정하고, 화면 조사가 끝난 뒤 같은 branch에 UI를 얹는다.

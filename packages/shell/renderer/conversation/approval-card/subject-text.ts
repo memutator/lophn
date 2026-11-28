@@ -93,9 +93,12 @@ export function titleOf(subject: ApprovalSubject, agent: string): string {
       );
     case "worktree_remove": {
       const target = subject.branch ?? subject.worktree;
-      return subject.provenance === "adopted"
-        ? `${agent} wants to detach worktree ${target}`
-        : `${agent} wants to remove worktree ${target}`;
+      return t(
+        subject.provenance === "adopted"
+          ? "worktree.title.approval-untrack"
+          : "worktree.title.approval-remove",
+        { agent, name: target },
+      );
     }
   }
 }

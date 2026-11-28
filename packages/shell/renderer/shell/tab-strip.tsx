@@ -1,6 +1,10 @@
 // title bar에 올라가는 tab 줄. 고른 tab은 아래 card와 곡선으로 이어지고(Chrome), group은 tab 2~4개가 한 칸으로
 // 붙은 tab 하나다. 줄이 모자랄 때만 group이 아이콘으로 접힌다. 오른쪽 끝에는 접힌 float이 아이콘 칸으로 모인다.
 // 데이터와 callback만 받고 model은 모른다.
+
+import { t } from "@lophn/i18n";
+import { Tooltip } from "@lophn/ui/overlay";
+import { Icon, IconButton } from "@lophn/ui/primitives";
 import {
   Fragment,
   type ReactNode,
@@ -9,9 +13,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { t } from "@lophn/i18n";
-import { Icon, IconButton } from "@lophn/ui/primitives";
-import { Tooltip } from "@lophn/ui/overlay";
 
 import type { BrowserProfile } from "../../../protocol/secrets/browser-vault.ts";
 import { ProfileMark } from "../browser/browser-chrome.tsx";
@@ -22,11 +23,15 @@ import {
   dotLabel,
   TabStateDot,
 } from "../parts/tab-state-dot/tab-state-dot.tsx";
+import {
+  BranchTag,
+  type BranchTagInfo,
+} from "../workspace/worktrees/branch-tag.tsx";
 import type { SplitDir } from "./desk-model.ts";
-import { type ActiveDrag, useTabDrag } from "./tab-drag.tsx";
 import { MachineTag } from "./left-sidebar.tsx";
-import { type FloatChip, FloatChips } from "./taskbar/float-chips.tsx";
+import { type ActiveDrag, useTabDrag } from "./tab-drag.tsx";
 import styles from "./tab-strip.module.css";
+import { type FloatChip, FloatChips } from "./taskbar/float-chips.tsx";
 
 export interface StripTab {
   readonly key: string;
@@ -41,6 +46,8 @@ export interface StripTab {
   readonly renamable?: boolean;
   /** 이 컴퓨터가 아닌 기계의 tab이면 그 기계의 이름. 이름 옆에 기계 꼬리표가 붙는다. */
   readonly machine?: string;
+  /** 이 탭이 도는 체크아웃의 브랜치(worktree 탭, 또는 worktree가 있는 project의 원래 폴더 탭). 기계 꼬리표 옆에 선다. */
+  readonly branch?: BranchTagInfo;
   /** 탭의 주인 session. 아이콘 옆에 주인 avatar가 붙는다. 없으면 사람의 탭이다. */
   readonly owner?: string;
   /** 기본이 아닌 browser profile. 아이콘 옆에 profile 색 점이 붙는다. */
@@ -483,6 +490,11 @@ export function TabStrip({
                                   <MachineTag name={item.machine} />
                                 </span>
                               )}
+                              {item.branch === undefined || editing ? null : (
+                                <span className={styles.machine}>
+                                  <BranchTag info={item.branch} />
+                                </span>
+                              )}
                               <CloseSlot
                                 tab={item}
                                 onClose={() => onClose(item.key)}
@@ -593,6 +605,11 @@ export function TabStrip({
                           {item.machine === undefined || editing ? null : (
                             <span className={styles.machine}>
                               <MachineTag name={item.machine} />
+                            </span>
+                          )}
+                          {item.branch === undefined || editing ? null : (
+                            <span className={styles.machine}>
+                              <BranchTag info={item.branch} />
                             </span>
                           )}
                           <CloseSlot

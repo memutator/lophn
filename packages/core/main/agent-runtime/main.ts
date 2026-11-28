@@ -59,6 +59,7 @@ import { startMcpToolsPump } from "./mcp-tools-pump.ts";
 import { redact } from "./redact.ts";
 import { createSecretLink } from "./secret-link.ts";
 import { createTurnSourceLink } from "./turn-source-link.ts";
+import { startCommitMessagePump } from "./commit-message-pump.ts";
 import { startWorkflowTitlePump } from "./workflow-title-pump.ts";
 
 export { redact };
@@ -305,6 +306,7 @@ async function startAgentRuntime(input: {
       : Promise.resolve();
   let toolsPumping: Promise<void> = Promise.resolve();
   let workflowTitlePumping: Promise<void> = Promise.resolve();
+  let commitMessagePumping: Promise<void> = Promise.resolve();
   if (input.driver !== undefined) {
     const { compactor, preparer, listMcpTools, resolveModel } = input.driver(
       calls!,
@@ -318,6 +320,12 @@ async function startAgentRuntime(input: {
     }
     if (input.pump === true && resolveModel !== undefined) {
       workflowTitlePumping = startWorkflowTitlePump({
+        call: calls!.machine,
+        resolveModel,
+        redact: calls!.redact,
+        signal: pumpStop.signal,
+      });
+      commitMessagePumping = startCommitMessagePump({
         call: calls!.machine,
         resolveModel,
         redact: calls!.redact,
@@ -385,6 +393,7 @@ async function startAgentRuntime(input: {
       await authPumping;
       await toolsPumping;
       await workflowTitlePumping;
+      await commitMessagePumping;
     },
   };
   return ok(runtime);

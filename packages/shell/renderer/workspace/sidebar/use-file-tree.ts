@@ -11,6 +11,15 @@ export interface FileRow {
   readonly depth: number;
   readonly folder: boolean;
   readonly expanded: boolean;
+  /** worktree 가지 줄이면 그 worktree id. id(경로)가 worktree 폴더이고 펼치면 그 안을 읽는다. */
+  readonly worktree?: string;
+}
+
+/** 루트 폴더 맨 위에 서는 worktree 가지. path는 worktree 폴더(절대 경로)다. */
+export interface ExtraRoot {
+  readonly worktree: string;
+  readonly path: string;
+  readonly name: string;
 }
 
 type Level = readonly FolderEntry[] | "failed";
@@ -31,7 +40,14 @@ const sameEntries = (a: readonly FolderEntry[], b: readonly FolderEntry[]) =>
     (entry, at) => entry.name === b[at].name && entry.kind === b[at].kind,
   );
 
-export function useFileTree(source: WorkspaceSource, root: string | null) {
+const within = (base: string, path: string) =>
+  path.startsWith(`${base.replace(/\/+$/, "")}/`);
+
+export function useFileTree(
+  source: WorkspaceSource,
+  root: string | null,
+  extras: readonly ExtraRoot[] = [],
+) {
   const [levels, setLevels] = useState<ReadonlyMap<string, Level>>(() => {
     const initial = new Map<string, Level>();
     if (root !== null) {
@@ -41,8 +57,8 @@ export function useFileTree(source: WorkspaceSource, root: string | null) {
     return initial;
   });
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
-  const latest = useRef({ levels, expanded, root });
-  latest.current = { levels, expanded, root };
+  const latest = useRef({ levels, expanded, root, extras });
+  latest.current = { levels, expanded, root, extras };
   // 폴더마다 가장 늦게 시작한 읽기만 받는다. 만들기·지우기 뒤의 읽기를 오래된 읽기가 덮지 못하게 한다.
   const sequence = useRef(new Map<string, number>());
 
@@ -102,7 +118,12 @@ export function useFileTree(source: WorkspaceSource, root: string | null) {
     return source.onDirectoryUpdated((path, entries) => {
       const { root: current, expanded: open } = latest.current;
       if (current === null) return;
-      if (path === current || open.has(path)) applyEntries(path, entries);
+      if (
+        path === current ||
+        open.has(path) ||
+        latest.current.extras.some((extra) => extra.path === path)
+      )
+        applyEntries(path, entries);
     });
   }, [source, applyEntries]);
 
@@ -191,10 +212,14 @@ export function useFileTree(source: WorkspaceSource, root: string | null) {
   /** 루트에서 path의 위쪽 폴더까지 모두 펼친다. 루트 밖이면 아무것도 하지 않는다. */
   const reveal = useCallback(
     (path: string) => {
-      const base = latest.current.root;
-      if (base === null || !path.startsWith(`${base.replace(/\/+$/, "")}/`)) {
-        return;
-      }
+      const { root: top, extras: branches } = latest.current;
+      // worktree 안이면 그 가지를 펼치고 거기서부터 내려간다.
+      const branch = branches
+        .filter((extra) => within(extra.path, path))
+        .sort((a, b) => b.path.length - a.path.length)[0];
+      const base = branch?.path ?? top;
+      if (base === null || !within(base, path)) return;
+      if (branch !== undefined) expand(branch.path);
       let folder = parentOf(path);
       while (folder.length > base.length) {
         expand(folder);
@@ -222,7 +247,21 @@ export function useFileTree(source: WorkspaceSource, root: string | null) {
       if (open) walk(id, depth + 1);
     }
   };
-  if (root !== null) walk(root, 0);
+  if (root !== null) {
+    for (const extra of extras) {
+      const open = expanded.has(extra.path);
+      rows.push({
+        id: extra.path,
+        name: extra.name,
+        depth: 0,
+        folder: true,
+        expanded: open,
+        worktree: extra.worktree,
+      });
+      if (open) walk(extra.path, 1);
+    }
+    walk(root, 0);
+  }
 
   /** 읽은 폴더의 항목. 아직 안 읽었거나 읽지 못했으면 undefined. */
   const entriesOf = (folder: string): readonly FolderEntry[] | undefined => {

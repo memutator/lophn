@@ -126,6 +126,7 @@ export function createCodingOpen(deps: CodingOpenDeps) {
     harness: string;
     agent?: string;
     resume?: { session: string };
+    worktree_id?: string;
   }): Promise<Result<{ session: string }>> {
     if (!isGuiHarness(input.harness)) {
       return err({
@@ -179,7 +180,12 @@ export function createCodingOpen(deps: CodingOpenDeps) {
       deps.codingCommand?.(input.harness),
       resume?.cli_session ?? null,
     );
-    const opened = await deps.open(input.project, command);
+    const opened = await deps.open(
+      input.project,
+      command,
+      undefined,
+      input.worktree_id ?? null,
+    );
     if (!opened.ok) return opened;
     if (memberSession !== undefined) {
       deps.bindTerminal?.(opened.value, memberSession, input.project);
@@ -253,6 +259,7 @@ export function createCodingOpen(deps: CodingOpenDeps) {
       harness: string;
       agent?: string;
       resume?: { session: string };
+      worktree_id?: string;
       key: string;
     }): Promise<Result<{ session: string }>> {
       const seen = opens.get(input.key);

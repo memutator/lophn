@@ -297,8 +297,49 @@ export function ApprovalCard({
               </dd>
               {subject.branch === null ? null : (
                 <>
-                  <dt>{t("conversation.label.approval-target")}</dt>
+                  <dt>{t("worktree.label.branch")}</dt>
                   <dd>{subject.branch}</dd>
+                </>
+              )}
+              {subject.provenance === "adopted" ? null : (
+                <>
+                  <dt>{t("worktree.label.changes")}</dt>
+                  <dd data-approval-worktree-changes="">
+                    {t("worktree.label.changes-count", {
+                      changed: subject.dirty_count,
+                      untracked: subject.untracked_count,
+                    })}
+                  </dd>
+                  <dt>{t("worktree.label.unpushed")}</dt>
+                  <dd>
+                    {subject.ahead === null
+                      ? t("worktree.label.unpushed-unknown")
+                      : String(subject.ahead)}
+                  </dd>
+                  {subject.has_submodules ? (
+                    <>
+                      <dt>{t("worktree.label.submodules")}</dt>
+                      <dd>{t("worktree.notice.submodules")}</dd>
+                    </>
+                  ) : null}
+                  {subject.force ||
+                  subject.stop_sessions ||
+                  subject.delete_branch ? (
+                    <>
+                      <dt>{t("worktree.label.options")}</dt>
+                      <dd>
+                        {subject.force ? (
+                          <div>{t("worktree.label.force")}</div>
+                        ) : null}
+                        {subject.stop_sessions ? (
+                          <div>{t("worktree.label.option-stop-sessions")}</div>
+                        ) : null}
+                        {subject.delete_branch ? (
+                          <div>{t("worktree.label.delete-branch")}</div>
+                        ) : null}
+                      </dd>
+                    </>
+                  ) : null}
                 </>
               )}
             </>

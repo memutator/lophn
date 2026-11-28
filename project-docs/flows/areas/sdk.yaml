@@ -712,6 +712,7 @@ links:
   - {entry: "sdk:app-ui/usePlace", flow: app-view-open}
   - {entry: "sdk:app-ui/useProjects", flow: app-projects-list}
   - {entry: "sdk:app-ui/useWorktrees", flow: app-projects-worktrees}
+  - {entry: "sdk:app-ui/WORKTREE_CHANGED_EVENT", flow: app-projects-worktrees}
   - {entry: "sdk:app-ui/useMachines", flow: app-machines-list}
   - {entry: "sdk:cap-tool/machines", flow: machine-computers-read}
   - {entry: "sdk:app-ui/useEvent", flow: app-event-view-deliver}

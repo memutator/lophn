@@ -46,7 +46,6 @@ import { APP_AGENTS_CHANNEL } from "../ipc/app-agents.ts";
 import { APP_MACHINES_LIST_CHANNEL } from "../ipc/app-machines.ts";
 import {
   APP_PROJECTS_LIST_CHANNEL,
-  APP_PROJECTS_WORKTREES_CHANGED_CHANNEL,
   APP_PROJECTS_WORKTREES_CHANNEL,
 } from "../ipc/app-projects.ts";
 import {
@@ -338,18 +337,6 @@ export function createAppTool(
       }
     }
   });
-  const worktreeListeners = new Set<(project: string) => void>();
-  transport.on(APP_PROJECTS_WORKTREES_CHANGED_CHANNEL, (payload) => {
-    const info = payload as { project?: unknown } | null;
-    if (typeof info?.project !== "string") return;
-    for (const listener of worktreeListeners) {
-      try {
-        listener(info.project);
-      } catch {
-        // 한 listener의 오류가 다른 listener를 막지 않는다.
-      }
-    }
-  });
   const keys = createAppKeys(transport);
   // 창(window)에서 듣는다. page의 keydown listener보다 먼저 받아야 맞은 key를 page가 받기 전에 삼킬 수 있다.
   // Node 테스트처럼 window가 없으면 듣지 않는다.
@@ -411,12 +398,6 @@ export function createAppTool(
       list: () => result(transport, APP_PROJECTS_LIST_CHANNEL, null),
       worktrees: (project: string) =>
         result(transport, APP_PROJECTS_WORKTREES_CHANNEL, { project }),
-      onWorktreesChanged(listener: (project: string) => void) {
-        worktreeListeners.add(listener);
-        return () => {
-          worktreeListeners.delete(listener);
-        };
-      },
     }),
     machines: Object.freeze({
       list: () => result(transport, APP_MACHINES_LIST_CHANNEL, null),

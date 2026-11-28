@@ -225,6 +225,30 @@ test("자기 보호 경로(~/.ssh, ~/.aws, ~/.gnupg, data root 설정·agent·se
       sensitive: false,
       action: "edit",
     },
+    {
+      kind: "file_write",
+      path: `${DATA_ROOT}/home/extensions.json`,
+      folder: `${DATA_ROOT}/home`,
+      outside_workspace: true,
+      sensitive: false,
+      action: "edit",
+    },
+    {
+      kind: "file_write",
+      path: `${DATA_ROOT}/projects/prj_0000000000000000000000000a/extensions.json`,
+      folder: `${DATA_ROOT}/projects/prj_0000000000000000000000000a`,
+      outside_workspace: true,
+      sensitive: false,
+      action: "edit",
+    },
+    {
+      kind: "file_write",
+      path: `${DATA_ROOT}/apps/app_0000000000000000000000000a/extensions.json`,
+      folder: `${DATA_ROOT}/apps/app_0000000000000000000000000a`,
+      outside_workspace: true,
+      sensitive: false,
+      action: "edit",
+    },
   ];
 
   for (const call of blockedCalls) {
@@ -566,7 +590,12 @@ test("배포되지 않은 앱의 tool은 사람이 있을 때 묻고 없으면 �
     effect: "external",
   };
   const withSkills = {
-    appAccess: { reached: false, slug: "notes", skills: ["notes-guide"] },
+    appAccess: {
+      reached: false,
+      slug: "notes",
+      skills: ["notes-guide"],
+      mayDeploy: true,
+    },
   };
 
   // 닿지 않은 앱은 사람에게 묻는다. 배포할 public skill이 있을 때만 always(배포)가 열린다.
@@ -582,7 +611,12 @@ test("배포되지 않은 앱의 tool은 사람이 있을 때 묻고 없으면 �
     "deploy notes/notes-guide to this workspace",
   ]);
   const noSkill = evalReq(call, "workspace", "attended", {
-    appAccess: { reached: false, slug: "notes", skills: [] },
+    appAccess: {
+      reached: false,
+      slug: "notes",
+      skills: [],
+      mayDeploy: false,
+    },
   });
   assert.strictEqual(noSkill.kind, "ask");
   assert.deepStrictEqual(noSkill.allowed_choices, [
@@ -602,10 +636,31 @@ test("배포되지 않은 앱의 tool은 사람이 있을 때 묻고 없으면 �
     );
   }
 
+  // 이 말은 그 agent가 실제로 할 수 있는 일이어야 한다: public skill이 없으면 배포할 것이 없고, 배포할 자격이 없으면 사람에게 청하라고 한다.
+  const hintOf = (skills: string[], mayDeploy: boolean) => {
+    const denied = evalReq(call, "workspace", "unattended", {
+      appAccess: { reached: false, slug: "notes", skills, mayDeploy },
+    });
+    assert.strictEqual(denied.kind, "deny");
+    return denied.denial.recovery_hint ?? "";
+  };
+  assert.match(hintOf([], true), /no public skill/);
+  assert.match(hintOf(["notes-guide"], false), /cannot deploy it/);
+
+  // 팀 자식의 물음은 부모 agent가 답하지 못한다: 부모가 허락하면 사람 없이 앱이 돈다. 사람 전용이다(`full`이 아닐 때).
+  const child = evalReq(call, "workspace", "team_child", withSkills);
+  assert.strictEqual(child.kind, "deny");
+  assert.strictEqual(child.denial.reason_kind, "no_person");
+
   // 닿는 앱(skill 배포나 앱 자기 workspace)과 사람이 `full`로 맡긴 호출은 묻지 않는다.
   assert.deepStrictEqual(
     evalReq(call, "workspace", "attended", {
-      appAccess: { reached: true, slug: "notes", skills: ["notes-guide"] },
+      appAccess: {
+        reached: true,
+        slug: "notes",
+        skills: ["notes-guide"],
+        mayDeploy: true,
+      },
     }),
     { kind: "run" },
   );

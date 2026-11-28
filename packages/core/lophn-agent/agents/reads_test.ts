@@ -240,6 +240,8 @@ test("agent는 자기 workspace가 아닌 private workspace의 명함 목록을 
 // 권한 경계다. 다른 컴퓨터에 내주는 명함(`a2a/agents`가 without_apps로 읽는다)에는 이 기계에서 private인 앱의 slug, command,
 // skill, 그 skill의 끄기가 남지 않는다.
 test("다른 컴퓨터에 내주는 명함은 private 앱을 싣지 않는다", () => {
+  const DIARY = "app_0000000000000000000000000d";
+  const NOTES = "app_0000000000000000000000000e";
   const lookups: AgentLookups = {
     workspaces: () => [],
     workspaceExists: () => true,
@@ -250,7 +252,10 @@ test("다른 컴퓨터에 내주는 명함은 private 앱을 싣지 않는다", 
       deployed.map((one) => ({ name: one.skill, can_disable: true })),
     mcp: () => [],
     sharedCommands: (deployed) =>
-      deployed.map((one) => ({ slug: one.app, name: "add" })),
+      deployed.map((one) => ({
+        slug: one.app === NOTES ? "notes" : "diary",
+        name: "add",
+      })),
     modelInfo: () => null,
     modelDefault: () => null,
     workspaceModel: () => null,
@@ -259,7 +264,7 @@ test("다른 컴퓨터에 내주는 명함은 private 앱을 싣지 않는다", 
     files: {
       read: (path) =>
         path === `/data/agents/${AGENT}.md`
-          ? "---\nhandle: reviewer\nname: reviewer\ndeployed_skills:\n  - app: diary\n    skill: diary-skill\n  - app: notes\n    skill: notes-skill\nskills_off:\n  - diary-skill\n---\nbody\n"
+          ? `---\nhandle: reviewer\nname: reviewer\ndeployed_skills:\n  - app: ${DIARY}\n    skill: diary-skill\n  - app: ${NOTES}\n    skill: notes-skill\nskills_off:\n  - diary-skill\n---\nbody\n`
           : null,
       writeAtomic: () => {},
       remove: () => {},
@@ -285,7 +290,7 @@ test("다른 컴퓨터에 내주는 명함은 private 앱을 싣지 않는다", 
     return JSON.stringify(card);
   };
   assert.match(cardOf(), /diary/);
-  const remote = cardOf(["diary"]);
+  const remote = cardOf([DIARY]);
   assert.doesNotMatch(remote, /diary/);
   assert.match(remote, /command: notes add/);
 });

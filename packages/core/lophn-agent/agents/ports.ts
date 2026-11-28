@@ -61,7 +61,7 @@ export type AgentLookups = {
   // 배포 기록이 가리킨 앱 skill이다(그 앱의 active release가 내놓은 public skill 가운데 배포한 이름). slug 순에 같은 이름은 앞의 것만이다.
   shared(deployed: readonly SkillDeployment[]): readonly AvailableSkill[];
   mcp(workspace: Workspace | null): McpTool[];
-  // 배포 기록이 가리킨 앱(slug)의 public command 목록이다. 명함의 차이가 쓴다.
+  // 배포 기록이 가리킨 앱(id)의 public command 목록이다. 명함의 차이가 쓴다.
   sharedCommands(
     deployed: readonly SkillDeployment[],
   ): { slug: string; name: string }[];
@@ -94,7 +94,7 @@ export type WorkspaceLookups = {
   ): SharedFolder[];
   sharedCommands(
     sql: ReadSql,
-    slugs: readonly string[],
+    apps: readonly string[],
   ): { slug: string; name: string }[];
 };
 

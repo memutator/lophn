@@ -478,12 +478,12 @@ test("shared skills reach only the agents an app skill is deployed to, at any of
     files: [{ name: "extra.md", text: "EXTRA" }],
   };
   const clash = { ...shared, name: "x", skill_md: skillFile("x", "FROM_APP") };
-  // route처럼 요청한 slug의 public skill 전부를 준다. 배포한 이름으로 거르는 것은 받는 쪽의 일이다.
+  // route처럼 요청한 앱(id)의 public skill 전부를 준다. 배포한 이름으로 거르는 것은 받는 쪽의 일이다.
   const machine = (path: string, body: unknown) => {
     assert.strictEqual(path, "/apps/skills");
     const { apps } = body as { apps: string[] };
     return Promise.resolve(
-      ok({ skills: apps.includes(slug) ? [shared, clash] : [] }),
+      ok({ skills: apps.includes(shared.app) ? [shared, clash] : [] }),
     );
   };
   type Layers = {
@@ -532,7 +532,7 @@ test("shared skills reach only the agents an app skill is deployed to, at any of
       clash: await text("x"),
     };
   };
-  const named = [{ app: slug, skill: "share-me" }];
+  const named = [{ app: shared.app, skill: "share-me" }];
 
   const received = {
     listed: ["share-me", "x"],
@@ -551,7 +551,7 @@ test("shared skills reach only the agents an app skill is deployed to, at any of
   });
   // 이름을 적지 않은 skill은 같은 앱이어도 가지 않는다.
   assert.deepStrictEqual(
-    await outcome({ agent: [{ app: slug, skill: "x" }] }),
+    await outcome({ agent: [{ app: shared.app, skill: "x" }] }),
     { listed: ["x"], body: "not_found", file: "not_found", clash: "GLOBAL" },
   );
   const own: AgentWorkspace = {

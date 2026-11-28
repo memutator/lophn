@@ -240,11 +240,14 @@ export const appsDeleteWiring: WiringFactory = () => ({
       }
     }
 
-    // 그 앱의 skill 배포를 세 층에서 거둔다. 같은 slug의 새 앱이 배포를 물려받지 않게 하고, 보관한 앱을 가리키는 기록을 남기지 않는다.
+    // 그 앱(id)의 skill 배포를 모든 자리에서 거둔다. 보관한 앱을 가리키는 기록을 남기지 않는다. 거두지 못한 자리는 log에 남고, 기록은 id로 앱을
+    // 가리키므로 남은 것은 아무 앱에도 닿지 않는다.
     const deployments = createSkillDeployments(ctx);
-    async function stripDeployments(slug: string): Promise<void> {
+    async function stripDeployments(app: string): Promise<void> {
       try {
-        await deployments.strip(slug);
+        await deployments.strip(app, (message) =>
+          log("deployments_not_stripped", message),
+        );
       } catch (thrown) {
         log("deployments_not_stripped", thrown);
       }
@@ -252,7 +255,7 @@ export const appsDeleteWiring: WiringFactory = () => ({
 
     async function cleanFiles(app: Deleted): Promise<void> {
       ctx.appsControl.forget(app.id);
-      await stripDeployments(app.slug);
+      await stripDeployments(app.id);
       try {
         await removeFolder(appFolder(ctx.root.path, app.id));
       } catch (thrown) {
@@ -277,16 +280,9 @@ export const appsDeleteWiring: WiringFactory = () => ({
           if (envelope.command === appArchive.name) {
             const target = (envelope.input as { app?: unknown } | undefined)
               ?.app;
-            const slug =
-              typeof target === "string"
-                ? ledgerSnapshot(ctx.ledgerPath, (lookup) => {
-                    const found = loadApp(lookup.sql, target);
-                    return found.ok ? found.value?.slug : undefined;
-                  })
-                : undefined;
             const archived = await inner.command(auth, envelope);
-            if (archived.ok && slug?.ok === true && slug.value !== undefined) {
-              await stripDeployments(slug.value);
+            if (archived.ok && typeof target === "string") {
+              await stripDeployments(target);
             }
             return archived;
           }

@@ -311,7 +311,7 @@ async function readWorkspaceData(
         purpose: a.description,
         packages: packagesOf.get(a.id) ?? [],
         // 앱의 command는 그 skill이 이 session에 닿을 때만 싣는다(배포). 닿지 않은 앱은 이름만 있고 command는 부를 때 푼다.
-        commands: deployed.has(a.slug)
+        commands: deployed.has(a.id)
           ? tools.map((t) => ({
               key: t.name,
               effect: t.effect,
@@ -473,7 +473,7 @@ export async function workspaceData(
   call: CoreCall,
   agent: ResolvedAgent,
   files: WorkspaceFiles,
-  // 이 session에 닿는 배포(전역, workspace, agent 층)의 앱 slug다.
+  // 이 session에 닿는 앱(id)이다(`reachedAppIds`: 받는 배포 가운데 그 앱의 지금 public skill이 있다).
   deployedApps: ReadonlySet<string>,
   worktreeId?: string | null,
 ): Promise<

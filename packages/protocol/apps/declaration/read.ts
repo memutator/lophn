@@ -126,6 +126,8 @@ const appDeclarationOutputSchema = withReadCommon(
     description: z.string().min(1),
     // 바깥 명령. 이름은 route 이름(`app.tools`)을 따른다.
     tools: z.array(appCommandSchema),
+    // active release 선언의 public skill 이름이다. 배포가 앱에 닿는지(public skill 하나가 배포됨)를 판정하는 쪽이 읽는다. 다른 기계가 준 답에는 없을 수 있다.
+    public_skills: z.array(z.string().min(1)).optional(),
     operations: z.array(appOperationSchema),
     screens: z.array(appDeclarationScreenSchema),
     keys: z.array(appKeySchema).optional(),
@@ -177,14 +179,14 @@ export const appIcon = defineRead({
   errors: ["invalid_input", "unauthorized", "forbidden", "unavailable"],
 });
 
-// `app.skills`. 앱 slug마다 active release bundle의 public skill(선언 `skills[].public`)이다. SKILL.md 전체와 옆에 딸린
-// `.md` 파일 본문을 싣는다. 없는 slug, 보관한 앱, active release가 없는 앱, 읽을 수 없는 skill은 오류 없이 뺀다.
+// `app.skills`. 앱(id)마다 active release bundle의 public skill(선언 `skills[].public`)이다. SKILL.md 전체와 옆에 딸린
+// `.md` 파일 본문을 싣는다. 없는 앱, 보관한 앱, active release가 없는 앱, 읽을 수 없는 skill은 오류 없이 뺀다.
 // agent의 공유 skill 받기와 coding agent harness 사본이 같은 것을 읽는다.
 export const appSkills = defineRead({
   resource: "apps",
   method: "skills",
   name: "app.skills",
-  input: z.strictObject({ apps: z.array(slugSchema).max(64) }),
+  input: z.strictObject({ apps: z.array(appIdSchema).max(64) }),
   output: z.object({
     skills: z.array(
       z.object({

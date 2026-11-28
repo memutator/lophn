@@ -59,8 +59,8 @@ export function appStatusOf(
       : "active";
 }
 
-// 배포한 앱 skill(`{app: slug, skill}`)의 active release bundle 사본과 그 선언의 public skill 이름이다. 배포한 이름 가운데 지금 active release의
-// public skill인 것만 싣고, 보관한 앱, 없는 slug, active release가 없는 앱, 사라졌거나 public이 아닌 skill은 말없이 뺀다.
+// 배포한 앱 skill(`{app: id, skill}`)의 active release bundle 사본과 그 선언의 public skill 이름이다. 배포한 이름 가운데 지금 active release의
+// public skill인 것만 싣고, 보관하거나 지운 앱, active release가 없는 앱, 사라졌거나 public이 아닌 skill은 말없이 뺀다.
 // 동기 목록(`/` 메뉴, Agents 탭 개수)이 이것을 읽고, 본문은 `app.skills`가 준다.
 export function sharedSkillFolders(
   sql: ReadSql,
@@ -68,17 +68,19 @@ export function sharedSkillFolders(
   deployed: readonly SkillDeployment[],
 ): { app: string; slug: string; bundle: string; names: string[] }[] {
   const folders = [];
-  for (const slug of [...new Set(deployed.map((one) => one.app))].sort()) {
+  const rows = [...new Set(deployed.map((one) => one.app))].flatMap((id) => {
     const row = sql.get(
-      "select id from apps where slug = ? and status = 'active'",
-      [slug],
+      "select slug from apps where id = ? and status = 'active'",
+      [id],
     );
-    if (row === undefined) continue;
-    const app = String(row["id"]);
+    return row === undefined ? [] : [{ app: id, slug: String(row["slug"]) }];
+  });
+  rows.sort((a, b) => (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0));
+  for (const { app, slug } of rows) {
     const active = loadActiveDeclaration(sql, app);
     if (!active.ok || active.value === null) continue;
     const named = new Set(
-      deployed.filter((one) => one.app === slug).map((one) => one.skill),
+      deployed.filter((one) => one.app === app).map((one) => one.skill),
     );
     const names = publicSkillNames(
       active.value.declaration.skills ?? [],
@@ -116,19 +118,22 @@ export function publicCommandsOf(
     .map((command) => ({ slug, name: command.name }));
 }
 
-// 배포로 닿은 앱(slug)의 active 선언의 public command다. 보관한 앱, 없는 slug, active release가 없는 앱은 뺀다.
+// 배포로 닿은 앱(id)의 active 선언의 public command다. 보관하거나 지운 앱, active release가 없는 앱은 뺀다. 앱 slug 순이다.
 export function sharedCommands(
   sql: ReadSql,
-  slugs: readonly string[],
+  apps: readonly string[],
 ): { slug: string; name: string }[] {
-  const found = [];
-  for (const slug of [...new Set(slugs)].sort()) {
+  const rows = [...new Set(apps)].flatMap((id) => {
     const row = sql.get(
-      "select id from apps where slug = ? and status = 'active'",
-      [slug],
+      "select slug from apps where id = ? and status = 'active'",
+      [id],
     );
-    if (row === undefined) continue;
-    const active = loadActiveDeclaration(sql, String(row["id"]));
+    return row === undefined ? [] : [{ id, slug: String(row["slug"]) }];
+  });
+  rows.sort((a, b) => (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0));
+  const found = [];
+  for (const { id, slug } of rows) {
+    const active = loadActiveDeclaration(sql, id);
     if (!active.ok || active.value === null) continue;
     found.push(
       ...publicCommandsOf(slug, active.value.declaration.commands ?? []),

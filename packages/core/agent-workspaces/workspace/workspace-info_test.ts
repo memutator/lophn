@@ -129,7 +129,7 @@ test("home의 앱 목록에는 공개 command와 쓰는 곳이 실리고 package
     call,
     agent(null, "lophn"),
     files,
-    new Set(["ledger"]),
+    new Set([APP]),
   );
   assert.ok(read.ok);
   const text = read.value.workspace.text;

@@ -386,7 +386,12 @@ export function createFakeAgentsSource(
       mcpOff: new Set(rows.mcp.filter((row) => !row.on).map((row) => row.name)),
       deployed:
         kind === "project"
-          ? [{ app: "budget-tracker", skill: "track-expenses" }]
+          ? [
+              {
+                app: "app_01h000000000000000000budget",
+                skill: "track-expenses",
+              },
+            ]
           : [],
       memory: {
         text: { home: HOME_MEMORY, project: PROJECT_MEMORY, app: APP_MEMORY }[

@@ -1,4 +1,8 @@
-export { deploymentsReach, gatherDeployments } from "./deployments.ts";
+export {
+  appReached,
+  gatherDeployments,
+  receivedDeployments,
+} from "./deployments.ts";
 export {
   extensionSettings,
   globalDeployedSkillsSetting,

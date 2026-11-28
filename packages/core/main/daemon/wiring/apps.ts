@@ -201,7 +201,7 @@ import {
   type WiringContext,
   type WiringFactory,
 } from "./context.ts";
-import { createSkillDeployments } from "./skill-deploy.ts";
+import { createSkillDeployments, undeployedMessage } from "./skill-deploy.ts";
 import { agentDirectory } from "./lophn-agent-team.ts";
 
 export const appsWiring: WiringFactory = () => {
@@ -414,8 +414,11 @@ export const appsWiring: WiringFactory = () => {
         const access = await deployments.appAccess(who, app);
         return access.ok ? ok(access.value.reached) : access;
       };
-      const gateRan = (session: string, toolCall: string) =>
-        ctx.peek.approvals?.gateRan(session, toolCall) ?? false;
+      const gateRan = (
+        session: string,
+        toolCall: string,
+        judged: { app: string; tool: string },
+      ) => ctx.peek.approvals?.gateRan(session, toolCall, judged) ?? false;
       const appGrantsOf = async (app: Id<"app">) => {
         const listed = await ctx.runtime.readers.read(
           appGrantsList,
@@ -433,6 +436,10 @@ export const appsWiring: WiringFactory = () => {
         ledger,
         link: appsControl.link,
         appReached,
+        async undeployedMessage(who, app, kind) {
+          const access = await deployments.appAccess(who, app);
+          return access.ok ? undeployedMessage(access.value, kind) : null;
+        },
         gateRan,
         appGrantsOf,
         clock: ctx.clock,

@@ -68,7 +68,7 @@ export interface SkillRow {
   readonly builtIn: boolean;
 }
 
-/** 배포할 수 있는 앱 skill 하나: 앱(slug와 이름)의 active release가 내놓은 public skill이다. */
+/** 배포할 수 있는 앱 skill 하나: 앱(id와 이름)의 active release가 내놓은 public skill이다. 기록은 앱을 id로 가리킨다. */
 export interface DeployableSkill {
   readonly app: string;
   readonly appName: string;

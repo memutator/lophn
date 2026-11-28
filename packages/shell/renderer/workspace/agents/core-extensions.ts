@@ -287,7 +287,7 @@ interface AppRow {
 }
 
 /**
- * 배포할 수 있는 앱 skill 전부. 활성 앱마다 active release의 public skill이다(`apps/skills`가 읽는다). 앱을 읽지 못하면 못 읽은 것이고,
+ * 배포할 수 있는 앱 skill 전부. 활성 앱마다 active release의 public skill이다(`apps/skills`가 앱 id로 읽는다). 앱을 읽지 못하면 못 읽은 것이고,
  * skill이 없는 앱은 목록에 없다.
  */
 export async function readDeployable(
@@ -301,14 +301,18 @@ export async function readDeployable(
   for (let at = 0; at < active.length; at += 64) {
     const chunk = active.slice(at, at + 64);
     const read = await link.read<{
-      skills: { slug: string; name: string; description: string }[];
-    }>("apps", "skills", { apps: chunk.map((app) => app.slug) });
+      skills: {
+        app: string;
+        slug: string;
+        name: string;
+        description: string;
+      }[];
+    }>("apps", "skills", { apps: chunk.map((app) => app.id) });
     if (!read.ok) return read;
     for (const skill of read.value.skills) {
       found.push({
-        app: skill.slug,
-        appName:
-          chunk.find((app) => app.slug === skill.slug)?.name ?? skill.slug,
+        app: skill.app,
+        appName: chunk.find((app) => app.id === skill.app)?.name ?? skill.slug,
         skill: skill.name,
         description: skill.description,
       });

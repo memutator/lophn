@@ -163,7 +163,9 @@ test("다른 컴퓨터가 읽는 session 목록과 agent 명함에 이 기계에
   const { callable: _callable, ...card } = CARD;
   assert.deepStrictEqual(open, ok({ found: true, cards: [card] }));
   // 명함은 이 기계에서 private인 앱을 빼고 만든다.
-  assert.deepStrictEqual(asked, [[{ kind: "project", id: OPEN }, ["secret"]]]);
+  assert.deepStrictEqual(asked, [
+    [{ kind: "project", id: OPEN }, ["app_00000000000000000000000003"]],
+  ]);
 
   // 폰, 명단 밖 기기, 기기가 아닌 자격은 읽지 못한다.
   for (const who of [

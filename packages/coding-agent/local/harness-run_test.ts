@@ -64,6 +64,7 @@ test("sync-skills는 배포에 이름이 적힌 public skill만 복사하고 배
     );
     assert.equal(installed.ok, true);
     const skill = (name: string) => ({
+      app: "app_01hzzzzzzzzzzzzzzzzzzzzzza",
       slug: "notes",
       release: "rel_1",
       name,
@@ -73,7 +74,10 @@ test("sync-skills는 배포에 이름이 적힌 public skill만 복사하고 배
     const folder = (name: string) => join(home, ".claude/skills", name);
     const skills = [skill("export"), skill("import")];
     await runHarnessSyncSkills(
-      { skills, deployed: [{ app: "notes", skill: "export" }] },
+      {
+        skills,
+        deployed: [{ app: "app_01hzzzzzzzzzzzzzzzzzzzzzza", skill: "export" }],
+      },
       home,
       "2026-11-12T00:00:00Z",
     );

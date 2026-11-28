@@ -47,6 +47,7 @@ import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import { workspaceDataToolsFolder } from "../../../agent-workspaces/workspace/data-folder.ts";
 import { PROJECT_LAYER } from "../../../agent-workspaces/workspace/project-layer.ts";
 import {
+  type ApprovalsService,
   createApprovals,
   defaultModeSetting,
   isLocalToolTrusted,
@@ -173,6 +174,30 @@ export function toolGateHandler(deps: {
       tool: input.tool,
       call: input.call,
     });
+  };
+}
+
+// 앱 command 호출이 Gate에서 run으로 끝나면(배포되어 있거나 사람이 허락했다) 판정한 앱(id)과 command를 그 tool call에 묶어 적어 둔다. 앱 호출 경로(core)가
+// 닿지 않은 앱의 호출을 이 기록으로 가린다: Gate를 지나지 않은 호출과 판정한 것과 다른 앱·command의 호출은 사람이 허락하지 않은 호출이다.
+export function recordGateRuns(
+  toolGate: MemoryHandler,
+  service: Pick<ApprovalsService, "recordGateRun">,
+): MemoryHandler {
+  return async (who, body) => {
+    const result = await toolGate(who, body);
+    const input = toolGateInputSchema.safeParse(body);
+    if (
+      result.ok &&
+      (result.value as ToolGateResult).kind === "run" &&
+      input.success &&
+      input.data.call.kind === "app_tool"
+    ) {
+      service.recordGateRun(input.data.session, input.data.tool_call, {
+        app: input.data.call.app,
+        tool: input.data.call.tool,
+      });
+    }
+    return result;
   };
 }
 
@@ -710,21 +735,7 @@ export const approvalsWiring: WiringFactory = () => {
         sessionOf: sessionInfo,
         modeOf,
       });
-      // 앱 command 호출이 Gate에서 run으로 끝나면(배포되어 있거나 사람이 허락했다) 그 tool call을 적어 둔다. 앱 호출 경로(core)가 배포되지 않은 앱의
-      // 호출을 이 기록으로 가린다: Gate를 지나지 않은 호출은 사람이 허락하지 않은 호출이다.
-      const toolGateRecorded: MemoryHandler = async (who, body) => {
-        const result = await toolGate(who, body);
-        const input = toolGateInputSchema.safeParse(body);
-        if (
-          result.ok &&
-          (result.value as ToolGateResult).kind === "run" &&
-          input.success &&
-          input.data.call.kind === "app_tool"
-        ) {
-          service.recordGateRun(input.data.session, input.data.tool_call);
-        }
-        return result;
-      };
+      const toolGateRecorded = recordGateRuns(toolGate, service);
       const askWaitRoute = askWaitHandler({
         ask: (call, questions, toParent) =>
           waits.ask(call, questions, toParent),

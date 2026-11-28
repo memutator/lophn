@@ -75,7 +75,10 @@ import {
 } from "../../lophn-agent/session/compactor.ts";
 import { deploymentsOf } from "../../lophn-agent/extensions/deployments.ts";
 import { withPublicOnly } from "../../lophn-agent/tools/app-public.ts";
-import { createAppToolkit } from "../../lophn-agent/tools/app-toolkit.ts";
+import {
+  createAppToolkit,
+  reachedAppIds,
+} from "../../lophn-agent/tools/app-toolkit.ts";
 import { loadLocalTools } from "../../lophn-agent/tools/local-tools.ts";
 import { fileResultSpill } from "../../lophn-agent/tools/spill.ts";
 import { createBuiltinToolkit } from "../../lophn-agent/tools/toolkit.ts";
@@ -258,13 +261,12 @@ export function productDriver(
             call,
             agent,
             workspaceFiles(),
-            new Set(
-              (
-                await deploymentsOf(calls.machine, {
-                  agent: agent.agent,
-                  workspace: agent.workspace,
-                })
-              ).map((entry) => entry.app),
+            await reachedAppIds(
+              calls.machine,
+              await deploymentsOf(calls.machine, {
+                agent: agent.agent,
+                workspace: agent.workspace,
+              }),
             ),
             worktreeId,
           ),

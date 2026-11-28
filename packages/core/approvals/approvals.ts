@@ -39,13 +39,18 @@ import {
 } from "./session-grants.ts";
 import { createTurnRequests } from "./turn-requests.ts";
 
-// app_tool 호출의 앱이 그 session에 닿는지다. 앱의 skill이 배포됐거나(전역, 그 workspace, 그 agent) 앱 자기 workspace의 session이면 닿는다.
-// `skills`는 그 앱의 public skill 이름이다. 조립이 apps와 배포 기록을 읽어 꽂는다.
+// app_tool 호출의 앱이 그 session에 닿는지다. 앱의 public skill이 배포됐고(전역, 그 workspace, 그 agent) 그 session이 끄지 않았거나 앱 자기
+// workspace의 session이면 닿는다. `skills`는 그 앱의 public skill 이름이고 `mayDeploy`는 그 agent가 묻지 않고 배포할 수 있는가다.
+// 조립이 apps와 배포 기록을 읽어 꽂는다.
 export type AppAccess = {
   reached: boolean;
   slug: string;
   skills: readonly string[];
+  mayDeploy: boolean;
 };
+
+// Gate가 판정한 앱 command: 앱 id와 command 이름이다.
+export type GateJudged = { app: string; tool: string };
 
 export type ApprovalsDeps = {
   appAccessOf(
@@ -121,8 +126,9 @@ export type ApprovalsService = Approvals & {
   askReplies: AskReplies;
   // Gate가 앱 command 호출(tool call)을 보내도 된다고 끝냈다(배포되어 있거나 사람이 허락했다). 앱 호출 경로(core)가 닿지 않은 앱의 호출을
   // 그 호출을 Gate가 보낸 것인지로 본다: 사람이 허락하지 않은 배포 밖 호출은 Gate를 지나지 않은 호출이라 거절된다.
-  recordGateRun(session: string, toolCall: string): void;
-  gateRan(session: string, toolCall: string): boolean;
+  // 기록은 판정한 것(앱 id와 command)에 묶인다: 같은 tool call id로 다른 앱이나 command를 부르는 호출은 판정되지 않은 호출이다.
+  recordGateRun(session: string, toolCall: string, judged: GateJudged): void;
+  gateRan(session: string, toolCall: string, judged: GateJudged): boolean;
 };
 
 export function createApprovals(deps: ApprovalsDeps): ApprovalsService {
@@ -139,7 +145,10 @@ export function createApprovals(deps: ApprovalsDeps): ApprovalsService {
     ids: deps.ids,
   });
   const effects = new Map<string, AlwaysEffect>();
+  // session마다 Gate가 run으로 끝낸 `<tool call>\0<앱 id>\0<command>`다.
   const gateRuns = new Map<string, Set<string>>();
+  const gateKey = (toolCall: string, judged: GateJudged) =>
+    `${toolCall}\0${judged.app}\0${judged.tool}`;
   let customSessionEffect: SessionEffect | undefined;
 
   const applySessionEffect: SessionEffect = async (request, workspace) => {
@@ -229,14 +238,14 @@ export function createApprovals(deps: ApprovalsDeps): ApprovalsService {
     openTurnRequest: turns.open,
     waitTurnDecision: turns.wait,
 
-    recordGateRun(session, toolCall) {
+    recordGateRun(session, toolCall, judged) {
       const calls = gateRuns.get(session) ?? new Set<string>();
-      calls.add(toolCall);
+      calls.add(gateKey(toolCall, judged));
       gateRuns.set(session, calls);
     },
 
-    gateRan: (session, toolCall) =>
-      gateRuns.get(session)?.has(toolCall) === true,
+    gateRan: (session, toolCall, judged) =>
+      gateRuns.get(session)?.has(gateKey(toolCall, judged)) === true,
 
     cancelTurnRequests(session, cause) {
       gateRuns.delete(session);

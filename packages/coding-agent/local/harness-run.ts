@@ -214,7 +214,8 @@ export type SkillSyncRow = SkillCopyResult & {
 // lophn-agent skill은 hook과 상관없이 모든 harness skill 폴더에 늘 둔다.
 export async function runHarnessSyncSkills(
   input: {
-    skills: SharedSkill[];
+    // `app`은 앱 id다. 배포 기록이 가리키는 앱이다.
+    skills: (SharedSkill & { app: string })[];
     deployed: readonly { app: string; skill: string }[];
   },
   home: string,
@@ -237,7 +238,7 @@ export async function runHarnessSyncSkills(
     input.deployed.map((one) => `${one.app}\0${one.skill}`),
   );
   const wanted = input.skills.filter((one) =>
-    named.has(`${one.slug}\0${one.name}`),
+    named.has(`${one.app}\0${one.name}`),
   );
   const rows: SkillSyncRow[] = [];
   for (const [skillDir, harnesses] of byDir) {

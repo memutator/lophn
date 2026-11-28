@@ -377,12 +377,9 @@ export function createSettingsExportService(deps: SettingsExportDeps) {
           return err({ code: "not_found", message: `agent not found: ${id}` });
         }
         const locked: string[] = [];
-        if (
-          /^permission_mode:/m.test(content) ||
-          /^permissions:/m.test(content)
-        ) {
-          locked.push("permissions");
-        }
+        if (/^permission_mode:/m.test(content)) locked.push("permissions");
+        // 앱 skill 배포는 agent가 앱을 아는 길이고 묻지 않고 부르게 한다. 받는 사람이 직접 확인해야 적용한다.
+        if (/^deployed_skills:/m.test(content)) locked.push("deployed_skills");
         return ok({
           kind: "agent",
           id: safe,

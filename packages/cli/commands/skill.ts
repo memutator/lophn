@@ -139,7 +139,7 @@ const deployInput = z.strictObject({
     .string()
     .min(1)
     .describe(
-      "Where: global (every agent), harness (the coding agents in terminals), workspace (this workspace) or workspace:<project, app or home>, agent:<handle>",
+      "Where: global (every agent), harness (the coding agents in terminals), workspace (this workspace) or workspace:<project, app or home>, agent:<handle>[@<workspace>][@<workspace>]",
     ),
 });
 
@@ -148,7 +148,7 @@ const deploy = defineCommand({
   summary:
     "Deploy an app's public skill to every agent, a workspace, an agent or the terminal coding agents",
   description:
-    "Deploy one public skill of an app (its slug and the skill name, from the app's active release) so agents that receive it know the app and call its commands without asking. For lophn agents the record points at the app's own skill, so it follows the active release. --to global gives it to every agent, --to workspace (or workspace:<project, app slug or home>) to the agents that run in that workspace, --to agent:<handle> to one agent, --to harness copies the skill into the skill folder of every coding agent in a terminal that has the lophn hook installed (the copy follows the active release after the next sync). The person does this freely, an agent in the app's own workspace may deploy that app's skills anywhere, and the Home lophn may deploy any app anywhere. Any other agent asks the person first (an unattended run is refused; then call the app's command, which asks the person to allow it).",
+    "Deploy one public skill of an app (its slug and the skill name, from the app's active release) so agents that receive it know the app and call its commands without asking. For lophn agents the record points at the app's own skill, so it follows the active release. --to global gives it to every agent, --to workspace (or workspace:<project, app slug or home>) to the agents that run in that workspace, --to agent:<handle> to one agent (every workspace has a lophn: write agent:lophn@<workspace>, where <workspace> is home, a project or an app slug; an agent that gives none means the lophn of its own workspace), --to harness copies the skill into the skill folder of every coding agent in a terminal that has the lophn hook installed (the copy follows the active release after the next sync). The person does this freely, an agent in the app's own workspace may deploy that app's skills anywhere, and the Home lophn may deploy any app anywhere. Any other agent asks the person first (an unattended run is refused; then call the app's command, which asks the person to allow it).",
   input: deployInput,
   positional: ["app", "skill"],
   effect: "write",

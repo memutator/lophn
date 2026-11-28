@@ -104,7 +104,7 @@ export const HARNESS_COMMANDS: readonly LocalCommand[] = [
         entry?.chosen ?? entry?.default ?? [],
       );
       const deployed = parsed.success ? parsed.data : [];
-      // route 입력의 상한이다. 앱의 public skill을 읽어 배포에 이름이 적힌 것만 둔다(runHarnessSyncSkills).
+      // route 입력의 상한이다(앱 id). 앱의 public skill을 읽어 배포에 이름이 적힌 것만 둔다(runHarnessSyncSkills).
       const slugs = [...new Set(deployed.map((one) => one.app))].slice(0, 64);
       const read =
         slugs.length === 0

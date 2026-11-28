@@ -148,7 +148,7 @@ export function appIconRead(
   };
 }
 
-// `app.skills`. 앱 slug마다 active release 선언의 public skill을 bundle 사본에서 읽는다. 파일을 읽으므로 메인 스레드 read다.
+// `app.skills`. 앱(id)마다 active release 선언의 public skill을 bundle 사본에서 읽는다. 파일을 읽으므로 메인 스레드 read다.
 // 같은 이름의 skill을 두 앱이 내는 경우의 우선은 받는 쪽이 정한다(slug 순).
 export function appSkillsRead(
   deps: AppSkillsDeps,
@@ -165,9 +165,12 @@ export function appSkillsRead(
     const apps = loadApps(sql, "active");
     if (!apps.ok) return apps;
     const skills = [];
-    for (const slug of [...new Set(parsed.data.apps)].sort()) {
-      const app = apps.value.find((item) => item.slug === slug);
-      if (app === undefined) continue;
+    const wanted = new Set<string>(parsed.data.apps);
+    const found = apps.value
+      .filter((item) => wanted.has(item.id))
+      .sort((a, b) => (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0));
+    for (const app of found) {
+      const slug = app.slug;
       const active = loadActiveDeclaration(sql, app.id);
       if (!active.ok) return active;
       if (active.value === null) continue;

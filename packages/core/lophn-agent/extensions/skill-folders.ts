@@ -126,7 +126,7 @@ async function workspaceSkillsOfStores(
   );
 }
 
-// 배포 기록이 가리킨 앱 skill이다: 그 앱(slug)의 active release가 내놓은 public skill 가운데 배포한 이름만이다. 같은 이름은 slug 앞선
+// 배포 기록이 가리킨 앱 skill이다: 그 앱(id)의 active release가 내놓은 public skill 가운데 배포한 이름만이다. 같은 이름은 slug 앞선
 // 앱의 것만 남긴다. 앱 자기 workspace에서는 그 앱의 `app` 층으로 이미 보이므로 싣지 않는다. 읽지 못하면 공유 skill이 없는 것으로 본다.
 export async function sharedSkillsOf(
   machine: CoreCall,
@@ -143,7 +143,7 @@ export async function sharedSkillsOf(
   );
   return sharedFor(
     read.value.skills.filter((skill) =>
-      named.has(`${skill.slug}\0${skill.name}`),
+      named.has(`${skill.app}\0${skill.name}`),
     ),
     workspace,
   );

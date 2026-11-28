@@ -22,7 +22,9 @@ function makeApprovals() {
   const published: AgentEvent[] = [];
   const approvals = createApprovals({
     appAccessOf: () =>
-      Promise.resolve(ok({ reached: false, slug: "ledger", skills: [] })),
+      Promise.resolve(
+        ok({ reached: false, slug: "ledger", skills: [], mayDeploy: false }),
+      ),
     permissionRules: () => ({
       floor: PRODUCT_FLOOR_RULES,
       global: [],

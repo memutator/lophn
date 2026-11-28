@@ -1,13 +1,22 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { ok } from "../../../../base/mod.ts";
+import {
+  createIdSource,
+  manualClock,
+  ok,
+  seededRandom,
+} from "../../../../base/mod.ts";
+import { PRODUCT_FLOOR_RULES } from "../../../../protocol/approvals/mod.ts";
 import type {
   PermissionMode,
   TurnMode,
 } from "../../../../protocol/lophn-agent/turn-values.ts";
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
+import { callAllowed } from "../../../apps/calls/gate.ts";
+import { createApprovals } from "../../../approvals/mod.ts";
 import {
   askWaitHandler,
+  recordGateRuns,
   toolGateHandler,
   turnRequestDecideHandler,
 } from "./approvals.ts";
@@ -298,4 +307,133 @@ test("원격 device:*는 turn_requests/decide로 local_tool 승인과 신뢰 저
   assert.deepStrictEqual(trusted, [
     { path: "/repo/.lophn/tools/deploy.ts", sha256: "abc123" },
   ]);
+});
+
+// 권한 경계다. 닿지 않은 앱을 사람이 허락한 호출만 지나가고, 그 허락은 판정한 앱과 command와 그 tool call과 그 turn에만 묶인다.
+// 지우면 한 번의 허락(또는 `full`·닿은 앱의 기록)이 같은 tool call id로 다른 앱이나 command를 부르는 길이 된다.
+test("Gate가 사람의 허락으로 끝낸 앱 호출만 지나가고, 다른 앱·command·tool call이나 turn이 끝난 뒤는 막히며, always는 부른 session의 workspace에 배포한다", async () => {
+  const PROJECT = {
+    kind: "project",
+    id: "prj_0000000000000000000000000a",
+  } as const;
+  const APP = "app_0000000000000000000000000a";
+  const clock = manualClock(Date.UTC(2026, 0, 1));
+  const service = createApprovals({
+    appAccessOf: () =>
+      Promise.resolve(
+        ok({
+          reached: false,
+          slug: "notes",
+          skills: ["guide"],
+          mayDeploy: false,
+        }),
+      ),
+    permissionRules: () => ({
+      floor: PRODUCT_FLOOR_RULES,
+      global: [],
+      project: [],
+    }),
+    bus: { publish() {} },
+    clock,
+    ids: createIdSource({ clock, random: seededRandom(1) }),
+  });
+  const deployedTo: unknown[] = [];
+  service.remember("app_tool", (_request, workspace) => {
+    deployedTo.push(workspace);
+    return Promise.resolve(ok(undefined));
+  });
+  const gate = recordGateRuns(
+    toolGateHandler({
+      approvals: {
+        judge: (call, who) =>
+          service.judge(call, {
+            agent: who.agent,
+            session: who.session,
+            workspace: who.workspace,
+            mode: "workspace",
+            context: "attended",
+            tool: who.tool,
+          }),
+        openTurnRequest: service.openTurnRequest,
+        waitTurnDecision: service.waitTurnDecision,
+        publishDenial: () => {},
+      },
+      sessionOf: () =>
+        Promise.resolve(
+          ok({
+            agent: "agt_0000000000000000000000000a" as never,
+            workspace: PROJECT,
+            spawnedBy: null,
+            permissionMode: "workspace" as const,
+          }),
+        ),
+      modeOf: () => Promise.resolve(ok("attended" as const)),
+    }),
+    service,
+  );
+  const TCL = "tcl_0000000000000000000000000a";
+  const caller = (toolCall = TCL) =>
+    ({
+      kind: "agent",
+      agent: "agt_0000000000000000000000000a",
+      workspace: PROJECT,
+      session: SES,
+      turn: TRN,
+      toolCall,
+      remote: false,
+    }) as never;
+  const deps = {
+    appReached: () => Promise.resolve(ok(false)),
+    gateRan: service.gateRan,
+    appGrantsOf: () => Promise.resolve(ok([])),
+    isPrivate: () => false,
+  };
+  const allowed = async (app: string, tool: string, toolCall = TCL) => {
+    const result = await callAllowed(
+      caller(toolCall),
+      { app: app as never, tool, effect: "write", public: true },
+      deps,
+    );
+    assert.ok(result.ok);
+    return result.value;
+  };
+  const askAndDecide = async (choice: "once" | "always") => {
+    const judged = gate(credential(SES, TRN), {
+      session: SES,
+      turn: TRN,
+      tool_call: TCL,
+      tool: "lophn",
+      call: { kind: "app_tool", app: APP, tool: "notes.add", effect: "write" },
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+    const [open] = service.turnRequests(SES);
+    assert.ok(open !== undefined);
+    const decided = await service.decide(
+      { actor: "user" },
+      { session: SES, request: open.id, choice: { kind: choice } },
+    );
+    assert.ok(decided.ok);
+    return judged;
+  };
+
+  assert.equal(await allowed(APP, "notes.add"), false, "not judged yet");
+  assert.deepStrictEqual(await askAndDecide("once"), ok({ kind: "run" }));
+  assert.equal(await allowed(APP, "notes.add"), true);
+  assert.equal(await allowed(APP, "notes.remove"), false, "other command");
+  assert.equal(
+    await allowed("app_0000000000000000000000000b", "notes.add"),
+    false,
+    "other app",
+  );
+  assert.equal(
+    await allowed(APP, "notes.add", "tcl_0000000000000000000000000b"),
+    false,
+    "other tool call",
+  );
+  assert.deepStrictEqual(deployedTo, [], "once deploys nothing");
+  service.cancelTurnRequests(SES, "turn_ended");
+  assert.equal(await allowed(APP, "notes.add"), false, "after the turn");
+
+  assert.deepStrictEqual(await askAndDecide("always"), ok({ kind: "run" }));
+  assert.deepStrictEqual(deployedTo, [PROJECT]);
 });

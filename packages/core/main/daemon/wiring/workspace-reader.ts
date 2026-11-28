@@ -821,7 +821,7 @@ export async function scanImpact(
     const assignedAgents = snapshot.agents.filter(
       (a) =>
         !(a.workspace?.kind === "app" && a.workspace.id === app.id) &&
-        a.apps.includes(app.slug),
+        a.apps.includes(app.id),
     );
 
     immediate.push(
@@ -1490,7 +1490,7 @@ export async function scanReleaseContractUsers(
       if (agent.workspace?.kind === "app" && agent.workspace.id === app.id) {
         continue;
       }
-      if (!agent.apps.includes(app.slug)) continue;
+      if (!agent.apps.includes(app.id)) continue;
       const name = wsName(agent.workspace);
       const reason = `agent @${agent.handle} has skills of ${app.slug} deployed (skills: ${summary})`;
       declared.push({

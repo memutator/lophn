@@ -1,6 +1,7 @@
 // `app.tools`. 앱 하나의 active release에 고정된 선언을 command·operation·화면의 설명으로 읽는다.
 // 정본은 release에 고정한 선언이고 앱 source의 현재 파일이 아니다. release 읽기는 releases 조립이
 // loader로 준다(leaf 사이는 mod.ts로만 부르므로 여기서 releases를 import하지 않는다).
+import { publicSkillNames } from "../../lophn-agent/extensions/skills.ts";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
 import type { ReleaseRecord } from "../../../protocol/apps/mod.ts";
@@ -148,6 +149,7 @@ export function createDeclarationReads(load: ActiveDeclarationLoader): {
               public: command.public,
             }),
           ),
+          public_skills: publicSkillNames(declaration.skills ?? []),
           // operation은 화면과 그 앱 자신이 쓰는 층이라 agent에게는 보이지 않는다. 예외는 그 앱 workspace의 session이다
           // (preview에서 부를 수 있으니까). 화면을 허용하는 supervisor(machine)와 사람은 모두 본다.
           operations:

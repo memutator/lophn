@@ -71,7 +71,7 @@ export type A2aListsDeps = {
   ): { identity: string; name: string; archived: boolean } | null;
   projectByIdentity(identity: string): string | null;
   app(id: string): { id?: Id<"app">; name: string; archived: boolean } | null;
-  // 명함은 `withoutApps`(slug)의 앱을 싣지 않고 만든다.
+  // 명함은 `withoutApps`(app id)의 앱을 싣지 않고 만든다.
   cards(
     workspace: Workspace | null,
     withoutApps: readonly string[],
@@ -272,7 +272,7 @@ export function createA2aLists(deps: A2aListsDeps) {
     // 이 기계에서 private인 앱은 명함의 차이(할당한 앱의 command·skill)에도 이름을 남기지 않는다.
     const hidden = deps.policy().private.flatMap((one) => {
       const app = one.kind === "app" ? deps.app(one.id) : null;
-      return app === null ? [] : [app.name];
+      return one.kind === "app" && app !== null ? [one.id] : [];
     });
     const cards = await deps.cards(found.workspace, hidden);
     if (!cards.ok) return cards;

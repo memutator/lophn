@@ -2,7 +2,7 @@ import { z } from "zod";
 import { withReadCommon } from "../base/envelope.ts";
 import { idSchema } from "../base/ids.ts";
 import { defineMemory, defineRead } from "../base/route.ts";
-import { slugSchema } from "../projects/values.ts";
+import { appIdSchema, slugSchema } from "../projects/values.ts";
 import type { WorkspaceKind } from "./workspaces.ts";
 
 // 끈 skill의 정확한 이름이다(전역 설정, project `extensions.json`, agent 정의의 `skills_off`가 같은 규칙을 쓴다).
@@ -13,10 +13,11 @@ export const skillNameSchema = z
   .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/);
 export const SKILLS_OFF_MAX = 256;
 
-// 배포 기록 하나: 앱(slug)의 public skill 하나를 이 층에 배포했다. 층은 전역 설정, workspace `extensions.json`, agent 정의의 `deployed_skills`
-// 셋이고 MCP·`skills_off`와 같다. skill 본문은 층에 복사하지 않는다: 앱의 active release bundle이 봉한 사본이고 기록은 그것을 가리킨다.
+// 배포 기록 하나: 앱(id)의 public skill 하나를 이 자리에 배포했다. 앱은 id로 가리킨다: 지운 앱의 기록이 같은 slug의 새 앱에 닿지 않게 한다(id는
+// 다시 쓰지 않는다). 명령과 화면은 slug를 받고 보이고, 기록으로 옮기는 것은 가장자리의 일이다. 자리는 전역 설정, workspace `extensions.json`, agent 정의의
+// `deployed_skills`, harness 설정이고 앞의 셋은 MCP·`skills_off`와 같다. skill 본문은 층에 복사하지 않는다: 앱의 active release bundle이 봉한 사본이고 기록은 그것을 가리킨다.
 export const skillDeploymentSchema = z.strictObject({
-  app: slugSchema,
+  app: appIdSchema,
   skill: skillNameSchema,
 });
 export type SkillDeployment = z.infer<typeof skillDeploymentSchema>;
@@ -298,7 +299,8 @@ export const skillsUndeploy = defineMemory({
 });
 
 const deploymentRowSchema = z.object({
-  app: slugSchema,
+  // 앱 slug다. 앱이 이미 없으면 기록의 id다.
+  app: z.string().min(1),
   skill: skillNameSchema,
   layer: z.enum(["global", "harness", "workspace", "agent"]),
   // workspace 층이면 그 workspace의 이름이고(project 이름, 앱 slug, `home`), agent 층이면 handle이다. 전역과 harness는 없다.

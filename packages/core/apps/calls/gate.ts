@@ -15,7 +15,18 @@ export type CallGateDeps = {
     app: Id<"app">,
   ): Promise<Result<boolean>>;
   // run-loop Gate가 이 tool call을 run으로 끝냈는가(배포되어 있었거나 사람이 이 호출을 허락했다).
-  gateRan(session: string, toolCall: string): boolean;
+  // 판정한 것(앱 id와 command)과 같은 호출일 때만 참이다.
+  gateRan(
+    session: string,
+    toolCall: string,
+    judged: { app: string; tool: string },
+  ): boolean;
+  // 닿지 않은 앱의 호출이 막혔을 때 그 호출자에게 하는 말이다. 호출자가 실제로 할 수 있는 일만 알린다(조립이 배포 규칙으로 쓴다). 없으면 일반 문장이다.
+  undeployedMessage?(
+    who: { agent: AgentId; workspace: Workspace | null },
+    app: Id<"app">,
+    kind: "agent" | "flow",
+  ): Promise<string | null>;
   appGrantsOf(app: Id<"app">): Promise<Result<readonly AppGrant[]>>;
   // 이 기계의 call 정책에서 그 앱의 workspace가 private인가.
   isPrivate(app: Id<"app">): boolean;
@@ -77,7 +88,13 @@ export async function callAllowed(
       target.app,
     );
     if (!reached.ok) return reached;
-    return ok(reached.value || deps.gateRan(caller.session, caller.toolCall));
+    return ok(
+      reached.value ||
+        deps.gateRan(caller.session, caller.toolCall, {
+          app: target.app,
+          tool: target.tool,
+        }),
+    );
   }
   const grants = await deps.appGrantsOf(caller.app);
   if (!grants.ok) return grants;

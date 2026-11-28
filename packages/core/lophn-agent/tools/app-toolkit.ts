@@ -13,6 +13,7 @@ import type {
 import type { SkillDeployment } from "../../../protocol/lophn-agent/mod.ts";
 import type { MachineCandidate } from "../../../protocol/machine/requester.ts";
 import { machinesAppTools } from "../../../protocol/remote/mod.ts";
+import { appReached } from "../extensions/deployments.ts";
 import { type CoreCall, readOf } from "../run-loop/core-call.ts";
 import type { AppToolView } from "./app-tool/command.ts";
 
@@ -35,6 +36,21 @@ export type RemoteMemo = {
 };
 type MachinesAppTools = z.output<typeof machinesAppTools.output>;
 
+// 받는 배포가 닿게 한 앱(id)이다. 앱마다 active release의 public skill을 읽어 `appReached`로 가린다. 읽지 못한 앱은 닿지 않은 것이다.
+export async function reachedAppIds(
+  machine: CoreCall,
+  received: readonly SkillDeployment[],
+): Promise<Set<string>> {
+  const reached = new Set<string>();
+  for (const app of new Set(received.map((entry) => entry.app))) {
+    const read = await readOf(machine, appTools, { app });
+    if (read.ok && appReached(received, app, read.value.public_skills ?? [])) {
+      reached.add(app);
+    }
+  }
+  return reached;
+}
+
 export type AppToolkit = {
   // 지금의 선언과 배포, 다른 컴퓨터 앱 할당. memo가 있으면 다른 컴퓨터의 목록은 그 turn에 한 번만 읽는다. `slug`는 지금 부르는 앱이다:
   // 배포되지 않았어도 그 앱의 command를 읽어 호출이 Gate까지 간다.
@@ -53,7 +69,7 @@ export function createAppToolkit(options: {
   machine: CoreCall;
   // 다른 컴퓨터 앱 할당(`remote_apps`)이다.
   assignment(agent: AgentId): Promise<Result<Pick<Assignment, "entries">>>;
-  // 그 session에 닿는 배포 기록이다(전역, workspace, agent 층). 읽지 못한 층은 없는 것이다.
+  // 그 session이 받는 배포 기록이다(전역, workspace, agent 층에서 끈 skill을 뺀 것). 읽지 못한 층은 없는 것이다.
   deployments(who: AgentAtWorkspace): Promise<readonly SkillDeployment[]>;
   remoteReadMs?: number;
 }): AppToolkit {
@@ -87,17 +103,25 @@ export function createAppToolkit(options: {
     if (!assignment.ok) return assignment;
     const entries: AssignmentEntry[] = assignment.value.entries;
     const views: AppToolView[] = [];
-    const deployed = new Set(
-      (await options.deployments(who)).map((entry) => entry.app),
-    );
+    // 닿는 앱의 규칙은 Gate와 같다(`appReached`): 받는 배포 가운데 그 앱의 지금 public skill이 있다. 앱 자기 workspace와 지금 부르는 앱(`slug`)은
+    // 닿지 않아도 읽어 호출이 Gate까지 간다.
+    const received = await options.deployments(who);
+    const deployed = new Set(received.map((entry) => entry.app));
     const own = who.workspace?.kind === "app" ? who.workspace.id : null;
     for (const app of await activeApps()) {
-      if (!deployed.has(app.slug) && app.id !== own && app.slug !== slug) {
+      if (!deployed.has(app.id) && app.id !== own && app.slug !== slug) {
         continue;
       }
       const read = await readOf(options.machine, appTools, { app: app.id });
       // active release가 없거나 읽지 못한 앱은 선언이 없는 앱과 같다.
       if (!read.ok) continue;
+      if (
+        app.id !== own &&
+        app.slug !== slug &&
+        !appReached(received, app.id, read.value.public_skills ?? [])
+      ) {
+        continue;
+      }
       views.push({
         app: read.value.app,
         slug: read.value.slug,

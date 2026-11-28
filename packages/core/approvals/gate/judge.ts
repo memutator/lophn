@@ -49,12 +49,13 @@ const DEFAULT_PROJECT_COMMAND_POLICY: ProjectCommandPolicy = {
 export type PermissionRequest = {
   readonly call: GateCall;
   readonly tool?: string;
-  // app_tool 호출의 앱이 이 session에 닿는지다. 닿으면(그 앱의 skill이 배포됐거나 앱 자기 workspace) 묻지 않는다.
-  // `skills`는 그 앱의 public skill 이름이고 비어 있으면 `always`(배포)를 열지 않는다.
+  // app_tool 호출의 앱이 이 session에 닿는지다. 닿으면(그 앱의 public skill이 배포돼 이 session이 받거나 앱 자기 workspace) 묻지 않는다.
+  // `skills`는 그 앱의 public skill 이름이고 비어 있으면 `always`(배포)를 열지 않는다. `mayDeploy`는 이 agent가 묻지 않고 배포할 수 있는가다.
   readonly appAccess?: {
     readonly reached: boolean;
     readonly slug: string;
     readonly skills: readonly string[];
+    readonly mayDeploy: boolean;
   } | null;
   readonly projectCommand?: ProjectCommandPolicy;
   readonly mcpTrust?: McpTrust;
@@ -912,10 +913,18 @@ export function evaluatePermission(
     const slug = access?.slug ?? call.app;
     // `always`는 그 앱의 public skill을 이 session의 workspace에 배포하는 일이라 배포할 skill이 있어야 연다.
     const deployable = (access?.skills.length ?? 0) > 0;
+    // 사람이 없는 실행과 팀 자식에게 알리는 말은 그 agent가 실제로 할 수 있는 일이어야 한다.
+    const hint = !deployable
+      ? `App ${slug} has no public skill, so there is nothing to deploy. The agent in the app's own workspace has to write one.`
+      : access?.mayDeploy === true
+        ? `Deploy a skill of app ${slug} first (\`lophn skill deploy ${slug} <skill> --to workspace\`, \`--to agent:<handle>\` or \`--to global\`).`
+        : `This agent cannot deploy it. Ask the person to deploy a skill of app ${slug}, or to allow the call in a session they are in.`;
     return finalizeContext(
       {
         kind: "ask",
-        reason: `App ${slug} has no skill deployed to this agent, its workspace or globally.`,
+        // 사람만 허락한다: 부모 agent가 팀 자식 대신 허락하면 사람 없이 앱이 돈다(배포 승인과 같다).
+        personOnly: true,
+        reason: `App ${slug} has no skill deployed to this agent that it receives (here, its workspace or globally).`,
         outside_rewind: call.effect !== "read",
         allowed_choices: deployable
           ? ["once", "session", "always", "reject"]
@@ -927,7 +936,7 @@ export function evaluatePermission(
               ),
             }
           : {}),
-        unattendedHint: `Deploy a skill of app ${slug} first (\`lophn skill deploy ${slug} <skill> --to agent:<handle>\`, \`--to workspace\` or \`--to global\`), or ask the person to allow the call in a session they are in.`,
+        unattendedHint: hint,
       },
       request,
       context,

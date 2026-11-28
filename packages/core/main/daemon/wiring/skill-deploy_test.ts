@@ -60,7 +60,12 @@ test("앱 자기 workspace의 agent와 Home의 lophn만 묻지 않고 배포한�
 async function withRoot(
   run: (t: {
     root: string;
-    global: { value: object[]; keys: string[] };
+    global: {
+      value: object[];
+      harness: object[];
+      keys: string[];
+      off: string[];
+    };
     deployments: ReturnType<typeof createSkillDeployments>;
     ctx: Parameters<typeof createSkillDeployments>[0];
   }) => Promise<void>,
@@ -73,6 +78,7 @@ async function withRoot(
     }
     // agent 목록이 project 표를 읽는다. 비어 있어도 표는 있어야 한다.
     db.exec("create table projects (id text primary key)");
+    db.prepare("INSERT INTO projects VALUES (?)").run(PROJECT.id);
     db.prepare(
       "INSERT INTO apps VALUES (?, 'notes', 'n', 'd', NULL, NULL, NULL, 1, '1', 'active')",
     ).run(APP);
@@ -117,14 +123,30 @@ async function withRoot(
       join(root, "agents", `${AGENT}.md`),
       "---\nhandle: helper\nname: helper\n---\nbody\n",
     );
-    const global = { value: [] as object[], keys: [] as string[] };
+    const global = {
+      value: [] as object[],
+      harness: [] as object[],
+      keys: [] as string[],
+      off: [] as string[],
+    };
     const ctx = {
       ledgerPath: join(root, "lophn.db"),
       root: { path: root },
-      settings: { get: () => global.value },
+      settings: {
+        get: (setting: { key: string }) =>
+          setting.key === "lophn-agent.extensions.skills_off"
+            ? global.off
+            : setting.key === CODING_DEPLOYED_SKILLS_SETTING_KEY
+              ? global.harness
+              : global.value,
+      },
       settingsUpdate: (changes: { key: string; value: object[] }[]) => {
         global.keys.push(changes[0].key);
-        global.value = changes[0].value;
+        if (changes[0].key === CODING_DEPLOYED_SKILLS_SETTING_KEY) {
+          global.harness = changes[0].value;
+        } else {
+          global.value = changes[0].value;
+        }
         return { ok: true, value: { rejected: [] } };
       },
     } as never;
@@ -139,7 +161,7 @@ async function withRoot(
   }
 }
 
-const guide = { app: "notes", skill: "guide" };
+const guide = { app: APP, skill: "guide" };
 
 // 권한 경계다. 앱 skill이 전역, workspace, agent 어느 층에 배포돼도 그 session은 앱에 닿고(호출이 묻지 않는다), 배포가 없거나 skill이 public이 아니면 닿지 않는다.
 test("앱에 닿는지는 세 층의 배포와 active release의 public skill로 정해진다", async () => {
@@ -161,6 +183,16 @@ test("앱에 닿는지는 세 층의 배포와 active release의 public skill로
           deployed_skills: list,
         }),
       );
+    const workspaceOff = (off: string[]) =>
+      writeFile(
+        workspaceFile,
+        JSON.stringify({
+          mcp_servers: [],
+          skills_off: off,
+          mcp_off: [],
+          deployed_skills: [],
+        }),
+      );
     const reaches = async (workspace = PROJECT) => {
       const access = await deployments.appAccess(
         { agent: AGENT, workspace },
@@ -177,10 +209,10 @@ test("앱에 닿는지는 세 층의 배포와 active release의 public skill로
     await workspaceDeploys([guide]);
     assert.equal(await reaches(), true, "workspace layer");
     await workspaceDeploys([]);
-    await agentFile("deployed_skills:\n  - app: notes\n    skill: guide\n");
+    await agentFile(`deployed_skills:\n  - app: ${APP}\n    skill: guide\n`);
     assert.equal(await reaches(), true, "agent layer");
     await agentFile(
-      "deployed_skills:\n  - app: notes\n    skill: internal\n  - app: notes\n    skill: gone\n",
+      `deployed_skills:\n  - app: ${APP}\n    skill: internal\n  - app: ${APP}\n    skill: gone\n`,
     );
     assert.equal(await reaches(), false, "a skill that is not public or gone");
     assert.equal(
@@ -188,6 +220,22 @@ test("앱에 닿는지는 세 층의 배포와 active release의 public skill로
       true,
       "the app's own workspace",
     );
+
+    // 기록은 앱을 id로 가리킨다: 다른 id(지운 앱의 기록)는 같은 slug·skill 이름이어도 닿지 않는다.
+    global.value = [{ app: OTHER, skill: "guide" }];
+    assert.equal(await reaches(), false, "another app's id");
+
+    // 받지 않는 skill은 닿지 않는다: 전역, workspace, agent 어느 층에서 꺼도 그 이름의 배포는 앱에 닿게 하지 못한다.
+    global.value = [guide];
+    assert.equal(await reaches(), true);
+    global.off = ["guide"];
+    assert.equal(await reaches(), false, "switched off globally");
+    global.off = [];
+    await workspaceOff(["guide"]);
+    assert.equal(await reaches(), false, "switched off in the workspace");
+    await workspaceOff([]);
+    await agentFile("skills_off:\n  - guide\n");
+    assert.equal(await reaches(), false, "switched off for the agent");
   });
 });
 
@@ -302,10 +350,74 @@ test("배포 명령은 묻지 않는 자격이 아니면 사람의 허락이 있
     assert.equal(asked.length, 2);
     global.value = [];
 
+    // 모든 workspace에 `lophn`이 있다: 사람이 workspace 없이 주면 후보를 알리며 거절하고, agent session이 주면 자기 workspace의 lophn이다.
+    const ambiguous = await deploy(person, input("agent:lophn"));
+    assert.ok(!ambiguous.ok && ambiguous.error.code === "invalid_input");
+    assert.match(ambiguous.error.message, /agent:lophn@home/);
+    assert.ok((await deploy(person, input("agent:lophn@home"))).ok);
+    assert.match(
+      await readFile(join(root, "agents", "lophn_home.md"), "utf8"),
+      /skill: guide/,
+    );
+    await rm(join(root, "agents", "lophn_home.md"));
+    assert.ok((await deploy(asAgent(HOME_SESSION), input("agent:lophn"))).ok);
+    assert.match(
+      await readFile(join(root, "agents", "lophn_home.md"), "utf8"),
+      /skill: guide/,
+    );
+    global.value = [];
+
     // Home의 lophn은 묻지 않고 한다.
     global.value = [];
     assert.ok((await deploy(asAgent(HOME_SESSION), input("global"))).ok);
     assert.deepStrictEqual(global.value, [guide]);
     assert.equal(asked.length, 2);
+  });
+});
+
+// 권한 경계다. `always`는 부른 session의 workspace 층에만 쓰고(전역이나 다른 agent에게 넓히지 않는다), 앱을 지우거나 보관하면 어느 자리에도 그 앱의 기록이 남지 않는다.
+test("always 배포는 그 workspace 층에만 쓰고, 앱을 지우면 모든 자리의 배포가 거두어진다", async () => {
+  await withRoot(async ({ root, global, deployments }) => {
+    const workspaceFile = PROJECT_LAYER.extensionsFile(root, PROJECT);
+    const agentFileText = () =>
+      readFile(join(root, "agents", `${AGENT}.md`), "utf8");
+    const deployed = async () =>
+      JSON.parse(await readFile(workspaceFile, "utf8")).deployed_skills;
+
+    const added = await deployments.deployAll(
+      { layer: "workspace", workspace: PROJECT },
+      APP,
+    );
+    assert.deepStrictEqual(added, ok(["guide"]));
+    assert.deepStrictEqual(await deployed(), [guide]);
+    assert.deepStrictEqual(global.keys, [], "no setting written");
+    assert.doesNotMatch(await agentFileText(), /deployed_skills/);
+
+    // 모든 자리에 이 앱과 다른 앱(OTHER)의 기록을 둔다.
+    const other = { app: OTHER, skill: "guide" };
+    global.value = [guide, other];
+    global.harness = [guide, other];
+    await writeFile(
+      workspaceFile,
+      JSON.stringify({
+        mcp_servers: [],
+        skills_off: [],
+        mcp_off: [],
+        deployed_skills: [guide, other],
+      }),
+    );
+    await writeFile(
+      join(root, "agents", `${AGENT}.md`),
+      `---\nhandle: helper\nname: helper\ndeployed_skills:\n  - app: ${APP}\n    skill: guide\n  - app: ${OTHER}\n    skill: guide\n---\nbody\n`,
+    );
+    const logged: string[] = [];
+    await deployments.strip(APP, (message) => logged.push(message));
+    assert.deepStrictEqual(global.value, [other]);
+    assert.deepStrictEqual(global.harness, [other]);
+    assert.deepStrictEqual(await deployed(), [other]);
+    const agent = await agentFileText();
+    assert.doesNotMatch(agent, new RegExp(APP));
+    assert.match(agent, new RegExp(OTHER));
+    assert.deepStrictEqual(logged, []);
   });
 });

@@ -49,6 +49,12 @@ test("app.delete가 끝나면 그 앱의 폴더와 고정만 지워지고 다른
         ],
       },
     };
+    // 배포 기록은 앱 id로 앱을 가리킨다. 지운 앱의 것만 거두어진다.
+    settings["lophn-agent.extensions.deployed_skills"] = [
+      { app: GONE, skill: "guide" },
+      { app: KEPT, skill: "guide" },
+    ];
+    settings["coding-agent.deployed_skills"] = [{ app: GONE, skill: "guide" }];
     const forgotten: string[] = [];
     const wiring = appsDeleteWiring();
     const built = await wiring.build!({
@@ -96,6 +102,10 @@ test("app.delete가 끝나면 그 앱의 폴더와 고정만 지워지고 다른
     );
     assert.strictEqual(await exists(`${root}/secrets.json`), true);
     assert.deepStrictEqual(forgotten, [GONE]);
+    assert.deepStrictEqual(settings["lophn-agent.extensions.deployed_skills"], [
+      { app: KEPT, skill: "guide" },
+    ]);
+    assert.deepStrictEqual(settings["coding-agent.deployed_skills"], []);
     assert.deepStrictEqual(settings[quickLaunchSetting.key], {
       order: [`pin:${KEPT}:main`],
       apps: [{ app: KEPT, surface: "main" }],

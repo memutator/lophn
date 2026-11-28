@@ -114,7 +114,7 @@ background harness session(`harness_gui = 0`)은 `lophn tab open --session <ses>
     - 사람의 handler가 섞인 Devin 항목처럼 offset으로 안전하게 고칠 수 없거나 파싱되지 않으면 아무것도 쓰지 않고 `failed`다.
     - 누른 것이 허락이라 묻지 않고, 지운 뒤 이 실행에서는 터미널이 그 harness를 알아봐도 다시 묻지 않는다. 다음 실행에서는 거절처럼 다시 묻는다.
 13. **coding agent에게 가는 skill은 harness에 배포한 앱 skill(public skill 중 이름이 적힌 것)과 내장 `lophn-agent` 하나다.**
-    - 읽는 것은 설정 `coding-agent.deployed_skills`(`{app, skill}` 목록. skill 배포의 네 번째 자리다. `lophn skill deploy|undeploy <app> <skill> --to harness`와 Settings › Coding agents가 바꾼다. 누가 묻지 않고 하는가는 다른 자리와 같은 규칙이다: [approval.md](approval.md))와 core read `app.skills`([app-call.md](app-call.md))다. `app.skills`가 준 public skill 중 목록에 이름이 적힌 것만 복사한다.
+    - 읽는 것은 설정 `coding-agent.deployed_skills`(`{app(id), skill}` 목록. skill 배포의 네 번째 자리다. `lophn skill deploy|undeploy <app> <skill> --to harness`와 Settings › Coding agents가 바꾼다. 누가 묻지 않고 하는가는 다른 자리와 같은 규칙이다: [approval.md](approval.md))와 core read `app.skills`([app-call.md](app-call.md))다. `app.skills`가 준 public skill 중 목록에 이름이 적힌 것만 복사한다.
     - 쓰는 곳은 hook이 놓인(`unchanged`) harness의 adapter `skill_dir`(사람 home 기준)이다: Claude Code `.claude/skills`, Codex·pi `.agents/skills`, OpenCode `.config/opencode/skills`. 다른 harness는 `skill_dir`이 null이라 사본이 없다. Codex와 pi는 폴더를 같이 쓰므로 하나라도 hook이 놓였으면 둔다. hook이 없는(`missing`) harness의 폴더에서는 lophn이 쓴 사본만 지우고, hook 상태를 못 읽은 폴더(`failed`)는 건드리지 않는다. 그 폴더를 쓸 수 없으면 `unavailable`이다.
     - `lophn-agent` skill은 hook 상태와 상관없이 `skill_dir`을 가진 harness(Claude Code·Codex·OpenCode)의 skill 폴더에 앱 skill 사본과 같은 표시 file로 늘 동기화한다.
 14. **사본은 lophn이 쓴 것만 덮고 지운다.**

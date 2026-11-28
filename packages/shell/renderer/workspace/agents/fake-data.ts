@@ -407,7 +407,9 @@ Explain what changed in the eval loop and why it matters.
 3. Link every claim to the document it came from.
 Keep answers short. Name the scenario for every regression.`,
       skills_off: ["cite-documents"],
-      deployed_skills: [{ app: "eval-board", skill: "read-eval-runs" }],
+      deployed_skills: [
+        { app: "app_01h000000000000000000evalb", skill: "read-eval-runs" },
+      ],
       mcp_off: [{ server_name: "fetch" }],
       mcp_servers: [
         {
@@ -706,19 +708,19 @@ function tool(
 /** 배포할 수 있는 앱 skill. 앱마다 active release의 public skill이다. */
 export const DEPLOYABLE: readonly DeployableSkill[] = [
   {
-    app: "budget-tracker",
+    app: "app_01h000000000000000000budget",
     appName: APP_NAME,
     skill: "track-expenses",
     description: "How to add, tag and total expenses with the budget app.",
   },
   {
-    app: "budget-tracker",
+    app: "app_01h000000000000000000budget",
     appName: APP_NAME,
     skill: "monthly-report",
     description: "How to build and send the monthly spending report.",
   },
   {
-    app: "eval-board",
+    app: "app_01h000000000000000000evalb",
     appName: "Eval board",
     skill: "read-eval-runs",
     description: "How to list eval runs and read their scores.",

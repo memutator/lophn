@@ -105,6 +105,9 @@ function isDataRootSelfProtectedWrite(
     rel.startsWith("permissions/") ||
     rel === "agents" ||
     rel.startsWith("agents/") ||
+    // workspace 층의 설정(MCP server, 끈 skill, 앱 skill 배포)이다: Home, project, 앱마다 하나.
+    rel === "home/extensions.json" ||
+    /^(?:projects|apps)\/[^/]+\/extensions\.json$/.test(rel) ||
     rel === "secrets" ||
     rel.startsWith("secrets.") ||
     rel.startsWith("secrets/")
@@ -138,7 +141,7 @@ export function checkFileSelfProtection(
   ) {
     return {
       message:
-        "Writing lophn settings, permissions, agent definitions, or secrets directly via file tools is blocked.",
+        "Writing lophn settings, permissions, agent definitions, workspace extension settings, or secrets directly via file tools is blocked.",
     };
   }
   return null;

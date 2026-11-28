@@ -556,7 +556,7 @@ function agentLookups(
             sql,
             workspaces
               .sharedSkills(sql, root.value, deployed)
-              .map((one) => one.slug),
+              .map((one) => one.app),
           );
     },
     modelInfo: (model) => {

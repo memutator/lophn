@@ -13,6 +13,7 @@ import {
   MODALITIES,
   type Workspace,
 } from "../../../protocol/lophn-agent/mod.ts";
+import { receivedDeployments } from "../extensions/deployments.ts";
 import {
   type AgentContext,
   effectiveModel,
@@ -34,7 +35,7 @@ function agentAt(loaded: Loaded, workspace: Workspace | null) {
 
 // 명함의 차이는 그 agent의 정의로 계산한다(lophn이면 그 workspace의 lophn 정의). prompt 원문은 싣지 않는다.
 // 차이는 그 agent 층에 배포받은 앱 skill(`deployed_skills`)로 계산한다: 전역·workspace 층의 배포는 그 agent의 차이가 아니다.
-// `withoutApps`(slug)의 앱은 없는 것처럼 계산한다: 그 앱의 command와 skill, 그 앱 skill의 끄기가 차이에 남지 않는다.
+// `withoutApps`(app id)의 앱은 없는 것처럼 계산한다: 그 앱의 command와 skill, 그 앱 skill의 끄기가 차이에 남지 않는다.
 function cardOf(
   context: AgentContext,
   loaded: Loaded,
@@ -60,6 +61,8 @@ function cardOf(
   const off = (definition?.skills_off ?? []).filter(
     (name) => !hiddenSkills.has(name),
   );
+  // 닿는 배포만 센다(껐다면 받지 않는 skill이다): command도 skill과 같은 규칙으로 닿은 앱의 것만 싣는다.
+  const received = receivedDeployments({ agent: deployed, off });
 
   const diff =
     runtime === "custom"
@@ -73,7 +76,7 @@ function cardOf(
       : {
           plus: [
             ...context.lookups
-              .sharedCommands(deployed)
+              .sharedCommands(received)
               .map((command) => `command: ${command.slug} ${command.name}`),
             ...context.lookups
               .shared(deployed)

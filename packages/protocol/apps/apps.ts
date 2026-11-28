@@ -54,7 +54,7 @@ export const appRegistrationLookup = definePort<AppRegistrationLookup>(
   "apps.AppRegistrationLookup",
 );
 
-// app.delete가 같은 Tx에서 다른 module이 가진 앱 workspace의 기록(대화, job, 공유 요청, agent 할당)을 지우는 길이다.
+// app.delete가 같은 Tx에서 다른 module이 가진 앱 workspace의 기록(대화, job, agent 할당)을 지우는 길이다.
 // core/main이 끼운다. 끼우지 않으면 app.delete는 internal로 거절한다.
 interface AppRemnantsEraser {
   erase(app: { id: string; slug: string }): Result<{ sessions: string[] }>;

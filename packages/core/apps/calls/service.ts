@@ -160,9 +160,10 @@ const DENIAL_MESSAGES: Record<ToolDenial["code"], string> = {
   not_declared: "the app does not declare this operation or command",
 };
 
-// agent와 flow의 호출이 막힌 이유는 그 앱의 skill이 닿지 않은 것이다(비공개 command를 빼면). 어떻게 닿게 하는지를 알린다.
+// agent와 flow의 호출이 막힌 이유는 그 앱의 skill이 닿지 않은 것이다(비공개 command를 빼면). 일반 문장이고, 호출자가 실제로 할 수 있는 일은
+// 조립이 배포 규칙으로 정해 준다(`undeployedMessage`).
 const UNDEPLOYED_MESSAGE =
-  "the call is not granted: no skill of this app is deployed to this agent, and the person did not allow this call. Deploy one of the app's public skills (`lophn skill deploy <app> <skill> --to agent:<handle>`, `workspace` or `global`), or call the command from a session where the person can allow it";
+  "the call is not granted: no skill of this app is deployed to this caller, and the person did not allow this call";
 
 type Phase = "gate" | "queued" | "sent";
 
@@ -477,13 +478,15 @@ export function createAppCalls(deps: AppCallsDeps): {
         if (abandoned) return null;
         if (!allowed.ok) return allowed;
         if (!allowed.value) {
-          return recordDenied(
-            base,
-            "gate_blocked",
+          const told =
             caller.kind === "agent" || caller.kind === "flow"
-              ? UNDEPLOYED_MESSAGE
-              : undefined,
-          );
+              ? ((await deps.undeployedMessage?.(
+                  { agent: caller.agent, workspace: caller.workspace },
+                  app,
+                  caller.kind,
+                )) ?? UNDEPLOYED_MESSAGE)
+              : undefined;
+          return recordDenied(base, "gate_blocked", told);
         }
       }
 

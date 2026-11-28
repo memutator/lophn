@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { ok } from "../../../base/mod.ts";
+import { appTools } from "../../../protocol/apps/declaration/read.ts";
 import { machinesAppTools } from "../../../protocol/remote/mod.ts";
 import { routePath } from "../../../protocol/base/mod.ts";
-import { appCallTool } from "../../../protocol/apps/mod.ts";
+import { appCallTool, appList } from "../../../protocol/apps/mod.ts";
 import { appCommands, appCommandTool } from "./app-tool/command.ts";
 import { createAppToolkit, type RemoteMemo } from "./app-toolkit.ts";
 import { LOPHN_TOOLS, withApps } from "./lophn/tool.ts";
@@ -126,4 +127,92 @@ test("다른 컴퓨터의 앱 command가 secret이 비어 실패해도 이 컴�
   const text = JSON.stringify(done.value);
   assert.doesNotMatch(text, /lophn ask secret|stripe_key/);
   assert.match(done.value.summary, /on studio is missing something/);
+});
+
+// 권한 경계다. 앱 command는 그 앱의 public skill이 하나라도 배포돼 받아질 때만 목록에 오르고, 배포되지 않은 앱도 `lophn <slug> <command>`로 부르면 Gate까지 간다.
+// 지우면 배포하지 않은(또는 비공개 skill만 배포한) 앱의 command가 모든 agent의 목록에 뜨거나, 직접 부르는 호출이 Gate 앞에서 not found로 막힌다.
+test("배포되지 않은 앱의 command는 목록에 없고 직접 부르면 Gate까지 가며, 배포된 앱과 id가 다른 기록은 닿지 않는다", async () => {
+  const OTHER = "app_0000000000000000000000000b";
+  const REL = "rel_0000000000000000000000000a";
+  const kit = (deployed: { app: string; skill: string }[]) =>
+    createAppToolkit({
+      machine: async (path) => {
+        if (path === routePath(appList)) {
+          return ok({
+            apps: [
+              {
+                id: APP,
+                slug: "notes",
+                name: "Notes",
+                description: "d",
+                planning_version: null,
+                source_path: null,
+                folders: [],
+                active_release: REL,
+                revision: "1",
+                run_enabled: true,
+                status: "active",
+              },
+            ],
+            as_of_seq: "1",
+            next_cursor: null,
+          }) as never;
+        }
+        if (path === routePath(appTools)) {
+          return ok({
+            app: APP,
+            slug: "notes",
+            release: REL,
+            declaration_hash: "0".repeat(64),
+            name: "Notes",
+            description: "d",
+            tools: [
+              {
+                name: "add",
+                description: "Add a note",
+                inputSchema: null,
+                effect: "write",
+                public: true,
+              },
+            ],
+            public_skills: ["guide"],
+            operations: [],
+            screens: [],
+            facts: { permissions: [], app_connections: [], tools: ["add"] },
+            evidence: {
+              description: { complete: true, gaps: [] },
+              structure: { validated: true },
+            },
+            as_of_seq: "1",
+            next_cursor: null,
+          }) as never;
+        }
+        return { ok: false, error: { code: "not_found", message: "none" } };
+      },
+      assignment: async () => ok({ entries: [] }),
+      deployments: async () => deployed,
+    });
+  const slugs = async (
+    deployed: { app: string; skill: string }[],
+    named?: string,
+  ) => {
+    const loaded = await kit(deployed).load(AGENT, undefined, named);
+    assert.ok(loaded.ok);
+    return loaded.value.views.map((view) => view.slug);
+  };
+
+  assert.deepEqual(await slugs([]), [], "nothing deployed");
+  assert.deepEqual(
+    await slugs([{ app: APP, skill: "internal" }]),
+    [],
+    "not public",
+  );
+  assert.deepEqual(
+    await slugs([{ app: OTHER, skill: "guide" }]),
+    [],
+    "another app",
+  );
+  assert.deepEqual(await slugs([{ app: APP, skill: "guide" }]), ["notes"]);
+  // 직접 부르는 호출은 목록에 없어도 풀려 Gate가 묻는다.
+  assert.deepEqual(await slugs([], "notes"), ["notes"]);
 });

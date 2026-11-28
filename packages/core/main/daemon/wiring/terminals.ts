@@ -23,6 +23,7 @@ import {
 import type { BusEvent } from "../../../../protocol/events/bus.ts";
 import { codingAgentsSetting, shellSettings } from "../../../config/mod.ts";
 import {
+  activeProjectFolderPaths,
   projectExists,
   projectFolderPaths,
 } from "../../../projects/lookups.ts";
@@ -146,6 +147,11 @@ export const terminalsWiring: WiringFactory = () => {
             connection.sql,
             project,
             wt.getManagedRoot(),
+            {
+              homeDir: homedir() || null,
+              repoRoots: activeProjectFolderPaths(connection.sql),
+              platform: process.platform,
+            },
           ).map((row) => ({
             folder_ref: `wt_${row.id}`,
             path: row.path,

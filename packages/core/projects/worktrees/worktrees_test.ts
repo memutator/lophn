@@ -5,10 +5,12 @@ import {
   readFile,
   rm,
   stat,
+  symlink,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import { createIdSource, ok, seededRandom } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
@@ -21,10 +23,13 @@ import {
   type GitRunner,
   type GitRunResult,
   isGitAuthError,
+  loadManagedReadyWorktrees,
   parsePorcelainV2Z,
   redactGitUrlCredentials,
+  safeRealpath,
   type StoredWorktreeRow,
   validateWorktreesRoot,
+  WORKTREES_SCHEMA_STEPS,
 } from "./mod.ts";
 
 const PRJ = "prj_00000000000000000000000001" as Id<"prj">;
@@ -541,6 +546,177 @@ test("recoverOnStartup cleans up creating rows", async () => {
     await service.recoverOnStartup();
     assert.equal(rows.has(crashId), false);
     await assert.rejects(() => stat(partialDir));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+// 이 규칙이 깨지면 미생성 경로의 부모 symlink 우회나 미검증 worktrees_folder 설정이
+// 3중 소유권·folderOfCwd 안전 루트 경계를 뚫는다.
+test("safeRealpath resolves ancestor symlinks and unvalidated worktrees_folder never widens ownership or managed ready lookup", async () => {
+  const root = await mkdtemp(join(tmpdir(), "lophn-wt-root-guard-"));
+  try {
+    const repoRoot = join(root, "repo");
+    const gitCommon = join(repoRoot, ".git");
+    const wtRoot = join(root, "worktrees");
+    const outsideDir = join(root, "outside-dir");
+    const linkToRepo = join(root, "link-to-repo");
+    await mkdir(join(gitCommon, "worktrees", "admin-out"), { recursive: true });
+    await mkdir(wtRoot, { recursive: true });
+    await mkdir(outsideDir, { recursive: true });
+    await symlink(repoRoot, linkToRepo);
+
+    // 1. 아직 존재하지 않는 하위 경로라도 부모 symlink가 풀려 repo 내부 우회가 차단된다.
+    const futureUnderLink = join(linkToRepo, "not-yet-created", "wt");
+    assert.equal(
+      safeRealpath(futureUnderLink),
+      join(safeRealpath(repoRoot), "not-yet-created", "wt"),
+    );
+    assert.equal(
+      validateWorktreesRoot(futureUnderLink, {
+        homeDir: "/home/nobody",
+        repoRoots: [repoRoot],
+      }).ok,
+      false,
+    );
+
+    // 2. 위험한 worktrees_folder(예: 저장소 상위인 root)로 create가 거절되어도
+    //    그 미검증 경로가 knownManagedRoots에 남아 remove 3중 소유권 검증을 통과하면 안 된다.
+    await writeFile(
+      join(outsideDir, ".git"),
+      `gitdir: ${join(gitCommon, "worktrees", "admin-out")}\n`,
+    );
+    await writeFile(
+      join(gitCommon, "worktrees", "admin-out", "commondir"),
+      "../..\n",
+    );
+    const outId = "wkt_00000000000000000000000088" as Id<"wkt">;
+    const rows = new Map<string, StoredWorktreeRow>([
+      [
+        outId,
+        {
+          id: outId,
+          project_id: PRJ,
+          repo_root: repoRoot,
+          git_common_dir: gitCommon,
+          path: outsideDir,
+          git_admin_name: "admin-out",
+          label: "out",
+          branch: "wt/out",
+          base_ref: "main",
+          base_commit: "aaa111",
+          provenance: "managed",
+          status: "ready",
+          idempotency_key: null,
+          created_branch: false,
+          managed_root: root,
+          created_at: NOW,
+          updated_at: NOW,
+        },
+      ],
+    ]);
+    let configuredRoot = root; // repoRoot의 상위 디렉터리(위험 경로)
+    const fakeGit: GitRunner = async (_cwd, args) => {
+      if (args[0] === "rev-parse" && args.includes("--show-toplevel")) {
+        return gitOk(`${repoRoot}\n${gitCommon}\nfalse\n`);
+      }
+      if (args[0] === "rev-parse" && args.includes("--verify")) {
+        return gitOk("aaa111\n");
+      }
+      return gitOk();
+    };
+    const service = createWorktreeService({
+      clock: FIXED_CLOCK,
+      random: seededRandom(3),
+      ids: createIdSource({ clock: FIXED_CLOCK, random: seededRandom(3) }),
+      homeDir: "/home/nobody",
+      defaultWorktreesRoot: wtRoot,
+      configuredWorktreesRoot: () => configuredRoot,
+      projectFolders: () => ok([repoRoot]),
+      allProjectFolders: () => [repoRoot],
+      loadProjectWorktrees: () => ok([...rows.values()]),
+      loadWorktreeById: (id) => rows.get(id) ?? null,
+      loadWorktreeByIdempotencyKey: () => null,
+      loadWorktreesByStatuses: () => [],
+      loadSettings: () => ok(DEFAULT_WORKTREE_SETTINGS),
+      upsert: async () => ok(undefined),
+      patch: async () => ok(undefined),
+      deleteRow: async () => ok(undefined),
+      activity: {
+        activeSessions: () => [],
+        activeTerminals: () => [],
+        stopSessionsAndTerminals: async () => ok(undefined),
+      },
+      git: fakeGit,
+      onChanged: () => {},
+    });
+
+    const createBlocked = await service.create({
+      project: PRJ,
+      branch: "wt/should-fail",
+    });
+    assert.equal(createBlocked.ok, false);
+    if (!createBlocked.ok) {
+      assert.equal(createBlocked.error.code, "invalid_input");
+    }
+
+    // 설정을 정상 경로로 돌려놓은 뒤에도 이전 위험 경로가 knownManagedRoots에 남아 있으면 안 된다.
+    configuredRoot = wtRoot;
+    const removeBlocked = await service.remove({
+      worktree: outId,
+      force: true,
+    });
+    assert.equal(removeBlocked.ok, false);
+    if (!removeBlocked.ok) {
+      assert.equal(removeBlocked.error.code, "forbidden");
+    }
+
+    // 3. loadManagedReadyWorktrees도 미검증 managedRoot·row.managed_root를 거부한다.
+    const db = new DatabaseSync(":memory:");
+    try {
+      db.exec(`
+        create table projects (id text primary key);
+        create table sessions (id text primary key);
+        insert into projects values ('${PRJ}');
+      `);
+      db.exec(WORKTREES_SCHEMA_STEPS[0]!.sql);
+      db.prepare(
+        `INSERT INTO project_worktrees (
+          id, project_id, repo_root, git_common_dir, path, git_admin_name,
+          label, branch, base_ref, base_commit, provenance, status,
+          idempotency_key, created_branch, managed_root, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ).run(
+        outId,
+        PRJ,
+        repoRoot,
+        gitCommon,
+        outsideDir,
+        "admin-out",
+        "out",
+        "wt/out",
+        "main",
+        "aaa111",
+        "managed",
+        "ready",
+        null,
+        0,
+        root, // 위험한 managed_root (repoRoot의 상위)
+        NOW,
+        NOW,
+      );
+      const sql = {
+        all: (text: string, params: never[]) =>
+          db.prepare(text).all(...params) as Record<string, never>[],
+      };
+      const loaded = loadManagedReadyWorktrees(sql, PRJ, "/", {
+        homeDir: "/home/nobody",
+        repoRoots: [repoRoot],
+      });
+      assert.deepStrictEqual(loaded, []);
+    } finally {
+      db.close();
+    }
   } finally {
     await rm(root, { recursive: true, force: true });
   }

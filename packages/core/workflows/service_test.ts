@@ -47,6 +47,7 @@ import type {
   WorkflowRemote,
   WorkflowStore,
   WorkflowTurns,
+  WorkflowWorktrees,
 } from "./ports.ts";
 import { createWorkflowReads, deriveWorkflowStatus } from "./reads.ts";
 import { workflowsSchemaSteps } from "./schema.ts";
@@ -207,6 +208,7 @@ function makeHarness(options?: {
   pendingMessages?: () => boolean;
   turnRunning?: () => boolean;
   lastTurn?: () => StepTurn | null;
+  worktrees?: WorkflowWorktrees;
 }) {
   const db = new DatabaseSync(":memory:");
   db.exec(workflowsSchemaSteps[0]!.sql);
@@ -339,6 +341,9 @@ function makeHarness(options?: {
       launch: () => Promise.resolve(ok(undefined)),
       stop: () => Promise.resolve(ok(undefined)),
     },
+    ...(options?.worktrees === undefined
+      ? {}
+      : { worktrees: options.worktrees }),
     ids: createIdSource({
       clock: { now: () => AT } as never,
       random: {} as never,
@@ -3084,5 +3089,100 @@ test("parallel fan-out, join all/any with sibling cancellation, dynamic reviewer
   } finally {
     db.close();
     await rm(root, { recursive: true, force: true });
+  }
+});
+
+// 이 규칙이 깨지면 앞 step의 worktree가 missing·removed가 되었을 때 inherit 다음 step을
+// blocked(worktree_failed)로 두지 않고 앞 step의 workflow.report 자체를 conflict로 실패시킨다.
+test("worktree inherit blocks next step with worktree_failed without failing previous step report when worktree is not ready", async () => {
+  const WKT = "wkt_01hzzzzzzzzzzzzzzzzzzzzzza" as Id<"wkt">;
+  const h = makeHarness({
+    worktrees: {
+      create: async () => ok({ id: WKT }),
+      sessionWorktree: (session) => (session === SES_A ? WKT : null),
+      resolveReady: () =>
+        err({
+          code: "conflict",
+          message: 'worktree "feat" is missing and cannot be used',
+          details: { reason: "worktree_missing" },
+        }),
+    },
+  });
+  try {
+    const created = h.commands.create.handle(
+      h.tx,
+      h.ctx,
+      {
+        id: AGENT,
+        project: PRJ,
+        workflow: "demo",
+        input: "go",
+        participants: {
+          builder: { agent: "lophn" },
+          reviewer: { agent: "lophn" },
+        },
+        steps: [
+          {
+            name: "build",
+            by: "builder",
+            with: null,
+            prompt: "build",
+            in: "",
+            out: "done",
+            next: ["review"],
+            worktree: "new",
+          },
+          {
+            name: "review",
+            by: "reviewer",
+            with: null,
+            prompt: "review",
+            in: "",
+            out: "reviewed",
+            next: ["end"],
+            worktree: "inherit",
+          },
+        ],
+        started_by: { kind: "user" },
+        handoff: {
+          step: "build",
+          participant: "builder",
+          human_turn: false,
+          cause: "start",
+          session: null,
+          delivery: {
+            to: { agent: "lophn", workspace: { project: PRJ } },
+            body: "build",
+          },
+          unresolved: null,
+        },
+      },
+      {},
+    );
+    assert.ok(created.ok);
+
+    // build step이 완료 report를 제출하면 report 자체는 성공하고, 다음 review step만 worktree_failed로 blocked 된다.
+    const reported = await h.service.report(
+      {
+        instance: AGENT,
+        step: "build",
+        text: "build done",
+        next: "review",
+      },
+      { kind: "agent", session: SES_A },
+    );
+    assert.equal(reported.ok, true);
+    const lines = h.linesOf(AGENT);
+    assert.ok(
+      lines.some((l) => l.kind === "report" && l.step === "build"),
+      "build report must be recorded",
+    );
+    const blocked = lines.find(
+      (l) => l.kind === "not_handed" && l.step === "review",
+    );
+    assert.ok(blocked !== undefined && blocked.kind === "not_handed");
+    assert.equal(blocked.reason, "worktree_failed");
+  } finally {
+    h.db.close();
   }
 });

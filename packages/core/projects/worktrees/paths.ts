@@ -95,10 +95,26 @@ const REPO_SLUG_MAX = 32;
 const BRANCH_PREFIX_MAX_BYTES = 23;
 
 export function safeRealpath(target: string): string {
+  const abs = resolve(target);
   try {
-    return realpathSync(target);
+    return realpathSync(abs);
   } catch {
-    return resolve(target);
+    // 아직 생성되지 않은 경로라도 가장 가까운 존재하는 조상의 symlink를 풀어 realpath 기준을 맞춘다.
+    const suffix: string[] = [];
+    let cur = abs;
+    while (true) {
+      const parent = dirname(cur);
+      if (parent === cur) {
+        return abs;
+      }
+      suffix.unshift(basename(cur));
+      cur = parent;
+      try {
+        return join(realpathSync(cur), ...suffix);
+      } catch {
+        // 더 상위 조상을 찾는다.
+      }
+    }
   }
 }
 

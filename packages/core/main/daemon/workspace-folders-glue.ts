@@ -22,6 +22,7 @@ import {
   activeProjectFolderPaths,
   projectFolderPaths,
 } from "../../projects/lookups.ts";
+import { safeRealpath } from "../../projects/worktrees/mod.ts";
 
 type Lookup = { sql: Pick<Sql, "get" | "all"> };
 
@@ -51,34 +52,46 @@ function scopeOf(
     found["worktree_id"] !== null && found["worktree_id"] !== undefined
       ? String(found["worktree_id"])
       : null;
+  let projectFolders =
+    workspace?.kind === "project" ? projectFolderPaths(sql, workspace.id) : [];
   let worktree: WorkspaceFacts["worktree"] = null;
   if (workspace?.kind === "project" && worktreeId !== null) {
+    let wt: Record<string, unknown> | undefined;
     try {
-      const wt = sql.get(
-        "select id, repo_root, path, branch from project_worktrees where id = ? and project_id = ? and status = 'ready'",
+      wt = sql.get(
+        "select id, repo_root, path, branch, status from project_worktrees where id = ? and project_id = ?",
         [worktreeId, workspace.id],
       );
-      if (wt !== undefined) {
-        worktree = {
-          id: String(wt["id"]),
-          repoRoot: String(wt["repo_root"]),
-          path: String(wt["path"]),
-          branch:
-            wt["branch"] === null || wt["branch"] === undefined
-              ? null
-              : String(wt["branch"]),
-        };
-      }
     } catch {
-      // 테스트 DB에 project_worktrees 표가 없으면 무시한다.
+      // 테스트 DB에 project_worktrees 표가 없어도 worktree_id가 있으면 원래 폴더로 풀지 않는다.
+      wt = undefined;
+    }
+    if (wt !== undefined && String(wt["status"]) === "ready") {
+      worktree = {
+        id: String(wt["id"]),
+        repoRoot: String(wt["repo_root"]),
+        path: String(wt["path"]),
+        branch:
+          wt["branch"] === null || wt["branch"] === undefined
+            ? null
+            : String(wt["branch"]),
+      };
+    } else if (wt !== undefined) {
+      // worktree가 missing·removing·removed 등 ready가 아니면 원래 repo_root로 폴백하지 않고 범위와 base에서 제외한다.
+      const repoRoot = String(wt["repo_root"]);
+      const realRepoRoot = safeRealpath(repoRoot);
+      projectFolders = projectFolders.filter(
+        (folder) =>
+          folder !== repoRoot && safeRealpath(folder) !== realRepoRoot,
+      );
+    } else {
+      // worktree 행을 찾지 못하면 어느 폴더가 repo_root인지 알 수 없으므로 project 폴더를 모두 제외한다.
+      projectFolders = [];
     }
   }
   const facts: WorkspaceFacts = {
     workspace,
-    projectFolders:
-      workspace?.kind === "project"
-        ? projectFolderPaths(sql, workspace.id)
-        : [],
+    projectFolders,
     worktree,
     appSource:
       workspace?.kind === "app" ? appSourcePath(sql, workspace.id) : null,

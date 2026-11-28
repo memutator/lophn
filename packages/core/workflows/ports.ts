@@ -213,6 +213,10 @@ export type WorkflowWorktrees = {
     branchSeed?: string;
   }): Promise<Result<{ id: Id<"wkt"> }>>;
   sessionWorktree(session: Id<"ses">): Id<"wkt"> | null;
+  resolveReady(
+    project: Id<"prj">,
+    worktreeId: Id<"wkt">,
+  ): Result<{ id: Id<"wkt"> }>;
 };
 
 // workflow participant 권한 단계 해석 port. 기억된 단계(approvals.workflow_modes), agent 정의 기본 단계,

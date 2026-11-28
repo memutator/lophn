@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { err, ok } from "../../../base/mod.ts";
+import { routePath } from "../../../protocol/base/mod.ts";
+import { projectApi, worktreesGet } from "../../../protocol/projects/mod.ts";
+import { workspaceData, type WorkspaceFiles } from "./workspace-data.ts";
 import { type WorkspaceFacts, workspaceScope } from "./workspace-folders.ts";
 
 const base: WorkspaceFacts = {
@@ -132,4 +136,124 @@ test("worktree가 묶인 project session은 원래 repoRoot를 worktree 경로�
     WORKTREE_ID: "wkt_00000000000000000000000001",
     WORKTREE_BRANCH: "wt/feat-a",
   });
+});
+
+// 이 규칙이 깨지면 worktree가 missing·removed가 된 lophn agent 세션의 다음 turn이 원래 repo_root로 폴백된다.
+test("workspaceData는 묶인 worktree가 없거나 ready가 아니면 원래 저장소 루트로 폴백하지 않고 거절한다", async () => {
+  const PRJ_ID = "prj_00000000000000000000000001";
+  const OTHER_PRJ_ID = "prj_00000000000000000000000002";
+  const WKT_ID = "wkt_00000000000000000000000001";
+  const NOW = "2026-11-28T00:00:00.000Z";
+  const files: WorkspaceFiles = {
+    skillsFolder: () => null,
+    artifactsFolder: () => null,
+    dataFolder: () => `/data/projects/${PRJ_ID}`,
+    workflowsFolder: () => null,
+    ensureDir: async () => {},
+    listArtifacts: async () => [],
+  };
+  const agent = {
+    agent: `lophn_${PRJ_ID}`,
+    handle: "lophn",
+    name: "lophn",
+    workspace: { kind: "project", id: PRJ_ID },
+    runtime: "lophn",
+    called_from: null,
+  } as never;
+
+  const projectGetPath = routePath(projectApi.get);
+  const worktreesGetPath = routePath(worktreesGet);
+  const makeWtReply = (overrides: { project_id?: string; status?: string }) =>
+    ok({
+      record: {
+        id: WKT_ID,
+        project_id: overrides.project_id ?? PRJ_ID,
+        repo_root: "/p1",
+        git_common_dir: "/p1/.git",
+        path: "/data/worktrees/p1/a",
+        git_admin_name: "a",
+        label: "feat",
+        branch: "wt/feat",
+        base_ref: "main",
+        base_commit: "aaa111",
+        provenance: "managed",
+        status: overrides.status ?? "ready",
+        created_at: NOW,
+        updated_at: NOW,
+      },
+      status: {
+        worktree_id: WKT_ID,
+        presence: "missing",
+        branch: "wt/feat",
+        detached: false,
+        head_sha: null,
+        dirty: false,
+        staged_count: 0,
+        unstaged_count: 0,
+        untracked_count: 0,
+        conflicted_count: 0,
+        ahead: null,
+        behind: null,
+        updated_at: NOW,
+      },
+      setup: null,
+      active_sessions_count: 0,
+      active_terminals_count: 0,
+    });
+
+  const makeCall =
+    (wtResponse: ReturnType<typeof ok> | ReturnType<typeof err>) =>
+    async (op: string) => {
+      if (op === projectGetPath) {
+        return ok({
+          project: {
+            id: PRJ_ID,
+            name: "a",
+            title: "A",
+            purpose: "",
+            revision: "1",
+            status: "active",
+            folders: [{ path: "/p1", description: "", found: true }],
+            identity: "pri_00000000000000000000000001",
+            former_identities: [],
+            separated: false,
+            repo: "git",
+            remote: null,
+          },
+          as_of_seq: "1",
+          next_cursor: null,
+        });
+      }
+      if (op === worktreesGetPath) return wtResponse;
+      return err({ code: "not_found", message: `unexpected ${op}` });
+    };
+
+  const missingWt = await workspaceData(
+    makeCall(makeWtReply({ status: "missing" })) as never,
+    agent,
+    files,
+    WKT_ID,
+  );
+  assert.equal(missingWt.ok, false);
+  if (!missingWt.ok) assert.equal(missingWt.error.code, "conflict");
+
+  const wrongProject = await workspaceData(
+    makeCall(
+      makeWtReply({ project_id: OTHER_PRJ_ID, status: "ready" }),
+    ) as never,
+    agent,
+    files,
+    WKT_ID,
+  );
+  assert.equal(wrongProject.ok, false);
+  if (!wrongProject.ok) assert.equal(wrongProject.error.code, "not_found");
+
+  const lookupFailed = await workspaceData(
+    makeCall(err({ code: "not_found", message: "gone" })) as never,
+    agent,
+    files,
+    WKT_ID,
+  );
+  assert.equal(lookupFailed.ok, false);
+  if (!lookupFailed.ok) assert.equal(lookupFailed.error.code, "not_found");
 });

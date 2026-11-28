@@ -1,3 +1,4 @@
+import process from "node:process";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { parseActor } from "../../../protocol/base/mod.ts";
 import {
@@ -15,7 +16,11 @@ import type {
   Tx,
 } from "../../../protocol/server/mod.ts";
 import { projectExists } from "../lookups.ts";
-import { isFilesystemRoot, isStrictlyInside, safeRealpath } from "./paths.ts";
+import {
+  isStrictlyInside,
+  safeRealpath,
+  validateWorktreesRoot,
+} from "./paths.ts";
 
 export const WORKTREES_PRINCIPAL = "machine:worktrees";
 
@@ -207,25 +212,41 @@ export function loadManagedReadyWorktrees(
   sql: Pick<Sql, "all">,
   projectId: string,
   managedRoot: string,
+  options?: {
+    homeDir?: string | null;
+    repoRoots?: readonly string[];
+    platform?: NodeJS.Platform;
+  },
 ): StoredWorktreeRow[] {
   const rows = sql.all(
     `SELECT ${WORKTREE_COLUMNS} FROM project_worktrees WHERE project_id = ? AND status = 'ready'`,
     [projectId],
   ) as unknown as RawWorktreeRow[];
-  const realRoot = safeRealpath(managedRoot);
+  const platform = options?.platform ?? process.platform;
   const out: StoredWorktreeRow[] = [];
   for (const row of rows) {
     const parsed = rowToStored(row);
     if (parsed === null || parsed.provenance !== "managed") continue;
-    const realPath = safeRealpath(parsed.path);
-    const roots = [realRoot];
-    if (parsed.managed_root !== null) {
-      const savedRoot = safeRealpath(parsed.managed_root);
-      if (!isFilesystemRoot(savedRoot)) {
-        roots.push(savedRoot);
+    const repoRoots = [
+      ...new Set([parsed.repo_root, ...(options?.repoRoots ?? [])]),
+    ];
+    const candidates: string[] = [];
+    if (managedRoot.trim() !== "") candidates.push(managedRoot);
+    if (parsed.managed_root !== null) candidates.push(parsed.managed_root);
+    const roots: string[] = [];
+    for (const candidate of candidates) {
+      const checked = validateWorktreesRoot(candidate, {
+        homeDir: options?.homeDir ?? null,
+        repoRoots,
+        platform,
+      });
+      if (checked.ok) {
+        roots.push(checked.value);
       }
     }
-    if (roots.some((root) => isStrictlyInside(realPath, root))) {
+    if (roots.length === 0) continue;
+    const realPath = safeRealpath(parsed.path);
+    if (roots.some((root) => isStrictlyInside(realPath, root, platform))) {
       out.push(parsed);
     }
   }

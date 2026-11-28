@@ -633,7 +633,33 @@ export function createWorkflowService(
         sourceSession !== null && worktrees !== undefined
           ? worktrees.sessionWorktree(sourceSession)
           : null;
-      return inherited !== null ? { ...plan, worktree_id: inherited } : plan;
+      if (inherited === null) return plan;
+      const targetProject = await resolveWorktreeTargetProject(
+        plan.delivery.to.workspace,
+        ctx.project,
+      );
+      if (!targetProject.ok) {
+        return {
+          ...plan,
+          delivery: null,
+          unresolved: {
+            reason: "worktree_failed",
+            message: targetProject.error.message,
+          },
+        };
+      }
+      const ready = worktrees!.resolveReady(targetProject.value, inherited);
+      if (!ready.ok) {
+        return {
+          ...plan,
+          delivery: null,
+          unresolved: {
+            reason: "worktree_failed",
+            message: ready.error.message,
+          },
+        };
+      }
+      return { ...plan, worktree_id: ready.value.id };
     }
     // worktree === "new"
     const cached = createdByStep.get(plan.step);
@@ -1526,7 +1552,54 @@ export function createWorkflowService(
           prevSession !== null && worktrees !== undefined
             ? worktrees.sessionWorktree(prevSession)
             : null;
-        if (inherited !== null) resolvedWorktreeId = inherited;
+        if (inherited !== null) {
+          const targetProject = await resolveWorktreeTargetProject(
+            targetAgent.workspace,
+            state.instance.project as Id<"prj">,
+          );
+          if (!targetProject.ok) {
+            const failedOut: WorkflowOutcome<WorkflowSoftOutput> = {
+              ok: false,
+              reason: targetProject.error.code,
+              message: targetProject.error.message,
+            };
+            await upsertCheckpoint({
+              instance: req.instance,
+              key: req.key,
+              kind: "agent",
+              state: "failed",
+              handle_ref: null,
+              error: {
+                reason: failedOut.reason,
+                message: failedOut.message,
+              },
+            });
+            release();
+            return failedOut;
+          }
+          const ready = worktrees!.resolveReady(targetProject.value, inherited);
+          if (!ready.ok) {
+            const failedOut: WorkflowOutcome<WorkflowSoftOutput> = {
+              ok: false,
+              reason: ready.error.code,
+              message: ready.error.message,
+            };
+            await upsertCheckpoint({
+              instance: req.instance,
+              key: req.key,
+              kind: "agent",
+              state: "failed",
+              handle_ref: null,
+              error: {
+                reason: failedOut.reason,
+                message: failedOut.message,
+              },
+            });
+            release();
+            return failedOut;
+          }
+          resolvedWorktreeId = ready.value.id;
+        }
       } else if (effectiveWorktreePolicy === "new") {
         const targetProject = await resolveWorktreeTargetProject(
           targetAgent.workspace,

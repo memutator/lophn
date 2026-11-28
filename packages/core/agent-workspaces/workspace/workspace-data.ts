@@ -174,33 +174,41 @@ async function readWorkspaceData(
     projectFolders = read.value.folders.map((f) => f.path);
     if (worktreeId !== undefined && worktreeId !== null) {
       const wtRead = await readOf(call, worktreesGet, { worktree: worktreeId });
-      if (
-        wtRead.ok &&
-        wtRead.value.record.project_id === workspace.id &&
-        wtRead.value.record.status === "ready"
-      ) {
-        const rec = wtRead.value.record;
-        worktree = {
-          id: rec.id,
-          repoRoot: rec.repo_root,
-          path: rec.path,
-          branch: rec.branch,
-        };
-        project = {
-          ...project,
-          folders: [
-            {
-              path: rec.path,
-              description: rec.branch
-                ? `git worktree (${rec.branch})`
-                : "git worktree",
-            },
-            ...project.folders.filter(
-              (f) => f.path !== rec.repo_root && f.path !== rec.path,
-            ),
-          ],
-        };
+      if (!wtRead.ok) return wtRead;
+      const rec = wtRead.value.record;
+      if (rec.project_id !== workspace.id) {
+        return err({
+          code: "not_found",
+          message: "worktree not found in this project",
+        });
       }
+      if (rec.status !== "ready") {
+        return err({
+          code: "conflict",
+          message: `worktree "${rec.label}" is ${rec.status} and cannot be used`,
+          details: { reason: `worktree_${rec.status}` },
+        });
+      }
+      worktree = {
+        id: rec.id,
+        repoRoot: rec.repo_root,
+        path: rec.path,
+        branch: rec.branch,
+      };
+      project = {
+        ...project,
+        folders: [
+          {
+            path: rec.path,
+            description: rec.branch
+              ? `git worktree (${rec.branch})`
+              : "git worktree",
+          },
+          ...project.folders.filter(
+            (f) => f.path !== rec.repo_root && f.path !== rec.path,
+          ),
+        ],
+      };
     }
   } else if (workspace?.kind === "app") {
     const read = await appOf(workspace.id);

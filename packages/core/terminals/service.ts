@@ -322,6 +322,20 @@ export function createTerminals(deps: {
       if (start !== null && !start.ok) {
         return failed("unreadable", "cwd is not inside a registered folder");
       }
+      if (
+        worktreeInfo === null &&
+        start !== null &&
+        start.ok &&
+        start.folder_ref.startsWith("wt_") &&
+        deps.worktree !== undefined
+      ) {
+        const resolved = deps.worktree(
+          input.project,
+          start.folder_ref.slice(3),
+        );
+        if (!resolved.ok) return resolved;
+        worktreeInfo = resolved.value;
+      }
       hostEnv = await deps.personEnv.env();
       const cli = deps.personEnv.cli;
       const path =

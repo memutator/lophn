@@ -1055,6 +1055,18 @@ export const workflowsWiring: WiringFactory = () => {
               ? (found.value as Id<"wkt">)
               : null;
           },
+          resolveReady(project, worktreeId) {
+            const wt = ctx.peek.worktrees;
+            if (wt === undefined) {
+              return err({
+                code: "unavailable" as const,
+                message: "worktrees are not wired",
+              });
+            }
+            const ready = wt.resolveReady(project, worktreeId);
+            if (!ready.ok) return ready;
+            return ok({ id: ready.value.id as Id<"wkt"> });
+          },
         },
         rememberedModesOf(project, workflow) {
           return ctx.settings.get(workflowModesSetting)?.[

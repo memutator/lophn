@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
 import {
+  sessionFoldersOf,
   workspaceBaseOf,
   workspaceFoldersOf,
+  workspaceReadScopeOf,
 } from "./workspace-folders-glue.ts";
 
 const PRJ = "prj_0aaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -74,5 +76,72 @@ test("project·app session의 rewind 쓰기 폴더는 자기 그릇의 폴더와
   assert.equal(
     workspaceBaseOf({ sql }, "/data", "ses_missing", home),
     undefined,
+  );
+});
+
+// 이 규칙이 깨지면 worktree가 missing·removed가 된 뒤 rewind나 기본 cwd가 원래 저장소 루트(main checkout)로 폴백된다.
+test("worktree가 묶인 project session은 worktree가 ready가 아니면 원래 repo_root로 폴백하지 않는다", () => {
+  const db = new DatabaseSync(":memory:");
+  db.exec(`
+    create table sessions (id text, agent text, workspace_kind text, workspace_id text, called_from_kind text, worktree_id text);
+    create table apps (id text, project text, source_path text, status text);
+    create table project_folders (project text, path text, position integer);
+    create table app_folders (app text, path text, position integer);
+    create table project_worktrees (id text, project_id text, repo_root text, path text, branch text, status text);
+    insert into project_folders values ('${PRJ}', '/work/repo', 0);
+    insert into project_folders values ('${PRJ}', '/work/extra', 1);
+    insert into project_worktrees values ('wkt_ready', '${PRJ}', '/work/repo', '/data/worktrees/r/b-1', 'wt/a', 'ready');
+    insert into project_worktrees values ('wkt_missing', '${PRJ}', '/work/repo', '/data/worktrees/r/b-2', 'wt/b', 'missing');
+    insert into project_worktrees values ('wkt_removed', '${PRJ}', '/work/repo', '/data/worktrees/r/b-3', 'wt/c', 'removed');
+    insert into sessions values ('ses_ready', 'lophn_${PRJ}', 'project', '${PRJ}', null, 'wkt_ready');
+    insert into sessions values ('ses_missing_wt', 'lophn_${PRJ}', 'project', '${PRJ}', null, 'wkt_missing');
+    insert into sessions values ('ses_removed_wt', 'lophn_${PRJ}', 'project', '${PRJ}', null, 'wkt_removed');
+    insert into sessions values ('ses_gone_row', 'lophn_${PRJ}', 'project', '${PRJ}', null, 'wkt_unknown');
+  `);
+  const sql = {
+    get: (text: string, params: never[]) =>
+      db.prepare(text).get(...params) as Record<string, never> | undefined,
+    all: (text: string, params: never[]) =>
+      db.prepare(text).all(...params) as Record<string, never>[],
+  };
+
+  // ready: repo_root가 worktree 경로로 치환된다.
+  const readyWrite = workspaceFoldersOf({ sql }, "/data", "ses_ready");
+  assert.ok(readyWrite.includes("/data/worktrees/r/b-1"));
+  assert.ok(readyWrite.includes("/work/extra"));
+  assert.ok(!readyWrite.includes("/work/repo"));
+  assert.equal(
+    workspaceBaseOf({ sql }, "/data", "ses_ready"),
+    "/data/worktrees/r/b-1",
+  );
+
+  // missing / removed: 원래 repo_root가 쓰기·읽기·base 모두에서 제외된다.
+  for (const ses of ["ses_missing_wt", "ses_removed_wt"]) {
+    const write = workspaceFoldersOf({ sql }, "/data", ses);
+    const read = workspaceReadScopeOf({ sql }, "/data", ses);
+    const info = sessionFoldersOf({ sql }, "/data", ses);
+    assert.ok(!write.includes("/work/repo"), `${ses} write must exclude repo`);
+    assert.ok(
+      !read?.read.includes("/work/repo"),
+      `${ses} read must exclude repo`,
+    );
+    assert.ok(
+      !info.folders.includes("/work/repo"),
+      `${ses} folders must exclude repo`,
+    );
+    assert.notEqual(workspaceBaseOf({ sql }, "/data", ses), "/work/repo");
+    assert.notEqual(info.cwd, "/work/repo");
+    assert.ok(write.includes("/work/extra"));
+  }
+
+  // worktree 행 자체가 없으면 어느 폴더가 repo_root인지 알 수 없으므로 project 폴더 전체를 제외한다.
+  const goneWrite = workspaceFoldersOf({ sql }, "/data", "ses_gone_row");
+  const goneRead = workspaceReadScopeOf({ sql }, "/data", "ses_gone_row");
+  assert.ok(!goneWrite.includes("/work/repo"));
+  assert.ok(!goneWrite.includes("/work/extra"));
+  assert.ok(!goneRead?.read.includes("/work/repo"));
+  assert.equal(
+    workspaceBaseOf({ sql }, "/data", "ses_gone_row"),
+    `/data/projects/${PRJ}`,
   );
 });

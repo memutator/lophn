@@ -175,33 +175,35 @@ export function createWorktreeService(deps: WorktreeServiceDeps) {
   const git = deps.git ?? runGit;
   const mutex = deps.mutex ?? new RepoGitMutex();
   const platform = deps.platform ?? process.platform;
-  // 과거 설정 변경 이력까지 포함해 현재 프로세스 수명 동안 쓰인 관리 루트를 기억한다.
-  const knownManagedRoots = new Set<string>([
-    safeRealpath(deps.defaultWorktreesRoot),
-  ]);
+  // 검증을 통과한 과거 설정 변경 이력까지 포함해 현재 프로세스 수명 동안 쓰인 관리 루트를 기억한다.
+  const knownManagedRoots = new Set<string>();
   // 최근 setup 실행 결과(메모리). setup 실패 시 worktree를 남기고 상태·꼬리를 조회할 수 있게 한다.
   const setupRuns = new Map<string, WorktreeSetupRun>();
 
   function effectiveWorktreesRoot(): string {
     const configured = deps.configuredWorktreesRoot().trim();
-    const chosen = configured === "" ? deps.defaultWorktreesRoot : configured;
-    knownManagedRoots.add(safeRealpath(chosen));
-    return chosen;
+    return configured === "" ? deps.defaultWorktreesRoot : configured;
   }
 
-  function managedRoots(): string[] {
-    effectiveWorktreesRoot();
-    return [...knownManagedRoots];
-  }
-
-  // 현재 설정·기본 루트에 더해 행 생성 시점에 검증·영속화한 `managed_root`도 인정해
-  // 설정 변경·재기동 뒤에도 기존 managed worktree 소유권 검증과 정리가 깨지지 않게 한다.
+  // 기본 루트·현재 설정·검증 이력·행에 영속화한 `managed_root` 중 안전 루트 검증을 통과한 것만 인정해
+  // 미검증 설정값이 소유권 경계를 넓히지 않게 하고, 설정 변경·재기동 뒤에도 기존 managed worktree를 유지한다.
   function managedRootsForRow(row: StoredWorktreeRow): string[] {
-    const roots = new Set<string>(managedRoots());
+    const repoRoots = [
+      ...new Set([row.repo_root, ...(deps.allProjectFolders?.() ?? [])]),
+    ];
+    const candidates = new Set<string>([
+      deps.defaultWorktreesRoot,
+      effectiveWorktreesRoot(),
+      ...knownManagedRoots,
+    ]);
     if (row.managed_root !== null) {
-      const checked = validateWorktreesRoot(row.managed_root, {
+      candidates.add(row.managed_root);
+    }
+    const roots = new Set<string>();
+    for (const candidate of candidates) {
+      const checked = validateWorktreesRoot(candidate, {
         homeDir: deps.homeDir,
-        repoRoots: [row.repo_root],
+        repoRoots,
         platform,
       });
       if (checked.ok) {
@@ -793,6 +795,7 @@ export function createWorktreeService(deps: WorktreeServiceDeps) {
           });
         }
       }
+      knownManagedRoots.add(worktreesRoot);
 
       const warnings: string[] = [];
       let branch: string;

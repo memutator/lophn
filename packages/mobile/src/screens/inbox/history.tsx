@@ -83,9 +83,9 @@ export function History({ locked }: { locked: boolean }) {
     }
   }
 
-  // The notice's button starts a conversation with lophn at Home, as the desktop's does.
+  // The notice's button starts a conversation with lophn at Home, as the desktop's does. A reveal_received_files notice has no button: its path is a folder on the computer.
   async function ask(row: Notice) {
-    if (row.action === null) return;
+    if (row.action?.kind !== "open_home_skill") return;
     setFailed(false);
     const text = `/${row.action.skill} ${row.action.args}`.trim();
     const started = await startSession({ workspace: null, text });
@@ -194,7 +194,7 @@ export function History({ locked }: { locked: boolean }) {
               }
               onPress={() => press(row)}
             />
-            {row.action !== null && (
+            {row.action?.kind === "open_home_skill" && (
               <View
                 style={{
                   alignItems: "flex-start",

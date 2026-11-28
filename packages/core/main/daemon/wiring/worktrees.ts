@@ -141,6 +141,7 @@ export const worktreesWiring: WiringFactory = () => {
   let service: WorktreeService | undefined;
   let watcher: WorktreeWatcher | undefined;
   let startup: Promise<void> = Promise.resolve();
+  const statusTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   return {
     name: "worktrees",
@@ -200,10 +201,19 @@ export const worktreesWiring: WiringFactory = () => {
       };
 
       // 앱 view의 `("lophn", "worktree.changed")`(spec 5.4.2). 구독을 선언한 앱만 받는다. status는 같은 (project, worktree)마다
-      // 150ms 묶고 앞 snapshot과 다를 때만 내고, 만들기·지우기·브랜치 바뀜은 바로 낸다.
-      const knownWorktrees = new Map<string, Set<string>>();
+      // 150ms 묶고 앞 snapshot과 다를 때만 내고, 만들기·지우기·브랜치 바뀜은 바로 낸다. 앱에는 ready가 된 worktree만 created로
+      // 알린다(만드는 중인 것과 만들다 되돌린 것은 알리지 않는다). 이미 알린 집합은 처음 쓸 때 ledger의 살아 있는 worktree로 채운다.
+      let announced: Set<string> | null = null;
+      const announcedSet = (): Set<string> => {
+        if (announced === null) {
+          const rows = withSql((sql) =>
+            loadWorktreesByStatuses(sql, ["ready", "missing", "removing"]),
+          );
+          announced = new Set(rows.ok ? rows.value.map((row) => row.id) : []);
+        }
+        return announced;
+      };
       const lastStatus = new Map<string, string>();
-      const statusTimers = new Map<string, ReturnType<typeof setTimeout>>();
       const publishAppEvent = (
         project: Id<"prj">,
         worktree: Id<"wkt"> | null,
@@ -251,17 +261,20 @@ export const worktreesWiring: WiringFactory = () => {
           return;
         }
         const row = withSql((sql) => loadWorktreeById(sql, worktree));
-        const live =
-          row.ok && row.value !== null && row.value.status !== "removed";
-        const known = knownWorktrees.get(project) ?? new Set<string>();
-        knownWorktrees.set(project, known);
-        const reason = !live
-          ? "removed"
-          : known.has(worktree)
-            ? "updated"
-            : "created";
-        if (live) known.add(worktree);
-        else known.delete(worktree);
+        if (!row.ok) return;
+        const status = row.value?.status ?? "removed";
+        if (status === "creating") return;
+        const known = announcedSet();
+        if (status === "removed") {
+          clearTimeout(statusTimers.get(worktree));
+          statusTimers.delete(worktree);
+          lastStatus.delete(worktree);
+          if (!known.delete(worktree)) return;
+          publishAppEvent(project, worktree, "removed");
+          return;
+        }
+        const reason = known.has(worktree) ? "updated" : "created";
+        known.add(worktree);
         publishAppEvent(project, worktree, reason);
       };
       const appStatusChanged = (
@@ -278,6 +291,8 @@ export const worktreesWiring: WiringFactory = () => {
           (JSON.parse(before) as { branch: string | null }).branch !==
             status.branch;
         if (branchMoved) {
+          clearTimeout(statusTimers.get(id));
+          statusTimers.delete(id);
           publishAppEvent(project, id, "branch");
           return;
         }
@@ -732,6 +747,8 @@ export const worktreesWiring: WiringFactory = () => {
     },
     closeIntake() {
       watcher?.stop();
+      for (const timer of statusTimers.values()) clearTimeout(timer);
+      statusTimers.clear();
     },
     async closeWork() {
       await startup;

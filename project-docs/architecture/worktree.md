@@ -47,7 +47,7 @@ creating ──(git worktree add + env prep 성공)──▶ ready ◀──(rec
 
 - **ID와 provenance**: worktree ID 접두사는 `wkt`다. lophn이 managed root 아래에 만든 것은 `provenance: "managed"`, 이미 디스크에 있던 외부 worktree를 등록한 것은 `provenance: "adopted"`다. main checkout은 `project_worktrees` 행이 아니라 project의 등록 폴더(`worktree_id: null`)로 표현한다.
 - **경로 배치**: 전역 설정 `projects.worktrees_folder`(`locked: true`, 기본 `<data root>/worktrees`) 아래 `<repo_slug>-<sha256(git_common_dir)[:8]>/<branch_prefix≤23B>-<id8>`로 배치한다.
-  - `projects.worktrees_folder`는 홈 디렉터리 자체·상위 경로·파일시스템 루트·모든 활성 project 등록 폴더의 내부/상위·임의의 git working tree 내부를 금지한다.
+  - `projects.worktrees_folder`는 홈 디렉터리 자체·상위 경로·파일시스템 루트·모든 활성 project 등록 폴더의 내부/상위·임의의 git working tree 내부를 금지한다. 파일시스템 루트와 홈 디렉터리(및 그 상위)는 설정을 저장할 때(`settings/update`의 뜻 검사) 거절하고, 저장소에 걸린 것은 project마다 달라 만들 때 거절한다.
   - 생성 시점의 검증된 관리 루트를 행의 `managed_root`에 영속화해, 이후 `projects.worktrees_folder`를 바꾸고 core를 재기동해도 기존 `managed` worktree의 소유권 검증과 정리가 이어진다.
   - Windows에서는 전체 경로 220자 예산을 지키기 위해 `<branch_prefix>`를 동적으로 줄이고(그래도 넘으면 거부) 예약 이름(`CON`, `PRN`, `AUX`, `NUL`, `COM1`~`9`, `LPT1`~`9`)을 피한다.
   - 브랜치 이름은 `git check-ref-format` 규칙과 제어문자·`..`·`@{`·leading `-` 검사를 통과해야 하며, 생략 시 `wt/<adj>-<noun>-<4hex>`(seed가 있으면 `wt/<seed>-<4hex>`)를 자동 생성한다.

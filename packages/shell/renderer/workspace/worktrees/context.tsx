@@ -67,13 +67,3 @@ export const WorktreeUiContext = createContext<WorktreeUi | null>(null);
 export function useWorktreeUi(): WorktreeUi | null {
   return useContext(WorktreeUiContext);
 }
-
-/** 체크아웃의 절대 경로. 모르는 worktree면 null. */
-export function checkoutPath(
-  ui: Pick<WorktreeUi, "worktrees">,
-  checkout: CheckoutRef,
-): string | null {
-  return checkout.kind === "folder"
-    ? checkout.path
-    : (ui.worktrees.byId(checkout.id)?.record.path ?? null);
-}

@@ -1,6 +1,8 @@
 // git_diff 탭의 inline / side-by-side 선택은 설정 `shell.diff_view`(이 컴퓨터)에 둔다. localStorage를 따로 정본으로 두지 않는다.
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { CoreSource } from "../../desktop/connection/connection.ts";
+import { useStateChanged } from "../../desktop/connection/core-read.ts";
+import { useMachineEventClient } from "../../desktop/machines/scope.tsx";
 
 export type DiffLayout = "inline" | "side-by-side";
 
@@ -14,9 +16,8 @@ export function useDiffLayout(
   core: CoreSource | undefined,
 ): [DiffLayout, (next: DiffLayout) => void] {
   const [layout, setLayout] = useState<DiffLayout>("inline");
-  useEffect(() => {
+  const load = useCallback(() => {
     if (core === undefined) return;
-    let live = true;
     void core
       .call({
         kind: "memory",
@@ -25,17 +26,17 @@ export function useDiffLayout(
         body: { keys: [KEY] },
       })
       .then((reply) => {
-        if (!live || !reply.ok) return;
+        if (!reply.ok) return;
         const found = (reply.value as SettingsList).settings.find(
           (one) => one.key === KEY,
         );
         const value = found?.chosen ?? found?.default;
         if (value === "inline" || value === "side-by-side") setLayout(value);
       });
-    return () => {
-      live = false;
-    };
   }, [core]);
+  useEffect(load, [load]);
+  // 이 컴퓨터의 설정이라 원격 workspace의 diff 탭도 이 컴퓨터의 settings 변경을 듣는다. 다른 탭의 토글과 `lophn settings set`을 따른다.
+  useStateChanged(["settings"], load, useMachineEventClient(null));
   const set = (next: DiffLayout) => {
     setLayout(next);
     void core?.call({

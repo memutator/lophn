@@ -190,7 +190,4 @@ export const sourceControl = {
   "source-control.label.before": "Before",
   "source-control.label.after": "After",
   "source-control.empty.image-none": "No image",
-  "settings.shell-diff_view.name": "Diff layout",
-  "settings.shell-diff_view.help":
-    "How Source Control diff tabs show changes: one column, or old and new side by side.",
 } as const;

@@ -45,7 +45,7 @@ import {
 import { BranchBar } from "./branch-bar.tsx";
 import { type FileAction, Changes } from "./changes.tsx";
 import { CommitBox } from "./commit-box.tsx";
-import { ErrorCard } from "./error-card.tsx";
+import { ErrorCard, hintOf } from "./error-card.tsx";
 import { History } from "./history.tsx";
 import { baseName, groupFiles, type Section } from "./model.ts";
 import { ConfirmDialog, DiscardDialog, NameDialog } from "./sc-dialogs.tsx";
@@ -406,7 +406,7 @@ export function SourceControlPanel({
   // ---- 브랜치 ----
 
   const branchFailure = (failure: GitFailure) =>
-    failure.reason === undefined ? errorText(failure) : errorText(failure);
+    hintOf(failure) ?? errorText(failure);
 
   const submitBranch = async (
     d: Extract<Dialog, { kind: "branch-new" }>,

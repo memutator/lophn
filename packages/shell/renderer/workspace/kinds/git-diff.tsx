@@ -100,7 +100,15 @@ function rootOf(tab: TabItem): string | null {
   return typeof root === "string" ? root : null;
 }
 
-function GitDiffTab({ tab, host }: { tab: TabItem; host: TabHost }) {
+function GitDiffTab({
+  tab,
+  active,
+  host,
+}: {
+  tab: TabItem;
+  active: boolean;
+  host: TabHost;
+}) {
   const ui = useWorktreeUi();
   const machine = tab.machine ?? host.machine;
   const remote = machine !== null;
@@ -121,6 +129,7 @@ function GitDiffTab({ tab, host }: { tab: TabItem; host: TabHost }) {
       localCore={host.machineData(null).core}
       readOnly={remote && grant === "denied"}
       root={root}
+      active={active}
       onOpenFile={(path) => openFile(host, path, { from: tab.key })}
     />
   );
@@ -145,5 +154,7 @@ export const gitDiffKind: TabKindDef = {
     const spec = diffSpecOf(tab);
     return root === null || spec === null ? null : `${root}/${spec.path}`;
   },
-  render: (tab, _active, host) => <GitDiffTab tab={tab} host={host} />,
+  render: (tab, active, host) => (
+    <GitDiffTab tab={tab} active={active} host={host} />
+  ),
 };

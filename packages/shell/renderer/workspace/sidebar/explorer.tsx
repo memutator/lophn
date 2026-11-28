@@ -22,6 +22,10 @@ import {
   sourceControlIcons,
   workspaceIcons,
 } from "../../icons/mod.ts";
+import {
+  agentSections,
+  sectionMenuItems,
+} from "../../shell/agent-sections.tsx";
 import { PanelEmpty } from "../../shell/panel-rows.tsx";
 import { PanelActions, PanelTitle } from "../../shell/right-sidebar.tsx";
 import { t } from "@lophn/i18n";
@@ -51,6 +55,9 @@ import {
 } from "./use-file-tree.ts";
 import { type GitCheckout, useGitMarks } from "./use-git-marks.ts";
 import styles from "./explorer.module.css";
+
+// worktree 가지 menu의 "Open agent here" 옆 목록 항목 id 머리. 뒤는 `<kind>:<id>`다.
+const WT_AGENT = "wt-agent:";
 
 /** 열린 탭을 정리하는 쪽의 답. 사람이 저장 안 된 탭을 닫지 않기로 하면 cancelled다. */
 export type TabAwareResult =
@@ -1320,6 +1327,10 @@ export function Explorer({
       entry !== undefined &&
       entry.record.status === "ready" &&
       entry.status.presence === "present";
+    // 줄을 누르면 lophn agent, 옆 목록에서 정의된 agent·즐겨찾기 coding agent를 고른다.
+    const agentItems = sectionMenuItems(
+      agentSections(ui?.agentChoices ?? [], null, () => {}),
+    ).map((item) => ({ ...item, id: `${WT_AGENT}${item.id}` }));
     return [
       ...(gitWrite
         ? [
@@ -1328,6 +1339,9 @@ export function Explorer({
               label: t("worktree.button.open-agent-here"),
               leading: <MenuIcon icon={commonIcons.agents} />,
               disabled: !live,
+              ...(agentItems.length > 0
+                ? { selectable: true, items: agentItems }
+                : {}),
             },
             {
               id: "wt-open-terminal",
@@ -1417,8 +1431,13 @@ export function Explorer({
   };
 
   const rootCheckout: CheckoutRef = { kind: "folder", path: root.path };
+  // 빈 자리와 이 등록 폴더 안의 폴더 줄에서 이 폴더의 worktree를 만든다.
   const newWorktreeItems = (target: FileRow | null): MenuItem[] =>
-    target === null && gitWrite && git.tracked(rootCheckout)
+    (target === null ||
+      (target.folder &&
+        (target.id === root.path || contains(root.path, target.id)))) &&
+    gitWrite &&
+    git.tracked(rootCheckout)
       ? [
           {
             id: "new-worktree",
@@ -1542,7 +1561,9 @@ export function Explorer({
     if (worktree === undefined || ui === null) return;
     const entry = ui.worktrees.byId(worktree);
     if (id === "wt-open-agent") ui.openAgent(worktree);
-    else if (id === "wt-open-terminal") ui.openTerminal(worktree);
+    else if (id.startsWith(WT_AGENT)) {
+      ui.openAgent(worktree, { choice: id.slice(WT_AGENT.length) });
+    } else if (id === "wt-open-terminal") ui.openTerminal(worktree);
     else if (id === "wt-view-sc") {
       ui.showInSourceControl({ kind: "worktree", id: worktree });
     } else if (id === "wt-copy-path") {

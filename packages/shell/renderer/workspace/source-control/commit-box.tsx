@@ -5,6 +5,10 @@ import { Button, IconButton } from "@lophn/ui/primitives";
 import { Tooltip } from "@lophn/ui/overlay";
 import { ChevronDown } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import {
+  type FocusRoutes,
+  useFocusRoutes,
+} from "../../conversation/agent-keys.ts";
 import { sourceControlIcons } from "../../icons/mod.ts";
 import styles from "./source-control.module.css";
 
@@ -56,6 +60,15 @@ export function CommitBox(props: CommitBoxProps) {
   const commit = (push: boolean) => {
     if (!disabled) props.onCommit(push);
   };
+  // Mod+Enter는 창의 command `source-control.commit`이다. 칸에 focus가 들어오면 이 칸이 맡는다.
+  const routes = useRef<FocusRoutes>({});
+  routes.current = {
+    "source-control.commit": {
+      run: () => commit(false),
+      when: () => !disabled,
+    },
+  };
+  const claimKeys = useFocusRoutes(routes);
   const suggestTip = props.suggest.running
     ? t("source-control.button.ai-stop")
     : (props.suggest.reason ?? t("source-control.button.ai-message"));
@@ -72,7 +85,11 @@ export function CommitBox(props: CommitBoxProps) {
     </Button>
   );
   return (
-    <div className={styles.commitBox} data-key-context="sourceControlCommit">
+    <div
+      className={styles.commitBox}
+      data-key-context="sourceControlCommit"
+      onFocus={claimKeys}
+    >
       <div className={styles.commitInput}>
         <textarea
           ref={area}
@@ -84,13 +101,6 @@ export function CommitBox(props: CommitBoxProps) {
           spellCheck
           data-sc-message=""
           onChange={(event) => props.onDraft(event.target.value)}
-          onKeyDown={(event) => {
-            if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
-              event.preventDefault();
-              event.stopPropagation();
-              commit(false);
-            }
-          }}
         />
         <span className={styles.commitAi}>
           <Tooltip content={suggestTip}>

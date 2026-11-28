@@ -1984,10 +1984,15 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
           ...(worktreeReadOnly
             ? {}
             : {
-                onNew: () =>
+                // 메뉴는 만들기 창이 뜨며 닫힌다. 고른 대상을 숨겨 두지 않고 만든 worktree에서 바로 새 세션을 연다.
+                onNew: () => {
+                  setOpenTarget(null);
                   worktreeDialogs.openCreate({
-                    onCreated: (record) => setOpenTarget(record.id),
-                  }),
+                    onCreated: (record) => {
+                      openNew({}, { worktree: record.id });
+                    },
+                  });
+                },
               }),
         };
   // 탭이 묶인 worktree. agent·터미널은 연 때의 것(열린 session은 core가 아는 것), 파일 탭은 그 경로가 든 worktree다.
@@ -2080,6 +2085,7 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
           folders: projectFolderPaths,
           worktrees: projectWorktrees,
           sourceControl,
+          agentChoices: agentChoiceList,
           openCreate: worktreeDialogs.openCreate,
           openRemove: worktreeDialogs.openRemove,
           openRename: worktreeDialogs.openRename,

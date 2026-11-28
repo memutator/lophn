@@ -3,14 +3,11 @@
 import { t } from "@lophn/i18n";
 import { SegmentedControl } from "@lophn/ui/input";
 import { Button, IconButton, IconToggle } from "@lophn/ui/primitives";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
-  type KeyboardEvent,
-  type ReactNode,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+  type FocusRoutes,
+  useFocusRoutes,
+} from "../../conversation/agent-keys.ts";
 import type { CoreSource } from "../../desktop/connection/connection.ts";
 import { sourceControlIcons } from "../../icons/mod.ts";
 import type { DiffSpec } from "../worktrees/context.tsx";
@@ -47,6 +44,8 @@ export interface DiffViewProps {
   /** 체크아웃의 절대 경로. 모르면 Open File을 끈다. */
   readonly root: string | null;
   readonly onOpenFile: (path: string) => void;
+  /** 보이는 탭이다. 보이면 본문이 focus를 받아 F7/Shift+F7이 이 탭으로 온다. */
+  readonly active: boolean;
 }
 
 function imageRevs(spec: DiffSpec): readonly [string, string] {
@@ -211,12 +210,20 @@ export function DiffView(props: DiffViewProps) {
       ?.scrollIntoView({ block: "start" });
   };
 
-  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "F7") {
-      event.preventDefault();
-      go(event.shiftKey ? -1 : 1);
-    }
+  // 이전/다음 변경은 창의 command(`diff.next-change`·`diff.prev-change`)다. 본문에 focus가 들어오면 이 탭이 맡는다.
+  const routes = useRef<FocusRoutes>({});
+  routes.current = {
+    "diff.next-change": { run: () => go(1), when: () => hunks.length > 0 },
+    "diff.prev-change": { run: () => go(-1), when: () => hunks.length > 0 },
   };
+  const claimKeys = useFocusRoutes(routes);
+  useEffect(() => {
+    const element = root.current;
+    if (!props.active || element === null) return;
+    if (!element.contains(document.activeElement)) {
+      element.focus({ preventScroll: true });
+    }
+  }, [props.active]);
 
   const quick = async (op: "stage" | "unstage" | "discard") => {
     setBusy(true);
@@ -346,7 +353,7 @@ export function DiffView(props: DiffViewProps) {
       data-wrap={wrap || undefined}
       data-git-diff={spec.path}
       tabIndex={-1}
-      onKeyDown={onKeyDown}
+      onFocus={claimKeys}
     >
       <div className={styles.toolbar}>
         <span className={styles.path}>{spec.path}</span>

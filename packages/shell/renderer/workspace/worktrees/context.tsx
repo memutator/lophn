@@ -3,6 +3,7 @@
 import { createContext, useContext } from "react";
 import type { WorktreeRecord } from "../../../../protocol/projects/worktrees.ts";
 import type { MachineRef } from "../../desktop/machines/scope.tsx";
+import type { AgentChoice } from "../../parts/agent-session/agent-session.tsx";
 import type { CheckoutRef, SourceControlSource } from "./source.ts";
 import type { ProjectWorktrees } from "./use-worktrees.ts";
 
@@ -44,6 +45,8 @@ export interface WorktreeUi {
   openRemove(worktree: string): void;
   /** label·브랜치 이름 바꾸기 창. */
   openRename(worktree: string): void;
+  /** 이 project에서 고를 수 있는 agent(정의된 agent, 즐겨찾기 coding agent). `openAgent`의 choice는 `<kind>:<id>`다. */
+  readonly agentChoices: readonly AgentChoice[];
   /** 그 체크아웃에서 새 세션을 연다. worktree가 null이면 원래 폴더. choice가 없으면 lophn agent. prompt가 있으면 첫 메시지로 보낸다. */
   openAgent(
     worktree: string | null,

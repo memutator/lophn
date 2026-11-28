@@ -116,6 +116,9 @@ const FOCUSED_COMMANDS = [
   "agent.history-search",
   "agent.background",
   "agent.toggle-details",
+  "source-control.commit",
+  "diff.next-change",
+  "diff.prev-change",
 ] as const;
 
 /**

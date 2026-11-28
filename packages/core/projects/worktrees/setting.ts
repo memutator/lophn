@@ -16,6 +16,8 @@ export const projectsWorktreesFolderSetting = declareSetting({
   check: (value) => {
     if (value === "") return [];
     const checked = validateWorktreesRoot(value, { homeDir: homedir() });
-    return checked.ok ? [] : [{ level: "reject", message: checked.error.message }];
+    return checked.ok
+      ? []
+      : [{ level: "reject", message: checked.error.message }];
   },
 });

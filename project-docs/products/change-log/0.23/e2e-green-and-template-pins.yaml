@@ -1,5 +1,5 @@
 id: e2e-green-and-template-pins
-version: 0.23.192
+version: 0.23.193
 title: 앱 template의 SDK pin을 지금 판에 맞추고 e2e를 다시 통과시킨다
 modules: [packages/core/apps]
 platform_note: none

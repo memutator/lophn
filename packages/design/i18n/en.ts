@@ -35,6 +35,7 @@ import { workflow } from "./catalog/workflow.ts";
 import { workspace } from "./catalog/workspace.ts";
 import { workspaceSettings } from "./catalog/workspace-settings.ts";
 import { worktree } from "./catalog/worktree.ts";
+import { worktreeOpen } from "./catalog/worktree-open.ts";
 
 export const en = {
   ...agents,
@@ -72,6 +73,7 @@ export const en = {
   ...workspace,
   ...workspaceSettings,
   ...worktree,
+  ...worktreeOpen,
 } as const;
 
 export type Catalog = typeof en;

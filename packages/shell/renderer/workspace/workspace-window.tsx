@@ -338,6 +338,8 @@ import {
   planWorkflowDeskSync,
 } from "./workflow-desk-sync.ts";
 import styles from "./workspace-window.module.css";
+import type { CheckoutRef } from "./worktrees/source.ts";
+import { useProjectWorktrees } from "./worktrees/use-worktrees.ts";
 
 /** 이 창이 보일 수 있는 workspace: Home, project, 앱. */
 export type WindowWorkspace = WorkspaceRef;
@@ -533,6 +535,11 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
   const machinesView = useMachinesView();
   const thisComputer = machinesView?.thisComputer?.id ?? null;
   const machineLists = useMachineLists();
+  // 이 project의 worktree. Explorer 가지, Source Control 대상, + 메뉴 고르기, 탭 꼬리표가 같은 목록을 본다.
+  const projectWorktrees = useProjectWorktrees(
+    projectId === null ? null : data,
+    projectId,
+  );
   // 창의 view 보관이 있으면 화면 그릇이 이 창보다 오래 산다: 떠나도 살려 둘 page가 다시 load되지 않는다.
   const workspaceViews = useWorkspaceViews();
   const pool = useMemo(
@@ -640,6 +647,16 @@ function WorkspaceBody(props: WorkspaceWindowProps) {
   );
   // 고른 panel의 key. 목록에 없으면(앱이 지워졌거나 다른 workspace 종류) 목록의 첫 panel이다.
   const [panel, setPanel] = useState<string>("");
+  // "Show in Source Control"·"View in Source Control"이 Source Control 패널에 고정하라고 알린 체크아웃. nonce마다 한 번 받는다.
+  const [scFocus, setScFocus] = useState<{
+    readonly checkout: CheckoutRef;
+    readonly nonce: number;
+  } | null>(null);
+  const showInSourceControl = (checkout: CheckoutRef) => {
+    setPanel("source-control");
+    setRightOpen(true);
+    setScFocus({ checkout, nonce: Date.now() });
+  };
   // 떠 있는 안내(읽기 실패)를 닫은 상태.
   const [noticesHidden, setNoticesHidden] = useState(false);
   const hideNotices = () => setNoticesHidden(true);

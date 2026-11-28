@@ -859,3 +859,62 @@ test("store round-trips commands and settings through ledger createSql (bigint I
     db.close();
   }
 });
+
+test("runtime isolates command slots and terminal_ref reuse per worktreeId", async () => {
+  const root = mkdtempSync(join(tmpdir(), "lophn-pc-wt-main-"));
+  const wtA = mkdtempSync(join(tmpdir(), "lophn-pc-wt-a-"));
+  const wtB = mkdtempSync(join(tmpdir(), "lophn-pc-wt-b-"));
+  try {
+    const WKT_A = "wkt_0000000000000000000000000a" as Id<"wkt">;
+    const WKT_B = "wkt_0000000000000000000000000b" as Id<"wkt">;
+    const fakeTerm = fakeTerminals();
+    const clock = fakeClock();
+    const runtime = createProjectCommandRuntime({
+      terminals: fakeTerm.terminals,
+      folders: async () => ok([{ folder_ref: `${PRJ}_0`, path: root }]),
+      resolveWorktree: (_project, id) =>
+        ok({
+          id: id as Id<"wkt">,
+          repo_root: root,
+          path: id === WKT_A ? wtA : wtB,
+          branch: id === WKT_A ? "wt/a" : "wt/b",
+        }),
+      clock,
+      ids: createIdSource({ clock, random: FAKE_RANDOM }),
+      onRunChanged() {},
+    });
+
+    const setup: ProjectCommand = {
+      id: "setup",
+      name: "Setup",
+      command: "npm ci",
+      kind: "action",
+    };
+
+    const [runMain, runA, runB] = await Promise.all([
+      runtime.start(PRJ, setup),
+      runtime.start(PRJ, setup, { worktreeId: WKT_A }),
+      runtime.start(PRJ, setup, { worktreeId: WKT_B }),
+    ]);
+    assert.ok(runMain.ok);
+    assert.ok(runA.ok);
+    assert.ok(runB.ok);
+    assert.equal(
+      new Set([
+        runMain.value.run.terminal_id,
+        runA.value.run.terminal_id,
+        runB.value.run.terminal_id,
+      ]).size,
+      3,
+    );
+    assert.equal(runtime.listRuns(PRJ).length, 3);
+
+    const stopped = await runtime.stopAll(PRJ, "user");
+    assert.equal(stopped.length, 3);
+    assert.ok(stopped.every((one) => one.status === "stopped"));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+    rmSync(wtA, { recursive: true, force: true });
+    rmSync(wtB, { recursive: true, force: true });
+  }
+});

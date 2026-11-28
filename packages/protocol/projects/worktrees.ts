@@ -376,6 +376,7 @@ export const worktreesStore = defineCommand({
       .extend({
         idempotency_key: z.string().min(1).max(120).nullable().optional(),
         created_branch: z.boolean().optional(),
+        managed_root: z.string().min(1).nullable().optional(),
       })
       .optional(),
     patch: z

@@ -20,7 +20,9 @@ import {
   createWorktreeService,
   type GitRunner,
   type GitRunResult,
+  isGitAuthError,
   parsePorcelainV2Z,
+  redactGitUrlCredentials,
   type StoredWorktreeRow,
   validateWorktreesRoot,
 } from "./mod.ts";
@@ -95,6 +97,25 @@ test("validateWorktreesRoot rejects unsafe roots and computeWorktreePath enforce
   assert.equal(assertSafeRefName("feat@{1}").ok, false);
   assert.equal(assertSafeRefName("feat.lock").ok, false);
   assert.equal(assertSafeRefName("feat/worktree-1").ok, true);
+
+  // secret boundary: HTTP(S) URL credentials redacted, SSH user@host preserved
+  assert.equal(
+    redactGitUrlCredentials(
+      "fatal: unable to access 'https://alice:ghp_secret123@github.com/org/repo.git/': The requested URL returned error: 403",
+    ),
+    "fatal: unable to access 'https://[REDACTED]@github.com/org/repo.git/': The requested URL returned error: 403",
+  );
+  assert.equal(
+    redactGitUrlCredentials("git@github.com:org/repo.git Permission denied"),
+    "git@github.com:org/repo.git Permission denied",
+  );
+  assert.equal(isGitAuthError("The requested URL returned error: 403"), true);
+  assert.equal(isGitAuthError("remote: HTTP/1.1 401 Unauthorized"), true);
+  assert.equal(
+    isGitAuthError("error: failed to push to http://127.0.0.1:4010/repo.git"),
+    false,
+  );
+  assert.equal(isGitAuthError("fatal: bad object abc403def"), false);
 });
 
 test("parsePorcelainV2Z counts staged, unstaged, untracked, conflicted, ahead/behind", () => {
@@ -166,6 +187,7 @@ test("worktree remove enforces 3x provenance guard, dirty/session guards, and br
       status: "ready",
       idempotency_key: null,
       created_branch: true,
+      managed_root: wtRoot,
       created_at: NOW,
       updated_at: NOW,
       ...overrides,
@@ -221,7 +243,8 @@ test("worktree remove enforces 3x provenance guard, dirty/session guards, and br
         );
       }
       if (args.includes("worktree") && args.includes("remove")) {
-        await rm(managedDir, { recursive: true, force: true });
+        const target = args.at(-1);
+        if (target) await rm(target, { recursive: true, force: true });
         return gitOk();
       }
       if (args.includes("rev-parse") && args.includes("--show-toplevel")) {
@@ -258,6 +281,7 @@ test("worktree remove enforces 3x provenance guard, dirty/session guards, and br
           ...rec,
           idempotency_key: rec.idempotency_key ?? null,
           created_branch: rec.created_branch ?? false,
+          managed_root: rec.managed_root ?? null,
         });
         return ok(undefined);
       },
@@ -342,6 +366,62 @@ test("worktree remove enforces 3x provenance guard, dirty/session guards, and br
       assert.equal(cleanRes.value.preserved_branch?.name, "wt/test-1234");
     }
     assert.equal(rows.get(managedId)?.status, "removed");
+
+    // 6. persisted managed_root still validates ownership after configured root changes across restart
+    const oldRoot = join(root, "old-worktrees");
+    const oldManagedDir = join(oldRoot, "repo-12345678", "feat-old-12345678");
+    const newRoot = join(root, "new-worktrees");
+    await mkdir(oldManagedDir, { recursive: true });
+    await writeFile(
+      join(oldManagedDir, ".git"),
+      `gitdir: ${join(gitCommon, "worktrees", "admin-managed")}\n`,
+    );
+    const oldId = "wkt_0000000000000000000000000d" as Id<"wkt">;
+    rows.set(
+      oldId,
+      makeRow(oldId, {
+        path: oldManagedDir,
+        managed_root: oldRoot,
+      }),
+    );
+    const restartedService = createWorktreeService({
+      clock: FIXED_CLOCK,
+      random: seededRandom(1),
+      ids: createIdSource({ clock: FIXED_CLOCK, random: seededRandom(1) }),
+      homeDir: "/home/nobody",
+      defaultWorktreesRoot: join(root, "default-worktrees"),
+      configuredWorktreesRoot: () => newRoot,
+      projectFolders: () => ok([repoRoot]),
+      allProjectFolders: () => [repoRoot, join(root, "other-project")],
+      loadProjectWorktrees: () => ok([...rows.values()]),
+      loadWorktreeById: (id) => rows.get(id) ?? null,
+      loadWorktreeByIdempotencyKey: () => null,
+      loadWorktreesByStatuses: (statuses) =>
+        [...rows.values()].filter((r) => statuses.includes(r.status)),
+      loadSettings: () => ok(DEFAULT_WORKTREE_SETTINGS),
+      upsert: async () => ok(undefined),
+      patch: async (_project, patch) => {
+        const cur = rows.get(patch.id);
+        if (cur) rows.set(patch.id, { ...cur, ...patch });
+        return ok(undefined);
+      },
+      deleteRow: async (_project, id) => {
+        rows.delete(id);
+        return ok(undefined);
+      },
+      activity: {
+        activeSessions: () => [],
+        activeTerminals: () => [],
+        stopSessionsAndTerminals: async () => ok(undefined),
+      },
+      git: fakeGit,
+      onChanged: () => {},
+    });
+    const removedAfterRestart = await restartedService.remove({
+      worktree: oldId,
+    });
+    assert.equal(removedAfterRestart.ok, true);
+    assert.equal(rows.get(oldId)?.status, "removed");
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -417,6 +497,7 @@ test("recoverOnStartup cleans up creating rows", async () => {
           status: "creating",
           idempotency_key: null,
           created_branch: true,
+          managed_root: wtRoot,
           created_at: NOW,
           updated_at: NOW,
         },

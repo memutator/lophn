@@ -3271,9 +3271,10 @@ flows:
       - "commit은 병합·리베이스·체리픽·리버트 진행 중, unmerged 파일, staged 충돌 마커가 있으면 conflict로 거절한다"
       - "switch·branch_create(checkout)는 해당 checkout에 실행 중인 agent turn이 있으면 conflict로 거절한다"
       - "pull은 --ff-only만 쓰고 push는 force 옵션을 제공하지 않는다. 인증 실패는 묻는 창 없이 unauthorized와 1줄 git -C 명령을 돌려준다"
+      - "성공 시 WorktreesChanged를 발행하고, worktree 대상이면 watcher 갱신으로 WorktreeStatusChanged도 갱신한다"
     outcomes:
       - id: ok
-        observe: [event:WorktreeStatusChanged, response]
+        observe: [event:WorktreesChanged, response]
       - id: invalid-input
         code: invalid_input
         when: "경로·브랜치 이름이 안전하지 않거나 입력이 schema에 맞지 않다"

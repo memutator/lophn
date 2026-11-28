@@ -90,6 +90,8 @@ export type WorktreeServiceDeps = {
   defaultWorktreesRoot: string;
   configuredWorktreesRoot(): string;
   projectFolders(project: string): Result<readonly string[]>;
+  // 모든 활성 project의 등록 폴더 목록. 관리 루트가 타 저장소 내부/상위인지 검증할 때 쓴다.
+  allProjectFolders?(): readonly string[];
   loadProjectWorktrees(
     project: string,
     options?: { includeRemoved?: boolean },
@@ -106,6 +108,7 @@ export type WorktreeServiceDeps = {
     record: WorktreeRecord & {
       idempotency_key?: string | null;
       created_branch?: boolean;
+      managed_root?: string | null;
     },
   ): Promise<Result<void>>;
   patch(
@@ -150,6 +153,17 @@ async function pathExists(target: string): Promise<boolean> {
   }
 }
 
+async function nearestExistingDir(target: string): Promise<string | null> {
+  let cur = safeRealpath(target);
+  for (let depth = 0; depth < 64; depth += 1) {
+    if (await pathExists(cur)) return cur;
+    const parent = dirname(cur);
+    if (parent === cur) break;
+    cur = parent;
+  }
+  return null;
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
     const timer = setTimeout(resolve, ms);
@@ -178,6 +192,23 @@ export function createWorktreeService(deps: WorktreeServiceDeps) {
   function managedRoots(): string[] {
     effectiveWorktreesRoot();
     return [...knownManagedRoots];
+  }
+
+  // 현재 설정·기본 루트에 더해 행 생성 시점에 검증·영속화한 `managed_root`도 인정해
+  // 설정 변경·재기동 뒤에도 기존 managed worktree 소유권 검증과 정리가 깨지지 않게 한다.
+  function managedRootsForRow(row: StoredWorktreeRow): string[] {
+    const roots = new Set<string>(managedRoots());
+    if (row.managed_root !== null) {
+      const checked = validateWorktreesRoot(row.managed_root, {
+        homeDir: deps.homeDir,
+        repoRoots: [row.repo_root],
+        platform,
+      });
+      if (checked.ok) {
+        roots.add(checked.value);
+      }
+    }
+    return [...roots];
   }
 
   async function resolveProjectGitFolder(
@@ -271,7 +302,7 @@ export function createWorktreeService(deps: WorktreeServiceDeps) {
     if (realTarget === realRepo) {
       return { ok: false, reason: "unsafe_path" };
     }
-    const insideManagedRoot = managedRoots().some((root) =>
+    const insideManagedRoot = managedRootsForRow(row).some((root) =>
       isStrictlyInside(realTarget, root, platform),
     );
     if (!insideManagedRoot) {
@@ -733,13 +764,35 @@ export function createWorktreeService(deps: WorktreeServiceDeps) {
         });
       }
 
+      const projectFoldersRes = deps.projectFolders(input.project);
+      const repoRoots = new Set<string>([
+        repoRoot,
+        ...(projectFoldersRes.ok ? projectFoldersRes.value : []),
+        ...(deps.allProjectFolders?.() ?? []),
+      ]);
       const validatedRoot = validateWorktreesRoot(effectiveWorktreesRoot(), {
         homeDir: deps.homeDir,
-        repoRoots: [repoRoot],
+        repoRoots: [...repoRoots],
         platform,
       });
       if (!validatedRoot.ok) return validatedRoot;
       const worktreesRoot = validatedRoot.value;
+
+      // 등록 project 밖의 임의 git working tree 안으로 관리 루트를 잡는 것도 차단한다.
+      const existingAncestor = await nearestExistingDir(worktreesRoot);
+      if (existingAncestor !== null) {
+        const rootGit = await inspectGitRepo(existingAncestor, git);
+        if (
+          rootGit.ok &&
+          isSameOrInside(worktreesRoot, rootGit.value.repo_root, platform)
+        ) {
+          return err({
+            code: "invalid_input",
+            message: "worktrees root cannot be inside a git working tree",
+            details: { reason: "unsafe_worktrees_root" },
+          });
+        }
+      }
 
       const warnings: string[] = [];
       let branch: string;
@@ -859,6 +912,7 @@ export function createWorktreeService(deps: WorktreeServiceDeps) {
       const creatingRecord: WorktreeRecord & {
         idempotency_key: string | null;
         created_branch: boolean;
+        managed_root: string;
       } = {
         id,
         project_id: input.project,
@@ -874,6 +928,7 @@ export function createWorktreeService(deps: WorktreeServiceDeps) {
         status: "creating",
         idempotency_key: input.idempotencyKey ?? null,
         created_branch: mode === "new_branch",
+        managed_root: worktreesRoot,
         created_at: now,
         updated_at: now,
       };
@@ -1163,6 +1218,7 @@ export function createWorktreeService(deps: WorktreeServiceDeps) {
       const saved = await deps.upsert(input.project, {
         ...record,
         created_branch: false,
+        managed_root: null,
       });
       if (!saved.ok) return saved;
 
@@ -1637,7 +1693,7 @@ export function createWorktreeService(deps: WorktreeServiceDeps) {
                 // 관리 루트 내부이고 repo_root 밖임이 확인되면 안전하게 지운다.
                 const realPath = safeRealpath(row.path);
                 if (
-                  managedRoots().some((r) =>
+                  managedRootsForRow(row).some((r) =>
                     isStrictlyInside(realPath, r, platform),
                   ) &&
                   !isSameOrInside(

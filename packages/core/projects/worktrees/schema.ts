@@ -22,6 +22,7 @@ CREATE TABLE project_worktrees (
   status TEXT NOT NULL CHECK (status IN ('creating', 'ready', 'missing', 'removing', 'removed')),
   idempotency_key TEXT,
   created_branch INTEGER NOT NULL DEFAULT 0 CHECK (created_branch IN (0, 1)),
+  managed_root TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );

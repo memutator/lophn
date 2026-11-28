@@ -9,7 +9,7 @@ import {
   readFile,
   unlink,
 } from "node:fs/promises";
-import { dirname, isAbsolute, join, resolve } from "node:path";
+import { isAbsolute, join, resolve } from "node:path";
 import process from "node:process";
 import { type Clock, err, ok, type Result } from "../../../base/mod.ts";
 import type { WorktreeGitStatus } from "../../../protocol/projects/worktrees.ts";
@@ -39,6 +39,11 @@ export type GitRunner = (
     extraEnv?: Readonly<Record<string, string>>;
   },
 ) => Promise<GitRunResult>;
+
+// git stderr에 원격 URL의 user:token@ 자격증명이 섞여 나올 때 마스킹한다(SSH git@host는 유지).
+export function redactGitUrlCredentials(text: string): string {
+  return text.replace(/(https?:\/\/)[^/\s@'"]+@/gi, "$1[REDACTED]@");
+}
 
 function isTransientLockError(stderr: string): boolean {
   return (
@@ -128,7 +133,7 @@ function runGitOnce(
       resolvePromise({
         code: 1,
         stdout: "",
-        stderr: error.message,
+        stderr: redactGitUrlCredentials(error.message),
         timedOut: false,
         notFound: error.code === "ENOENT",
       });
@@ -141,7 +146,9 @@ function runGitOnce(
       resolvePromise({
         code: timedOut ? 124 : (code ?? 1),
         stdout: Buffer.concat(stdoutChunks).toString("utf8"),
-        stderr: Buffer.concat(stderrChunks).toString("utf8"),
+        stderr: redactGitUrlCredentials(
+          Buffer.concat(stderrChunks).toString("utf8"),
+        ),
         timedOut,
         notFound: false,
       });
@@ -959,11 +966,7 @@ export async function readGitDirectoryPath(
 }
 
 export function isGitAuthError(stderr: string): boolean {
-  return /Authentication failed|could not read Username|could not read Password|Permission denied \(publickey\)|Repository not found|terminal prompts disabled|HTTP Basic: Access denied|Invalid username or token|403|401/i.test(
+  return /Authentication failed|could not read Username|could not read Password|Permission denied \(publickey\)|Repository not found|terminal prompts disabled|HTTP Basic: Access denied|Invalid username or token|returned error:\s*(?:401|403)\b|\bHTTP(?:\/[\d.]+)?\s+(?:401|403)\b/i.test(
     stderr,
   );
-}
-
-export function parentDirOf(filePath: string): string {
-  return dirname(filePath);
 }

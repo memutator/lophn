@@ -115,8 +115,12 @@ function isLive(status: ProjectCommandRun["status"]): boolean {
   return status === "starting" || status === "running";
 }
 
-function keyOf(project: string, commandId: string): string {
-  return `${project}\0${commandId}`;
+function keyOf(
+  project: string,
+  commandId: string,
+  worktreeId?: string | null,
+): string {
+  return `${project}\0${commandId}\0${worktreeId ?? ""}`;
 }
 
 export type ProjectCommandRuntime = ReturnType<
@@ -137,9 +141,10 @@ export function createProjectCommandRuntime(deps: ProjectCommandRuntimeDeps) {
   function serialize<T>(
     project: string,
     commandId: string,
+    worktreeId: string | null | undefined,
     work: () => Promise<T>,
   ): Promise<T> {
-    const key = keyOf(project, commandId);
+    const key = keyOf(project, commandId, worktreeId);
     const previous = queues.get(key) ?? Promise.resolve();
     const next = previous.catch(() => undefined).then(work);
     queues.set(key, next);
@@ -306,7 +311,7 @@ export function createProjectCommandRuntime(deps: ProjectCommandRuntimeDeps) {
     worktreeId?: Id<"wkt">,
     timeoutOverrideMs?: number,
   ): Promise<Result<ActiveState>> {
-    const key = keyOf(project, command.id);
+    const key = keyOf(project, command.id, worktreeId);
     const existing = entries.get(key);
     if (existing !== undefined && isLive(existing.run.status)) {
       return err({
@@ -538,8 +543,12 @@ export function createProjectCommandRuntime(deps: ProjectCommandRuntimeDeps) {
       return result;
     },
 
-    getRun(project: string, commandId: string): ProjectCommandRun | null {
-      const state = entries.get(keyOf(project, commandId));
+    getRun(
+      project: string,
+      commandId: string,
+      worktreeId?: Id<"wkt"> | null,
+    ): ProjectCommandRun | null {
+      const state = entries.get(keyOf(project, commandId, worktreeId));
       return state === undefined
         ? null
         : { ...state.run, detected_urls: [...state.run.detected_urls] };
@@ -555,13 +564,17 @@ export function createProjectCommandRuntime(deps: ProjectCommandRuntimeDeps) {
         timeoutMs?: number;
       },
     ): Promise<Result<{ run: ProjectCommandRun; tail?: string }>> {
-      const started = await serialize(project, command.id, () =>
-        startUnlocked(
-          project,
-          command,
-          options?.worktreeId,
-          options?.timeoutMs,
-        ),
+      const started = await serialize(
+        project,
+        command.id,
+        options?.worktreeId,
+        () =>
+          startUnlocked(
+            project,
+            command,
+            options?.worktreeId,
+            options?.timeoutMs,
+          ),
       );
       if (!started.ok) return started;
       const state = started.value;
@@ -585,11 +598,11 @@ export function createProjectCommandRuntime(deps: ProjectCommandRuntimeDeps) {
       project: Id<"prj">,
       commandId: string,
       by: "user" | "agent" | "shutdown",
-      options?: { dismiss?: boolean },
+      options?: { dismiss?: boolean; worktreeId?: Id<"wkt"> | null },
     ): Promise<Result<ProjectCommandRun | null>> {
       return ok(
-        await serialize(project, commandId, async () => {
-          const key = keyOf(project, commandId);
+        await serialize(project, commandId, options?.worktreeId, async () => {
+          const key = keyOf(project, commandId, options?.worktreeId);
           const state = entries.get(key);
           if (state === undefined) return null;
           if (isLive(state.run.status)) {
@@ -628,18 +641,29 @@ export function createProjectCommandRuntime(deps: ProjectCommandRuntimeDeps) {
       options?: { dismiss?: boolean },
     ): Promise<ProjectCommandRun[]> {
       const prefix = `${project}\0`;
-      const targets: string[] = [];
+      const targets: Array<{
+        commandId: string;
+        worktreeId: Id<"wkt"> | undefined;
+      }> = [];
       for (const [key, state] of entries) {
         if (
           key.startsWith(prefix) &&
           (options?.dismiss === true || isLive(state.run.status))
         ) {
-          targets.push(state.command.id);
+          targets.push({
+            commandId: state.command.id,
+            worktreeId: (state.run.worktree_id ?? undefined) as
+              | Id<"wkt">
+              | undefined,
+          });
         }
       }
       const results = await Promise.all(
-        targets.map(async (commandId) => {
-          const stopped = await this.stop(project, commandId, by, options);
+        targets.map(async ({ commandId, worktreeId }) => {
+          const stopped = await this.stop(project, commandId, by, {
+            ...options,
+            worktreeId,
+          });
           return stopped.ok ? stopped.value : null;
         }),
       );
@@ -657,15 +681,26 @@ export function createProjectCommandRuntime(deps: ProjectCommandRuntimeDeps) {
         worktreeId?: Id<"wkt">;
       },
     ): Promise<Result<{ run: ProjectCommandRun; tail?: string }>> {
-      const started = await serialize(project, commandId, async () => {
-        const existing = entries.get(keyOf(project, commandId));
-        if (existing !== undefined && isLive(existing.run.status)) {
-          await stopUnlocked(existing, by);
-        }
-        const latest = loadLatest();
-        if (!latest.ok) return latest;
-        return await startUnlocked(project, latest.value, options?.worktreeId);
-      });
+      const started = await serialize(
+        project,
+        commandId,
+        options?.worktreeId,
+        async () => {
+          const existing = entries.get(
+            keyOf(project, commandId, options?.worktreeId),
+          );
+          if (existing !== undefined && isLive(existing.run.status)) {
+            await stopUnlocked(existing, by);
+          }
+          const latest = loadLatest();
+          if (!latest.ok) return latest;
+          return await startUnlocked(
+            project,
+            latest.value,
+            options?.worktreeId,
+          );
+        },
+      );
       if (!started.ok) return started;
       const state = started.value;
       if (options?.wait === true && state.command.kind === "action") {
@@ -684,9 +719,13 @@ export function createProjectCommandRuntime(deps: ProjectCommandRuntimeDeps) {
     logs(
       project: string,
       commandId: string,
-      options?: { lines?: number; redact?: boolean },
+      options?: {
+        lines?: number;
+        redact?: boolean;
+        worktreeId?: Id<"wkt"> | null;
+      },
     ): { run: ProjectCommandRun | null; lines: string[]; truncated: boolean } {
-      const state = entries.get(keyOf(project, commandId));
+      const state = entries.get(keyOf(project, commandId, options?.worktreeId));
       if (state === undefined) {
         return { run: null, lines: [], truncated: false };
       }
@@ -703,17 +742,31 @@ export function createProjectCommandRuntime(deps: ProjectCommandRuntimeDeps) {
       };
     },
 
-    // 명령이 삭제되면 실행 중이던 것도 멈추고 메모리 기록을 정리한다.
+    // 명령이 삭제되면 모든 checkout(main 및 worktree)에서 실행 중이던 것도 멈추고 메모리 기록을 정리한다.
     async forgetCommand(project: Id<"prj">, commandId: string): Promise<void> {
-      await serialize(project, commandId, async () => {
-        const key = keyOf(project, commandId);
-        const state = entries.get(key);
-        if (state !== undefined && isLive(state.run.status)) {
-          await stopUnlocked(state, "user");
-        }
-        entries.delete(key);
-        terminalRefs.delete(key);
-      });
+      const prefix = `${project}\0${commandId}\0`;
+      const worktreeIds = new Set<string>();
+      for (const key of entries.keys()) {
+        if (key.startsWith(prefix)) worktreeIds.add(key.slice(prefix.length));
+      }
+      for (const key of terminalRefs.keys()) {
+        if (key.startsWith(prefix)) worktreeIds.add(key.slice(prefix.length));
+      }
+      if (worktreeIds.size === 0) worktreeIds.add("");
+      await Promise.all(
+        [...worktreeIds].map((wtKey) => {
+          const wtId = wtKey === "" ? undefined : wtKey;
+          return serialize(project, commandId, wtId, async () => {
+            const key = keyOf(project, commandId, wtId);
+            const state = entries.get(key);
+            if (state !== undefined && isLive(state.run.status)) {
+              await stopUnlocked(state, "user");
+            }
+            entries.delete(key);
+            terminalRefs.delete(key);
+          });
+        }),
+      );
     },
 
     // core 정상 종료: 도는 모든 명령을 shutdown으로 멈춘다(spec 3.3.2).
@@ -723,8 +776,11 @@ export function createProjectCommandRuntime(deps: ProjectCommandRuntimeDeps) {
       );
       await Promise.all(
         live.map((state) =>
-          serialize(state.project, state.command.id, () =>
-            stopUnlocked(state, "shutdown"),
+          serialize(
+            state.project,
+            state.command.id,
+            state.run.worktree_id ?? undefined,
+            () => stopUnlocked(state, "shutdown"),
           ),
         ),
       );

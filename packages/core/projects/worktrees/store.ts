@@ -15,7 +15,7 @@ import type {
   Tx,
 } from "../../../protocol/server/mod.ts";
 import { projectExists } from "../lookups.ts";
-import { isSameOrInside, safeRealpath } from "./paths.ts";
+import { isFilesystemRoot, isStrictlyInside, safeRealpath } from "./paths.ts";
 
 export const WORKTREES_PRINCIPAL = "machine:worktrees";
 
@@ -33,6 +33,7 @@ export const WORKTREES_CONTEXT: AuthenticatedContext = {
 export type StoredWorktreeRow = WorktreeRecord & {
   idempotency_key: string | null;
   created_branch: boolean;
+  managed_root: string | null;
 };
 
 type RawWorktreeRow = {
@@ -50,6 +51,7 @@ type RawWorktreeRow = {
   status: string;
   idempotency_key: string | null;
   created_branch: number | bigint;
+  managed_root: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -62,7 +64,7 @@ type RawSettingsRow = {
 };
 
 const WORKTREE_COLUMNS = `id, project_id, repo_root, git_common_dir, path, git_admin_name,
-  label, branch, base_ref, base_commit, provenance, status, idempotency_key, created_branch, created_at, updated_at`;
+  label, branch, base_ref, base_commit, provenance, status, idempotency_key, created_branch, managed_root, created_at, updated_at`;
 
 function rowToStored(row: RawWorktreeRow): StoredWorktreeRow | null {
   const parsed = worktreeRecordSchema.safeParse({
@@ -86,11 +88,17 @@ function rowToStored(row: RawWorktreeRow): StoredWorktreeRow | null {
     ...parsed.data,
     idempotency_key: row.idempotency_key,
     created_branch: Number(row.created_branch) === 1,
+    managed_root: row.managed_root,
   };
 }
 
 export function toPublicRecord(row: StoredWorktreeRow): WorktreeRecord {
-  const { idempotency_key: _idem, created_branch: _cb, ...record } = row;
+  const {
+    idempotency_key: _idem,
+    created_branch: _cb,
+    managed_root: _mr,
+    ...record
+  } = row;
   return record;
 }
 
@@ -208,11 +216,16 @@ export function loadManagedReadyWorktrees(
   const out: StoredWorktreeRow[] = [];
   for (const row of rows) {
     const parsed = rowToStored(row);
-    if (parsed === null) continue;
-    if (
-      parsed.provenance === "managed" &&
-      isSameOrInside(safeRealpath(parsed.path), realRoot)
-    ) {
+    if (parsed === null || parsed.provenance !== "managed") continue;
+    const realPath = safeRealpath(parsed.path);
+    const roots = [realRoot];
+    if (parsed.managed_root !== null) {
+      const savedRoot = safeRealpath(parsed.managed_root);
+      if (!isFilesystemRoot(savedRoot)) {
+        roots.push(savedRoot);
+      }
+    }
+    if (roots.some((root) => isStrictlyInside(realPath, root))) {
       out.push(parsed);
     }
   }
@@ -224,14 +237,15 @@ function upsertWorktree(
   record: WorktreeRecord & {
     idempotency_key?: string | null;
     created_branch?: boolean;
+    managed_root?: string | null;
   },
 ): void {
   tx.sql.run(
     `INSERT INTO project_worktrees (
       id, project_id, repo_root, git_common_dir, path, git_admin_name,
       label, branch, base_ref, base_commit, provenance, status,
-      idempotency_key, created_branch, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      idempotency_key, created_branch, managed_root, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
       repo_root = excluded.repo_root,
       git_common_dir = excluded.git_common_dir,
@@ -243,6 +257,7 @@ function upsertWorktree(
       base_commit = excluded.base_commit,
       provenance = excluded.provenance,
       status = excluded.status,
+      managed_root = COALESCE(excluded.managed_root, project_worktrees.managed_root),
       updated_at = excluded.updated_at`,
     [
       record.id,
@@ -259,6 +274,7 @@ function upsertWorktree(
       record.status,
       record.idempotency_key ?? null,
       record.created_branch === true ? 1 : 0,
+      record.managed_root ?? null,
       record.created_at,
       record.updated_at,
     ],

@@ -50,6 +50,7 @@ import {
 import type { AuthenticatedContext } from "../../../../protocol/server/mod.ts";
 import { loadProjectCommands } from "../../../projects/commands/mod.ts";
 import {
+  activeProjectFolderPaths,
   projectExists,
   projectFolderPaths,
 } from "../../../projects/lookups.ts";
@@ -190,6 +191,10 @@ export const worktreesWiring: WiringFactory = () => {
         configuredWorktreesRoot: () =>
           ctx.settings.get(projectsWorktreesFolderSetting) ?? "",
         projectFolders,
+        allProjectFolders: () => {
+          const res = withSql((sql) => activeProjectFolderPaths(sql));
+          return res.ok ? res.value : [];
+        },
         loadProjectWorktrees: (project, options) => {
           const opened = openConnection(ctx.ledgerPath);
           if (!opened.ok) return opened;
@@ -406,6 +411,25 @@ export const worktreesWiring: WiringFactory = () => {
       const granted = (principal: string) =>
         ctx.peek.terminalInputGrant?.(principal) ?? false;
 
+      const sessionProject = async (
+        session: string,
+      ): Promise<Result<Id<"prj"> | null>> => {
+        const found = await ctx.runtime.readers.read(
+          workspaceSessionRead,
+          WORKTREES_ADMIN_CONTEXT,
+          { session },
+        );
+        if (!found.ok) return found;
+        const ws = (
+          found.value as {
+            session: {
+              workspace: { kind: "project" | "app"; id: string } | null;
+            };
+          }
+        ).session.workspace;
+        return ok(ws?.kind === "project" ? (ws.id as Id<"prj">) : null);
+      };
+
       const wtHandlers = createWorktreeHandlers({
         service,
         projectFolders,
@@ -422,22 +446,7 @@ export const worktreesWiring: WiringFactory = () => {
         detectFs: nodeIncludeDetectFs,
         isDevice,
         granted,
-        async sessionProject(session) {
-          const found = await ctx.runtime.readers.read(
-            workspaceSessionRead,
-            WORKTREES_ADMIN_CONTEXT,
-            { session },
-          );
-          if (!found.ok) return found;
-          const ws = (
-            found.value as {
-              session: {
-                workspace: { kind: "project" | "app"; id: string } | null;
-              };
-            }
-          ).session.workspace;
-          return ok(ws?.kind === "project" ? (ws.id as Id<"prj">) : null);
-        },
+        sessionProject,
         askPerson: async (who, input) => {
           const gate = ctx.runtime.memory.handlers.get(key(toolGateCheck));
           return gate === undefined
@@ -483,6 +492,7 @@ export const worktreesWiring: WiringFactory = () => {
         },
         isDevice,
         granted,
+        sessionProject,
         mutex,
         onChanged: (project, worktree) => {
           emitChanged(project, worktree);

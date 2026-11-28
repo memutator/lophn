@@ -27,6 +27,7 @@ export {
   readGitdirAdminName,
   readGitDirectoryPath,
   readWorktreeGitStatus,
+  redactGitUrlCredentials,
   RepoGitMutex,
   resolveBaseRef,
   runGit,

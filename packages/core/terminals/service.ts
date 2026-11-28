@@ -373,11 +373,23 @@ export function createTerminals(deps: {
           ...(isAgent ? { agent: true as const } : {}),
         }),
       );
-      if (done.ok && worktreeInfo !== null) {
-        extras.set(done.value.terminal_ref, {
-          ...extras.get(done.value.terminal_ref),
-          worktree_id: worktreeInfo.id,
-        });
+      if (done.ok) {
+        if (worktreeInfo !== null) {
+          extras.set(done.value.terminal_ref, {
+            ...extras.get(done.value.terminal_ref),
+            worktree_id: worktreeInfo.id,
+          });
+        } else {
+          const prev = extras.get(done.value.terminal_ref);
+          if (prev !== undefined && prev.worktree_id !== undefined) {
+            const { worktree_id: _dropped, ...rest } = prev;
+            if (Object.keys(rest).length === 0) {
+              extras.delete(done.value.terminal_ref);
+            } else {
+              extras.set(done.value.terminal_ref, rest);
+            }
+          }
+        }
       }
       const runtime = done.ok ? decorate(done.value) : null;
       for (const one of hooked) one.opened(runtime);

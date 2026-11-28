@@ -29,69 +29,71 @@
 
 ```
 ledger (기계별, 컴퓨터 사이 동기화 안 함)
-  project_worktrees         : id(wkt_…), project(prj_…), provenance(managed|adopted),
-                              path, repo_root, git_common_dir, base_branch,
-                              created_branch, label, state, created_at, updated_at, removed_at
-  project_worktree_settings : project(prj_…), copy_patterns_json, setup_command_id,
-                              teardown_command_id, auto_branch_prefix, default_base_branch
+  project_worktrees         : id(wkt_…), project_id(prj_…), repo_root, git_common_dir, path,
+                              git_admin_name, label, branch, base_ref, base_commit,
+                              provenance(managed|adopted), status(creating|ready|missing|removing|removed),
+                              idempotency_key, created_branch, managed_root, created_at, updated_at
+  project_worktree_settings : project_id(prj_…), copy_patterns_json, setup_command,
+                              teardown_command, run_setup
 ```
 
 ```
 creating ──(git worktree add + env prep 성공)──▶ ready ◀──(reconcile 재발견)── missing
     │                                              │
-    │ (실패 / 기동 시 crash 복구)                    │ (remove 요청 + 가드 통과)
+    │ (실패 / 기동 시 crash 복구 → 행 삭제)          │ (remove 요청 + 가드 통과)
     ▼                                              ▼
- removed ◀────────(git worktree remove / 정리)── removing
+ (삭제)                     removed ◀──(git worktree remove / 정리)── removing
 ```
 
-- **ID와 provenance**: worktree ID 접두사는 `wkt`다. lophn이 managed root 아래에 만든 것은 `provenance: "managed"`, 이미 디스크에 있던 외부 worktree를 등록한 것은 `provenance: "adopted"`다. main checkout은 `project_worktrees` 행이 아니라 project의 첫 폴더(`worktree_id: null`)로 표현한다.
-- **경로 배치**: 전역 설정 `projects.worktrees_folder`(`locked: true`, 기본 `<data root>/worktrees`) 아래 `<repo_slug>-<sha8(canonical_repo_root)>/<branch_prefix≤23B>-<id8>`로 배치한다.
-  - `projects.worktrees_folder`는 홈 디렉터리 자체·상위 경로·파일시스템 루트·임의의 등록 project 저장소 내부를 금지한다.
-  - Windows에서는 전체 경로 220자 예산을 지키기 위해 `<repo_slug>`과 `<branch_prefix>`를 동적으로 줄이고 예약 이름(`CON`, `PRN`, `AUX`, `NUL`, `COM1`~`9`, `LPT1`~`9`)을 피한다.
+- **ID와 provenance**: worktree ID 접두사는 `wkt`다. lophn이 managed root 아래에 만든 것은 `provenance: "managed"`, 이미 디스크에 있던 외부 worktree를 등록한 것은 `provenance: "adopted"`다. main checkout은 `project_worktrees` 행이 아니라 project의 등록 폴더(`worktree_id: null`)로 표현한다.
+- **경로 배치**: 전역 설정 `projects.worktrees_folder`(`locked: true`, 기본 `<data root>/worktrees`) 아래 `<repo_slug>-<sha256(git_common_dir)[:8]>/<branch_prefix≤23B>-<id8>`로 배치한다.
+  - `projects.worktrees_folder`는 홈 디렉터리 자체·상위 경로·파일시스템 루트·모든 활성 project 등록 폴더의 내부/상위·임의의 git working tree 내부를 금지한다.
+  - 생성 시점의 검증된 관리 루트를 행의 `managed_root`에 영속화해, 이후 `projects.worktrees_folder`를 바꾸고 core를 재기동해도 기존 `managed` worktree의 소유권 검증과 정리가 이어진다.
+  - Windows에서는 전체 경로 220자 예산을 지키기 위해 `<branch_prefix>`를 동적으로 줄이고(그래도 넘으면 거부) 예약 이름(`CON`, `PRN`, `AUX`, `NUL`, `COM1`~`9`, `LPT1`~`9`)을 피한다.
   - 브랜치 이름은 `git check-ref-format` 규칙과 제어문자·`..`·`@{`·leading `-` 검사를 통과해야 하며, 생략 시 `wt/<adj>-<noun>-<4hex>`(seed가 있으면 `wt/<seed>-<4hex>`)를 자동 생성한다.
 - **환경 준비(env prep)**:
   - `copy_patterns`에 일치하고 `git check-ignore`로 확인된 무시 파일만 `repo_root`에서 새 worktree로 복사한다. 대상에 이미 파일이 있으면 덮어쓰지 않는다. 가능한 파일시스템에서는 CoW(`COPYFILE_FICLONE`) + 임시 파일 원자적 rename을 쓰고, 총 2 GiB / 50,000개 엔트리 상한을 둔다.
   - 저장소 루트의 `.worktreeinclude`는 읽기 전용으로만 감지해 안내한다(lophn이 쓰지 않는다).
-  - `setup_command_id`가 설정되어 있으면 worktree 생성 직후 해당 Project Command를 새 `worktree_id`로 1회 실행한다(실패해도 worktree 생성 자체는 rollback하지 않고 `setup_warning`으로 알린다).
+  - `setup_command`가 설정되어 있고 `run_setup`이 켜져 있으면 worktree 생성 직후 해당 Project Command를 새 `worktree_id`로 1회 실행한다(실패해도 worktree 생성 자체는 rollback하지 않고 `warnings`와 `setup` 결과로 알린다).
 
 ### git 실행, 직렬화, 감시
 
-- **비대화형 하드닝 `runGit`**: 모든 git 호출은 `LC_ALL=C`, `GIT_TERMINAL_PROMPT=0`, `GCM_INTERACTIVE=never`, `GIT_ASKPASS=""`, `GIT_OPTIONAL_LOCKS=0`, Windows `core.longpaths=true`로 실행하고 타임아웃·출력 상한을 둔다. 인증 실패 시 자격 창을 띄우지 않고 `unauthorized` 오류와 사람이 터미널에서 실행할 1줄 `git -C <path> ...` 명령을 돌려준다.
+- **비대화형 하드닝 `runGit`**: 모든 git 호출은 `LC_ALL=C`, `GIT_TERMINAL_PROMPT=0`, `GCM_INTERACTIVE=never`, `GIT_ASKPASS=""`, `GIT_OPTIONAL_LOCKS=0`, Windows `core.longpaths=true`로 실행하고 타임아웃·출력 상한을 둔다. `stderr`의 HTTP(S) URL 자격증명(`https://user:token@...`)은 반환 전에 `[REDACTED]@`로 마스킹한다(SSH `git@host`는 유지). 인증 실패 시 자격 창을 띄우지 않고 `unauthorized` 오류와 사람이 터미널에서 실행할 1줄 `git -C <path> ...` 명령을 돌려준다.
 - **per-repo mutex와 lock retry**: 같은 `git_common_dir`을 공유하는 mutating git 작업은 저장소 단위 직렬 mutex를 거친다. `.git/index.lock` 등 일시적 락 충돌은 `[50, 150, 400]`ms 백오프로 재시도한다.
-- **좁은 watcher와 `unmounted` 방어**: 전체 working tree를 재귀 감시하지 않고 `.git/HEAD`, `.git/packed-refs`, `.git/worktrees/<admin>/HEAD`만 좁게 감시해 `WorktreeStatusChanged`를 발행한다. 외장 디스크 분리나 네트워크 마운트 해제처럼 `repo_root` 또는 관리 루트가 보이지 않으면 `presence: "unmounted"`로 표시하고 절대 삭제·정리하지 않는다. Windows/WSL 교차 OS 경로의 worktree가 감지되면 `git worktree prune`을 차단한다.
+- **좁은 watcher와 `unmounted` 방어**: 전체 working tree를 재귀 감시하지 않고 `.git/HEAD`, `.git/packed-refs`, `.git/worktrees/<admin>/HEAD`만 좁게 감시해 `WorktreeStatusChanged`를 발행한다. 외장 디스크 분리나 네트워크 마운트 해제처럼 `repo_root`가 보이지 않으면 `presence: "unmounted"`로 표시하고 절대 삭제·정리하지 않는다. Windows/WSL 교차 OS 경로의 worktree가 감지되면 타 OS 항목에 임시 `locked` 파일을 배타 생성(`wx`)해 보호한 뒤 `git worktree prune`을 실행하고 `locked` 파일을 치운다.
 
 ### 3중 소유권 검증과 삭제 가드
 
 - **`adopted` 불변 원칙**: `provenance === "adopted"`인 worktree는 삭제 요청 시 ledger 행만 제거(`untrack_only: true`)하며 디스크 디렉터리와 git branch를 절대 지우지 않는다.
-- **`managed` 3중 검증**: 디스크를 지우기 전 반드시 세 조건을 모두 만족해야 한다: (1) ledger의 `provenance === "managed"`, (2) realpath가 managed root 엄격 하위이며 symlink나 `repo_root`가 아님, (3) 대상 `.git` 포인터가 해당 저장소의 `git_common_dir`을 가리킴. 하나라도 어긋나면 `forbidden`(`unsafe_path`)으로 즉시 차단한다.
+- **`managed` 3중 검증**: 디스크를 지우기 전 반드시 세 조건을 모두 만족해야 한다: (1) ledger의 `provenance === "managed"`, (2) realpath가 현재 또는 생성 시점의 검증된 관리 루트(`managed_root`) 엄격 하위이며 symlink나 `repo_root`가 아님, (3) 대상 `.git` 포인터가 해당 저장소의 `git_common_dir`을 가리킴. 하나라도 어긋나면 `forbidden`(`unsafe_path`)으로 즉시 차단한다.
 - **Hard block / Soft block**:
   - Hard block(우회 불가): `unsafe_path`, `nested_worktree`(하위에 다른 worktree 중첩), `worktree_locked`(git worktree lock 설정됨).
   - Soft block(명시적 플래그로만 통과): `dirty_worktree`(`force: true`), `active_sessions`(`stop_sessions: true`로 연결된 session/터미널/command 정리 후 진행), teardown command 실패(`allow_failed_teardown: true`, teardown은 삭제 직전 최대 60초 동기 실행).
-- **브랜치 보존과 CAS 삭제**: 기본 브랜치(`default_base_branch`, `main`/`master`)와 다른 worktree가 checkout한 브랜치, 미병합 브랜치(`git branch -d` 실패)는 기본적으로 보존한다(`preserved_branch`). 명시적 강제 브랜치 삭제가 요청된 경우에도 삭제 직전 읽은 OID와 비교하는 CAS `git update-ref -d <ref> <expected_oid>`만 사용해 그 사이 새 커밋이 쌓인 브랜치를 지우지 않는다.
+- **브랜치 보존과 CAS 삭제**: 기본은 `delete_branch: false`로 브랜치를 보존한다. `delete_branch: true`일 때도 `created_branch === false`(기존 브랜치)는 `force_delete_branch: true` 없이는 보존(`preserved_branch.reason: "existing_branch"`)하고, 새로 만든 브랜치는 `git branch -d`로 병합 확인 뒤에만 삭제하며 미병합이면 보존(`reason: "unmerged"`)한다. 명시적 `force_delete_branch: true`가 요청된 경우에도 삭제 직전 읽은 OID와 비교하는 CAS `git update-ref -d <ref> <expected_oid>`만 사용해 그 사이 새 커밋이 쌓인 브랜치를 지우지 않는다(불일치 시 `reason: "cas_mismatch"`로 보존).
 
 ### 기동 시 복구(Crash Recovery)
 
 core 기동 시 `creating` 또는 `removing` 상태로 남은 행을 정산한다:
-- `creating`: git worktree가 정상 등록되고 경로가 유효하면 `ready`로 승격한다. 그렇지 않으면 등록된 반쪽 worktree를 정리하고, 아직 `.git` 포인터도 쓰이지 않은 채 `managed` 루트 엄격 하위에 생성된 빈/부분 디렉터리를 안전하게 치운 뒤 `removed`로 닫는다.
-- `removing`: 디스크가 이미 사라졌거나 정리 가능하면 마저 정리해 `removed`로 닫고, 잠겨 있거나 제거할 수 없으면 `ready`로 복원한다.
+- `creating`: git worktree가 정상 등록되고 경로가 유효하면 `ready`로 승격한다. 그렇지 않으면 등록된 반쪽 worktree와 아직 `.git` 포인터가 쓰이기 전 관리 루트 엄격 하위의 부분 디렉터리·미사용 임시 브랜치를 안전하게 치운 뒤 미완성 `creating` 행을 삭제한다(`deleteRow`).
+- `removing`: 디스크가 이미 사라졌거나 정리 가능하면 마저 정리해 `removed`로 닫고, 잠겨 있거나 제거할 수 없으면 `ready`(경로가 없으면 `missing`)로 복원한다.
 
 ### 격리(Session, Harness, Terminal, Project Command)
 
 - **session 바인딩**: `sessions.worktree_id`는 session 생성 시 결정되며 바뀌지 않는다(ledger 불변). `removing`·`removed`·`missing` 상태의 worktree에는 새 session이나 터미널을 열 수 없다(`conflict`).
-- **lophn agent**: worktree가 묶인 project session은 file tool 읽기/쓰기 범위에서 원래 `repo_root`를 `worktree.path`로 치환하고, shell cwd와 환경 변수(`PROJECT_ROOT`, `WORKTREE_ID`, `WORKTREE_PATH`, `WORKTREE_BRANCH`, `WORKTREE_BASE_BRANCH`)를 주입한다.
+- **lophn agent**: worktree가 묶인 project session은 file tool 읽기/쓰기 범위에서 원래 `repo_root`를 `worktree.path`로 치환하고, shell cwd와 환경 변수(`PROJECT_ROOT`, `WORKTREE_PATH`, `WORKTREE_ID`, `WORKTREE_BRANCH`)를 주입한다.
 - **harness agent & GUI 탭**: background 실행과 GUI 탭 팀원 모두 묶인 `worktree_id`의 경로를 cwd로 쓰고 같은 worktree 환경 변수를 받는다.
 - **터미널 & TUI**: `terminals/open`이 선택 `worktree_id`를 받으며 `TerminalRuntime.worktree_id`에 실린다. `folderOfCwd`는 project 등록 폴더뿐 아니라 해당 project의 `ready` worktree 경로도 허용한다.
-- **Project Command**: `project_commands/run`과 `restart`가 선택 `worktree_id`를 받아 해당 worktree 경로에서 전용 PTY로 실행하며, worktree setup/teardown 훅도 같은 실행 길을 쓴다.
+- **Project Command**: `project_commands/run`과 `restart`가 선택 `worktree_id`를 받아 해당 worktree 경로에서 전용 PTY로 실행하며, 실행 슬롯과 `terminal_ref` 재사용을 `(project, command_id, worktree_id)` 단위로 분리해 병렬 worktree setup·명령 실행이 서로 충돌하지 않게 한다. worktree setup/teardown 훅도 같은 실행 길을 쓴다.
 
 ### Source Control (core route)
 
-- `source_control/status`, `branches`, `stage`, `unstage`, `commit`, `switch`, `pull`, `push`를 제공하며 대상은 `{ project, worktree_id? }`(생략 시 main checkout)이다.
-- **사람 전용 쓰기**: 모든 변경 route(`stage`, `unstage`, `commit`, `switch`, `pull`, `push`)는 user 자격 전용이며 agent 호출은 `forbidden`이다.
+- `source_control/{status,diff,log,show,branches,stage,unstage,discard,commit,branch_create,switch,pull,push}` 13개 route를 제공하며 대상은 `{ project, worktree?, folder? }`(생략 시 project의 첫 git 등록 폴더)이다.
+- **권한 경계**: 쓰기 route 8개(`stage`, `unstage`, `discard`, `commit`, `branch_create`, `switch`, `pull`, `push`)는 user 자격 전용이며 agent 호출은 `forbidden`이다. 읽기 route 5개(`status`, `diff`, `log`, `show`, `branches`)는 agent가 호출할 때 자기 project 범위(`sessionProject`·`conditions.project`)를 검사해 다른 project 접근을 `forbidden`으로 차단한다.
 - **안전 가드**:
-  - `commit`: `MERGE_HEAD`/`REBASE_HEAD`/`CHERRY_PICK_HEAD`/`REVERT_HEAD` 존재, unmerged 인덱스 엔트리, 또는 staged diff 내 충돌 마커(`<<<<<<<`/`=======`/`>>>>>>>`)가 있으면 `conflict`로 거절한다.
-  - `switch`: 대상 worktree(또는 main checkout)에 실행 중인 agent turn이 있으면 `conflict`로 거절한다.
+  - `commit`: `MERGE_HEAD`/`rebase-merge`/`rebase-apply`/`CHERRY_PICK_HEAD`/`REVERT_HEAD` 존재, unmerged 인덱스 엔트리, 또는 staged diff 내 git 충돌 마커(`<<<<<<<` / `>>>>>>>`)가 있으면 `conflict`로 거절한다(단독 `=======` 줄은 오탐하지 않는다).
+  - `switch`·`branch_create(checkout: true)`: 대상 worktree(또는 main checkout)에 실행 중인 agent turn이 있으면 `conflict`로 거절한다.
   - `pull`: 항상 `--ff-only`로만 실행한다.
-  - `push`: force push 플래그를 노출하지 않으며 upstream 미설정 시 `-u origin <branch>`를 사용한다.
+  - `push`: force push 플래그를 노출하지 않으며 `set_upstream: true`일 때 `-u`를 붙인다.
 
 ### 권한, Workflow, 팀, 앱 SDK, 원격
 
@@ -124,7 +126,7 @@ core 기동 시 `creating` 또는 `removing` 상태로 남은 행을 정산한�
 - **route**:
   - `worktrees/list`, `worktrees/get`, `worktrees/remove_preflight`, `worktrees/create`, `worktrees/adopt`, `worktrees/rename`, `worktrees/remove`, `worktrees/settings_get`, `worktrees/settings_set`, `worktrees/detect_include`.
   - `source_control/status`, `source_control/diff`, `source_control/log`, `source_control/show`, `source_control/branches`, `source_control/stage`, `source_control/unstage`, `source_control/discard`, `source_control/commit`, `source_control/branch_create`, `source_control/switch`, `source_control/pull`, `source_control/push`.
-- **event(남지 않음, `REMOTE_ALLOWED_EVENTS` 포함)**: `WorktreesChanged { project }`, `WorktreeStatusChanged { project, worktree_id, status }`.
+- **event(남지 않음, `REMOTE_ALLOWED_EVENTS` 포함)**: `WorktreesChanged { project, worktree? }`, `WorktreeStatusChanged { project, status }` (`status.worktree_id` 포함).
 - **CLI**: `lophn worktree list|get|status|create|adopt|rename|remove`, `lophn team spawn --worktree new|inherit|<wkt_id>`.
 - **SDK**: `@lophn/flow` `2.2.0`(`agent({ worktree })`), `@lophn/app-ui` `2.27.0`(`useWorktrees`), `@lophn/agent` `1.21.0`(`worktree_remove` GateCall).
 - **저장(ledger)**: schema step `projects.worktrees`(`project_worktrees`, `project_worktree_settings`, `sessions.worktree_id`).

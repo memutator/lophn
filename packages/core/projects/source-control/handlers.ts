@@ -59,6 +59,8 @@ export type SourceControlHandlersDeps = {
   ): boolean;
   isDevice(principal: string): boolean;
   granted(principal: string): boolean;
+  // agent session의 소속 project id. Home/App session이면 null.
+  sessionProject(session: string): Promise<Result<Id<"prj"> | null>>;
   mutex?: RepoGitMutex;
   git?: GitRunner;
   onChanged?(project: Id<"prj">, worktree?: Id<"wkt">): void;
@@ -137,15 +139,14 @@ async function readGitOperationsState(gitDir: string) {
   };
 }
 
+// 단독 `=======` 줄(Markdown setext 제목 밑줄 등) 오탐을 피하고 git 충돌 시작/끝 마커만 잡는다.
+const CONFLICT_MARKER_LINE = /^(?:<{7}|>{7})(?: |$)/;
+
 function hasConflictMarkersInDiff(diff: string): boolean {
   for (const line of diff.split(/\r?\n/)) {
     if (!line.startsWith("+") || line.startsWith("+++")) continue;
     const body = line.slice(1);
-    if (
-      body.startsWith("<<<<<<< ") ||
-      body === "=======" ||
-      body.startsWith(">>>>>>> ")
-    ) {
+    if (CONFLICT_MARKER_LINE.test(body)) {
       return true;
     }
   }
@@ -186,6 +187,39 @@ function parseLogRecords(stdout: string): SourceControlCommit[] {
 export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
   const git = deps.git ?? runGit;
   const mutex = deps.mutex ?? new RepoGitMutex();
+
+  const isAgent = (who: AuthenticatedContext): boolean =>
+    who.actor === "agent" || who.actor.startsWith("agent:");
+
+  // agent는 자기 project workspace의 source control만 읽을 수 있다.
+  async function checkAgentProjectScope(
+    who: AuthenticatedContext,
+    project: Id<"prj">,
+  ): Promise<Result<void>> {
+    if (!isAgent(who)) return ok(undefined);
+    if (
+      who.conditions.project !== undefined &&
+      who.conditions.project !== project
+    ) {
+      return forbidden(
+        "agent may only access source control in its own project workspace",
+        "cross_project",
+      );
+    }
+    const session = who.conditions.session;
+    if (session === undefined) {
+      return forbidden("agent session is missing");
+    }
+    const owned = await deps.sessionProject(session);
+    if (!owned.ok) return owned;
+    if (owned.value !== project) {
+      return forbidden(
+        "agent may only access source control in its own project workspace",
+        "cross_project",
+      );
+    }
+    return ok(undefined);
+  }
 
   const canWriteFor = (who: AuthenticatedContext): boolean => {
     if (who.actor !== "user") return false;
@@ -293,6 +327,11 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
     if (!parsed.success) {
       return err({ code: "invalid_input", message: "invalid status input" });
     }
+    const scope = await checkAgentProjectScope(
+      who,
+      parsed.data.project as Id<"prj">,
+    );
+    if (!scope.ok) return scope;
     const target = await resolveTarget(parsed.data);
     if (!target.ok) return target;
     const res = await git(target.value.cwd, [
@@ -326,11 +365,16 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
     });
   };
 
-  const diff: ReadHandler = async (_who, raw) => {
+  const diff: ReadHandler = async (who, raw) => {
     const parsed = sourceControlDiff.input.safeParse(raw);
     if (!parsed.success) {
       return err({ code: "invalid_input", message: "invalid diff input" });
     }
+    const scope = await checkAgentProjectScope(
+      who,
+      parsed.data.project as Id<"prj">,
+    );
+    if (!scope.ok) return scope;
     const target = await resolveTarget(parsed.data);
     if (!target.ok) return target;
     const args = ["--no-optional-locks", "diff", "--no-color"];
@@ -709,11 +753,16 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
     return done;
   };
 
-  const log: ReadHandler = async (_who, raw) => {
+  const log: ReadHandler = async (who, raw) => {
     const parsed = sourceControlLog.input.safeParse(raw);
     if (!parsed.success) {
       return err({ code: "invalid_input", message: "invalid log input" });
     }
+    const scope = await checkAgentProjectScope(
+      who,
+      parsed.data.project as Id<"prj">,
+    );
+    if (!scope.ok) return scope;
     const target = await resolveTarget(parsed.data);
     if (!target.ok) return target;
     const limit = parsed.data.limit ?? 50;
@@ -748,11 +797,16 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
     return ok({ commits: parseLogRecords(res.stdout) });
   };
 
-  const show: ReadHandler = async (_who, raw) => {
+  const show: ReadHandler = async (who, raw) => {
     const parsed = sourceControlShow.input.safeParse(raw);
     if (!parsed.success) {
       return err({ code: "invalid_input", message: "invalid show input" });
     }
+    const scope = await checkAgentProjectScope(
+      who,
+      parsed.data.project as Id<"prj">,
+    );
+    if (!scope.ok) return scope;
     const safeSha = assertSafeRefName(parsed.data.sha, "sha");
     if (!safeSha.ok) return safeSha;
     const target = await resolveTarget(parsed.data);
@@ -863,11 +917,16 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
     });
   };
 
-  const branches: ReadHandler = async (_who, raw) => {
+  const branches: ReadHandler = async (who, raw) => {
     const parsed = sourceControlBranches.input.safeParse(raw);
     if (!parsed.success) {
       return err({ code: "invalid_input", message: "invalid branches input" });
     }
+    const scope = await checkAgentProjectScope(
+      who,
+      parsed.data.project as Id<"prj">,
+    );
+    if (!scope.ok) return scope;
     const target = await resolveTarget(parsed.data);
     if (!target.ok) return target;
 

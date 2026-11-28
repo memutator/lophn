@@ -252,6 +252,33 @@ import {
   projectCommandsStop,
 } from "../projects/project-commands.ts";
 import {
+  sourceControlBranchCreate,
+  sourceControlBranches,
+  sourceControlCommit,
+  sourceControlDiff,
+  sourceControlDiscard,
+  sourceControlLog,
+  sourceControlPull,
+  sourceControlPush,
+  sourceControlShow,
+  sourceControlStage,
+  sourceControlStatus,
+  sourceControlSwitch,
+  sourceControlUnstage,
+} from "../projects/source-control.ts";
+import {
+  worktreesAdopt,
+  worktreesCreate,
+  worktreesDetectInclude,
+  worktreesGet,
+  worktreesList,
+  worktreesRemove,
+  worktreesRemovePreflight,
+  worktreesRename,
+  worktreesSettingsGet,
+  worktreesSettingsSet,
+} from "../projects/worktrees.ts";
+import {
   projectFilesCopy,
   projectFilesCreate,
   projectFilesList,
@@ -442,6 +469,22 @@ export const REMOTE_ALLOWED_ROUTES = [
   projectCommandsStop,
   projectCommandsRestart,
   projectCommandsLogs,
+  // git worktrees: 읽기는 연결된 기기에 허용, 변이(create·adopt·rename·remove)는 받는 컴퓨터가 터미널 입력 허락을 본다
+  worktreesList,
+  worktreesGet,
+  worktreesRemovePreflight,
+  worktreesSettingsGet,
+  worktreesDetectInclude,
+  worktreesCreate,
+  worktreesAdopt,
+  worktreesRename,
+  worktreesRemove,
+  // source control: 읽기(status·diff·log·show·branches)는 연결된 기기에 허용, 쓰기는 REMOTE_PERSON_ROUTES
+  sourceControlStatus,
+  sourceControlDiff,
+  sourceControlLog,
+  sourceControlShow,
+  sourceControlBranches,
   // 다른 컴퓨터가 넘긴 앱 command의 입구. 허락받은 컴퓨터만 core가 받는다(`by` 없는 폰은 forbidden)
   appRemoteCall,
   // 다른 컴퓨터의 agent가 보낸 mail의 입구. 명단의 컴퓨터만 받는다(handler가 본다. 폰은 forbidden)
@@ -604,6 +647,16 @@ export const REMOTE_PERSON_ROUTES = [
   projectFilesRename,
   projectFilesCopy,
   projectFilesRemove,
+  // worktree 설정 쓰기와 소스 컨트롤 쓰기(허락받은 기기만)
+  worktreesSettingsSet,
+  sourceControlStage,
+  sourceControlUnstage,
+  sourceControlDiscard,
+  sourceControlCommit,
+  sourceControlBranchCreate,
+  sourceControlSwitch,
+  sourceControlPush,
+  sourceControlPull,
   // 받은 transfer 정리는 허락받은 기기만
   transfersClear,
   // workflow·설정 정의 넘기기와 적용(허락받은 기기만)
@@ -713,6 +766,9 @@ export const REMOTE_ALLOWED_EVENTS = [
   // project commands 정의·실행 상태 바뀜: 다른 컴퓨터 창이 메뉴와 사이드바 표시를 따라간다
   "ProjectCommandsChanged",
   "ProjectCommandRunChanged",
+  // worktree 목록·상태 바뀜: 다른 컴퓨터 창이 Explorer와 소스 컨트롤 표시를 따라간다
+  "WorktreesChanged",
+  "WorktreeStatusChanged",
 ] as const satisfies readonly BusEvent["type"][];
 
 // 명단의 컴퓨터가 위 목록에 더해 받는 event다. 다른 컴퓨터의 앱 event를 구독하는 job과 앱이 건다. core가 내용으로 한 번 더 가린다: 앱이 선언해 낸

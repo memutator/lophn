@@ -104,9 +104,42 @@ export type AppProject = {
   status: "active" | "archived";
 };
 
+/** 앱 화면이 읽는 project의 worktree와 최신 git 상태(읽기 전용). */
+export type AppWorktreeStatus = {
+  presence: "present" | "missing" | "unmounted";
+  branch: string | null;
+  detached: boolean;
+  head_sha: string | null;
+  dirty: boolean;
+  staged_count: number;
+  unstaged_count: number;
+  untracked_count: number;
+  conflicted_count: number;
+  ahead: number | null;
+  behind: number | null;
+  updated_at: string;
+};
+
+export type AppWorktree = {
+  id: string;
+  project_id: string;
+  label: string;
+  branch: string | null;
+  base_ref: string | null;
+  provenance: "managed" | "adopted";
+  status: "creating" | "ready" | "missing" | "removing" | "removed";
+  created_at: string;
+  updated_at: string;
+  git: AppWorktreeStatus;
+};
+
 /** lophn project 읽기. 보관한 project도 싣는다(`status`). */
 export type LophnAppProjects = {
   list(): Promise<Result<{ projects: AppProject[] }>>;
+  /** 그 project의 worktree 목록과 최신 git 상태를 읽는다(`project`는 `prj_` id, `pri_` identity 또는 project 이름). */
+  worktrees(project: string): Promise<Result<{ worktrees: AppWorktree[] }>>;
+  /** worktree 목록이나 상태가 바뀔 때 project id(`prj_`)를 알린다. 돌려주는 함수로 푼다. */
+  onWorktreesChanged(listener: (project: string) => void): () => void;
 };
 
 /**

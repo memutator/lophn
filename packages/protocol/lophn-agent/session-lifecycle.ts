@@ -86,6 +86,8 @@ export const sessionInfoSchema = z.object({
     .nullable(),
   // workflow step이 넘겼거나 그 세션이 team spawn으로 연 자식이면 소속 workflow와 step. 아니면 null이다.
   workflow: sessionWorkflowOriginSchema.nullable(),
+  // worktree에 묶인 project session이면 그 worktree id.
+  worktree_id: idSchema("wkt").nullable().optional(),
 });
 export type SessionInfo = z.infer<typeof sessionInfoSchema>;
 

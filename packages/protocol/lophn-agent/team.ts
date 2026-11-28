@@ -64,6 +64,10 @@ export const teamSpawn = defineCommand({
     body: contentBlocksSchema,
     // 이 팀원이 부모에게 무엇인지(`TabRelation`의 peer·stage). 같은 workspace면 그 뜻대로 부모 탭 곁에 열린다. 없으면 peer다.
     relation: z.enum(["peer", "stage"]).optional(),
+    // worktree 정책: "new"(새 worktree 생성), "inherit"(부모 상속, 기본), 또는 명시적 worktree id.
+    worktree: z
+      .union([z.literal("new"), z.literal("inherit"), idSchema("wkt")])
+      .optional(),
     // 보낸 쪽 tool call ID. 같은 호출을 다시 보내도 session이 하나만 생긴다.
     dedup: z.string().min(1),
   }),

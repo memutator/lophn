@@ -30,6 +30,7 @@ import {
   workflowRefsSchema,
   workflowStateSchema,
   workflowTextSchema,
+  worktreePolicySchema,
 } from "./values.ts";
 
 export const lineBySchema = z.discriminatedUnion("kind", [
@@ -78,6 +79,7 @@ export const instanceStepSchema = z.strictObject({
   needs: z.array(stepNameSchema).optional(),
   join: stepJoinModeSchema.optional(),
   open: sessionOpenModeSchema.optional(),
+  worktree: worktreePolicySchema.optional(),
   permission_mode: permissionModeSchema.optional(),
 });
 export type InstanceStep = z.infer<typeof instanceStepSchema>;
@@ -133,6 +135,8 @@ export const NOT_HANDED_REASONS = [
   "unknown_computer",
   // 다른 컴퓨터로 넘긴 step이 거기서 돌지 못했다(건너뜀, 만료, 옛 판, 거절, 없는 받는 곳, 그 기계의 재시작).
   "remote_failed",
+  // step을 위한 새 worktree를 만들거나 이어받지 못했다.
+  "worktree_failed",
 ] as const;
 export const notHandedReasonSchema = z.enum(NOT_HANDED_REASONS);
 export type NotHandedReason = z.infer<typeof notHandedReasonSchema>;
@@ -167,6 +171,7 @@ export const newStepSchema = z.strictObject({
   needs: z.array(stepNameSchema).optional(),
   join: stepJoinModeSchema.optional(),
   open: sessionOpenModeSchema.optional(),
+  worktree: worktreePolicySchema.optional(),
 });
 export type NewStep = z.infer<typeof newStepSchema>;
 
@@ -181,6 +186,7 @@ const stepPatchSchema = z.strictObject({
   needs: z.array(stepNameSchema).nullable().optional(),
   join: stepJoinModeSchema.nullable().optional(),
   open: sessionOpenModeSchema.nullable().optional(),
+  worktree: worktreePolicySchema.nullable().optional(),
 });
 
 // 이름이 겹치는 add는 conflict, 없는 name의 update·remove는 not_found다. 가리키는 이름이 있는지는 보지 않는다.

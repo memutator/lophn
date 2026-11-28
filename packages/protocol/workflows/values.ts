@@ -70,6 +70,10 @@ export const stepNextSchema = z.union([stepNameSchema, z.literal(STEP_END)]);
 
 export const participantKeySchema = z.string().min(1).max(63);
 
+export const WORKTREE_POLICIES = ["new", "inherit"] as const;
+export const worktreePolicySchema = z.enum(WORKTREE_POLICIES);
+export type WorktreePolicy = z.infer<typeof worktreePolicySchema>;
+
 // step을 받는 참가자다. agent 이름과 workspace 이름(없으면 instance의 project)이거나,
 // with의 참가자 session에 사람 차례를 적는 human이다. harness agent는 이름이 있는 agent라 agent 참가자다.
 // on은 그 agent가 있는 사람의 다른 컴퓨터(명단의 이름이나 `mch_`)다. 넘길 때마다 푼다.
@@ -79,6 +83,7 @@ export const participantSchema = z.union([
     workspace: workspaceNameSchema.optional(),
     on: z.string().min(1).optional(),
     open: sessionOpenModeSchema.optional(),
+    worktree: worktreePolicySchema.optional(),
   }),
   z.strictObject({ kind: z.literal("human") }),
 ]);

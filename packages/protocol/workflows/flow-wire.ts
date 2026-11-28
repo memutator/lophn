@@ -13,6 +13,7 @@ import {
   workflowOutcomeReasonSchema,
   workflowRefsSchema,
   workflowTextSchema,
+  worktreePolicySchema,
 } from "./values.ts";
 
 // flow process와 core가 stdin·stdout에 줄마다 JSON 하나씩 주고받는 약속이다.
@@ -121,6 +122,7 @@ export const flowAgentRequestSchema = z.strictObject({
   mode: flowAgentModeSchema.optional(),
   session: flowSessionChoiceSchema.optional(),
   open: sessionOpenModeSchema.optional(),
+  worktree: worktreePolicySchema.optional(),
   step: z.string().min(1).optional(),
   on: z.string().min(1).optional(),
   cancel_id: z.string().min(1).optional(),

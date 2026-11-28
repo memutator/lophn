@@ -60,6 +60,8 @@ const workspaceSessionObject = z.object({
   opened_by_app: idSchema("app").nullable(),
   // runtime이 harness인 agent의 session이면 그 harness. 열 때 정해 바뀌지 않는다.
   harness: z.enum(HARNESS_RUNTIMES).nullable(),
+  // worktree에 묶인 project session이면 그 worktree id. 열 때 정해 바뀌지 않는다.
+  worktree_id: idSchema("wkt").nullable().optional(),
   state_seq: seqSchema,
 });
 
@@ -97,11 +99,13 @@ export const workspaceSessionOpen = defineCommand({
     agent: agentIdSchema,
     workspace: workspaceSchema.nullable(),
     title: sessionTitleSchema.optional(),
+    worktree_id: idSchema("wkt").optional(),
   }),
   output: z.object({
     id: idSchema("ses"),
     lifecycle: z.literal("open"),
     workspace: workspaceOutputSchema.nullable(),
+    worktree_id: idSchema("wkt").nullable().optional(),
     state_seq: seqSchema,
   }),
   compare: z.strictObject({}),

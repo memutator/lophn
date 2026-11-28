@@ -211,6 +211,7 @@ export const projectCommandRunSchema = z.strictObject({
   signal: z.string().nullable(),
   detected_urls: z.array(z.string()).max(PROJECT_COMMAND_DETECTED_URLS_MAX),
   ended_by: runEndedBySchema.nullable(),
+  worktree_id: idSchema("wkt").nullable().optional(),
 });
 export type ProjectCommandRun = z.infer<typeof projectCommandRunSchema>;
 
@@ -385,6 +386,7 @@ export const projectCommandsRun = defineMemory({
   input: z.strictObject({
     project: idSchema("prj"),
     command: z.string().trim().min(1).max(120),
+    worktree_id: idSchema("wkt").optional(),
     wait: z.boolean().optional(),
     tool_call: idSchema("tcl").optional(),
   }),
@@ -427,6 +429,7 @@ export const projectCommandsRestart = defineMemory({
   input: z.strictObject({
     project: idSchema("prj"),
     command: z.string().trim().min(1).max(120),
+    worktree_id: idSchema("wkt").optional(),
     wait: z.boolean().optional(),
     tool_call: idSchema("tcl").optional(),
   }),

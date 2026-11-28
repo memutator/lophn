@@ -11,6 +11,8 @@ export * from "./project-search.ts";
 export * from "./project-files.ts";
 export * from "./artifact-api.ts";
 export * from "./project-commands.ts";
+export * from "./worktrees.ts";
+export * from "./source-control.ts";
 
 import { PROJECT_SEARCH_ROUTES } from "./project-search.ts";
 import { PROJECT_FILES_ROUTES } from "./project-files.ts";
@@ -19,6 +21,8 @@ import {
   ARTIFACT_MEMORY_ROUTES,
 } from "./artifact-api.ts";
 import { PROJECT_COMMAND_ROUTES } from "./project-commands.ts";
+import { WORKTREE_ROUTES } from "./worktrees.ts";
+import { SOURCE_CONTROL_ROUTES } from "./source-control.ts";
 
 import { PROJECT_API_ROUTES } from "./project-api.ts";
 import {
@@ -42,4 +46,6 @@ export const ROUTES = [
   ...ARTIFACT_MEMORY_ROUTES,
   ...ARTIFACT_FILE_ROUTES,
   ...PROJECT_COMMAND_ROUTES,
+  ...WORKTREE_ROUTES,
+  ...SOURCE_CONTROL_ROUTES,
 ] as const;

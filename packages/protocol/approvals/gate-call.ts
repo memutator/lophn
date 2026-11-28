@@ -104,6 +104,22 @@ const askedCallOptions = [
     execution: z.enum(["agent", "flow"]),
     lines: z.array(z.string().min(1)).min(1),
   }),
+  // agent가 worktree를 제거하려 한다. 대상 경로, 브랜치, preflight 요약과 force·stop_sessions·delete_branch 여부를 싣는다. always가 없다.
+  z.strictObject({
+    kind: z.literal("worktree_remove"),
+    project: idSchema("prj"),
+    worktree: idSchema("wkt"),
+    path: z.string().min(1),
+    branch: z.string().nullable(),
+    provenance: z.enum(["managed", "adopted"]),
+    dirty_count: z.number().int().nonnegative(),
+    untracked_count: z.number().int().nonnegative(),
+    ahead: z.number().int().nonnegative().nullable(),
+    has_submodules: z.boolean(),
+    force: z.boolean(),
+    stop_sessions: z.boolean(),
+    delete_branch: z.boolean(),
+  }),
 ] as const;
 
 // 사람에게 물을 수 있는 호출이다. 승인 카드(turn request)와 ACP 승인 subject가 이것만 쓴다.

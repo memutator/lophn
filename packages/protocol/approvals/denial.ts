@@ -16,6 +16,7 @@ export const PERMISSION_CATEGORIES = [
   "project_command",
   "project_command_definition",
   "workflow_run",
+  "worktree_remove",
   "web",
   "extension_tool",
   "other",

@@ -52,6 +52,7 @@ const ID_PREFIXES = {
   trf: "Transfer",
   pcs: "PhoneCustody",
   stg: "StagedSettings",
+  wkt: "Worktree",
 } as const;
 
 export type IdPrefix = keyof typeof ID_PREFIXES;

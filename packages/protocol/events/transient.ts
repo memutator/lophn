@@ -17,6 +17,7 @@ import { traceIdSchema } from "../apps/calls/caller.ts";
 import { APP_CALL_DEPTH_LIMIT } from "../apps/channel-values.ts";
 import { appIdSchema } from "../projects/values.ts";
 import { projectCommandRunSchema } from "../projects/project-commands.ts";
+import { worktreeGitStatusSchema } from "../projects/worktrees.ts";
 import { CHANGE_NAMES } from "./changes.ts";
 
 // 남지 않는 event는 session 밖에서 화면만 알면 되는 일이다. 메모리로만 흐르고 Ledger에 쓰지 않는다.
@@ -355,6 +356,24 @@ const terminalClipboardWritten = defineTransientEvent(
   },
 );
 
+// project의 worktree 목록이나 설정·상태 전이가 바뀌었다. subject는 project id다.
+const worktreesChanged = defineTransientEvent("WorktreesChanged", {
+  subject: idSchema("prj"),
+  payload: z.strictObject({
+    project: idSchema("prj"),
+    worktree: idSchema("wkt").optional(),
+  }),
+});
+
+// worktree의 git 상태(브랜치, dirty 수, 앞섬/뒤짐, presence)가 바뀌었다. subject는 project id다.
+const worktreeStatusChanged = defineTransientEvent("WorktreeStatusChanged", {
+  subject: idSchema("prj"),
+  payload: z.strictObject({
+    project: idSchema("prj"),
+    status: worktreeGitStatusSchema,
+  }),
+});
+
 export const transientEventSchema = z.discriminatedUnion("type", [
   transientEventEnvelopeSchema(acpUpdated).extend({
     session: idSchema("ses"),
@@ -387,4 +406,6 @@ export const transientEventSchema = z.discriminatedUnion("type", [
   transientEventEnvelopeSchema(projectCommandsChanged),
   transientEventEnvelopeSchema(projectCommandRunChanged),
   transientEventEnvelopeSchema(terminalClipboardWritten),
+  transientEventEnvelopeSchema(worktreesChanged),
+  transientEventEnvelopeSchema(worktreeStatusChanged),
 ]);

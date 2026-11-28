@@ -97,6 +97,8 @@ export const terminalRuntimeSchema = z.strictObject({
       held: z.boolean(),
     })
     .optional(),
+  // worktree에서 연 터미널이면 그 worktree id.
+  worktree_id: idSchema("wkt").nullable().optional(),
 });
 export type TerminalRuntime = z.infer<typeof terminalRuntimeSchema>;
 
@@ -188,6 +190,7 @@ export const terminalsOpen = defineMemory({
   input: z.strictObject({
     project: terminalProjectSchema,
     folder_ref: folderRefSchema.optional(),
+    worktree_id: idSchema("wkt").optional(),
     cwd: z.string().min(1).max(4096).optional(),
     command: terminalCommandSchema.optional(),
     resume: z

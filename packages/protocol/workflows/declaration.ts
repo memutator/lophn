@@ -7,6 +7,7 @@ import {
   stepJoinModeSchema,
   stepNameSchema,
   stepNextSchema,
+  worktreePolicySchema,
 } from "./values.ts";
 
 // lophn이 읽는 칸만 검사한다. 모르는 칸은 틀렸다고 하지 않고 읽지도 않는다.
@@ -21,6 +22,7 @@ export const declarationParticipantSchema = z.union([
     workspace: workspaceNameSchema.optional(),
     on: z.string().min(1).optional(),
     open: sessionOpenModeSchema.optional(),
+    worktree: worktreePolicySchema.optional(),
   }),
 ]);
 
@@ -37,6 +39,7 @@ export const declarationStepSchema = z.looseObject({
   needs: z.array(stepNameSchema).optional(),
   join: stepJoinModeSchema.optional(),
   open: sessionOpenModeSchema.optional(),
+  worktree: worktreePolicySchema.optional(),
 });
 
 // 통합 선언 schema다. `kind`는 제거하되 기존 YAML에 남아 있으면 보존·무시하고,

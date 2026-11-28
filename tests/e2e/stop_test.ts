@@ -25,6 +25,7 @@ import {
   say,
   stopTurn,
   turnsOf,
+  decide,
   until,
   waitPermission,
   waitTurnEnd,
@@ -195,6 +196,13 @@ test("shell이 도는 중 멈추면 shell process group이 죽는다", async () 
       id: project,
     });
     await say(core, session, "run the long command");
+    // 읽기 명령이 아닌 shell은 묻는다. 허락해야 shell이 돈다.
+    await decide(
+      core,
+      session,
+      (await waitPermission(core, session)).request,
+      "once",
+    );
     await until(
       "shell이 started를 씀",
       async () =>

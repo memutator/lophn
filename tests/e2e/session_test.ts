@@ -57,12 +57,14 @@ import { fieldsOf } from "../../packages/cli/parser.ts";
 import { projectApi } from "../../packages/protocol/projects/mod.ts";
 import {
   connectFakeProvider,
+  decide,
   openLophnSession,
   openProject,
   say,
   until,
   waitPermission,
   waitTurnEnd,
+  waitTurnEndAnswering,
 } from "../support/core/human.ts";
 import {
   bootCore,
@@ -489,7 +491,7 @@ test("session 열기·보관·fork는 agent와 workspace, 이력의 규칙을 �
     );
 
     await t.test(
-      "lophn-reads-not-writes: lophn은 project 폴더를 읽고 쓰기 tool은 목록에 없다",
+      "lophn-reads-not-writes: Home의 lophn은 project 폴더를 묻지 않고 읽고, 쓰려 하면 사람에게 묻고 거절하면 쓰지 못한다",
       async () => {
         f.reset();
         await newProject(c, "lophn-scope");
@@ -520,22 +522,25 @@ test("session 열기·보관·fork는 agent와 workspace, 이력의 규칙을 �
           textReply("done"),
         ]);
         await say(c, session, "read and write");
+        // Home의 쓰기 범위는 skills·tools 폴더뿐이라 project 폴더 쓰기는 폴더 밖 쓰기로 묻는다.
+        await decide(
+          c,
+          session,
+          (await waitPermission(c, session)).request,
+          "reject",
+        );
         const turn = await waitTurnEnd(c, session);
 
         // fake
         const names = toolNamesOf(f);
         assert.ok(names.includes("file_read"));
-        for (const gone of ["file_write", "file_edit"]) {
-          assert.ok(!names.includes(gone), `lophn에 ${gone}이 보인다`);
-        }
         // Home의 lophn도 shell.run은 받는다(시작 폴더는 사람의 OS home).
         assert.ok(names.includes("shell_run"));
         assert.ok(toolResultOf(f, "t-read").includes("alpha"));
-        // 없는 tool의 call은 tool_result로만 not_found를 돌려받고 ledger에는 행이 없다(tool 정의가 없어 진입하지 않는다).
-        assert.ok(toolResultOf(f, "t-write").includes("not_found"));
         // ledger
         assert.deepStrictEqual(await outcomesOf(c, turn.id), {
           "t-read": { kind: "success", code: "ok" },
+          "t-write": { kind: "not_executed", code: "rejected" },
         });
         // disk
         assert.ok(!(await exists(`${folder}/new.md`)));
@@ -577,8 +582,8 @@ test("session 열기·보관·fork는 agent와 workspace, 이력의 규칙을 �
           textReply("done"),
         ]);
         await say(c, session, "use the tools");
-        // 물었다면 turn이 기다려 끝나지 않는다.
-        const turn = await waitTurnEnd(c, session);
+        // shell 실행(읽기 명령이 아님)은 묻는다. 허락해야 made.txt가 생긴다.
+        const turn = await waitTurnEndAnswering(c, session);
 
         // disk
         assert.deepStrictEqual(

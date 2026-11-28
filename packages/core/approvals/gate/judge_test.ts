@@ -457,8 +457,46 @@ test("사람 전용 등급(setting, project_command_definition, 미신뢰 local_
       }
     }
   }
+});
 
-  // workflow_run은 read_only 단계에서 mode 거부다.
+test("worktree_remove는 attended에서 once-only로 묻고, team_child는 부모에게 묻고, unattended는 막고, read_only는 mode deny다", () => {
+  const removeCall: GateCall = {
+    kind: "worktree_remove",
+    project: "prj_0000000000000000000000000a",
+    worktree: "wkt_00000000000000000000000001",
+    path: "/data/worktrees/repo-12345678/wt-1234",
+    branch: "wt/test-1234",
+    provenance: "managed",
+    dirty_count: 1,
+    untracked_count: 0,
+    ahead: 2,
+    has_submodules: false,
+    force: false,
+    stop_sessions: false,
+    delete_branch: false,
+  };
+
+  const ro = evalReq(removeCall, "read_only", "attended");
+  assert.strictEqual(ro.kind, "deny");
+  assert.strictEqual(ro.denial.reason_kind, "mode");
+
+  for (const mode of ["ask", "workspace", "full"] as const) {
+    const attended = evalReq(removeCall, mode, "attended");
+    assert.strictEqual(attended.kind, "ask");
+    assert.deepStrictEqual(attended.allowed_choices, ["once", "reject"]);
+    assert.strictEqual(attended.outside_rewind, true);
+
+    const child = evalReq(removeCall, mode, "team_child");
+    assert.strictEqual(child.kind, "ask");
+    assert.deepStrictEqual(child.allowed_choices, ["once", "reject"]);
+
+    const unattended = evalReq(removeCall, mode, "unattended");
+    assert.strictEqual(unattended.kind, "deny");
+    assert.strictEqual(unattended.denial.reason_kind, "no_person");
+  }
+});
+
+test("workflow_run은 read_only 단계에서 mode 거부다", () => {
   const wfReadOnly = evalReq(
     {
       kind: "workflow_run",

@@ -17,7 +17,7 @@ project에서 되풀이해 돌리는 일회성 명령(`action`: build, test, lin
   - 같은 `pri_` 정체성을 가진 연결된 다른 컴퓨터 가운데 터미널 입력이 허락된 컴퓨터의 명령을 원격으로 보고 실행·중지·재시작한다(사람만).
 - 비목표:
   - 저장소 파일 쓰기·내보내기, repo 파일 직접 실행과 content-hash 신뢰 게이트.
-  - 프로젝트 열기·core 시작 시 자동 실행, worktree·archive 훅.
+  - 프로젝트 열기·core 시작 시 자동 실행(worktree setup/teardown 훅과 선택 `worktree_id` 실행은 `worktree.md`로 지원한다).
   - 헤더 실행 단추, 하단 Commands 패널, 탭 우클릭 메뉴.
   - 포트 할당, 역프록시, 커널 포트 스캔, 컴퓨터 사이 정의 동기화, OS별 명령 분기.
   - agent의 원격 명령 실행, 폰 전용 UI(route는 기기 목록에 포함).
@@ -47,7 +47,7 @@ idle ─▶ starting ─▶ running ─┬─ exit 0           ─▶ succeeded 
 
 - 실행은 대화형 셸에 타이핑하지 않고 PTY host에서 명령 전용 PTY(`dedicated: true`)로 띄운다: POSIX는 로그인 셸(`bash`·`zsh`·`fish` `-lc`, `sh`·`dash` `-c`), Windows는 `pwsh`/`powershell` `-NoLogo -Command` 또는 `cmd.exe /d /s /c`.
 - 실행 직전마다 `folderOfCwd`로 기준 등록 폴더 아래 realpath를 검사해 symlink 탈출을 막는다.
-- 환경변수 조립 순서는 `PersonEnv` → `COLORTERM=truecolor`·`FORCE_COLOR=1`(`CI=1` 미설정) → `PROJECT_ROOT`·`PROJECT_CWD`·`COMMAND_ID`·`COMMAND_NAME` → 정의의 `env`다.
+- 환경변수 조립 순서는 `PersonEnv` → `COLORTERM=truecolor`·`FORCE_COLOR=1`(`CI=1` 미설정) → `PROJECT_ROOT`·`PROJECT_CWD`·`COMMAND_ID`·`COMMAND_NAME`(선택 `worktree_id`로 실행 시 `WORKTREE_ID`·`WORKTREE_PATH`·`WORKTREE_BRANCH`·`WORKTREE_BASE_BRANCH` 추가, `worktree.md`) → 정의의 `env`다.
 - 이미 `starting`·`running` 중인 명령을 다시 `run`하면 `conflict`로 거절한다. 재시작은 `restart`(명령별 직렬 큐에서 중지 후 재기동)로 한다.
 - 중지는 프로세스 트리 전체다(POSIX 프로세스 그룹 `SIGTERM` → 3초 → `SIGKILL`, Windows `taskkill /T /F`). 사람이 멈춘 것은 `stopped`이지 `failed`가 아니다.
 - 실행 중에는 링버퍼(1,000줄)를 유지하고, 종료 후에는 마지막 결과와 출력 꼬리(최대 200줄 / 32 KiB)를 명령마다 메모리에 남긴다. core 정상 종료 시 도는 명령을 모두 멈추고(`ended_by: shutdown`), 재시작 뒤에는 유령 `running`을 만들지 않는다.

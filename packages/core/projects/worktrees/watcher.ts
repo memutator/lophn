@@ -4,7 +4,6 @@
 // 디바운스(1.2초)로 활성 worktree의 상태를 다시 읽는다. 삭제/ENOENT 감지 시 즉시 감시자를 해제한다.
 import { type FSWatcher, watch } from "node:fs";
 import { join } from "node:path";
-import process from "node:process";
 import type { Clock, IdSource, Logger, Result } from "../../../base/mod.ts";
 import type { Id } from "../../../protocol/base/ids.ts";
 import type {
@@ -17,11 +16,7 @@ import {
   readWorktreeGitStatus,
   runGit,
 } from "./git.ts";
-import {
-  isFilesystemRoot,
-  isSameOrInside,
-  safeRealpath,
-} from "./paths.ts";
+import { isFilesystemRoot, isSameOrInside, safeRealpath } from "./paths.ts";
 import type { StoredWorktreeRow } from "./store.ts";
 
 const DEBOUNCE_MS = 1200;
@@ -274,7 +269,10 @@ export function createWorktreeWatcher(deps: WorktreeWatcherDeps) {
         row.git_common_dir,
         git,
       );
-      const byAdmin = new Map<string, { path: string; branch: string | null }>();
+      const byAdmin = new Map<
+        string,
+        { path: string; branch: string | null }
+      >();
       if (listed.ok) {
         for (const item of listed.value) {
           if (item.git_admin_name !== null) {

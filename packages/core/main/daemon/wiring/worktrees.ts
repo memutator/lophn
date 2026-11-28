@@ -89,11 +89,7 @@ const UNWIRED_READ = () =>
 const WORKTREES_ADMIN_CONTEXT: AuthenticatedContext = {
   ...WORKTREES_CONTEXT,
   scope: {
-    operations: [
-      worktreesStore.name,
-      workspaceSessionRead.name,
-      stopTurn.name,
-    ],
+    operations: [worktreesStore.name, workspaceSessionRead.name, stopTurn.name],
     targets: {},
   },
 };
@@ -101,17 +97,13 @@ const WORKTREES_ADMIN_CONTEXT: AuthenticatedContext = {
 export function createCoreRegistration() {
   return {
     commands: [worktreesStoreCommand],
-    apiReads: [
-      ...WORKTREE_READ_ROUTES,
-      ...SOURCE_CONTROL_READ_ROUTES,
-    ].map((route) => ({
-      route,
-      handle: UNWIRED_READ,
-    })),
-    memoryRoutes: [
-      ...WORKTREE_MEMORY_ROUTES,
-      ...SOURCE_CONTROL_MEMORY_ROUTES,
-    ],
+    apiReads: [...WORKTREE_READ_ROUTES, ...SOURCE_CONTROL_READ_ROUTES].map(
+      (route) => ({
+        route,
+        handle: UNWIRED_READ,
+      }),
+    ),
+    memoryRoutes: [...WORKTREE_MEMORY_ROUTES, ...SOURCE_CONTROL_MEMORY_ROUTES],
   };
 }
 
@@ -426,8 +418,7 @@ export const worktreesWiring: WiringFactory = () => {
             opened.value.close();
           }
         },
-        saveSettings: (project, settings) =>
-          storeWrite(project, { settings }),
+        saveSettings: (project, settings) => storeWrite(project, { settings }),
         detectFs: nodeIncludeDetectFs,
         isDevice,
         granted,
@@ -440,7 +431,9 @@ export const worktreesWiring: WiringFactory = () => {
           if (!found.ok) return found;
           const ws = (
             found.value as {
-              session: { workspace: { kind: "project" | "app"; id: string } | null };
+              session: {
+                workspace: { kind: "project" | "app"; id: string } | null;
+              };
             }
           ).session.workspace;
           return ok(ws?.kind === "project" ? (ws.id as Id<"prj">) : null);

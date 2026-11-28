@@ -138,7 +138,7 @@ agent 사이의 일 맡기기와 답하기를 하나의 모양(call)으로 푼�
 ### 팀
 
 29. 팀의 규칙은 넷이다.
-    1. spawn은 늘 내 밑이다. 부모는 입력이 아니라 자격의 session이다. `--workspace`가 없으면 부모의 workspace다. spawn은 새 session을 여는 call의 길을 그대로 거쳐 받는 곳 풀기, call 정책, 팀 규칙, 명함 검사가 같다. spawn의 실패는 call의 실패가 아니라 오류로 돌려준다(팀이 가득 찬 `conflict`가 `closed`로 바뀌지 않게).
+    1. spawn은 늘 내 밑이다. 부모는 입력이 아니라 자격의 session이다. `--workspace`가 없으면 부모의 workspace다. 같은 project에서는 `--worktree new | inherit | <wkt_id>`(기본 `"inherit"`)로 자식의 git worktree를 지정하거나 부모의 `worktree_id`를 상속한다(`architecture/worktree.md`). spawn은 새 session을 여는 call의 길을 그대로 거쳐 받는 곳 풀기, call 정책, 팀 규칙, 명함 검사가 같다. spawn의 실패는 call의 실패가 아니라 오류로 돌려준다(팀이 가득 찬 `conflict`가 `closed`로 바뀌지 않게).
     2. `spawned_by`가 있는 session의 call은 부모, 형제(같은 부모), 자기 자손에게만 간다. call 정책 다음에 보고 아니면 `forbidden`이다. call 정책은 그 위에 그대로 겹친다. root(`spawned_by` 없음), 사람 메시지, program 입력, reply·cancel은 거르지 않는다. 팀 밖에서 팀원에게 오는 call도 지금 규칙 그대로다. member의 `session list`도 같은 집합만 보인다.
     3. 끝내기(`lophn team end <ses>`)는 자기 엄격한 자손만이다. 대상과 그 밑의 열린 session을 잎부터 archive처럼 닫는다(다른 컴퓨터에서 도는 팀원은 29a). 남의 자손이면 `forbidden`이다. 사람이 부모를 archive하거나 지워도 자식은 남는다. 끝난 session이 다른 session에게서 받은 browser 탭은 준 session에게(끝났으면 사람에게) 돌아간다(`architecture/workspace-layout.md` "agent가 연 탭"의 주기).
     4. session은 자기가 든 browser 탭을 자기 엄격한 자손에게 준다(`lophn tab give <tab> --to <ses>`, 되찾기는 `--back`). 자손이 아니면 `forbidden`이다. 팀의 시야(2)처럼 자식은 부모·형제의 탭을 가져오지 못한다.

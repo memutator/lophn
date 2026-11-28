@@ -37,7 +37,7 @@ session의 경계가 흐리면 사람이 대화에서 잃는 것이 생긴다. �
 
 - 지침 층은 workspace 종류마다 다르다. project는 전역, project의 `LOPHN.md`, agent 정의 본문이다. 앱은 project 지침이 없다. 전역, 앱 source의 `AGENTS.md`(source가 없으면 없다), agent 정의 본문이다. Home은 전역, `<data>/home/LOPHN.md`(없으면 `CLAUDE.md`), agent 정의 본문이다.
 - file 범위(file tool이 읽고 쓸 수 있는 폴더)는 workspace 종류가 정한다.
-  - project: 그 project의 폴더들(사람이 이은 것. 없을 수도 있다)과 그 project의 `workflows/`·`artifacts/`·`skills/`(`<data>/projects/<project>/…`)를 읽고 쓴다.
+  - project: 그 project의 폴더들(사람이 이은 것. 없을 수도 있다)과 그 project의 `workflows/`·`artifacts/`·`skills/`(`<data>/projects/<project>/…`)를 읽고 쓴다. session에 `worktree_id`가 묶여 있으면(열 때 고정, 불변) file 범위의 원래 `repo_root`를 해당 worktree 경로로 치환하고 shell cwd 및 `PROJECT_ROOT`/`WORKTREE_*` 환경 변수를 주입한다(`architecture/worktree.md`). `removing`·`removed`·`missing` 상태의 worktree에는 새 session을 열지 않는다(`conflict`).
   - 앱: 앱 source 폴더, 사람이 앱에 더 이은 폴더(`app.edit_folders`, App details의 Folders), 그 앱의 `artifacts/`·`skills/`(`<data>/apps/<app>/…`)를 읽고 쓴다.
   - home: 등록된 모든 project 폴더를 읽기만 하고, 자기 `skills/`(`<data>/home/skills/`)·`tools/`(`<data>/home/tools/`)와 전역 개인 skill 보관소(`<data>/skills/`)를 읽고 쓴다. workspace info는 Home에 `Skills folder`와 `Global skills folder`를 보인다.
   - 범위는 상대 경로를 푸는 기준 `base`를 싣는다. 그릇의 첫 폴더(project의 첫 폴더, 앱은 source가 있으면 source, 없으면 첫 더한 폴더)이고, 없으면 workspace의 data 폴더(`<data>/projects/<project>`, `<data>/apps/<app>`)다. `base`는 상대 경로를 푸는 기준일 뿐 허락을 넓히지 않는다.

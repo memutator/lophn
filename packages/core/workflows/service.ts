@@ -700,8 +700,7 @@ export function createWorkflowService(
       const input = make(state);
       if (!input.ok) return input;
       const fromSession =
-        input.value.change.kind === "report" &&
-        input.value.by.kind === "agent"
+        input.value.change.kind === "report" && input.value.by.kind === "agent"
           ? (input.value.by.session as Id<"ses">)
           : null;
       const wtCtx = {
@@ -712,7 +711,10 @@ export function createWorkflowService(
         fromSession,
       };
       let materializedInput = input.value;
-      if (materializedInput.handoffs !== undefined && materializedInput.handoffs.length > 0) {
+      if (
+        materializedInput.handoffs !== undefined &&
+        materializedInput.handoffs.length > 0
+      ) {
         const nextHandoffs: HandoffPlan[] = [];
         for (const h of materializedInput.handoffs) {
           nextHandoffs.push(

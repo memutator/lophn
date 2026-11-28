@@ -1,7 +1,14 @@
 // 하드닝된 git 실행기, git_common_dir별 직렬 mutex, 상태·목록 파서, base ref 해석과 비대화형 fetch, Windows/WSL prune 방어.
 import { spawn } from "node:child_process";
 import { constants as fsConstants } from "node:fs";
-import { access, lstat, open, readdir, readFile, unlink } from "node:fs/promises";
+import {
+  access,
+  lstat,
+  open,
+  readdir,
+  readFile,
+  unlink,
+} from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import process from "node:process";
 import { type Clock, err, ok, type Result } from "../../../base/mod.ts";
@@ -166,9 +173,7 @@ export class RepoGitMutex {
 
   run<T>(gitCommonDir: string, work: () => Promise<T>): Promise<T> {
     const key =
-      process.platform === "win32"
-        ? gitCommonDir.toLowerCase()
-        : gitCommonDir;
+      process.platform === "win32" ? gitCommonDir.toLowerCase() : gitCommonDir;
     const prev = this.#queues.get(key) ?? Promise.resolve();
     const next = prev.catch(() => undefined).then(work);
     this.#queues.set(key, next);
@@ -287,9 +292,10 @@ export async function readGitdirAdminName(
       process.platform === "win32" ? resolved.toLowerCase() : resolved;
     const normWorktrees =
       process.platform === "win32" ? worktreesDir.toLowerCase() : worktreesDir;
-    const prefix = normWorktrees.endsWith("/") || normWorktrees.endsWith("\\")
-      ? normWorktrees
-      : `${normWorktrees}${process.platform === "win32" ? "\\" : "/"}`;
+    const prefix =
+      normWorktrees.endsWith("/") || normWorktrees.endsWith("\\")
+        ? normWorktrees
+        : `${normWorktrees}${process.platform === "win32" ? "\\" : "/"}`;
     if (!normResolved.startsWith(prefix)) return null;
     const admin = resolved.slice(prefix.length).replace(/[/\\]+$/, "");
     if (admin === "" || admin.includes("/") || admin.includes("\\")) {
@@ -624,7 +630,9 @@ export async function resolveBaseRef(input: {
       "--verify",
       `${ref}^{commit}`,
     ]);
-    return res.code === 0 && res.stdout.trim() !== "" ? res.stdout.trim() : null;
+    return res.code === 0 && res.stdout.trim() !== ""
+      ? res.stdout.trim()
+      : null;
   };
 
   let chosenRef: string | null = null;
@@ -936,7 +944,11 @@ export async function readGitDirectoryPath(
   cwd: string,
   git: GitRunner = runGit,
 ): Promise<string | null> {
-  const res = await git(cwd, ["rev-parse", "--path-format=absolute", "--git-dir"]);
+  const res = await git(cwd, [
+    "rev-parse",
+    "--path-format=absolute",
+    "--git-dir",
+  ]);
   if (res.code === 0 && res.stdout.trim() !== "") {
     return safeRealpath(res.stdout.trim());
   }

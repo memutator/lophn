@@ -127,14 +127,9 @@ export function createAppProjects(deps: AppProjectsDeps) {
     const projects: AppProject[] = [];
     let cursor: string | undefined;
     do {
-      const reply = await deps.call(view.machine)(
-        "read",
-        "projects",
-        "list",
-        {
-          ...(cursor === undefined ? {} : { cursor }),
-        },
-      );
+      const reply = await deps.call(view.machine)("read", "projects", "list", {
+        ...(cursor === undefined ? {} : { cursor }),
+      });
       if (!reply.ok) {
         return reply.error.code === "conflict"
           ? {
@@ -156,9 +151,7 @@ export function createAppProjects(deps: AppProjectsDeps) {
         if (project !== undefined) projects.push(project);
       }
       cursor =
-        typeof value?.next_cursor === "string"
-          ? value.next_cursor
-          : undefined;
+        typeof value?.next_cursor === "string" ? value.next_cursor : undefined;
     } while (cursor !== undefined);
     return { ok: true, value: { projects } };
   };

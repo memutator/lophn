@@ -94,7 +94,7 @@ program이 내는 것은 이 셋이다.
 1. program이 내는 것은 부를 수 있는 목록, agent마다의 명함, 부르는 길이다. agent는 목록과 명함을 볼 수 있고 부를 수 있어야 한다. (사람, 2026-11-21)
 2. 어느 상황에서 누구를 부르는지는 지침만 정한다. program이 결정적으로 할 수 없는 일이다. program은 고르지 않고, 지침이 가리키는 것이 맞는지 검사하지도 않는다. (사람, 2026-11-21)
 3. 2026-11-08에 정한 팀의 뼈대는 그대로다: spawn tree, 규칙 세 줄, 자식의 물음은 부모가 먼저 답한다(`agent-surface.md` 정한 것 1·2·11).
-4. lophn 팀은 harness 사이를 잇는다. harness 안의 병렬은 그 harness의 subagent가 하고, lophn은 worker 여럿과 worktree를 관리하지 않는다. (agent: `PRODUCT.md` "coding agent를 만들지 않는다"와 사람이 2026-11-08·09에 정한 "worktree는 lophn이 하지 않는다"의 적용)
+4. lophn 팀은 harness 사이를 잇는다. harness 안의 병렬은 그 harness의 subagent가 하고, lophn은 worker 여럿과 worktree를 관리하지 않는다. (agent: `PRODUCT.md` "coding agent를 만들지 않는다"와 사람이 2026-11-08·09에 정한 "worktree는 lophn이 하지 않는다"의 적용 — worktree 비관리 결정은 2026-11-28 `git-worktree.md`로 대체됨)
 5. 사람의 진입은 composer의 `@handle`로 시작한다. desk의 "팀원 추가"는 요구가 생기면 한다. (agent: 가장 단순한 길이고 2026-11-08의 "사람이 손으로 session을 팀에 넣기는 하지 않는다"가 그대로 선다)
 6. 내장 지침의 위임 문장("나눌 수 있으면 `team spawn`")은 그대로 둔다. (agent: 지침의 일이고 사람과 workflow의 지침이 그 위에 선다)
 7. 사람이 팀원 탭에 직접 말하는 것은 지금처럼 된다. 전달을 mail로 맞출 때 부모에게 알린다. (agent)
@@ -129,7 +129,7 @@ program이 내는 것은 이 셋이다.
 
 ## 하지 않는 것
 
-- lophn이 worker 여럿과 worktree를 관리하기.
+- lophn이 worker 여럿과 worktree를 관리하기. (worktree 비관리 결정은 2026-11-28 `git-worktree.md`로 대체됨)
 - desk의 "팀원 추가", 팀 공유 board. 요구가 생기면 한다.
 - 터미널에 글을 쳐 넣어 TUI를 팀원으로 만들기.
 - 자식 답을 묶는 별도 장치. mail로 푼다.

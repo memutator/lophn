@@ -2,10 +2,7 @@ import { z } from "zod";
 import { idSchema } from "../base/ids.ts";
 import { defineCommand, defineMemory, defineRead } from "../base/route.ts";
 import { atSchema } from "../base/values.ts";
-import {
-  projectCommandIdSchema,
-  runStatusSchema,
-} from "./project-commands.ts";
+import { projectCommandIdSchema, runStatusSchema } from "./project-commands.ts";
 
 // git worktree의 계약이다.
 // WorktreeRecord는 core의 ledger(`project_worktrees`)가 소유하며 기계 사이에 동기화하지 않는다.

@@ -387,7 +387,10 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
           "--porcelain=v2",
           "-z",
         ]);
-        if (st.code === 0 && parsePorcelainV2Z(st.stdout).conflicted_count > 0) {
+        if (
+          st.code === 0 &&
+          parsePorcelainV2Z(st.stdout).conflicted_count > 0
+        ) {
           return err({
             code: "conflict" as const,
             message:
@@ -397,9 +400,7 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
         }
       }
       const args =
-        parsed.data.all === true
-          ? ["add", "-A"]
-          : ["add", "--", ...safePaths];
+        parsed.data.all === true ? ["add", "-A"] : ["add", "--", ...safePaths];
       const res = await git(target.value.cwd, args, { retryLocks: true });
       if (res.code !== 0) {
         return err({
@@ -414,11 +415,16 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
         "-z",
       ]);
       const stagedCount =
-        after.code === 0 ? parsePorcelainV2Z(after.stdout).staged_count : safePaths.length;
+        after.code === 0
+          ? parsePorcelainV2Z(after.stdout).staged_count
+          : safePaths.length;
       return ok({ staged: stagedCount });
     });
     if (done.ok) {
-      deps.onChanged?.(target.value.project, target.value.worktreeId ?? undefined);
+      deps.onChanged?.(
+        target.value.project,
+        target.value.worktreeId ?? undefined,
+      );
     }
     return done;
   };
@@ -446,7 +452,11 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
     }
 
     const done = await mutex.run(target.value.gitCommonDir, async () => {
-      const head = await git(target.value.cwd, ["rev-parse", "--verify", "HEAD"]);
+      const head = await git(target.value.cwd, [
+        "rev-parse",
+        "--verify",
+        "HEAD",
+      ]);
       const hasHead = head.code === 0;
       let args: string[];
       if (hasHead) {
@@ -470,7 +480,10 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
       return ok({ unstaged: parsed.data.all === true ? 1 : safePaths.length });
     });
     if (done.ok) {
-      deps.onChanged?.(target.value.project, target.value.worktreeId ?? undefined);
+      deps.onChanged?.(
+        target.value.project,
+        target.value.worktreeId ?? undefined,
+      );
     }
     return done;
   };
@@ -518,11 +531,9 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
 
       let discarded = 0;
       if (parsed.data.all === true) {
-        const restore = await git(
-          target.value.cwd,
-          ["checkout", "--", "."],
-          { retryLocks: true },
-        );
+        const restore = await git(target.value.cwd, ["checkout", "--", "."], {
+          retryLocks: true,
+        });
         if (restore.code !== 0) {
           return err({
             code: "unavailable" as const,
@@ -531,11 +542,9 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
         }
         discarded += parsedStatus.unstaged_count;
         if (parsed.data.include_untracked === true && untrackedSet.size > 0) {
-          const clean = await git(
-            target.value.cwd,
-            ["clean", "-fd"],
-            { retryLocks: true },
-          );
+          const clean = await git(target.value.cwd, ["clean", "-fd"], {
+            retryLocks: true,
+          });
           if (clean.code !== 0) {
             return err({
               code: "unavailable" as const,
@@ -579,7 +588,10 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
       return ok({ discarded });
     });
     if (done.ok) {
-      deps.onChanged?.(target.value.project, target.value.worktreeId ?? undefined);
+      deps.onChanged?.(
+        target.value.project,
+        target.value.worktreeId ?? undefined,
+      );
     }
     return done;
   };
@@ -669,7 +681,8 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
       if (res.code !== 0) {
         return err({
           code: "conflict" as const,
-          message: res.stderr.trim() || res.stdout.trim() || "git commit failed",
+          message:
+            res.stderr.trim() || res.stdout.trim() || "git commit failed",
         });
       }
       const head = await git(target.value.cwd, ["rev-parse", "HEAD"]);
@@ -688,7 +701,10 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
       });
     });
     if (done.ok) {
-      deps.onChanged?.(target.value.project, target.value.worktreeId ?? undefined);
+      deps.onChanged?.(
+        target.value.project,
+        target.value.worktreeId ?? undefined,
+      );
     }
     return done;
   };
@@ -898,9 +914,8 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
     const items: SourceControlBranch[] = [];
     for (const line of res.stdout.split(/\r?\n/)) {
       if (line.trim() === "") continue;
-      const [fullRef, shortName, sha, upstream, track] = line.split(
-        COMMIT_FIELD_SEP,
-      );
+      const [fullRef, shortName, sha, upstream, track] =
+        line.split(COMMIT_FIELD_SEP);
       if (!fullRef || !shortName) continue;
       const isRemote = fullRef.startsWith("refs/remotes/");
       if (isRemote && shortName.endsWith("/HEAD")) continue;
@@ -920,7 +935,9 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
         head_sha: sha || null,
         ahead,
         behind,
-        worktree_path: isRemote ? null : (worktreeByBranch.get(shortName) ?? null),
+        worktree_path: isRemote
+          ? null
+          : (worktreeByBranch.get(shortName) ?? null),
       });
     }
 
@@ -934,13 +951,17 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
     if (!parsed.success) {
       return err({
         code: "invalid_input",
-        message: parsed.error.issues[0]?.message ?? "invalid branch_create input",
+        message:
+          parsed.error.issues[0]?.message ?? "invalid branch_create input",
       });
     }
     const safeName = assertSafeRefName(parsed.data.name, "name");
     if (!safeName.ok) return safeName;
     if (parsed.data.start_point !== undefined) {
-      const safeStart = assertSafeRefName(parsed.data.start_point, "start_point");
+      const safeStart = assertSafeRefName(
+        parsed.data.start_point,
+        "start_point",
+      );
       if (!safeStart.ok) return safeStart;
     }
     const target = await resolveTarget(parsed.data);
@@ -950,7 +971,10 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
     // spec 3.4.2 불변식 2: 도는 turn이 있으면 checkout 전환 금지.
     if (
       shouldCheckout &&
-      deps.hasActiveTurnInCheckout(target.value.project, target.value.worktreeId)
+      deps.hasActiveTurnInCheckout(
+        target.value.project,
+        target.value.worktreeId,
+      )
     ) {
       return err({
         code: "conflict",
@@ -1011,7 +1035,10 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
       });
     });
     if (done.ok) {
-      deps.onChanged?.(target.value.project, target.value.worktreeId ?? undefined);
+      deps.onChanged?.(
+        target.value.project,
+        target.value.worktreeId ?? undefined,
+      );
     }
     return done;
   };
@@ -1033,7 +1060,10 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
     if (!target.ok) return target;
 
     if (
-      deps.hasActiveTurnInCheckout(target.value.project, target.value.worktreeId)
+      deps.hasActiveTurnInCheckout(
+        target.value.project,
+        target.value.worktreeId,
+      )
     ) {
       return err({
         code: "conflict",
@@ -1073,7 +1103,10 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
       });
     });
     if (done.ok) {
-      deps.onChanged?.(target.value.project, target.value.worktreeId ?? undefined);
+      deps.onChanged?.(
+        target.value.project,
+        target.value.worktreeId ?? undefined,
+      );
     }
     return done;
   };
@@ -1149,7 +1182,10 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
       });
     });
     if (done.ok) {
-      deps.onChanged?.(target.value.project, target.value.worktreeId ?? undefined);
+      deps.onChanged?.(
+        target.value.project,
+        target.value.worktreeId ?? undefined,
+      );
     }
     return done;
   };
@@ -1220,7 +1256,10 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
       });
     });
     if (done.ok) {
-      deps.onChanged?.(target.value.project, target.value.worktreeId ?? undefined);
+      deps.onChanged?.(
+        target.value.project,
+        target.value.worktreeId ?? undefined,
+      );
     }
     return done;
   };

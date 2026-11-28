@@ -71,7 +71,10 @@ export async function detectWorktreeInclude(input: {
 }
 
 function globToRegex(pattern: string): RegExp {
-  const normalized = pattern.replace(/\\/g, "/").replace(/^\.\//, "").replace(/\/+$/, "");
+  const normalized = pattern
+    .replace(/\\/g, "/")
+    .replace(/^\.\//, "")
+    .replace(/\/+$/, "");
   let rx = "^";
   for (let i = 0; i < normalized.length; i += 1) {
     const ch = normalized[i]!;
@@ -110,7 +113,13 @@ async function collectMatchingRelPaths(
       warnings.push(`skipped unsafe copy pattern "${pattern}"`);
       continue;
     }
-    safePatterns.push(pattern.trim().replace(/\\/g, "/").replace(/^\.\//, "").replace(/\/+$/, ""));
+    safePatterns.push(
+      pattern
+        .trim()
+        .replace(/\\/g, "/")
+        .replace(/^\.\//, "")
+        .replace(/\/+$/, ""),
+    );
   }
   if (safePatterns.length === 0) return [];
 
@@ -325,7 +334,10 @@ export async function copyGitignoredFiles(input: {
 
     // 부모 경로가 worktree 밖으로 탈출하지 않는지 다시 확인한다.
     await mkdir(dirname(dest), { recursive: true });
-    if (!isStrictlyInside(safeRealpath(dirname(dest)), realWt) && safeRealpath(dirname(dest)) !== realWt) {
+    if (
+      !isStrictlyInside(safeRealpath(dirname(dest)), realWt) &&
+      safeRealpath(dirname(dest)) !== realWt
+    ) {
       warnings.push(`skipped escaping destination path "${rel}"`);
       continue;
     }

@@ -808,7 +808,9 @@ export const routerWiring: WiringFactory = () => {
               });
               if (!targetRes.ok) return targetRes;
               if (!targetRes.value.ok) return targetRes.value;
-              const created = await wt.create({ project: targetRes.value.value });
+              const created = await wt.create({
+                project: targetRes.value.value,
+              });
               if (!created.ok) return created;
               const worktreeId = created.value.record.id as Id<"wkt">;
               return ok({

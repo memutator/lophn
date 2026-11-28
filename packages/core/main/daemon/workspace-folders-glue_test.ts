@@ -16,13 +16,13 @@ const AGT = "agt_0aaaaaaaaaaaaaaaaaaaaaaaaa";
 test("project·app session의 rewind 쓰기 폴더는 자기 그릇의 폴더와 자기 memory 폴더뿐이다", () => {
   const db = new DatabaseSync(":memory:");
   db.exec(`
-    create table sessions (id text, agent text, workspace_kind text, workspace_id text);
+    create table sessions (id text, agent text, workspace_kind text, workspace_id text, worktree_id text);
     create table apps (id text, project text, source_path text, status text);
     create table project_folders (project text, path text, position integer);
     create table app_folders (app text, path text, position integer);
-    insert into sessions values ('ses_pm', 'lophn_${PRJ}', 'project', '${PRJ}');
-    insert into sessions values ('ses_ae', '${AGT}', 'app', '${APP}');
-    insert into sessions values ('ses_home', 'lophn_home', null, null);
+    insert into sessions values ('ses_pm', 'lophn_${PRJ}', 'project', '${PRJ}', null);
+    insert into sessions values ('ses_ae', '${AGT}', 'app', '${APP}', null);
+    insert into sessions values ('ses_home', 'lophn_home', null, null, null);
     insert into apps values ('${APP}', '${PRJ}', '/src/a', 'active');
     insert into apps values ('app_b', '${PRJ_B}', '/src/b', 'active');
     insert into project_folders values ('${PRJ}', '/work/a', 0);

@@ -792,7 +792,9 @@ export function createProjectCommandHandlers(deps: ProjectCommandHandlersDeps) {
     return await deps.runtime.start(project, cmd, {
       wait,
       redactLogs: isAgent(who),
-      ...(worktreeId === undefined ? {} : { worktreeId: worktreeId as Id<"wkt"> }),
+      ...(worktreeId === undefined
+        ? {}
+        : { worktreeId: worktreeId as Id<"wkt"> }),
     });
   };
 

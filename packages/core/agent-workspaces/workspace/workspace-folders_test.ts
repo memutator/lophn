@@ -96,3 +96,40 @@ test("다른 workspace의 session이 불러 열린 home session은 project 폴�
     { read: [homeSkills, globalSkills], write: [homeSkills, globalSkills] },
   );
 });
+
+// 이 규칙이 깨지면 worktree에 묶인 lophn agent가 원래 저장소 루트(/p1) 파일을 수정한다.
+test("worktree가 묶인 project session은 원래 repoRoot를 worktree 경로로 치환하고 env를 주입한다", () => {
+  const scoped = workspaceScope({
+    ...base,
+    workspace: project,
+    worktree: {
+      id: "wkt_00000000000000000000000001",
+      repoRoot: "/p1",
+      path: "/data/worktrees/p1-12345678/feat-a",
+      branch: "wt/feat-a",
+    },
+  });
+  assert.deepStrictEqual(scoped.read, [
+    "/data/worktrees/p1-12345678/feat-a",
+    "/p2",
+    workflows,
+    skills,
+    artifacts,
+  ]);
+  assert.deepStrictEqual(scoped.write, [
+    "/data/worktrees/p1-12345678/feat-a",
+    "/p2",
+    workflows,
+    skills,
+    artifacts,
+  ]);
+  assert.equal(scoped.base, "/data/worktrees/p1-12345678/feat-a");
+  assert.ok(!scoped.read.includes("/p1"));
+  assert.ok(!scoped.write.includes("/p1"));
+  assert.deepStrictEqual(scoped.env, {
+    PROJECT_ROOT: "/p1",
+    WORKTREE_PATH: "/data/worktrees/p1-12345678/feat-a",
+    WORKTREE_ID: "wkt_00000000000000000000000001",
+    WORKTREE_BRANCH: "wt/feat-a",
+  });
+});

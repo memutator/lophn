@@ -74,7 +74,7 @@ TurnEnded ─▶ result call이면 마지막 기록 메시지가 답(custom의 �
 - turn은 시작 → 기록 → 끝 순서이고 `TurnEnded`는 한 번이다. 기록은 core 안 machine 자격으로 기존 command(StartTurn, RecordMessage, FinishTurn)에 남는다.
 - session의 harness와 외부 session id(harness 자신의 session id)는 session 행에 있다(ledger step `lophn-agent.sessions.harness`). harness는 열 때 정해지고 바뀌지 않으며 외부 id는 machine 전용 command `BindHarnessSession`만 쓴다.
 - background 모드에서 harness가 쓴 tool은 메시지 part `harness_tool {name, summary, status}`로 남고, 기록마다 `MessageRecorded`(`model_call: null`)가 나가 Home/App 대화가 바로 갱신된다.
-- cwd는 session workspace의 폴더다. project는 첫 폴더, 앱은 source 폴더(없으면 첫 폴더), home은 `<data root>/harness-home/<session>/`(turn 시작 때 만들고 지우지 않는다)다.
+- cwd는 session workspace의 폴더다. project는 첫 폴더(session에 `worktree_id`가 묶여 있으면 해당 worktree 경로와 `PROJECT_ROOT`/`WORKTREE_*` 환경 변수 사용, [worktree.md](worktree.md)), 앱은 source 폴더(없으면 첫 폴더), home은 `<data root>/harness-home/<session>/`(turn 시작 때 만들고 지우지 않는다)다.
 
 ### Harness Catalog Discovery & Cache
 

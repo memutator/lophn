@@ -1317,4 +1317,20 @@ files:
       - project-commands-logs:forbidden
     note: "project commands의 gate 판정(project_command, project_command_definition), agent 정책 잠금·정의 쓰기 승인 카드(env 값 제외), env 값 마스킹·원격 터미널 입력 허락 경계, symlink cwd 탈출 차단, 상태 기계·URL 감지·로그 꼬리 상한·shutdown 정리, detect 후보 감지"
 
+  - path: packages/core/projects/worktrees/worktrees_test.ts
+    covers:
+      - worktrees-mutate:ok
+      - worktrees-mutate:invalid-input
+      - worktrees-mutate:forbidden
+      - worktrees-mutate:conflict
+    note: "worktree 관리 루트·Windows 경로 예산·ref 이름 검증, porcelain v2 -z 파서, 3중 소유권 증명·adopted 비삭제·dirty/active_sessions 가드·브랜치 보존, gitignored 복사 안전 규칙, 기동 시 creating 크래시 복구"
+
+  - path: packages/core/projects/source-control/source-control_test.ts
+    covers:
+      - source-control-write:ok
+      - source-control-write:forbidden
+      - source-control-write:conflict
+      - source-control-write:unauthorized
+    note: "source_control 사람 전용 쓰기 경계, 충돌 진행 중·unmerged·충돌 마커 커밋 거부, 활성 turn 중 switch 거부, pull --ff-only·force push 없음, 인증 실패 시 unauthorized + 1줄 git -C 명령"
+
 

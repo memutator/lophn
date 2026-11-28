@@ -22,10 +22,7 @@ import {
 } from "../../../protocol/projects/worktrees.ts";
 import type { AuthenticatedContext } from "../../../protocol/server/mod.ts";
 import type { MemoryHandler, ReadHandler } from "../../server/mod.ts";
-import {
-  detectWorktreeInclude,
-  type IncludeDetectFs,
-} from "./copy.ts";
+import { detectWorktreeInclude, type IncludeDetectFs } from "./copy.ts";
 import type { WorktreeService } from "./service.ts";
 
 export type AskPersonGate = (
@@ -287,7 +284,8 @@ export function createWorktreeHandlers(deps: WorktreeHandlersDeps) {
           path: pf.path,
           branch: pf.branch,
           provenance: pf.provenance,
-          dirty_count: pf.staged_count + pf.unstaged_count + pf.conflicted_count,
+          dirty_count:
+            pf.staged_count + pf.unstaged_count + pf.conflicted_count,
           untracked_count: pf.untracked_count,
           ahead: pf.ahead,
           has_submodules: pf.has_submodules,
@@ -299,7 +297,8 @@ export function createWorktreeHandlers(deps: WorktreeHandlersDeps) {
       if (!asked.ok) return asked;
       const outcome = asked.value;
       if (outcome.kind === "rejected") {
-        const whoRejected = outcome.by === "parent" ? "the parent" : "the person";
+        const whoRejected =
+          outcome.by === "parent" ? "the parent" : "the person";
         return forbidden(
           outcome.reason === null
             ? `${whoRejected} rejected removing worktree "${found.value.record.label}"`
@@ -358,7 +357,8 @@ export function createWorktreeHandlers(deps: WorktreeHandlersDeps) {
     if (!parsed.success) {
       return err({
         code: "invalid_input",
-        message: parsed.error.issues[0]?.message ?? "invalid settings_set input",
+        message:
+          parsed.error.issues[0]?.message ?? "invalid settings_set input",
       });
     }
     const project = parsed.data.project as Id<"prj">;

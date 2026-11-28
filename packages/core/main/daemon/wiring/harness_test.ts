@@ -292,6 +292,7 @@ test("only a GUI member is described for opening a tab, and forgetting a coding 
       cli_session: "cli-p",
       team: false,
       workflow_origin: null,
+      worktree_id: null,
     });
     const origin = {
       project: id("prj", 9),
@@ -314,6 +315,7 @@ test("only a GUI member is described for opening a tab, and forgetting a coding 
       cli_session: "cli-p",
       team: false,
       workflow_origin: origin,
+      worktree_id: null,
     });
     const agent = {
       ...PERSON,

@@ -103,10 +103,6 @@ type ProjectRecord = {
   folders: readonly FolderRead[];
 };
 
-function cmp(a: string, b: string): number {
-  return a < b ? -1 : a > b ? 1 : 0;
-}
-
 function workspaceProject(project: ProjectRecord): WorkspaceProject {
   return {
     id: project.id,

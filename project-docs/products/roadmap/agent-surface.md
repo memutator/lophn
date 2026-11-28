@@ -126,7 +126,7 @@ desk coordinator (root, 사람이 연 session)
 - 사람이 손으로 session을 팀에 넣고 빼기(`join`). 필요해지면 명령 하나로 더한다.
 - 사람이 부모 session을 archive할 때 자식까지 닫기. 자식은 남는다.
 - 자식 답 묶기(fan-in). program은 누가 답을 빚졌는지는 알지만 언제 올지는 모른다. 묶는다면 coordinator가 묶음을 선언하는 꼴로 하고, 그 전에 reply 잊음을 먼저 푼다. (사람, 2026-11-08)
-- 팀원 격리(worktree)와 spawn cwd. 사용자가 자기 project context(skill, 지침)로 정하는 일이다. lophn은 강제하지 않고 그 skill도 내장으로 주지 않는다. (사람, 2026-11-08·09)
+- 팀원 격리(worktree)와 spawn cwd. 사용자가 자기 project context(skill, 지침)로 정하는 일이다. lophn은 강제하지 않고 그 skill도 내장으로 주지 않는다. (사람, 2026-11-08·09 — worktree 지원 결정은 2026-11-28 `git-worktree.md`로 대체됨)
 - agent끼리 steer. 도는 turn에 끼어드는 것은 사람 메시지만이다.
 - harness runtime 자식의 승인을 부모에게 보내기. 그 CLI가 headless에서 스스로 처리한다.
 - 사람이 자식 탭에서 바로 승인하기.

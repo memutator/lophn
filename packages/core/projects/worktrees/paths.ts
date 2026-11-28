@@ -1,6 +1,14 @@
 import { createHash } from "node:crypto";
 import { realpathSync } from "node:fs";
-import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import {
+  basename,
+  dirname,
+  isAbsolute,
+  join,
+  relative,
+  resolve,
+  sep,
+} from "node:path";
 import { err, ok, type RandomSource, type Result } from "../../../base/mod.ts";
 
 const WINDOWS_RESERVED_NAMES = new Set([
@@ -106,7 +114,10 @@ export function isSameOrInside(
   const rel = relative(normContainer, normCandidate);
   return (
     rel === "" ||
-    (rel !== ".." && !rel.startsWith(`..${sep}`) && !rel.startsWith("../") && !isAbsolute(rel))
+    (rel !== ".." &&
+      !rel.startsWith(`..${sep}`) &&
+      !rel.startsWith("../") &&
+      !isAbsolute(rel))
   );
 }
 
@@ -164,7 +175,8 @@ export function validateWorktreesRoot(
     if (isSameOrInside(home, normalized, platform)) {
       return err({
         code: "invalid_input",
-        message: "worktrees root cannot be the home directory or an ancestor of it",
+        message:
+          "worktrees root cannot be the home directory or an ancestor of it",
         details: { reason: "unsafe_worktrees_root" },
       });
     }
@@ -309,6 +321,14 @@ export function generateAutoBranchName(
   return `wt/${adj}-${noun}-${hex}`;
 }
 
+function hasControlChar(value: string): boolean {
+  for (let i = 0; i < value.length; i += 1) {
+    const code = value.charCodeAt(i);
+    if (code <= 0x1f || code === 0x7f) return true;
+  }
+  return false;
+}
+
 export function assertSafeRefName(
   ref: string,
   field = "branch",
@@ -322,7 +342,8 @@ export function assertSafeRefName(
     trimmed.includes("..") ||
     trimmed.includes("@{") ||
     trimmed.includes("\\") ||
-    /[\x00-\x1f\x7f~^:?*[\]\s]/.test(trimmed) ||
+    hasControlChar(trimmed) ||
+    /[~^:?*[\]\s]/.test(trimmed) ||
     trimmed.endsWith(".") ||
     trimmed.endsWith(".lock") ||
     trimmed.startsWith("/") ||

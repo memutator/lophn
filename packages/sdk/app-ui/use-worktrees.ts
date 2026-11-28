@@ -96,7 +96,6 @@ export function useWorktrees(
     project?.startsWith("prj_") ? project : null,
   );
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: round는 다시 읽기 신호다.
   useEffect(() => {
     const mine = ++latest.current;
     if (project == null || project === "") {

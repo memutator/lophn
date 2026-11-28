@@ -2,7 +2,7 @@
 // 생성 파이프라인·롤백(spec 3.2.4), adopt, rename, remove preflight·가드 표·3중 소유권·브랜치 보존(spec 3.5),
 // gitignored 파일 복사·setup/teardown 훅(spec 3.3), 재시작 복구·반쯤 지워진 폴더 정리(spec 3.5.5)를 담당한다.
 import { lstat, mkdir, rm } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname } from "node:path";
 import process from "node:process";
 import {
   type Clock,
@@ -50,10 +50,7 @@ import {
   safeRealpath,
   validateWorktreesRoot,
 } from "./paths.ts";
-import {
-  type StoredWorktreeRow,
-  toPublicRecord,
-} from "./store.ts";
+import { type StoredWorktreeRow, toPublicRecord } from "./store.ts";
 import type { WorktreeWatcher } from "./watcher.ts";
 
 export const TEARDOWN_TIMEOUT_MS = 60_000;
@@ -69,15 +66,20 @@ export type WorktreeHookRunner = {
     worktree: WorktreeRecord;
     commandId: string;
     timeoutMs: number;
-  }): Promise<Result<{ ok: boolean; exit_code: number | null; tail?: string; error?: string }>>;
+  }): Promise<
+    Result<{
+      ok: boolean;
+      exit_code: number | null;
+      tail?: string;
+      error?: string;
+    }>
+  >;
 };
 
 export type WorktreeActivity = {
   activeSessions(worktreeId: Id<"wkt">): readonly Id<"ses">[];
   activeTerminals(worktreeId: Id<"wkt">): readonly string[];
-  stopSessionsAndTerminals(
-    worktreeId: Id<"wkt">,
-  ): Promise<Result<void>>;
+  stopSessionsAndTerminals(worktreeId: Id<"wkt">): Promise<Result<void>>;
 };
 
 export type WorktreeServiceDeps = {
@@ -181,7 +183,9 @@ export function createWorktreeService(deps: WorktreeServiceDeps) {
   async function resolveProjectGitFolder(
     project: string,
     explicitFolder?: string,
-  ): Promise<Result<{ repoRoot: string; gitCommonDir: string; isUnborn: boolean }>> {
+  ): Promise<
+    Result<{ repoRoot: string; gitCommonDir: string; isUnborn: boolean }>
+  > {
     const folders = deps.projectFolders(project);
     if (!folders.ok) return folders;
     if (folders.value.length === 0) {
@@ -292,8 +296,12 @@ export function createWorktreeService(deps: WorktreeServiceDeps) {
   async function computePreflight(
     row: StoredWorktreeRow,
   ): Promise<WorktreeRemovePreflight> {
-    const activeSessions = [...deps.activity.activeSessions(row.id as Id<"wkt">)];
-    const activeTerminals = [...deps.activity.activeTerminals(row.id as Id<"wkt">)];
+    const activeSessions = [
+      ...deps.activity.activeSessions(row.id as Id<"wkt">),
+    ];
+    const activeTerminals = [
+      ...deps.activity.activeTerminals(row.id as Id<"wkt">),
+    ];
     const settingsRes = deps.loadSettings(row.project_id);
     const teardownCommand = settingsRes.ok
       ? settingsRes.value.teardown_command
@@ -397,7 +405,8 @@ export function createWorktreeService(deps: WorktreeServiceDeps) {
       active_terminals: activeTerminals,
       ahead: status.ahead,
       unpushed_commits: unpushed,
-      deletable_branch: row.created_branch && (status.branch ?? row.branch) !== null,
+      deletable_branch:
+        row.created_branch && (status.branch ?? row.branch) !== null,
       teardown_command: teardownCommand,
     };
   }
@@ -408,7 +417,12 @@ export function createWorktreeService(deps: WorktreeServiceDeps) {
     options: { force: boolean; hasSubmodules: boolean },
   ): Promise<Result<void>> {
     if (!(await pathExists(row.path))) {
-      await pruneWorktreesSafely(row.repo_root, row.git_common_dir, git, platform);
+      await pruneWorktreesSafely(
+        row.repo_root,
+        row.git_common_dir,
+        git,
+        platform,
+      );
       return ok(undefined);
     }
 
@@ -432,7 +446,12 @@ export function createWorktreeService(deps: WorktreeServiceDeps) {
     }
 
     if (res.code === 0) {
-      await pruneWorktreesSafely(row.repo_root, row.git_common_dir, git, platform);
+      await pruneWorktreesSafely(
+        row.repo_root,
+        row.git_common_dir,
+        git,
+        platform,
+      );
       return ok(undefined);
     }
 
@@ -483,10 +502,7 @@ export function createWorktreeService(deps: WorktreeServiceDeps) {
     },
 
     // ready 상태이며 project에 속한 worktree를 돌려준다. removing·removed·missing이면 conflict다.
-    resolveReady(
-      project: string,
-      worktreeId: string,
-    ): Result<WorktreeRecord> {
+    resolveReady(project: string, worktreeId: string): Result<WorktreeRecord> {
       const row = deps.loadWorktreeById(worktreeId);
       if (row === null || row.project_id !== project) {
         return err({
@@ -637,7 +653,9 @@ export function createWorktreeService(deps: WorktreeServiceDeps) {
       });
       deps.watcher?.()?.setCached(status);
       const activeSessions = deps.activity.activeSessions(row.id as Id<"wkt">);
-      const activeTerminals = deps.activity.activeTerminals(row.id as Id<"wkt">);
+      const activeTerminals = deps.activity.activeTerminals(
+        row.id as Id<"wkt">,
+      );
       const preflight =
         input.includePreflight === true
           ? await computePreflight(row)
@@ -700,13 +718,17 @@ export function createWorktreeService(deps: WorktreeServiceDeps) {
       }
 
       // 1. 사전 검증 (디스크·DB 무변경).
-      const repoRes = await resolveProjectGitFolder(input.project, input.folder);
+      const repoRes = await resolveProjectGitFolder(
+        input.project,
+        input.folder,
+      );
       if (!repoRes.ok) return repoRes;
       const { repoRoot, gitCommonDir, isUnborn } = repoRes.value;
       if (isUnborn) {
         return err({
           code: "conflict",
-          message: "cannot create a worktree on an unborn repository (create an initial commit first)",
+          message:
+            "cannot create a worktree on an unborn repository (create an initial commit first)",
           details: { reason: "unborn_repository" },
         });
       }
@@ -749,10 +771,7 @@ export function createWorktreeService(deps: WorktreeServiceDeps) {
           });
         }
         const listed = await listGitWorktrees(repoRoot, gitCommonDir, git);
-        if (
-          listed.ok &&
-          listed.value.some((wt) => wt.branch === branch)
-        ) {
+        if (listed.ok && listed.value.some((wt) => wt.branch === branch)) {
           return err({
             code: "conflict",
             message: `branch "${branch}" is already checked out in another worktree`,
@@ -993,8 +1012,7 @@ export function createWorktreeService(deps: WorktreeServiceDeps) {
           copiedFiles = copied.copied;
           warnings.push(...copied.warnings);
         }
-        const shouldRunSetup =
-          input.runSetup ?? settings.run_setup;
+        const shouldRunSetup = input.runSetup ?? settings.run_setup;
         if (
           shouldRunSetup &&
           settings.setup_command !== null &&
@@ -1057,9 +1075,7 @@ export function createWorktreeService(deps: WorktreeServiceDeps) {
       project: Id<"prj">;
       path: string;
       label?: string;
-    }): Promise<
-      Result<{ record: WorktreeRecord; status: WorktreeGitStatus }>
-    > {
+    }): Promise<Result<{ record: WorktreeRecord; status: WorktreeGitStatus }>> {
       const folders = deps.projectFolders(input.project);
       if (!folders.ok) return folders;
       const inspectedTarget = await inspectGitRepo(input.path, git);
@@ -1079,14 +1095,16 @@ export function createWorktreeService(deps: WorktreeServiceDeps) {
       if (parentRepoRoot === null) {
         return err({
           code: "invalid_input",
-          message: "path is not a linked worktree of any git repository in this project",
+          message:
+            "path is not a linked worktree of any git repository in this project",
           details: { reason: "unrelated_repository" },
         });
       }
       if (targetPath === parentRepoRoot) {
         return err({
           code: "invalid_input",
-          message: "cannot adopt the main checkout; specify a linked worktree path",
+          message:
+            "cannot adopt the main checkout; specify a linked worktree path",
           details: { reason: "main_checkout" },
         });
       }
@@ -1167,9 +1185,7 @@ export function createWorktreeService(deps: WorktreeServiceDeps) {
       label?: string;
       branch?: string;
       renameBranch?: boolean;
-    }): Promise<
-      Result<{ record: WorktreeRecord; status: WorktreeGitStatus }>
-    > {
+    }): Promise<Result<{ record: WorktreeRecord; status: WorktreeGitStatus }>> {
       const row = deps.loadWorktreeById(input.worktree);
       if (row === null || row.status === "removed") {
         return err({ code: "not_found", message: "worktree not found" });
@@ -1211,7 +1227,8 @@ export function createWorktreeService(deps: WorktreeServiceDeps) {
           ) {
             return err({
               code: "conflict" as const,
-              message: "cannot rename branch while worktree is on detached HEAD",
+              message:
+                "cannot rename branch while worktree is on detached HEAD",
               details: { reason: "detached_head" },
             });
           }
@@ -1324,8 +1341,7 @@ export function createWorktreeService(deps: WorktreeServiceDeps) {
       if (preflight.hard_blocks.includes("worktree_locked")) {
         return err({
           code: "conflict",
-          message:
-            "worktree is locked by git; run `git worktree unlock` first",
+          message: "worktree is locked by git; run `git worktree unlock` first",
           details: { reason: "worktree_locked" },
         });
       }
@@ -1613,6 +1629,33 @@ export function createWorktreeService(deps: WorktreeServiceDeps) {
                   force: true,
                   hasSubmodules: false,
                 });
+              } else if (
+                row.provenance === "managed" &&
+                (await pathExists(row.path))
+              ) {
+                // git worktree add가 `.git` 포인터를 쓰기 전에 끊긴 부분 디렉터리는
+                // 관리 루트 내부이고 repo_root 밖임이 확인되면 안전하게 지운다.
+                const realPath = safeRealpath(row.path);
+                if (
+                  managedRoots().some((r) =>
+                    isStrictlyInside(realPath, r, platform),
+                  ) &&
+                  !isSameOrInside(
+                    realPath,
+                    safeRealpath(row.repo_root),
+                    platform,
+                  )
+                ) {
+                  await rm(realPath, { recursive: true, force: true }).catch(
+                    () => undefined,
+                  );
+                  await pruneWorktreesSafely(
+                    row.repo_root,
+                    row.git_common_dir,
+                    git,
+                    platform,
+                  );
+                }
               }
               if (
                 row.created_branch &&

@@ -589,5 +589,12 @@ links:
   - {entry: "cli:workflow.retry", flow: workflow-retry}
   - {entry: "cli:workflow.resume", flow: workflow-resume}
   - {entry: "cli:workflow.stop", flow: workflow-stop}
+  - {entry: "cli:worktree.list", flow: worktrees-read}
+  - {entry: "cli:worktree.get", flow: worktrees-read}
+  - {entry: "cli:worktree.status", flow: worktrees-read}
+  - {entry: "cli:worktree.create", flow: worktrees-mutate}
+  - {entry: "cli:worktree.adopt", flow: worktrees-mutate}
+  - {entry: "cli:worktree.rename", flow: worktrees-mutate}
+  - {entry: "cli:worktree.remove", flow: worktrees-mutate}
 
 ignore: []

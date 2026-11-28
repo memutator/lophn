@@ -11,9 +11,9 @@
 
 - 목표: 모든 project는 기계를 넘는 id 하나(`identity`)를 늘 갖는다. 앱처럼 project를 기계 사이에 가리키는 쪽은 git 여부와 상관없이 그 칸 하나를 본다.
 - 목표: 같은 저장소를 내 여러 컴퓨터에 등록하면 묻지 않고 같은 project가 된다. 같은 때 켜지지 않는 컴퓨터끼리도 모인다.
-- 목표: lophn은 사람의 저장소에 쓰지 않는다. git은 읽기만 한다(폴더가 git인지와 remote).
+- 목표: lophn은 사람의 저장소에 쓰지 않는다. project identity 판별을 위한 git 호출은 읽기만 한다(폴더가 git인지와 remote). (명시적 worktree 생명주기와 사람 전용 source control 동작은 `worktree.md`가 따로 다룬다.)
 - 목표: 이 기계에 없는 project는 그 기계의 git 자격으로 묻는 창 없이 받아 등록하고, 받은 project는 다른 기계의 project와 같은 id다.
-- 비목표: project에 딸린 지침과 설정을 기계 사이에 옮기기. session과 대화를 기계 사이에 옮기기. code를 옮기기(git이 한다. lophn은 commit, push, pull을 하지 않는다). 옛 `.lophn-project.json` file을 읽거나 지우기.
+- 비목표: project에 딸린 지침과 설정을 기계 사이에 옮기기. session과 대화를 기계 사이에 옮기기. code를 기계 사이에 자동으로 옮기기(git이 한다. 명시적 worktree와 사람 전용 source control route는 `worktree.md`다). 옛 `.lophn-project.json` file을 읽거나 지우기.
 
 ## 모델
 
@@ -59,7 +59,7 @@ ledger projects 줄 (기계별)
 
 ## 지키는 것
 
-1. lophn은 사람의 저장소에 쓰지 않는다. git은 읽기만 한다: commit, add, checkout, stash, index를 고치는 status를 하지 않는다. clone은 새 폴더를 만들 뿐 있는 폴더에 쓰지 않는다. 옛 판이 만든 `.lophn-project.json`은 읽지도 쓰지도 지우지도 않는다.
+1. lophn은 사람의 저장소에 설정 파일을 쓰지 않는다. project identity 판별을 위한 git 호출은 읽기만 하며 index를 고치지 않는다(명시적 worktree 생성·삭제와 사람 전용 source control 동작은 `worktree.md`의 규칙과 가드를 따른다). clone은 새 폴더를 만들 뿐 있는 폴더에 쓰지 않는다. 옛 판이 만든 `.lophn-project.json`은 읽지도 쓰지도 지우지도 않는다.
 2. 모든 project는 `identity`를 갖는다. 등록할 때 ledger에서 나고, clone 자격만 다른 기계의 id를 준다.
 3. 한 기계에서 한 id는 project 하나만 지금이나 옛 identity로 갖는다. 등록, clone, 잇기는 그 id를 적지 않는다.
 4. 기록은 `prj_` key 그대로다. 기계를 넘는 id가 바뀌어도 session, 문서, 설정, 다른 표의 줄은 옮겨지거나 지워지지 않는다. 기존 data root의 project는 id가 없으면 판을 올릴 때 data step이 주고, 가진 id(옛 판에서 저장소 file에서 온 것 포함)는 그대로 원본이 된다.

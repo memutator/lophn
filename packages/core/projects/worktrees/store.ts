@@ -325,10 +325,7 @@ export const worktreesStoreCommand: CommandDefinition<typeof worktreesStore> = {
   route: worktreesStore,
   handle(tx, ctx, input) {
     const actor = parseActor(ctx.actor);
-    if (
-      actor?.kind !== "machine" ||
-      ctx.principal !== WORKTREES_PRINCIPAL
-    ) {
+    if (actor?.kind !== "machine" || ctx.principal !== WORKTREES_PRINCIPAL) {
       return err({
         code: "forbidden",
         message: `${WORKTREES_PRINCIPAL} only`,

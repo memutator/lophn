@@ -32,6 +32,7 @@ agent는 사람이 있을 때도 없을 때도 shell을 돌리고 file을 읽고
    shell extension tool은 호출 route(extension_tools/call)가 extension_tool로 판정한다
    설정 route(settings/update)가 approval: "person" 설정 바꾸기를 setting {key, lines}로 같은 판정에 묻는다
    project command route(project_commands/*)가 실행을 project_command로, 정의 쓰기를 project_command_definition으로 묻는다
+   worktree 삭제 route(worktrees/remove)가 agent의 삭제 호출을 worktree_remove로 묻는다(attended `once | reject`, `outside_rewind: true`, team_child는 부모에게 `once | reject`, unattended `deny no_person`, `read_only` `mode` 거부, `worktree.md`)
    workflow route(workflows/run, workflows/override-code)가 agent의 일회성·override 실행과 flow code 패치를 workflow_run으로 묻는다
    대화형 터미널 열기(`tabs/open`의 `terminal` target)가 agent 호출을 기존 `shell` 판정으로 묻는다(`--command`는 그 명령줄, 명령 없는 대화형 shell은 `opaque: true`. 사람 token은 묻지 않는다)
         │ memory route tool_gate/check (그 turn의 agent 자격만)
@@ -210,7 +211,7 @@ spawn된 session(`spawned_by` 있음)의 `ask` tool(질문)과 일반 `ask`(승�
 ## 경계와 계약
 
 route와 command
-- `tool_gate/check`(memory, 그 turn의 agent 자격만): 실행 전 판정. `run`, `denied { denial: PermissionDenial }`, `rejected { reason, by }`, `cancelled { cause }`를 돌려준다. 묻는 호출(승인 카드와 ACP 승인 subject)은 `shell`, `file_read`, `file_write`, `app_tool`, `mcp_tool`, `local_tool`, `setting {key, lines}`, `project_command`, `project_command_definition`이다.
+- `tool_gate/check`(memory, 그 turn의 agent 자격만): 실행 전 판정. `run`, `denied { denial: PermissionDenial }`, `rejected { reason, by }`, `cancelled { cause }`를 돌려준다. 묻는 호출(승인 카드와 ACP 승인 subject)은 `shell`, `file_read`, `file_write`, `app_tool`, `mcp_tool`, `local_tool`, `setting {key, lines}`, `project_command`, `project_command_definition`, `worktree_remove`이다.
 - `turn_requests/decide`(memory, 사람 자격만): `once | session | always | reject`(+ 이유 한 줄). `allowed_choices` 밖 선택지는 `invalid_input`, 없거나 다른 session·팀 자식의 request는 `not_found`, 이미 닫혔으면 `conflict`, `always`를 저장하지 못하면 `internal`이고 request는 다시 열린다.
 - `permissions/read`(memory, 사람 자격, `REMOTE_ALLOWED_ROUTES`): session의 `/permissions` 5칸 상태(현재 단계, workspace·열린 바깥 폴더, floor 수·전역·project 규칙·session grant, MCP 서버 신뢰·로컬 tool 신뢰, 최근 거부)를 돌려준다.
 - `permissions/revoke-grant`(memory, 사람 자격, `REMOTE_ALLOWED_ROUTES`): session의 `SessionGrantStore` 항목 하나를 즉시 해제한다.

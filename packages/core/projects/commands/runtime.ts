@@ -556,7 +556,12 @@ export function createProjectCommandRuntime(deps: ProjectCommandRuntimeDeps) {
       },
     ): Promise<Result<{ run: ProjectCommandRun; tail?: string }>> {
       const started = await serialize(project, command.id, () =>
-        startUnlocked(project, command, options?.worktreeId, options?.timeoutMs),
+        startUnlocked(
+          project,
+          command,
+          options?.worktreeId,
+          options?.timeoutMs,
+        ),
       );
       if (!started.ok) return started;
       const state = started.value;
@@ -646,7 +651,11 @@ export function createProjectCommandRuntime(deps: ProjectCommandRuntimeDeps) {
       commandId: string,
       loadLatest: () => Result<ProjectCommand>,
       by: "user" | "agent",
-      options?: { wait?: boolean; redactLogs?: boolean; worktreeId?: Id<"wkt"> },
+      options?: {
+        wait?: boolean;
+        redactLogs?: boolean;
+        worktreeId?: Id<"wkt">;
+      },
     ): Promise<Result<{ run: ProjectCommandRun; tail?: string }>> {
       const started = await serialize(project, commandId, async () => {
         const existing = entries.get(keyOf(project, commandId));

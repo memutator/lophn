@@ -47,6 +47,9 @@ export default defineApp({
   ],
   permissions: [],
   app_connections: [],
+  // declaration 6.0.0부터 sync를 적지 않으면 모든 표가 "computers"로 간다. 견본의 item 표는 정수 PK라 sync 규칙(text id)에 안 맞고
+  // 동기화는 이 견본이 보는 것이 아니므로 앱 전체를 이 컴퓨터에 둔다.
+  sync: "local",
   // 정확한 version만 쓴다. package.json의 SDK 의존과 같아야 한다(tests/declaration_test.ts).
   sdk_dependencies: [
     { name: "@lophn/declaration", version: "6.1.0" },

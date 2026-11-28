@@ -225,6 +225,42 @@ test("lophn은 지우거나 handle·avatar를 바꿀 수 없고, handle은 전�
     assert.ok(!swapped.ok && swapped.error.code === "forbidden");
     assert.ok(tryChange(["guide", "other"]).ok);
 
+    // `mcp_off`도 같다.
+    const afterSkills = store.read(agentSlotOf(root, AGENT));
+    assert.ok(afterSkills.ok && afterSkills.value !== null);
+    const mcpOff = [{ server_name: "fetch" }];
+    const personMcp = commands.change.handle(
+      tx,
+      user,
+      {
+        agent: AGENT,
+        definition: {
+          ...base,
+          skills_off: ["guide", "other"],
+          mcp_off: mcpOff,
+        },
+      } as never,
+      { hash: afterSkills.value.hash },
+    );
+    assert.ok(personMcp.ok);
+    const withMcp = store.read(agentSlotOf(root, AGENT));
+    assert.ok(withMcp.ok && withMcp.value !== null);
+    const tryMcp = (mcp_off: unknown[]) =>
+      commands.change.handle(
+        tx,
+        agent,
+        {
+          agent: AGENT,
+          definition: { ...base, skills_off: ["guide", "other"], mcp_off },
+        } as never,
+        { hash: withMcp.value!.hash },
+      );
+    for (const dropped of [[], [{ server_name: "other" }]]) {
+      const refusedMcp = tryMcp(dropped);
+      assert.ok(!refusedMcp.ok && refusedMcp.error.code === "forbidden");
+    }
+    assert.ok(tryMcp([...mcpOff, { server_name: "docs" }]).ok);
+
     const after = store.read(lophnSlot);
     assert.ok(after.ok && after.value?.hash === beforeHash);
     const ids = store.agentIds();

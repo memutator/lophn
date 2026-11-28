@@ -227,16 +227,28 @@ export function createAgentCommands(deps: AgentDeps): {
           return conflict("agent file");
         }
         // `skills_off`는 앱 skill이 닿는지도 정한다(끈 skill의 배포는 닿지 않는다). agent는 끌 수는 있어도 사람이 끈 것을 켜지 못한다.
+        // `mcp_off`도 같다: 사람이 끈 MCP tool을 agent가 다시 켜지 못한다.
+        const keptOff = (
+          before: readonly unknown[],
+          after: readonly unknown[],
+        ) =>
+          before.every((one) =>
+            after.some((two) => JSON.stringify(two) === JSON.stringify(one)),
+          );
         if (
           agentActor(ctx) &&
-          (loaded.definition?.skills_off ?? []).some(
-            (name) => !(input.definition.skills_off ?? []).includes(name),
-          )
+          (!(loaded.definition?.skills_off ?? []).every((name) =>
+            (input.definition.skills_off ?? []).includes(name),
+          ) ||
+            !keptOff(
+              loaded.definition?.mcp_off ?? [],
+              input.definition.mcp_off ?? [],
+            ))
         ) {
           return err({
             code: "forbidden",
             message:
-              "an agent cannot switch a skill back on; the person removes entries from skills_off",
+              "an agent cannot switch a skill or an MCP tool back on; the person removes entries from skills_off and mcp_off",
           });
         }
         if (

@@ -147,7 +147,10 @@ export const worktreesWiring: WiringFactory = () => {
   return {
     name: "worktrees",
     // 낸 step 목록의 맨 끝 wiring이라 다른 영역의 새 step도 여기 뒤에 붙는다(schema-steps.lock.json).
-    schemaStepsAfterTeams: [...WORKTREES_SCHEMA_STEPS, SHARE_REQUESTS_DROP_STEP],
+    schemaStepsAfterTeams: [
+      ...WORKTREES_SCHEMA_STEPS,
+      SHARE_REQUESTS_DROP_STEP,
+    ],
     operations: () => [
       {
         name: worktreesStore.name,

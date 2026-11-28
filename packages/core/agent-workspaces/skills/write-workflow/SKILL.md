@@ -188,7 +188,7 @@ if (!draft.ok) {
 }
 ```
 
-`@lophn/flow` (v2.2.0) exports:
+`@lophn/flow` (v2.3.0) exports:
 
 - `input: string`: the start text.
 - `inputs: Readonly<Record<string, unknown>>`: frozen validated values from

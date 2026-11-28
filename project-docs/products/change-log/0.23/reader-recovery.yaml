@@ -1,5 +1,5 @@
 id: reader-recovery
-version: 0.23.190
+version: 0.23.191
 title: ledger reader를 한도 없이 다시 띄우고 격리 이유를 남기며, 끝내지 못한 turn을 다시 닫아 본다
 modules:
   - packages/core/storage

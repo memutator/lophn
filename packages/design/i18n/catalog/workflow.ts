@@ -295,6 +295,7 @@ export const workflow = {
   "workflow.placeholder.input-select": "Choose an option",
   "workflow.placeholder.input-select-agent": "Choose an agent",
   "workflow.placeholder.run-title": "Optional — auto-generated if left blank",
+  "workflow.title.open-editor-failed": "Couldn't open editor for {workflow}",
   "workflow.title.read-failed": "Couldn't refresh {workflow}",
   "workflow.title.resume-failed": "Couldn't resume {workflow}",
   "workflow.title.retry-failed": "Couldn't retry {workflow}",
@@ -307,6 +308,8 @@ export const workflow = {
     "Permission mode for this step's lophn agent. Defaults are saved in your settings, not in workflow.yaml.",
   "workflow.note.flow-permission-mode":
     "Permission mode for this lophn agent. Defaults are saved in your settings, not in workflow.yaml.",
+  "workflow.error.open-editor-failed":
+    "Couldn't open a lophn session to edit this workflow. Try again.",
   "workflow.error.remember-modes-failed":
     "Couldn't save workflow permission modes. Try again.",
 } as const;

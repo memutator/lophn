@@ -233,32 +233,20 @@ function WorkflowTabBody({
       onOpenEditor={
         agentView === null || host.props.source.openWorkflowEditor === undefined
           ? null
-          : (targetInstance) => {
-              const openEditor = host.props.source.openWorkflowEditor;
-              if (openEditor === undefined) return;
-              void openEditor({
-                project,
-                workflow,
-                ...(targetInstance === undefined
-                  ? {}
-                  : { instance: targetInstance }),
-              }).then((result) => {
-                if (!result.ok) return;
-                const { session, agent } = result.value;
-                const lophnName =
-                  faceOf?.(agent)?.name ?? faceOf?.("lophn")?.name ?? "lophn";
-                openAgent(host, {
-                  agent,
-                  name: lophnName,
-                  session,
-                  options: {
-                    after: tab.key,
-                    beside: true,
-                    ...(targetInstance === undefined
-                      ? {}
-                      : { desk: targetInstance, deskWorkflow: workflow }),
-                  },
-                });
+          : ({ session, agent, instance: targetInstance }) => {
+              const lophnName =
+                faceOf?.(agent)?.name ?? faceOf?.("lophn")?.name ?? "lophn";
+              openAgent(host, {
+                agent,
+                name: lophnName,
+                session,
+                options: {
+                  after: tab.key,
+                  beside: true,
+                  ...(isInstanceTab && targetInstance !== undefined
+                    ? { desk: targetInstance, deskWorkflow: workflow }
+                    : {}),
+                },
               });
             }
       }

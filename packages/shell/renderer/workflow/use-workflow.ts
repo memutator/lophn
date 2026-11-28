@@ -80,6 +80,8 @@ export interface UseWorkflow {
   retry(step?: string): void;
   resume(useLatestCode?: boolean): void;
   rename(title: string): void;
+  /** 시작 전(instance 생략) 또는 실행 중(instance 지정) 편집용 lophn 세션을 연다. 실패하면 알림을 띄운다. */
+  openEditor(targetInstance?: string): void;
   /** 단계 하나의 기본 권한 단계를 `approvals.workflow_modes`에 저장한다(`workflow.yaml`은 건드리지 않는다). */
   saveStepModeDefault?: (
     step: string,
@@ -105,6 +107,7 @@ export function useWorkflow({
   instance,
   onInstance,
   onStarted,
+  onOpenEditor,
 }: {
   source: WorkspaceSource;
   /** prj id. */
@@ -117,6 +120,13 @@ export function useWorkflow({
     readonly instance: string;
     readonly title: string | null;
   }) => void;
+  onOpenEditor?:
+    | ((opened: {
+        readonly session: string;
+        readonly agent: string;
+        readonly instance?: string;
+      }) => void)
+    | null;
 }): UseWorkflow {
   const [definitions, setDefinitions] = useState<Definitions>({
     state: "loading",
@@ -427,6 +437,29 @@ export function useWorkflow({
       if (trimmed === "") return;
       void source.renameWorkflowInstance(instance, trimmed).then((result) => {
         if (result.ok) reload();
+      });
+    },
+    openEditor(targetInstance) {
+      const openWorkflowEditor = source.openWorkflowEditor;
+      if (openWorkflowEditor === undefined || onOpenEditor == null) return;
+      void openWorkflowEditor({
+        project,
+        workflow,
+        ...(targetInstance === undefined ? {} : { instance: targetInstance }),
+      }).then((result) => {
+        if (!result.ok) {
+          setNotice({
+            title: t("workflow.title.open-editor-failed", { workflow }),
+            body: t("workflow.error.open-editor-failed"),
+          });
+          return;
+        }
+        setNotice(null);
+        onOpenEditor({
+          session: result.value.session,
+          agent: result.value.agent,
+          ...(targetInstance === undefined ? {} : { instance: targetInstance }),
+        });
       });
     },
     ...(source.saveWorkflowModes === undefined

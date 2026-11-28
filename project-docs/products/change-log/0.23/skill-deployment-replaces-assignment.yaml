@@ -1,5 +1,5 @@
 id: skill-deployment-replaces-assignment
-version: 0.23.191
+version: 0.23.194
 title: 앱 할당과 공유 요청을 지우고 skill 배포 하나로 바꾼다
 modules: [packages/protocol, packages/cli, packages/coding-agent, packages/design, packages/sdk, packages/core/approvals, packages/core/apps, packages/core/agent-workspaces, packages/core/lophn-agent, packages/core/main, packages/core/terminal-agents, packages/core/harness-gui, packages/core/router, packages/core/folder, packages/core/remote, packages/shell/renderer, packages/mobile]
 platform_note: skill-deployment

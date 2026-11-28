@@ -9,7 +9,7 @@ import type { ModelChoice } from "../../../../../protocol/lophn-agent/models.ts"
 import type { SkillDeployment } from "../../../../../protocol/lophn-agent/skill-settings.ts";
 import type { AgentEditorSource } from "../../../workspace/agents/editor/agent-editor.tsx";
 import type {
-  DeployableSkill,
+  DeployableList,
   InstructionsFile,
   McpRow,
   McpSecret,
@@ -99,7 +99,7 @@ export interface AgentsSettingsSource {
   addSkill(): Promise<SourceResult<null>>;
   setSkillEnabled(name: string, enabled: boolean): Promise<SourceResult<null>>;
   /** 배포할 수 있는 앱 skill 전부(활성 앱의 public skill). */
-  deployable(): Promise<SourceResult<readonly DeployableSkill[]>>;
+  deployable(): Promise<SourceResult<DeployableList>>;
   /** 모든 agent에게 배포한 앱 skill을 새 목록으로 바꾼다. */
   setDeployed(next: readonly SkillDeployment[]): Promise<SourceResult<null>>;
   /** 전역 MCP server를 더한다. 값(key·token)은 이 모양에 없고 필요하면 보호 입력이 받는다. */

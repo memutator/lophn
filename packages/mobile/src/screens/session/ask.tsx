@@ -32,7 +32,7 @@ import {
   titleOf,
 } from "../../../../shell/renderer/conversation/approval-card/subject-text.ts";
 import { inputRequestTitle } from "../../../../shell/renderer/conversation/input-request-card/title.ts";
-import { type Conversation, type SignInStarted, useSetup } from "../../data/mod.ts";
+import { type Conversation, type SignInStarted, useNames, useSetup } from "../../data/mod.ts";
 import { SignInCode, SignInHandoff, signInFailure, useSecretField } from "../settings/setup-parts.tsx";
 import { approvalFactsOf, approvalTitleOf } from "./permissions-model.ts";
 import { DenySheet } from "./sheets.tsx";
@@ -52,8 +52,11 @@ const CHOICE_LABEL = {
 } as const;
 
 /** The request's facts as the desktop card lists them: command, files, local tools, settings, or tool and effect. */
-function factsOf(request: MobileApprovalRequest): { label: string; value: string; fit?: boolean }[] {
-  return approvalFactsOf(request, { changeText, targetOf, effectOf });
+function factsOf(
+  request: MobileApprovalRequest,
+  apps: ReadonlyMap<string, string>,
+): { label: string; value: string; fit?: boolean }[] {
+  return approvalFactsOf(request, { changeText, targetOf: (subject) => targetOf(subject, apps), effectOf });
 }
 
 /**
@@ -69,6 +72,7 @@ function Approval({
   request: MobileApprovalRequest;
   decide: (choice: Choice, reason?: string) => Promise<boolean>;
 }) {
+  const names = useNames();
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
   const [denying, setDenying] = useState(false);
@@ -108,7 +112,7 @@ function Approval({
           {reason}
         </Text>
       )}
-      {factsOf(request).map((fact) => (
+      {factsOf(request, names.apps).map((fact) => (
         <Fact key={fact.label} {...fact} />
       ))}
       {failed && (

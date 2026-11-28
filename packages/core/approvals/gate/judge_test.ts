@@ -608,7 +608,7 @@ test("배포되지 않은 앱의 tool은 사람이 있을 때 묻고 없으면 �
     "reject",
   ]);
   assert.deepStrictEqual(asked.always_patterns, [
-    "deploy notes/notes-guide to this workspace",
+    "the skill notes-guide of notes for this workspace",
   ]);
   const noSkill = evalReq(call, "workspace", "attended", {
     appAccess: {

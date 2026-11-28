@@ -509,6 +509,44 @@ test("앱의 skill을 받는 자리는 모든 층에서 한 목록으로 나오�
   });
 });
 
+// 데이터 보존이다. 앱을 보관해도 배포 기록은 그대로이고(되살리면 다시 닿는다), 보관한 동안은 아무도 받지 않으며 목록과 지우기 창이 그 기록을 보인다.
+test("앱을 보관하면 배포 기록은 남고 아무에게도 닿지 않으며, 되살리면 다시 닿는다", async () => {
+  await withRoot(async ({ global, deployments, ctx }) => {
+    global.value = [guide];
+    const who = { agent: AGENT, workspace: PROJECT };
+    const setStatus = (status: string) => {
+      const db = new DatabaseSync((ctx as { ledgerPath: string }).ledgerPath);
+      db.prepare(
+        "UPDATE apps SET status = ?, run_enabled = 0 WHERE id = ?",
+      ).run(status, APP);
+      db.close();
+    };
+    const reached = async () => {
+      const access = await deployments.appAccess(who, APP);
+      assert.ok(access.ok);
+      return access.value.reached;
+    };
+    assert.equal(await reached(), true);
+
+    setStatus("archived");
+    assert.equal(await reached(), false);
+    assert.deepStrictEqual(global.value, [guide], "the record stays");
+    const listed = await deployments.list("notes");
+    assert.ok(listed.ok);
+    assert.deepStrictEqual(
+      listed.value.rows.map((one) => [one.provided, one.archived]),
+      [[false, true]],
+    );
+    // 지우기 창이 지울 기록을 보인다.
+    const places = await deployments.receivers(APP);
+    assert.ok(places.ok);
+    assert.equal(places.value.found.length, 1);
+
+    setStatus("active");
+    assert.equal(await reached(), true);
+  });
+});
+
 // P12. 배포 목록은 누가 묻느냐에 따라 보이는 범위가 다르다: 다른 agent에게 다른 workspace의 이름과 그 skill이 새면 안 된다.
 // 사람과 Home의 lophn은 모두 보고, 다른 agent는 자기에게 닿는 자리만, 자기 앱을 물은 앱 session은 다른 자리를 수로만 받는다.
 test("배포 목록은 agent에게 자기에게 닿는 자리만 보이고 자기 앱의 다른 자리는 수로만 센다", async () => {

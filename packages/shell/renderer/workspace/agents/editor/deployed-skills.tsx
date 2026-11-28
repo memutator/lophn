@@ -2,19 +2,19 @@
 // 기록은 앱의 skill을 가리킬 뿐이고 본문은 복사하지 않는다(앱의 active release가 바뀌면 따라간다).
 
 import { t } from "@lophn/i18n";
-import { Menu } from "@lophn/ui/overlay";
+import { Menu, Tooltip } from "@lophn/ui/overlay";
 import { Button } from "@lophn/ui/primitives";
 
 import type { SkillDeployment } from "../../../../../protocol/lophn-agent/skill-settings.ts";
 import { actionIcons } from "../../../icons/mod.ts";
-import type { DeployableSkill } from "../views.ts";
+import type { DeployableList } from "../views.ts";
 import styles from "./agent-editor.module.css";
 
 interface DeployedSkillsProps {
   /** 이 층에 배포한 skill. */
   readonly entries: readonly SkillDeployment[];
   /** 배포할 수 있는 skill 전부. 읽는 중이거나 읽지 못했으면 null이다. */
-  readonly deployable: readonly DeployableSkill[] | null;
+  readonly deployable: DeployableList | null;
   /** 바꾼 새 목록. 저장은 부르는 쪽이 한다. */
   readonly onChange: (next: readonly SkillDeployment[]) => void;
 }
@@ -22,7 +22,8 @@ interface DeployedSkillsProps {
 const same = (a: SkillDeployment, b: SkillDeployment): boolean =>
   a.app === b.app && a.skill === b.skill;
 
-export function DeployedSkills({
+/** [Deploy skill] 단추. 더할 skill이 없으면 눌리지 않고 왜 없는지 말한다. 목록과 떨어져 제목 줄에 놓을 수 있다. */
+export function DeploySkillMenu({
   entries,
   deployable,
   onChange,
@@ -30,8 +31,63 @@ export function DeployedSkills({
   const open = (deployable ?? []).filter(
     (one) => !entries.some((entry) => same(entry, one)),
   );
+  const why =
+    open.length > 0 || deployable === null
+      ? undefined
+      : deployable.length === 0
+        ? t("agents.notice.deploy-none")
+        : t("agents.notice.deploy-all");
+  const menu = (
+    <Menu
+      trigger={
+        <Button
+          size="sm"
+          icon={actionIcons.add}
+          disabled={open.length === 0}
+          data-action="deploy-skill"
+        >
+          {t("agents.button.deploy-skill")}
+        </Button>
+      }
+      items={open.map((one) => ({
+        id: `${one.app}/${one.skill}`,
+        label: `${one.appName}: ${one.skill}`,
+      }))}
+      onSelect={(id) => {
+        const [app, skill] = id.split("/") as [string, string];
+        onChange([...entries, { app, skill }]);
+      }}
+    />
+  );
+  // 눌리지 않는 단추는 왜 그런지 말한다.
+  return why === undefined ? (
+    menu
+  ) : (
+    <Tooltip content={why}>
+      <span data-deploy-menu="">{menu}</span>
+    </Tooltip>
+  );
+}
+
+/** 목록과 단추를 함께 그린다(단추는 목록 아래 오른쪽 끝, MCP server 추가와 같은 자리). */
+export function DeployedSkills(props: DeployedSkillsProps) {
   return (
     <div data-deployed-skills="">
+      <DeployedList {...props} />
+      <div className={styles.rightEnd}>
+        <DeploySkillMenu {...props} />
+      </div>
+    </div>
+  );
+}
+
+export function DeployedList({
+  entries,
+  deployable,
+  onChange,
+}: DeployedSkillsProps) {
+  return (
+    <div data-deployed-list="">
       {entries.length === 0 ? (
         <p className={styles.note}>{t("agents.empty.deployed-skills")}</p>
       ) : (
@@ -57,8 +113,11 @@ export function DeployedSkills({
                         : t("agents.label.deployed-gone")}
                   </span>
                 </span>
-                {known === undefined ? null : (
-                  <span className={styles.chip}>{known.appName}</span>
+                {(known?.appName ?? deployable?.appNames?.get(entry.app)) ===
+                undefined ? null : (
+                  <span className={styles.chip}>
+                    {known?.appName ?? deployable?.appNames?.get(entry.app)}
+                  </span>
                 )}
                 <Button
                   size="sm"
@@ -75,27 +134,6 @@ export function DeployedSkills({
           })}
         </ul>
       )}
-      <div className={styles.rightEnd}>
-        <Menu
-          trigger={
-            <Button
-              size="sm"
-              icon={actionIcons.add}
-              disabled={open.length === 0}
-            >
-              {t("agents.button.deploy-skill")}
-            </Button>
-          }
-          items={open.map((one) => ({
-            id: `${one.app}/${one.skill}`,
-            label: `${one.appName}: ${one.skill}`,
-          }))}
-          onSelect={(id) => {
-            const [app, skill] = id.split("/") as [string, string];
-            onChange([...entries, { app, skill }]);
-          }}
-        />
-      </div>
     </div>
   );
 }

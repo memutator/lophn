@@ -23,6 +23,7 @@ import {
 } from "../agent-glance.tsx";
 import { formatHarnessModel } from "../model-picker-data.ts";
 import type { ModelsView } from "../source.ts";
+import type { DeployableList } from "../views.ts";
 import styles from "./agent-editor.module.css";
 import type { AgentFacts, FormProps, Group, Ready } from "./editor-model.ts";
 import { ownServers } from "./tab-sees.tsx";
@@ -50,6 +51,7 @@ interface OverviewTabProps extends FormProps {
   readonly name: string;
   readonly models: ModelsView | null;
   readonly apps: AppNames;
+  readonly deployable: DeployableList | null;
   readonly copyOf: Ready["copyOf"];
   readonly onEdit: (group: Group) => void;
 }
@@ -153,9 +155,14 @@ export function OverviewTab(props: OverviewTabProps) {
   const instructions = firstLine(definition.body);
   const memoryLine =
     detail.memory === null ? null : firstLine(detail.memory.text);
-  const deployed = (definition.deployed_skills ?? []).map(
-    (one) => `${one.app}/${one.skill}`,
-  );
+  // 앱은 이름으로 보인다. 앱이 없어졌으면 id로 보인다.
+  const deployed = (definition.deployed_skills ?? []).map((one) => {
+    const name =
+      props.deployable?.find((row) => row.app === one.app)?.appName ??
+      props.deployable?.appNames?.get(one.app) ??
+      one.app;
+    return `${name}/${one.skill}`;
+  });
   const copiedRemote =
     (definition as { remote_apps?: readonly unknown[] }).remote_apps?.length ??
     0;

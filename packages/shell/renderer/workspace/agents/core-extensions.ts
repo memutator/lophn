@@ -32,6 +32,7 @@ import { isAppWorkspace, kindOfWorkspace } from "./agent-key.ts";
 import type { Link } from "./core-link.ts";
 import { secretsOf } from "./mcp-secrets.ts";
 import type {
+  DeployableList,
   DeployableSkill,
   InstructionsFile,
   McpLayer,
@@ -292,7 +293,7 @@ interface AppRow {
  */
 export async function readDeployable(
   link: Link,
-): Promise<ReadResult<DeployableSkill[]>> {
+): Promise<ReadResult<DeployableList>> {
   const apps = await link.read<{ apps: AppRow[] }>("apps", "list", {});
   if (!apps.ok) return apps;
   const active = apps.value.apps.filter((app) => app.status === "active");
@@ -318,7 +319,10 @@ export async function readDeployable(
       });
     }
   }
-  return { ok: true, value: found };
+  const list: DeployableList = Object.assign(found, {
+    appNames: new Map(apps.value.apps.map((app) => [app.id, app.name])),
+  });
+  return { ok: true, value: list };
 }
 
 /** 이 자리에서 보이는 MCP server: 전역과 workspace(Home, project, 앱) 층. 전역 server를 workspace에서 끈 것은 꺼진 것으로 보인다. */

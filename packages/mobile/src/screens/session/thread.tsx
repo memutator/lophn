@@ -54,7 +54,7 @@ import { closeOpenFence } from "../../../../shell/renderer/conversation/live-tex
 import { partsOfContent } from "../../../../shell/renderer/conversation/thread-layout.ts";
 import { failedText } from "../../../../shell/renderer/conversation/thread/turn-failure.ts";
 import { useNav } from "../../app/nav.ts";
-import { useInbox } from "../../data/mod.ts";
+import { useInbox, useNames } from "../../data/mod.ts";
 import { Face, type Look } from "../../parts/mod.ts";
 import { duration, elapsedText, useSecondTick } from "../../../../shell/renderer/conversation/activity/elapsed.ts";
 import { Line } from "./parts.tsx";
@@ -569,6 +569,7 @@ const SCOPE = {
 
 /** The line a decision leaves: allowed, denied, or cancelled because the work ended first (the desktop's ApprovalResult). */
 function Decision({ result }: { result: ApprovalResultView }) {
+  const names = useNames();
   const detail = [
     result.choice === null ? null : t(SCOPE[result.choice]),
     result.reason === null ? null : t("conversation.label.approval-reason-given", { reason: result.reason }),
@@ -576,7 +577,7 @@ function Decision({ result }: { result: ApprovalResultView }) {
   ]
     .filter((part) => part !== null)
     .join(" · ");
-  const target = approvalTargetOf(result.subject, targetOf);
+  const target = approvalTargetOf(result.subject, (subject) => targetOf(subject, names.apps));
   return (
     <Line
       icon={ShieldCheck}

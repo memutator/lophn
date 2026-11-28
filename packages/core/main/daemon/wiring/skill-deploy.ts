@@ -27,7 +27,11 @@ import type {
   Sql,
 } from "../../../../protocol/server/mod.ts";
 import { PROJECT_LAYER } from "../../../agent-workspaces/workspace/project-layer.ts";
-import { appStatusOf, publicSkillsOf } from "../../../apps/lookups.ts";
+import {
+  appStatusOf,
+  declaredPublicSkillsOf,
+  publicSkillsOf,
+} from "../../../apps/lookups.ts";
 import { projectIds, projectStatusOf } from "../../../projects/lookups.ts";
 import { loadApp, loadApps } from "../../../apps/registration/store.ts";
 import type { AppAccess } from "../../../approvals/approvals.ts";
@@ -77,12 +81,16 @@ export type DeploymentEntry = {
   app: string;
   slug: string | null;
   skill: string;
+  // 그 앱의 active release가 그 skill을 public으로 내놓는가. 앱이 보관돼도 그대로다(`archived`가 따로 말한다).
   provided: boolean;
   layer: SkillDeploymentRow["layer"];
   at: string | null;
   workspace: AgentWorkspace | null | undefined;
   active: boolean;
 };
+
+// 목록은 그 앱이 보관됐는지도 싣는다. 보관한 앱의 기록은 그대로 두고 아무도 받지 않으며 되살리면 다시 닿는다.
+type HeldEntry = DeploymentEntry & { archived: boolean };
 
 type Ctx = Pick<
   WiringContext,
@@ -127,7 +135,7 @@ function placeName(
     : (slugs.get(workspace.id) ?? workspace.id);
 }
 
-// 층 하나의 읽기와 쓰기, 한 session에 닿는 배포 합치기, 앱 지움·보관 때의 정리다. 상태가 없어 부르는 쪽이 ctx로 만든다.
+// 층 하나의 읽기와 쓰기, 한 session에 닿는 배포 합치기, 앱 지움 때의 정리다. 상태가 없어 부르는 쪽이 ctx로 만든다.
 export function createSkillDeployments(ctx: Ctx) {
   const root = ctx.root.path;
   const snapshot = <T>(read: (sql: Query) => T): Result<T> =>
@@ -257,6 +265,7 @@ export function createSkillDeployments(ctx: Ctx) {
             id: loaded.value.id,
             slug: loaded.value.slug,
             skills: publicSkillsOf(sql, loaded.value.id),
+            agent: agentDirectory(sql).agent(who.agent)?.name,
           }
         : null;
     });
@@ -264,12 +273,13 @@ export function createSkillDeployments(ctx: Ctx) {
     if (found.value === null) {
       return err({ code: "not_found", message: "app not found" });
     }
-    const { id, slug, skills } = found.value;
+    const { id, slug, skills, agent } = found.value;
     const own = who.workspace?.kind === "app" && who.workspace.id === id;
     const reached = own || appReached(await reaching(who), id, skills);
     return ok({
       reached,
       slug,
+      ...(agent === undefined ? {} : { agent }),
       skills,
       mayDeploy: mayDeployWithoutAsking(who, id),
     });
@@ -303,10 +313,10 @@ export function createSkillDeployments(ctx: Ctx) {
   }
 
   // 모든 자리의 배포 기록이다(전역, harness, workspace, agent). 앱과 skill은 id와 이름을 같이 갖고, `provided`는 그 앱의 active release가 지금
-  // 그 skill을 public으로 내놓는가다. 내놓지 않는 기록(skill이 지워졌거나 비공개가 됐다, 앱이 지워지거나 보관됐다)도 싣는다:
+  // 그 skill을 public으로 내놓는가다(앱을 보관해도 그대로고 `archived`가 따로 말한다). 내놓지 않는 기록(skill이 지워졌거나 비공개가 됐다)과 보관한 앱의 기록도 싣는다:
   // 읽는 쪽이 말없이 빼는 것을 여기서는 보인다. 앱을 읽는 쪽 모두가 이 한 목록을 쓴다.
   async function entries(): Promise<
-    Result<{ found: DeploymentEntry[]; unreadable: number }>
+    Result<{ found: HeldEntry[]; unreadable: number }>
   > {
     const places = snapshot((sql) => {
       const deps = workspaceDepsOf(sql);
@@ -318,8 +328,13 @@ export function createSkillDeployments(ctx: Ctx) {
       const provided = new Map<string, readonly string[]>(
         (apps.ok ? apps.value : []).map((one) => [
           one.id,
-          publicSkillsOf(sql, one.id),
+          declaredPublicSkillsOf(sql, one.id),
         ]),
+      );
+      const archivedIds = new Set(
+        (apps.ok ? apps.value : [])
+          .filter((one) => appStatusOf(sql, one.id) === "archived")
+          .map((one) => one.id),
       );
       const activeIds = new Set([
         ...projectIds(sql).filter(
@@ -336,6 +351,7 @@ export function createSkillDeployments(ctx: Ctx) {
       return {
         slugs,
         providedBy,
+        archivedIds,
         active,
         projects: projectIds(sql).map((id) => ({
           workspace: { kind: "project", id } as AgentWorkspace,
@@ -355,7 +371,7 @@ export function createSkillDeployments(ctx: Ctx) {
       };
     });
     if (!places.ok) return places;
-    const found: DeploymentEntry[] = [];
+    const found: HeldEntry[] = [];
     // 읽지 못한 자리의 수다. 건너뛰되 센다: 목록이 모자란다는 것을 보이는 쪽이 알린다.
     let unreadable = 0;
     const add = (
@@ -370,6 +386,7 @@ export function createSkillDeployments(ctx: Ctx) {
           slug: places.value.slugs.get(item.app) ?? null,
           skill: item.skill,
           provided: places.value.providedBy(item.app).includes(item.skill),
+          archived: places.value.archivedIds.has(item.app),
           layer,
           at,
           workspace,
@@ -418,7 +435,7 @@ export function createSkillDeployments(ctx: Ctx) {
     const matching = all.value.found.filter(
       (one) => slug === undefined || (one.slug ?? one.app) === slug,
     );
-    const visible = (one: DeploymentEntry): boolean =>
+    const visible = (one: HeldEntry): boolean =>
       scope === undefined ||
       one.layer === "global" ||
       one.layer === "harness" ||
@@ -441,15 +458,17 @@ export function createSkillDeployments(ctx: Ctx) {
         skill: one.skill,
         layer: one.layer,
         at: one.at,
-        provided: one.provided,
+        provided: one.provided && !one.archived,
+        archived: one.archived,
       })),
       others,
       unreadable: all.value.unreadable,
     });
   }
 
-  // 그 앱(id)의 skill을 지금 받는 바깥 자리다: 앱이 지금 내놓는 skill의 배포만(`provided`), 앱 자기 workspace와 그 workspace의 agent,
-  // 보관된 workspace는 뺀다. 의존 알림(release 준비, 동의 카드, 앱 보관·삭제 창, 계약 변경 인계)이 모두 이 목록을 읽는다.
+  // 그 앱(id)의 skill을 받는 바깥 자리다: 앱이 지금 내놓는 skill의 배포만(`provided`), 앱 자기 workspace와 그 workspace의 agent,
+  // 보관된 workspace는 뺀다. 보관한 앱은 지금 아무도 받지 않지만 되살리면 받을 자리이므로 싣는다(지우기 창이 지울 기록을 보인다).
+  // 의존 알림(release 준비, 동의 카드, 앱 삭제 창, 계약 변경 인계)이 모두 이 목록을 읽는다.
   // `skills`를 주면 그 이름의 배포만이다.
   async function receivers(
     app: string,
@@ -471,7 +490,7 @@ export function createSkillDeployments(ctx: Ctx) {
     });
   }
 
-  // 앱을 지우거나 보관할 때 그 앱(id)의 배포를 모든 자리에서 거둔다. 읽지 못하거나 쓰지 못한 자리는 로그에 그 자리를 남기고 건너뛴다:
+  // 앱을 지울 때 그 앱(id)의 배포를 모든 자리에서 거둔다(보관은 기록을 그대로 둔다). 읽지 못하거나 쓰지 못한 자리는 로그에 그 자리를 남기고 건너뛴다:
   // 기록은 id로 앱을 가리키므로 남은 기록은 아무 앱에도 닿지 않는 찌꺼기다(id는 다시 쓰이지 않는다).
   async function strip(
     app: string,
@@ -779,7 +798,7 @@ export function createSkillDeployHandlers(
       const sql = lookup.sql;
       const target = parseTarget(sql, input.to, caller.value?.workspace);
       if (!target.ok) return target;
-      const apps = loadApps(sql, "active");
+      const apps = loadApps(sql, undefined);
       const app = apps.ok
         ? apps.value.find((one) => one.slug === input.app)
         : undefined;
@@ -787,6 +806,13 @@ export function createSkillDeployHandlers(
         return err({
           code: "not_found",
           message: `app ${input.app} not found`,
+        });
+      }
+      // 보관한 앱의 기록은 그대로 두므로 거둘 수는 있다. 새로 배포하는 것은 앱을 되살린 뒤다.
+      if (mode === "deploy" && appStatusOf(sql, app.id) === "archived") {
+        return err({
+          code: "invalid_input",
+          message: `app ${input.app} is archived; unarchive it before deploying its skills`,
         });
       }
       const skills = publicSkillsOf(sql, app.id);

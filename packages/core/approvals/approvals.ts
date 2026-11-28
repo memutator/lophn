@@ -45,6 +45,7 @@ import { createTurnRequests } from "./turn-requests.ts";
 export type AppAccess = {
   reached: boolean;
   slug: string;
+  agent?: string;
   skills: readonly string[];
   mayDeploy: boolean;
 };

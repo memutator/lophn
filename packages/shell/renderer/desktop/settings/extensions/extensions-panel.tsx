@@ -11,12 +11,15 @@ import {
 import { skillsRead } from "../../../../../protocol/lophn-agent/skill-settings.ts";
 import { secretStatus } from "../../../../../protocol/secrets/secret-file.ts";
 import { actionIcons } from "../../../icons/mod.ts";
-import { DeployedSkills } from "../../../workspace/agents/editor/deployed-skills.tsx";
+import {
+  DeployedList,
+  DeploySkillMenu,
+} from "../../../workspace/agents/editor/deployed-skills.tsx";
 import { McpList, SkillList } from "../../../workspace/agents/editor/parts.tsx";
 import { ServerForm } from "../../../workspace/agents/editor/server-form.tsx";
 import { useCoreRead } from "../../connection/core-read.ts";
 import { extensionsViewOf, serverSecretNames } from "../agents/core-source.ts";
-import type { DeployableSkill } from "../../../workspace/agents/views.ts";
+import type { DeployableList } from "../../../workspace/agents/views.ts";
 import type {
   AgentsSettingsSource,
   McpRow,
@@ -74,9 +77,7 @@ export function ExtensionsPanel({ source }: ExtensionsPanelProps): ReactNode {
     [settings.loaded],
   );
   // 배포할 수 있는 앱 skill. 읽는 중이거나 읽지 못했으면 null이다.
-  const [deployable, setDeployable] = useState<
-    readonly DeployableSkill[] | null
-  >(null);
+  const [deployable, setDeployable] = useState<DeployableList | null>(null);
   useEffect(() => {
     let live = true;
     void source.deployable().then((result) => {
@@ -222,8 +223,13 @@ export function ExtensionsPanel({ source }: ExtensionsPanelProps): ReactNode {
               <h2 className={styles.sectionTitle}>
                 {t("agents.heading.deployed-skills")}
               </h2>
+              <DeploySkillMenu
+                entries={deployed}
+                deployable={deployable}
+                onChange={(next) => void act(() => source.setDeployed(next))}
+              />
             </div>
-            <DeployedSkills
+            <DeployedList
               entries={deployed}
               deployable={deployable}
               onChange={(next) => void act(() => source.setDeployed(next))}

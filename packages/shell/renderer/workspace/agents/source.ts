@@ -34,7 +34,7 @@ import type { ToolEffect } from "../../../../protocol/lophn-agent/tool-values.ts
 import type { PermissionMode } from "../../../../protocol/lophn-agent/turn-values.ts";
 import type { ReadResult } from "../source.ts";
 import type {
-  DeployableSkill,
+  DeployableList,
   InstructionsFile,
   McpLogin,
   McpRow,
@@ -390,7 +390,7 @@ export interface AgentsSource {
   /** MCP server의 secret 한 자리(`mcp.…` 이름)에 값을 넣는 보호 입력 창을 열고 닫힐 때까지 기다린다. 값은 이 길을 지나지 않는다. */
   enterMcpSecret(name: string, server: string): Promise<void>;
   /** 배포할 수 있는 앱 skill 전부(활성 앱의 public skill). 읽지 못하면 못 읽은 것이다. */
-  deployable(): Promise<ReadResult<readonly DeployableSkill[]>>;
+  deployable(): Promise<ReadResult<DeployableList>>;
   /** workspace 층의 배포를 새 내용으로 바꾼다. agent 층은 정의의 `deployed_skills`로 저장한다. */
   setDeployed(
     workspace: string,

@@ -23,7 +23,7 @@ import { scopeLabel } from "../agent-card.tsx";
 import { runtimeLabel } from "../agent-glance.tsx";
 import { secretsOf } from "../mcp-secrets.ts";
 import type { AgentDraft } from "../source.ts";
-import type { DeployableSkill, McpLogin, McpRow, McpSecret } from "../views.ts";
+import type { DeployableList, McpLogin, McpRow, McpSecret } from "../views.ts";
 import styles from "./agent-editor.module.css";
 import {
   type AgentFacts,
@@ -75,7 +75,7 @@ interface SeesTabProps extends FormProps {
   /** 다른 컴퓨터 앱 할당 조각. 바로 저장되므로 editor가 그 상태를 쥐고 그린다. */
   readonly apps: ReactNode;
   /** 배포할 수 있는 앱 skill 전부. 읽는 중이거나 읽지 못했으면 null이다. */
-  readonly deployable: readonly DeployableSkill[] | null;
+  readonly deployable: DeployableList | null;
   /** OAuth MCP server의 [Sign in]. */
   readonly onSignIn: (row: McpRow) => void;
   /** 기다리는 로그인의 [Cancel]. */

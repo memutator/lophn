@@ -642,7 +642,7 @@ export const terminalAgentsWiring: WiringFactory = () => {
       beatTimer = setInterval(() => agents.holds.beat(), BEAT_MS);
       beatTimer.unref?.();
 
-      // harness의 앱 skill 사본은 core 기동 뒤, 앱 activation 뒤, 설정이 바뀔 때 맞춘다. 사본이 같으면 아무것도 쓰지 않는다.
+      // harness의 앱 skill 사본은 core 기동 뒤, 앱 activation 뒤, 앱을 보관하거나 되살린 뒤, 설정이 바뀔 때 맞춘다. 사본이 같으면 아무것도 쓰지 않는다.
       offs.push(
         ctx.bus.subscribe([{ types: ["AppViewChanged", "StateChanged"] }], {
           send(event) {
@@ -662,9 +662,10 @@ export const terminalAgentsWiring: WiringFactory = () => {
             if (
               changes.some(
                 (change) =>
-                  change.name === "settings" &&
-                  (change.id === null ||
-                    change.id === CODING_DEPLOYED_SKILLS_SETTING_KEY),
+                  change.name === "apps" ||
+                  (change.name === "settings" &&
+                    (change.id === null ||
+                      change.id === CODING_DEPLOYED_SKILLS_SETTING_KEY)),
               )
             ) {
               skillSync.request();

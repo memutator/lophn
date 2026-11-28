@@ -19,7 +19,7 @@ import {
   type SkillDeployment,
 } from "../../../../../protocol/lophn-agent/skill-settings.ts";
 import { DeployedSkills } from "../../../workspace/agents/editor/deployed-skills.tsx";
-import type { DeployableSkill } from "../../../workspace/agents/views.ts";
+import type { DeployableList } from "../../../workspace/agents/views.ts";
 import { settingsList } from "../../../../../protocol/config/file.ts";
 import { useCoreRead } from "../../connection/core-read.ts";
 import { effectiveOf } from "../declared.ts";
@@ -93,9 +93,7 @@ export function CodingConnectionsPanel({
     );
     return parsed.success ? parsed.data : [];
   }, [deployedRead]);
-  const [deployable, setDeployable] = useState<
-    readonly DeployableSkill[] | null
-  >(null);
+  const [deployable, setDeployable] = useState<DeployableList | null>(null);
   useEffect(() => {
     let live = true;
     void source.deployable().then((result) => {

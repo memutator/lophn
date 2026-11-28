@@ -1035,7 +1035,7 @@ flows:
       - packages/core/main/daemon/wiring/skill-deploy.ts
       - packages/protocol/lophn-agent/skill-settings.ts
     steps:
-      - "전역 설정, harness 설정, Home·모든 project·앱의 extensions.json, 모든 agent 정의의 배포 기록을 읽어 {앱, skill, 층, 이름, provided}로 돌려준다. 사람과 Home의 lophn(session 행으로 확인)은 모두 보고, 다른 agent는 자기에게 닿는 자리(전역, harness, 자기 workspace와 그 workspace의 agent)만 보며, 자기 앱을 묻는 앱 session은 다른 자리를 이름 없이 수(`others`)로만 받는다. 읽지 못한 자리는 건너뛰되 수(`unreadable`)를 싣는다. provided는 그 앱의 active release가 지금 그 skill을 public으로 내놓는가이고, false인 기록(skill이 사라졌거나 비공개가 됐다, 앱이 지워졌다)도 싣는다"
+      - "전역 설정, harness 설정, Home·모든 project·앱의 extensions.json, 모든 agent 정의의 배포 기록을 읽어 {앱, skill, 층, 이름, provided, archived}로 돌려준다. 사람과 Home의 lophn(session 행으로 확인)은 모두 보고, 다른 agent는 자기에게 닿는 자리(전역, harness, 자기 workspace와 그 workspace의 agent)만 보며, 자기 앱을 묻는 앱 session은 다른 자리를 이름 없이 수(`others`)로만 받는다. 읽지 못한 자리는 건너뛰되 수(`unreadable`)를 싣는다. provided는 그 앱의 active release가 내놓고 앱이 보관되지 않았는가이고, false인 기록(skill이 사라졌거나 비공개가 됐다, 앱이 보관됐다)도 싣는다. 보관한 앱의 기록은 archived가 true이고 그대로 남는다(보관은 배포를 거두지 않고 지울 때만 거둔다)"
       - 앱 slug를 주면 그 앱의 skill을 가진 모든 층만이다
     outcomes:
       - id: ok

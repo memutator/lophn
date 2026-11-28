@@ -68,6 +68,11 @@ export interface SkillRow {
   readonly builtIn: boolean;
 }
 
+/** 배포할 수 있는 앱 skill 전부. 기록은 앱을 id로 가리키므로, 앱이 더는 skill을 내놓지 않는 기록에도 앱 이름을 보이도록 모든 앱의 이름(`appNames`)을 같이 든다. */
+export interface DeployableList extends ReadonlyArray<DeployableSkill> {
+  readonly appNames?: ReadonlyMap<string, string>;
+}
+
 /** 배포할 수 있는 앱 skill 하나: 앱(id와 이름)의 active release가 내놓은 public skill이다. 기록은 앱을 id로 가리킨다. */
 export interface DeployableSkill {
   readonly app: string;

@@ -298,13 +298,16 @@ export const agents = {
   "agents.notice.instructions-app-none":
     "This app has no source folder yet, so it has no AGENTS.md. Only the instructions below apply here.",
   "agents.notice.grants-apply-now":
-    "Changes to apps apply right away, without Save.",
+    "Changes to apps from other computers apply right away, without Save.",
+  "agents.notice.deploy-all":
+    "Every skill an app offers is already deployed here.",
+  "agents.notice.deploy-none": "No app has a skill to deploy yet.",
   "agents.notice.deployed-skills-global":
     "Skills deployed here reach every agent in every workspace. A workspace or one agent can also have its own.",
   "agents.notice.deployed-skills-workspace":
     "Skills deployed here reach every agent working in this {kind}. They point at the app's own skills, so an app's new release is followed.",
   "agents.notice.deployed-skills-agent":
-    "Skills deployed to this agent only. Skills deployed to its workspace or to every agent reach it too. Saved with Save.",
+    "Skills deployed to this agent only. Skills deployed to its workspace or to every agent reach it too. This change is saved with Save.",
   "agents.notice.grants-computers":
     "Apps that run on your other computers. Only the commands an app offers to other computers can be assigned, and they run on that computer.",
   "agents.notice.instructions-help":

@@ -124,15 +124,20 @@ export function changeText(
 }
 
 /** 결정 뒤 남는 줄이 가리키는 것. shell은 명령 그대로다. plan은 가리킬 것이 없어 비어 있다. */
-export function targetOf(subject: ApprovalSubject): string {
+export function targetOf(
+  subject: ApprovalSubject,
+  appNames?: ReadonlyMap<string, string>,
+): string {
   switch (subject.kind) {
     case "shell":
       return subject.command;
     case "app_tool":
       return t("conversation.label.approval-target-tool", {
-        app: t("conversation.label.approval-app", {
-          id: shortId(subject.app),
-        }),
+        app:
+          appNames?.get(subject.app) ??
+          t("conversation.label.approval-app", {
+            id: shortId(subject.app),
+          }),
         tool: subject.tool,
       });
     case "mcp_tool":

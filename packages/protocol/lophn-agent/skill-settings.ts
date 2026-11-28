@@ -311,8 +311,11 @@ const deploymentRowSchema = z.object({
   layer: z.enum(["global", "harness", "workspace", "agent"]),
   // workspace 층이면 그 workspace의 이름이고(project 이름, 앱 slug, `home`), agent 층이면 handle이다. 전역과 harness는 없다.
   at: z.string().nullable(),
-  // 그 앱의 active release가 지금 그 skill을 public으로 내놓는가. 아니면 "앱이 더는 내놓지 않는 기록"이다(받는 쪽은 말없이 뺀다). 거두거나 바꿀 수 있다.
+  // 그 앱이 지금 그 skill을 내놓아 받는 쪽에 닿는가: 앱의 active release가 public으로 내놓고 앱이 보관되지 않았다. 아니면 받는 쪽은 말없이 뺀다.
+  // 보관한 앱이 아니면 "앱이 더는 내놓지 않는 기록"이다. 거두거나 바꿀 수 있다.
   provided: z.boolean(),
+  // 그 앱이 보관돼 있다. 기록은 그대로이고 앱을 되살리면 다시 닿는다.
+  archived: z.boolean(),
 });
 export type SkillDeploymentRow = z.infer<typeof deploymentRowSchema>;
 

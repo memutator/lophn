@@ -54,6 +54,8 @@ export type PermissionRequest = {
   readonly appAccess?: {
     readonly reached: boolean;
     readonly slug: string;
+    // 묻는 문장에 쓰는 agent의 보이는 이름. 모르면 "This agent"로 쓴다.
+    readonly agent?: string;
     readonly skills: readonly string[];
     readonly mayDeploy: boolean;
   } | null;
@@ -924,7 +926,7 @@ export function evaluatePermission(
         kind: "ask",
         // 사람만 허락한다: 부모 agent가 팀 자식 대신 허락하면 사람 없이 앱이 돈다(배포 승인과 같다).
         personOnly: true,
-        reason: `App ${slug} has no skill deployed to this agent that it receives (here, its workspace or globally).`,
+        reason: `${access?.agent ?? "This agent"} has no skill of ${slug}, so it asks before using it.`,
         outside_rewind: call.effect !== "read",
         allowed_choices: deployable
           ? ["once", "session", "always", "reject"]
@@ -932,7 +934,7 @@ export function evaluatePermission(
         ...(deployable
           ? {
               alwaysPatterns: access!.skills.map(
-                (skill) => `deploy ${slug}/${skill} to this workspace`,
+                (skill) => `the skill ${skill} of ${slug} for this workspace`,
               ),
             }
           : {}),

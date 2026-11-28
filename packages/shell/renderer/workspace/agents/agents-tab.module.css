@@ -199,9 +199,3 @@
   padding-top: var(--space-4);
 }
 
-
-.subheading {
-  margin: var(--space-6) var(--space-0) var(--space-3);
-  font-size: var(--type-body-size);
-  font-weight: var(--font-weight-medium);
-}

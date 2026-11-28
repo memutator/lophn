@@ -6,7 +6,7 @@ import type {
 } from "../../../../../protocol/coding-agent/coding-agents.ts";
 import type { HarnessId as HarnessName } from "../../../../../protocol/coding-agent/harness-id.ts";
 import type { SkillDeployment } from "../../../../../protocol/lophn-agent/skill-settings.ts";
-import type { DeployableSkill } from "../../../workspace/agents/views.ts";
+import type { DeployableList } from "../../../workspace/agents/views.ts";
 import type { SourceResult } from "../source.ts";
 
 export type { HarnessHookView, HarnessName, HarnessSettingsView, SourceResult };
@@ -24,7 +24,7 @@ export interface CodingConnectionsSource {
   /** 사람이 [Uninstall hooks]를 누를 때만 부른다. 제품의 전역 설정 file에서 lophn 항목만 지운다. */
   uninstallHooks(harness: HarnessName): Promise<SourceResult<HarnessHookView>>;
   /** 배포할 수 있는 앱 skill 전부. */
-  deployable(): Promise<SourceResult<readonly DeployableSkill[]>>;
+  deployable(): Promise<SourceResult<DeployableList>>;
   /** 배포 목록을 통째로 바꾼다. 사본은 shell main이 설정 변경(`StateChanged`의 `settings`)을 듣고 다음 sync에서 맞춘다. */
   setDeployed(next: readonly SkillDeployment[]): Promise<SourceResult<null>>;
 }

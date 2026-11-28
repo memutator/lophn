@@ -16,9 +16,11 @@ and old assignments were not converted.
   and calls its public commands without asking. It follows the app's active
   release; receivers cannot edit it. Read `deploy-skill` for the layer choice.
 - **Read who receives what** with `lophn skill deployments [--app <slug>]`
-  (an entry the app no longer provides shows `provided: false`), and see who
-  loses a skill when a release removes it (`release prepare`, the consent card,
-  the delete and archive lists).
+  (an entry the app no longer provides shows `provided: false`; one of an
+  archived app also shows `archived: true`), and see who loses a skill when a
+  release removes it (`release prepare`, the consent card, the delete list).
+  Archiving an app keeps its deployments (nobody receives them until it is
+  unarchived); only deleting an app removes them.
 
 ## What changed for existing work
 

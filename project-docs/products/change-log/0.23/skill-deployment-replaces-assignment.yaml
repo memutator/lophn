@@ -21,8 +21,8 @@ change: |
     `lophn skill deployments [--app]`(route `skills/deploy|undeploy|deployments`). 묻지 않고 배포하는 쪽은 사람, 그 앱 workspace의 agent(자기 앱),
     Home의 lophn이다. 그 밖의 agent와 `harness`로 가는 모든 agent 배포는 사람에게 묻는다. agent가 보는 배포 목록은 자기에게 닿는 줄뿐이다.
   - 의존: 받는 자리를 읽는 곳이 하나다. public skill·command를 지우는 release는 `release prepare`가 받는 자리 수를, activation 동의 카드가 잃는
-    자리를 보인다. 앱 archive·삭제의 영향 목록이 모든 층을 본다(종류 이름 `skill_deployment`). 앱이 더는 내놓지 않는 skill의 배포는 목록에
-    `provided: false`로 보인다. 읽지 못한 자리 수(`unreadable`)를 같이 보인다.
+    자리를 보인다. 앱 삭제의 영향 목록이 모든 층을 본다(종류 이름 `skill_deployment`). 앱이 더는 내놓지 않는 skill의 배포는 목록에
+    `provided: false`로 보이고, 보관한 앱의 배포는 `archived: true`로 보인다(보관은 기록을 그대로 두고 아무도 받지 않으며 되살리면 다시 닿는다. 지울 때만 거둔다). 읽지 못한 자리 수(`unreadable`)를 같이 보인다.
   - 내장 skill `deploy-skill`을 더했고 `write-skill`, workspace 종류 prompt, `design-app`, 앱 template, SDK guide를 고쳤다.
     `@lophn/declaration` 6.2.0, `@lophn/flow` 2.3.0, `@lophn/app-ui` 2.27.1, `@lophn/app-ui-native` 1.12.2.
   - 지운 것: agent 정의의 `apps`·`permissions`, 공유 요청 전체(`lophn app share`, `share_request.*`, 대기 목록 카드, ledger 표 `share_requests`),

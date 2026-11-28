@@ -22,7 +22,7 @@ import { Avatar, type AvatarLook } from "../../../parts/avatar/avatar.tsx";
 import { useOpenHandoffSession } from "../../../shell/cascade-delete-confirm.tsx";
 import { codingFaceOf } from "../coding-face.ts";
 import type { AgentDraft, AgentsSource, GrantsView } from "../source.ts";
-import type { DeployableSkill } from "../views.ts";
+import type { DeployableList } from "../views.ts";
 import type { Face } from "../tab-state.ts";
 import { useAgentModels } from "../use-agent-models.ts";
 import type { McpLogin, McpRow, McpSecret, McpStatus } from "../views.ts";
@@ -151,9 +151,7 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
   const [notice, setNotice] = useState<Notice | null>(null);
   const [grants, setGrants] = useState<GrantsLoaded>({ kind: "loading" });
   // 배포할 수 있는 앱 skill. 읽는 중이거나 읽지 못했으면 null이다.
-  const [deployable, setDeployable] = useState<
-    readonly DeployableSkill[] | null
-  >(null);
+  const [deployable, setDeployable] = useState<DeployableList | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [grantsAttempt, setGrantsAttempt] = useState(0);
   // 저장은 한 줄로 이어 보낸다. 앞 저장이 끝나기 전에 다음 변화를 보내면 옛 revision이라 conflict가 난다.
@@ -683,6 +681,7 @@ export function AgentEditor(props: AgentEditorProps): ReactElement {
             name={name}
             models={models}
             apps={appNames}
+            deployable={deployable}
             copyOf={state.copyOf}
             onEdit={setTab}
           />

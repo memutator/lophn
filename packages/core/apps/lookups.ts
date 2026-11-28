@@ -103,6 +103,11 @@ export function publicSkillsOf(sql: ReadSql, app: string): string[] {
     [app],
   );
   if (row === undefined) return [];
+  return declaredPublicSkillsOf(sql, app);
+}
+
+// 보관 여부와 상관없이 active release 선언의 public skill 이름이다. 보관한 앱을 지우기 전에 그 배포를 보일 때만 쓴다.
+export function declaredPublicSkillsOf(sql: ReadSql, app: string): string[] {
   const active = loadActiveDeclaration(sql, app);
   if (!active.ok || active.value === null) return [];
   return publicSkillNames(active.value.declaration.skills ?? []);

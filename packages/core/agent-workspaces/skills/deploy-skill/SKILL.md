@@ -96,8 +96,9 @@ it: `lophn skill deployments --app <slug>`. In the app's own workspace you see
 the places that concern you (every agent, coding agents, this workspace and its
 agents) and a count of the other places, not their names; ask lophn at Home who
 they are. Anyone else sees only the places that concern them, and Home's lophn
-and the person see all. `provided: false` marks a skill the app no longer
-offers, and `unreadable` counts places that could not be read. An agent that still has the old name
+and the person see all. `provided: false` marks a skill nobody receives now: the app no longer
+offers it, or the app is archived (`archived: true`), and `unreadable` counts places that could not be read. An agent that still has the old name
 loses the skill after the release; deploy the new name where the old one was,
-then `lophn skill undeploy` the old. Deleting or archiving an app removes its
-deployments by itself.
+then `lophn skill undeploy` the old. Deleting an app removes its deployments by
+itself. Archiving keeps them but nobody receives them while the app is
+archived (`archived: true`, `provided: false`); unarchiving brings them back.

@@ -13,6 +13,8 @@ import {
   useRef,
   useState,
 } from "react";
+import { useInboxNamesOf } from "../../desktop/connection/waiting/names.ts";
+import { useScopeMachine } from "../../desktop/machines/scope.tsx";
 import { actionIcons, editorIcons } from "../../icons/mod.ts";
 import type {
   ApprovalCardRequest,
@@ -49,6 +51,7 @@ export function ApprovalCard({
 }: ApprovalCardProps): ReactElement {
   const { subject } = request;
   const effect = effectOf(subject);
+  const appNames = useInboxNamesOf()(useScopeMachine()).apps;
   const [denyOpen, setDenyOpen] = useState(denying);
   const [reason, setReason] = useState(initialReason);
   const [busy, setBusy] = useState(false);
@@ -346,7 +349,7 @@ export function ApprovalCard({
           ) : (
             <>
               <dt>{t("conversation.label.approval-target")}</dt>
-              <dd>{targetOf(subject)}</dd>
+              <dd>{targetOf(subject, appNames)}</dd>
               <dt>{t("conversation.label.approval-effect")}</dt>
               <dd>{effect}</dd>
             </>
@@ -532,7 +535,8 @@ export function ApprovalResult({
   ]
     .filter((part): part is string => part !== null)
     .join(" · ");
-  const target = targetOf(result.subject);
+  const appNames = useInboxNamesOf()(useScopeMachine()).apps;
+  const target = targetOf(result.subject, appNames);
   return (
     <div className={styles.result}>
       <StatusMark tone={TONES[result.outcome]} label={markLabel(result)} />

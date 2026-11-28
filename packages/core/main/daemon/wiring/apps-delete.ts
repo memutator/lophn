@@ -4,11 +4,7 @@
 import { deleteCallsSentByApp } from "../../../router/mod.ts";
 import { chmod, readdir, rm } from "node:fs/promises";
 import { err, ok, type Result } from "../../../../base/mod.ts";
-import {
-  appArchive,
-  appDelete,
-  appRemnantsEraser,
-} from "../../../../protocol/apps/mod.ts";
+import { appDelete, appRemnantsEraser } from "../../../../protocol/apps/mod.ts";
 import {
   appFolder,
   bundleFileStore,
@@ -240,8 +236,8 @@ export const appsDeleteWiring: WiringFactory = () => ({
       }
     }
 
-    // 그 앱(id)의 skill 배포를 모든 자리에서 거둔다. 보관한 앱을 가리키는 기록을 남기지 않는다. 거두지 못한 자리는 log에 남고, 기록은 id로 앱을
-    // 가리키므로 남은 것은 아무 앱에도 닿지 않는다.
+    // 그 앱(id)의 skill 배포를 모든 자리에서 거둔다(지울 때만이다. 보관은 기록을 두어 되살리면 다시 닿는다). 거두지 못한 자리는 log에 남고,
+    // 기록은 id로 앱을 가리키므로 남은 것은 아무 앱에도 닿지 않는다.
     const deployments = createSkillDeployments(ctx);
     async function stripDeployments(app: string): Promise<void> {
       try {
@@ -277,15 +273,6 @@ export const appsDeleteWiring: WiringFactory = () => ({
       writer: (inner) => ({
         ...inner,
         async command(auth, envelope) {
-          if (envelope.command === appArchive.name) {
-            const target = (envelope.input as { app?: unknown } | undefined)
-              ?.app;
-            const archived = await inner.command(auth, envelope);
-            if (archived.ok && typeof target === "string") {
-              await stripDeployments(target);
-            }
-            return archived;
-          }
           if (envelope.command !== appDelete.name) {
             return await inner.command(auth, envelope);
           }

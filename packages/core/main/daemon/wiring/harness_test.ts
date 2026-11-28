@@ -68,6 +68,7 @@ async function setup() {
     })),
   });
   const commands: string[] = [];
+  const inputs: { command: string; input: unknown }[] = [];
   const provided = new Map<string, unknown>();
   const archived: string[] = [];
   const aliveBackground = new Set<string>();
@@ -77,6 +78,7 @@ async function setup() {
     envelope: { command: string; input: { session?: string } },
   ) => {
     commands.push(envelope.command);
+    inputs.push({ command: envelope.command, input: envelope.input });
     if (envelope.command === "ArchiveSession") {
       archived.push(String(envelope.input.session));
     }
@@ -166,6 +168,7 @@ async function setup() {
     hold,
     registry,
     commands,
+    inputs,
     archived,
     aliveBackground,
     evicted,
@@ -235,6 +238,7 @@ test("a tab never takes a member another tab already holds", async () => {
     const input = {
       harness: "claude-code" as const,
       project: PROJECT,
+      worktree_id: null,
       cli_session: "cli-p",
     };
     const free = await kit.members.ensure({ ...input, taken: new Set() });
@@ -265,6 +269,41 @@ test("a member turn's credential is scoped to that session and its project", asy
         session: BACKGROUND,
         turn: issued.value.turn,
       }).ok,
+    );
+  } finally {
+    kit.cleanup();
+  }
+});
+
+// worktree에서 연 탭의 팀원은 그 worktree에 고정해 연다. 원래 폴더의 같은 CLI session 팀원을 잇지 않는다. 섞이면 원래 폴더 권한 범위로
+// worktree에서 일하고, 활성 turn 가드가 엉뚱한 checkout을 막거나 놓친다.
+test("a tab in a worktree opens its member pinned to that worktree and never takes the original folder's member", async () => {
+  const kit = await setup();
+  try {
+    const worktree = id("wkt", 1);
+    const opened = await kit.members.ensure({
+      harness: "claude-code",
+      project: PROJECT,
+      worktree_id: worktree,
+      cli_session: "cli-p",
+      taken: new Set(),
+    });
+    assert.ok(opened.ok && opened.value !== PROJECT_MEMBER);
+    const sent = kit.inputs.find((one) => one.command === "OpenHarnessMember");
+    assert.equal(
+      (sent?.input as { worktree_id?: string }).worktree_id,
+      worktree,
+    );
+    const profile = await kit.members.openForAgent!({
+      harness: "claude-code",
+      project: PROJECT,
+      agent: "agt_x",
+      worktree_id: worktree,
+    });
+    assert.ok(profile.ok);
+    assert.equal(
+      (kit.inputs.at(-1)?.input as { worktree_id?: string }).worktree_id,
+      worktree,
     );
   } finally {
     kit.cleanup();

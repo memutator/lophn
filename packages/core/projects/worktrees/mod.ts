@@ -68,6 +68,7 @@ export {
   loadProjectWorktrees,
   loadWorktreeById,
   loadWorktreeByIdempotencyKey,
+  loadActiveWorktreeRoots,
   loadWorktreesByStatuses,
   loadWorktreeSettings,
   type StoredWorktreeRow,

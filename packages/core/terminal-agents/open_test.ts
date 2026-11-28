@@ -264,7 +264,7 @@ test("coding_sessions/open with a custom harness agent creates its member sessio
   });
   assert.deepEqual(opened, ok({ session: `ses_${"2".repeat(26)}` }));
   assert.deepEqual(created, [
-    { project: PROJECT, harness: "antigravity", agent: AGENT },
+    { project: PROJECT, harness: "antigravity", agent: AGENT, worktree_id: null },
   ]);
   assert.deepEqual(calls, [{ project: PROJECT, command: "agy --gui" }]);
   assert.deepEqual(bound, [

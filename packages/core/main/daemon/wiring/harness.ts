@@ -389,9 +389,14 @@ export const harnessWiring: WiringFactory = () => {
             lookup.sql
               .all(
                 `select id from sessions where harness_gui = 1 and lifecycle = 'open'
-                   and harness = ? and project = ? and harness_session = ?
+                   and harness = ? and project = ? and worktree_id is ? and harness_session = ?
                  order by created_seq desc`,
-                [input.harness, input.project, input.cli_session],
+                [
+                  input.harness,
+                  input.project,
+                  input.worktree_id,
+                  input.cli_session,
+                ],
               )
               .map((row) => String(row["id"])),
           );
@@ -409,6 +414,9 @@ export const harnessWiring: WiringFactory = () => {
             harness: input.harness,
             project: input.project,
             external_session_id: input.cli_session,
+            ...(input.worktree_id === null
+              ? {}
+              : { worktree_id: input.worktree_id }),
           });
           if (!opened.ok) memberOf.delete(id);
           return opened.ok ? ok(id) : opened;
@@ -423,6 +431,9 @@ export const harnessWiring: WiringFactory = () => {
             project: input.project,
             agent: input.agent,
             external_session_id: null,
+            ...(input.worktree_id === null
+              ? {}
+              : { worktree_id: input.worktree_id }),
           });
           if (!opened.ok) memberOf.delete(id);
           return opened.ok ? ok(id) : opened;

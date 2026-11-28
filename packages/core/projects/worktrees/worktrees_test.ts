@@ -23,6 +23,7 @@ import {
   type GitRunner,
   type GitRunResult,
   isGitAuthError,
+  loadActiveWorktreeRoots,
   loadManagedReadyWorktrees,
   parsePorcelainV2Z,
   redactGitUrlCredentials,
@@ -719,5 +720,39 @@ test("safeRealpath resolves ancestor symlinks and unvalidated worktrees_folder n
     }
   } finally {
     await rm(root, { recursive: true, force: true });
+  }
+});
+
+// shell 파일 adapter의 범위다. 보관한 project의 worktree나 ready가 아닌 worktree가 열리면 등록 폴더 밖을 읽고 쓰고 지운다.
+test("only ready worktrees of active projects are file roots", () => {
+  const db = new DatabaseSync(":memory:");
+  try {
+    const archived = "prj_00000000000000000000000002";
+    db.exec(`
+      create table projects (id text primary key, status text);
+      create table sessions (id text primary key);
+      insert into projects values ('${PRJ}', 'active'), ('${archived}', 'archived');
+    `);
+    db.exec(WORKTREES_SCHEMA_STEPS[0]!.sql);
+    const insert = db.prepare(
+      `INSERT INTO project_worktrees (
+        id, project_id, repo_root, git_common_dir, path, git_admin_name,
+        label, branch, base_ref, base_commit, provenance, status,
+        idempotency_key, created_branch, managed_root, created_at, updated_at
+      ) VALUES (?, ?, '/r', '/r/.git', ?, ?, 'l', null, null, null, 'managed', ?, null, 0, '/w', ?, ?)`,
+    );
+    const wkt = (n: number) => `wkt_${String(n).padStart(26, "0")}`;
+    insert.run(wkt(1), PRJ, "/w/one", "a1", "ready", NOW, NOW);
+    insert.run(wkt(2), PRJ, "/w/two", "a2", "missing", NOW, NOW);
+    insert.run(wkt(3), archived, "/w/three", "a3", "ready", NOW, NOW);
+    const sql = {
+      all: (text: string, params: never[]) =>
+        db.prepare(text).all(...params) as Record<string, never>[],
+    };
+    assert.deepStrictEqual(loadActiveWorktreeRoots(sql), [
+      { project: PRJ, worktree: wkt(1), path: "/w/one" },
+    ]);
+  } finally {
+    db.close();
   }
 });

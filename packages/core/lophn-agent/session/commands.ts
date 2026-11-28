@@ -226,6 +226,7 @@ export function createConversationCommands(deps: ConversationDeps): {
           id: input.id,
           agent: agentId,
           workspace: { kind: "project", id: input.project },
+          worktreeId: input.worktree_id ?? null,
           tab: true,
         });
         if (!started.ok) return started;

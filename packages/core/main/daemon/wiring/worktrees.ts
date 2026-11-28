@@ -81,6 +81,7 @@ import {
   loadProjectWorktrees,
   loadWorktreeById,
   loadWorktreeByIdempotencyKey,
+  loadActiveWorktreeRoots,
   loadWorktreesByStatuses,
   loadWorktreeSettings,
   nodeIncludeDetectFs,
@@ -718,17 +719,8 @@ export const worktreesWiring: WiringFactory = () => {
           reads.set(key(sourceControlIgnored), scHandlers.ignored);
           reads.set(key(sourceControlFileAt), scHandlers.fileAt);
           reads.set(key(worktreesRoots), () => {
-            const rows = withSql((sql) =>
-              loadWorktreesByStatuses(sql, ["ready"]),
-            );
-            if (!rows.ok) return rows;
-            return ok({
-              roots: rows.value.map((row) => ({
-                project: row.project_id,
-                worktree: row.id,
-                path: row.path,
-              })),
-            });
+            const roots = withSql(loadActiveWorktreeRoots);
+            return roots.ok ? ok({ roots: roots.value }) : roots;
           });
         },
       });

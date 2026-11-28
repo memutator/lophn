@@ -738,7 +738,7 @@ export const terminalAgentsWiring: WiringFactory = () => {
           agents.holds.hold(terminal, session, "gui"),
         codingCommand: (harness) =>
           ctx.settings.get(codingAgentsSetting)?.commands?.[harness],
-        openAgentSession: async ({ project, harness, agent }) => {
+        openAgentSession: async ({ project, harness, agent, worktree_id }) => {
           const members = ctx.peek.harnessMembers;
           if (members?.openForAgent === undefined) {
             return err({
@@ -750,6 +750,7 @@ export const terminalAgentsWiring: WiringFactory = () => {
             project,
             harness: RUNTIME_OF_GUI[harness],
             agent,
+            worktree_id,
           });
         },
         bindTerminal: (terminal, session, project) =>

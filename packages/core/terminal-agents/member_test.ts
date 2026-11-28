@@ -190,6 +190,7 @@ function setup() {
     members: () => members,
     files,
     projectOf: () => PROJECT,
+    worktreeOf: () => null,
     after: (_ms, run) => {
       timers.push(run);
       return () => {

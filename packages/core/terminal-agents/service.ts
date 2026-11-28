@@ -329,6 +329,7 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
       const where = project(ref);
       return where?.startsWith("prj_") === true ? where : null;
     },
+    worktreeOf: (ref) => terminals.runtime(ref)?.worktree_id ?? null,
     onChanged: () => coding.changed(),
     log: deps.log,
   });

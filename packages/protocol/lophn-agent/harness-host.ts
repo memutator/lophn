@@ -53,6 +53,8 @@ export const openHarnessMember = defineCommand({
     agent: agentIdSchema.optional(),
     // 그 탭 CLI 자신의 session id. 아직 모르면 null이다.
     external_session_id: z.string().min(1).max(256).nullable(),
+    // worktree에서 연 탭이면 그 worktree. session에 고정되어 권한 범위·활성 turn 가드·팀 상속이 그 checkout을 본다.
+    worktree_id: idSchema("wkt").optional(),
   }),
   output: z.strictObject({ id: idSchema("ses"), state_seq: seqSchema }),
   compare: z.strictObject({}),

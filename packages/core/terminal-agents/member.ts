@@ -54,10 +54,11 @@ export type BackgroundSessionInfo = {
 
 /** harness wiring이 낸다. ledger와 harness queue에 닿는 쪽이다. */
 export type HarnessMembers = {
-  /** 그 CLI session의 열린 팀원 session(`taken`에 든 것은 빼고). 없으면 새로 연다. */
+  /** 그 checkout(worktree, 원래 폴더는 null)에서 그 CLI session의 열린 팀원 session(`taken`에 든 것은 빼고). 없으면 새로 연다. */
   ensure(input: {
     harness: HarnessRuntime;
     project: string;
+    worktree_id: string | null;
     cli_session: string;
     taken: ReadonlySet<string>;
   }): Promise<Result<string>>;
@@ -66,6 +67,7 @@ export type HarnessMembers = {
     harness: HarnessRuntime;
     project: string;
     agent: string;
+    worktree_id: string | null;
   }): Promise<Result<string>>;
   /** 묶인 탭이나 background의 CLI session id가 바뀌었다. */
   bind(session: string, cliSession: string): Promise<Result<void>>;
@@ -205,6 +207,7 @@ type Member = {
   terminal: string;
   harness: GuiHarness;
   project: string;
+  worktree: string | null;
   session: string | null;
   cli: string | null;
   handle: TabHandle | null;
@@ -245,6 +248,8 @@ export function createGuiMembers(deps: {
   files: CredentialFiles | null;
   /** 팀원이 되는 탭이면 그 project id(`prj_…`), 아니면 null. */
   projectOf(terminalRef: string): string | null;
+  /** 그 터미널이 worktree에서 열렸으면 그 worktree id. */
+  worktreeOf(terminalRef: string): string | null;
   after(ms: number, run: () => void): () => void;
   /**
    * 그 project에 새 터미널을 열고 `<cli> --gui`(`cli_session`이 있으면 `--resume <id>`)를 친다. 연 터미널 참조다. 탭이 없는 팀원에게 입력이
@@ -456,6 +461,7 @@ export function createGuiMembers(deps: {
         const ensured = await members.ensure({
           harness: RUNTIME_OF_GUI[member.harness],
           project: member.project,
+          worktree_id: member.worktree,
           cli_session: cli,
           taken,
         });
@@ -796,6 +802,7 @@ export function createGuiMembers(deps: {
           terminal: handle.terminal,
           harness: handle.harness,
           project,
+          worktree: deps.worktreeOf(handle.terminal),
           session: wanted,
           cli: null,
           handle: null,

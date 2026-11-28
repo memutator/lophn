@@ -51,6 +51,7 @@ export type CodingOpenDeps = {
     project: string;
     harness: GuiHarness;
     agent: string;
+    worktree_id: string | null;
   }): Promise<Result<string>>;
   // 연 터미널이 GUI로 설 때 그 팀원 session에 묶이도록 미리 등록한다.
   bindTerminal?(terminal: string, session: string, project: string): void;
@@ -161,10 +162,12 @@ export function createCodingOpen(deps: CodingOpenDeps) {
           message: "Agent profile sessions are not ready yet.",
         });
       }
+      // session 열기가 worktree를 검사한다(ready가 아니면 conflict). 터미널보다 먼저 열어도 거절된 worktree에 session이 남지 않는다.
       const created = await deps.openAgentSession({
         project: input.project,
         harness: input.harness,
         agent: input.agent,
+        worktree_id: input.worktree_id ?? null,
       });
       if (!created.ok) return created;
       memberSession = created.value;

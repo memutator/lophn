@@ -309,6 +309,7 @@ test("a call to a GUI tab member becomes one turn of that tab and its last agent
     members: () => members,
     files: null,
     projectOf: () => `prj_${"0".repeat(25)}2`,
+    worktreeOf: () => null,
     after: () => () => {},
     openTerminal: async () => assert.fail("the tab is open"),
     closeTerminal: () => assert.fail("a tab the person opened stays"),

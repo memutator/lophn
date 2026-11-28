@@ -173,6 +173,24 @@ export function loadWorktreesByStatuses(
   return out;
 }
 
+// shell 파일 adapter가 열 worktree 경로. 등록 폴더와 같이 active project의 것만 낸다(보관한 project의 worktree는 닫는다).
+export function loadActiveWorktreeRoots(
+  sql: Pick<Sql, "all">,
+): { project: string; worktree: string; path: string }[] {
+  return sql
+    .all(
+      `SELECT w.id, w.project_id, w.path FROM project_worktrees w
+         JOIN projects p ON p.id = w.project_id
+       WHERE w.status = 'ready' AND p.status = 'active' ORDER BY w.created_at ASC`,
+      [],
+    )
+    .map((row) => ({
+      project: String(row["project_id"]),
+      worktree: String(row["id"]),
+      path: String(row["path"]),
+    }));
+}
+
 export function loadWorktreeSettings(
   sql: Pick<Sql, "get" | "all">,
   projectId: string,

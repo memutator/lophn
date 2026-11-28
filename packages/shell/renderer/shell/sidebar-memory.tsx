@@ -42,6 +42,8 @@ export interface SidebarValues {
   readonly sessionTabsOpen: ReadonlySet<string>;
   /** 팀 자식 줄을 접은 session id. */
   readonly teamCollapsed: ReadonlySet<string>;
+  /** 펼친 session group 묶음의 key(`<workspace>\0<desk>\0<group>`). 기본은 접힘이다. */
+  readonly sessionGroupsOpen: ReadonlySet<string>;
 }
 
 const EMPTY: SidebarValues = {
@@ -57,6 +59,7 @@ const EMPTY: SidebarValues = {
   machinesOpen: new Set(),
   sessionTabsOpen: new Set(),
   teamCollapsed: new Set(),
+  sessionGroupsOpen: new Set(),
 };
 
 export interface SidebarMemory {

@@ -6,7 +6,13 @@ import type {
 } from "../desktop/workspaces/projects/machine-workspaces.ts";
 import type { SessionDot } from "../parts/agent-session/activity.ts";
 import type { AgentFace } from "../parts/agent-session/agent-session.tsx";
-import type { WorkspaceRef } from "./desk-model.ts";
+import {
+  type Desk,
+  groupKey,
+  membersOf,
+  type TabItem,
+  type WorkspaceRef,
+} from "./desk-model.ts";
 
 /**
  * session 줄의 종류. lophn agent session, 첫 메시지 전이라 아직 session이 없는 lophn Agent 탭(draft),
@@ -83,21 +89,195 @@ export interface SidebarTab extends OwnedTab {
   readonly workspace: WorkspaceRef;
 }
 
-/** 줄과 그 팀 자식 줄 전부(위에서 아래 순서). */
-export const withChildren = (item: SidebarSession): SidebarSession[] => [
-  item,
-  ...(item.children ?? []).flatMap(withChildren),
-];
+/** 탭 줄의 group(bundle·split)이나 같은 workflow step으로 묶인 session 줄 묶음. 2개 이상일 때만 묶인다. */
+export interface SidebarTabGroup {
+  readonly kind: "group";
+  /** workspace·desk 안에서 묶음을 구분하는 key. */
+  readonly key: string;
+  /** group 이름(없으면 대표 구성원 제목). */
+  readonly label: string;
+  /** 구성원들의 상태 점(waiting > working > finished > ended). */
+  readonly dot: SessionDot | null;
+  /** 묶음 안의 session 줄(팀 자식 tree 적용 후). */
+  readonly items: readonly SidebarSession[];
+}
+
+export type SidebarDeskItem = SidebarSession | SidebarTabGroup;
+
+/** 줄(또는 group 묶음)과 그 팀 자식 줄 전부(위에서 아래 순서). */
+export const withChildren = (item: SidebarDeskItem): SidebarSession[] =>
+  item.kind === "group"
+    ? item.items.flatMap(withChildren)
+    : [item, ...(item.children ?? []).flatMap(withChildren)];
 
 export const sessionKey = (item: Pick<SidebarSession, "kind" | "ref">) =>
   `${item.kind}:${item.ref}`;
+
+/** desk 안의 탭 group(`desk.groups`). sidebar가 같은 group의 session 줄을 한 묶음으로 접어 보인다. */
+export interface LayoutTabGroup {
+  /** desk 안에서 group을 구분하는 key(`group.groupId ?? groupKey(group)`). */
+  readonly key: string;
+  /** group의 이름. 없으면 대표 구성원 제목을 쓴다. */
+  readonly label?: string;
+  /** 탭 줄의 focus tab에 해당하는 ref(session id 또는 tab key). */
+  readonly focusRef?: string;
+  /** 이 group에 속한 tab key와 session id(`membersOf` 순서). */
+  readonly refs: readonly string[];
+}
+
+/** desk의 `groups`에서 sidebar 묶음에 필요한 key·이름·구성원 ref 목록을 뽑는다. */
+export function deskTabGroups(
+  desk: Desk,
+  sessionOfTab: (tab: TabItem) => string | null,
+): LayoutTabGroup[] {
+  if (desk.groups.length === 0) return [];
+  const tabByKey = new Map(desk.tabs.map((tab) => [tab.key, tab]));
+  const refForTab = (tabKey: string): string => {
+    const tab = tabByKey.get(tabKey);
+    const session = tab?.kind === "agent" ? sessionOfTab(tab) : null;
+    return session ?? tabKey;
+  };
+  return desk.groups.map((group) => {
+    const refs: string[] = [];
+    for (const tabKey of membersOf(group.layout)) {
+      refs.push(tabKey);
+      const tab = tabByKey.get(tabKey);
+      const session = tab?.kind === "agent" ? sessionOfTab(tab) : null;
+      if (session !== null && session !== tabKey) refs.push(session);
+    }
+    const label = group.label?.trim();
+    return {
+      key: group.groupId ?? groupKey(group),
+      ...(label ? { label } : {}),
+      focusRef: refForTab(group.focus),
+      refs,
+    };
+  });
+}
+
+const DOT_PRIORITY: readonly SessionDot[] = [
+  "waiting",
+  "working",
+  "finished",
+  "ended",
+];
+
+function highestDot(items: readonly SidebarSession[]): SessionDot | null {
+  let best = DOT_PRIORITY.length;
+  for (const one of items.flatMap(withChildren)) {
+    if (one.dot === null) continue;
+    const rank = DOT_PRIORITY.indexOf(one.dot);
+    if (rank >= 0 && rank < best) best = rank;
+  }
+  return best < DOT_PRIORITY.length ? DOT_PRIORITY[best]! : null;
+}
+
+/**
+ * 같은 탭 group(`desk.groups`)이나 같은 workflow step(`workflowGroupOf`)에 속한 맨 위 줄이 2개 이상이면
+ * 하나의 접히는 묶음(`SidebarTabGroup`)으로 모은다. 1개뿐이면 묶지 않고 그대로 둔다.
+ */
+export function groupDeskSessions(input: {
+  readonly roots: readonly SidebarSession[];
+  readonly layoutGroups: readonly LayoutTabGroup[];
+  readonly workflowGroupOf?: (
+    item: SidebarSession,
+  ) => { readonly key: string; readonly label: string } | null;
+}): SidebarDeskItem[] {
+  const { roots, layoutGroups, workflowGroupOf } = input;
+  const groupByKey = new Map(layoutGroups.map((one) => [one.key, one]));
+  const groupByRef = new Map<string, LayoutTabGroup>();
+  for (const lg of layoutGroups) {
+    for (const r of lg.refs) groupByRef.set(r, lg);
+  }
+  type Bucket = {
+    readonly key: string;
+    readonly label?: string;
+    readonly focusRef?: string;
+    readonly refs?: readonly string[];
+    readonly items: SidebarSession[];
+  };
+  const buckets = new Map<string, Bucket>();
+  const assigned = new Map<SidebarSession, string>();
+  for (const item of roots) {
+    let groupKeyForItem: string | undefined;
+    let meta: LayoutTabGroup | undefined = groupByRef.get(item.ref);
+    let fallbackLabel: string | undefined;
+    if (meta !== undefined) {
+      groupKeyForItem = meta.key;
+    } else if (workflowGroupOf !== undefined) {
+      const wf = workflowGroupOf(item);
+      if (wf !== null) {
+        meta = groupByKey.get(wf.key);
+        groupKeyForItem = wf.key;
+        fallbackLabel = wf.label;
+      }
+    }
+    if (groupKeyForItem === undefined) continue;
+    assigned.set(item, groupKeyForItem);
+    const existing = buckets.get(groupKeyForItem);
+    if (existing === undefined) {
+      buckets.set(groupKeyForItem, {
+        key: groupKeyForItem,
+        ...(meta?.label !== undefined
+          ? { label: meta.label }
+          : fallbackLabel !== undefined
+            ? { label: fallbackLabel }
+            : {}),
+        ...(meta?.focusRef === undefined ? {} : { focusRef: meta.focusRef }),
+        ...(meta === undefined ? {} : { refs: meta.refs }),
+        items: [item],
+      });
+    } else {
+      existing.items.push(item);
+    }
+  }
+  const emitted = new Set<string>();
+  const result: SidebarDeskItem[] = [];
+  for (const item of roots) {
+    const gKey = assigned.get(item);
+    if (gKey === undefined) {
+      result.push(item);
+      continue;
+    }
+    const bucket = buckets.get(gKey)!;
+    if (bucket.items.length < 2) {
+      result.push(item);
+      continue;
+    }
+    if (emitted.has(gKey)) continue;
+    emitted.add(gKey);
+    const ordered =
+      bucket.refs === undefined
+        ? bucket.items
+        : [...bucket.items].sort((a, b) => {
+            const ia = bucket.refs!.indexOf(a.ref);
+            const ib = bucket.refs!.indexOf(b.ref);
+            return (
+              (ia < 0 ? Number.MAX_SAFE_INTEGER : ia) -
+              (ib < 0 ? Number.MAX_SAFE_INTEGER : ib)
+            );
+          });
+    const focused =
+      bucket.focusRef === undefined
+        ? undefined
+        : ordered.find((one) => one.ref === bucket.focusRef);
+    result.push({
+      kind: "group",
+      key: bucket.key,
+      label: bucket.label || focused?.title || ordered[0]!.title,
+      dot: highestDot(ordered),
+      items: ordered,
+    });
+  }
+  return result;
+}
 
 /** current 줄을 그 탭이 있는 desk로 나눈 묶음. */
 export interface SidebarDeskGroup {
   /** 줄이 속한 desk. 탭 없는 줄도 Main desk에 든다. layout을 아직 못 읽은 workspace의 묶음 하나만 null이다. */
   readonly desk: { readonly key: string; readonly label: string } | null;
-  /** 팀 tree의 맨 위 단계 줄. 자식 줄은 `children`에 든다. */
-  readonly items: readonly SidebarSession[];
+  /** 팀 tree와 탭 group 묶음을 적용한 맨 위 단계 줄. 자식 줄은 `children`에 든다. */
+  readonly items: readonly SidebarDeskItem[];
 }
 
 export interface SidebarCommand {

@@ -23,7 +23,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { appPanelBindingId } from "../../../protocol/shell/keybindings.ts";
 import { AppTabIcon } from "../app-frame/app-icon.tsx";
 import { useKeyLabel } from "../commands/react.tsx";
 import { WaitingLayer } from "../desktop/connection/waiting/waiting-layer.tsx";
@@ -51,16 +50,12 @@ import { TabStateDot } from "../parts/tab-state-dot/tab-state-dot.tsx";
 import { HandSessionsContext } from "../workspace/hand.ts";
 import { tabKindOf } from "../workspace/kinds/registry.ts";
 import { HandoffRow } from "../workspace/sidebar/handoff-row.tsx";
-import {
-  agentSections,
-  type HoverSection,
-  Keyed,
-  sectionHeading,
-} from "./agent-sections.tsx";
+import { agentSections, Keyed } from "./agent-sections.tsx";
 import { type WorkspaceRef, workspaceKey } from "./desk-model.ts";
 import styles from "./left-sidebar.module.css";
 import {
   type SidebarCommand,
+  type SidebarDeskItem,
   type SidebarSession,
   type SidebarTab,
   type SidebarWorkspace,
@@ -448,9 +443,10 @@ export function LeftSidebar({
       if (!next.delete(key)) next.add(key);
       return next;
     });
-  // 탭 줄을 펼친 session과 팀 자식을 접은 session. 창 메모리에 둔다.
+  // 탭 줄을 펼친 session, 팀 자식을 접은 session, 펼친 탭 group 묶음. 창 메모리에 둔다.
   const [tabsExpanded, setTabsExpanded] = useRemembered("sessionTabsOpen");
   const [teamCollapsed, setTeamCollapsed] = useRemembered("teamCollapsed");
+  const [groupsOpen, setGroupsOpen] = useRemembered("sessionGroupsOpen");
   const toggleSessionTabs = (session: string) =>
     setTabsExpanded((all) => {
       const next = new Set(all);
@@ -461,6 +457,12 @@ export function LeftSidebar({
     setTeamCollapsed((all) => {
       const next = new Set(all);
       if (!next.delete(session)) next.add(session);
+      return next;
+    });
+  const toggleSessionGroup = (group: string) =>
+    setGroupsOpen((all) => {
+      const next = new Set(all);
+      if (!next.delete(group)) next.add(group);
       return next;
     });
   // 펼친 다른 기계 묶음. 창 메모리에 둔다.
@@ -704,6 +706,57 @@ export function LeftSidebar({
       </Fragment>
     );
   };
+  // desk 안의 줄 하나: 일반 session 줄이거나, 탭 group으로 묶인 접히는 묶음이다.
+  const renderDeskItem = (
+    workspace: SidebarWorkspace,
+    here: boolean,
+    deskKey: string,
+    entry: SidebarDeskItem,
+  ): ReactElement => {
+    if (entry.kind !== "group") return renderItem(workspace, here, entry);
+    const stateKey = `${workspaceKey(workspace.ref)}\0${deskKey}\0${entry.key}`;
+    const open = groupsOpen.has(stateKey);
+    const hasSelected =
+      here &&
+      selected !== undefined &&
+      entry.items
+        .flatMap(withChildren)
+        .some((one) => sessionKey(one) === selected);
+    return (
+      <Fragment key={`group:${entry.key}`}>
+        <button
+          type="button"
+          className={styles.groupToggle}
+          aria-expanded={open}
+          aria-current={!open && hasSelected ? true : undefined}
+          data-session-group={entry.key}
+          onClick={() => toggleSessionGroup(stateKey)}
+        >
+          <span className={styles.rowIcon}>
+            <Icon
+              icon={open ? shellIcons.expand : sidebarIcons.collapsed}
+              pixels={12}
+            />
+          </span>
+          <span className={styles.rowLabel}>{entry.label}</span>
+          <span className={styles.rowMeta}>{entry.items.length}</span>
+          {entry.dot === null ? null : (
+            <span className={styles.rowDot}>
+              <TabStateDot dot={entry.dot} />
+            </span>
+          )}
+        </button>
+        {open ? (
+          <div
+            className={styles.teamChildren}
+            data-session-group-items={entry.key}
+          >
+            {entry.items.map((item) => renderItem(workspace, here, item))}
+          </div>
+        ) : null}
+      </Fragment>
+    );
+  };
   const handoffRows = (handoffs: Handoffs, project: string) => {
     const notes = handoffs.notes.filter((note) => note.project === project);
     return notes.length === 0 ? null : (
@@ -883,7 +936,9 @@ export function LeftSidebar({
             <Fragment key={desk?.key ?? ""}>
               {/* desk를 하나만 쓰면 지금처럼 줄만 둔다. */}
               {head}
-              {group.items.map((item) => renderItem(workspace, here, item))}
+              {group.items.map((item) =>
+                renderDeskItem(workspace, here, desk?.key ?? "", item),
+              )}
             </Fragment>
           );
         })}

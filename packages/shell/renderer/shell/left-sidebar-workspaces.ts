@@ -19,6 +19,8 @@
 // - current는 그 탭이 있는 desk로 나눈다(layout의 desk 순서). 탭 없이 도는 줄은 Main desk 묶음에 둔다.
 // - 팀(spawn tree): desk 묶음마다 부모(`spawnedBy`)가 같은 묶음에 있는 session 줄은 그 부모 줄 아래(`children`)로 간다. 부모가 다른
 //   desk·workspace에 있거나 끝났으면 자기 묶음의 맨 위 단계다. 순서 규칙은 단계마다 그대로다. 묶음을 건너 옮기면 desk 묶음의 뜻이 흐려진다.
+// - 탭 group 묶음: 팀 tree를 적용한 뒤, 같은 탭 group(`desk.groups`)이나 같은 workflow step(`workflowOrigin`)에 속한 맨 위 줄이 2개
+//   이상이면 하나의 접히는 묶음(`SidebarTabGroup`)으로 모은다(기본 접힘, 대표 이름·구성원 수·중요도 순 상태 점). 1개뿐이면 묶지 않는다.
 // - 다른 컴퓨터에서 도는 팀원(`members`)은 current에 선 부모 줄 아래에만 선다(이 컴퓨터의 자식 뒤, 만든 순). 이 컴퓨터에서 도는 것이
 //   없어 혼자서는 current도 Recent도 아니다. 부모 줄이 current에 없으면 보이지 않는다(부모의 `team read`에는 있다).
 // - lophn session 줄의 `tabs`는 그 session이 주인인 탭이다(`TabItem.owner`). 이 창이 아는 모든 workspace layout에서 자리(탭 줄, float,
@@ -61,12 +63,15 @@ import {
   type WorkspaceRef,
   workspaceKey,
 } from "./desk-model.ts";
-import type {
-  OwnedTab,
-  SidebarDeskGroup,
-  SidebarSession,
-  SidebarTab,
-  SidebarWorkspace,
+import {
+  deskTabGroups,
+  groupDeskSessions,
+  type LayoutTabGroup,
+  type OwnedTab,
+  type SidebarDeskGroup,
+  type SidebarSession,
+  type SidebarTab,
+  type SidebarWorkspace,
 } from "./left-sidebar-model.ts";
 import { sessionRowTitle } from "./session-titles.ts";
 
@@ -94,12 +99,15 @@ export interface LayoutDesks {
   readonly list: readonly { readonly key: string; readonly label: string }[];
   readonly at: ReadonlyMap<string, string>;
   readonly owned: ReadonlyMap<string, readonly OwnedTab[]>;
+  /** desk key → 그 desk의 탭 group 목록(`desk.groups` 순서). */
+  readonly tabGroups: ReadonlyMap<string, readonly LayoutTabGroup[]>;
 }
 
 export function layoutDesks(layout: WorkspaceLayout): LayoutDesks {
   const list: { key: string; label: string }[] = [];
   const at = new Map<string, string>();
   const owned = new Map<string, OwnedTab[]>();
+  const tabGroups = new Map<string, LayoutTabGroup[]>();
   for (const desk of Object.values(layout.desks)) {
     list.push({ key: desk.key, label: deskSidebarLabel(desk) });
     if (desk.workflowInstance !== undefined) {
@@ -141,8 +149,10 @@ export function layoutDesks(layout: WorkspaceLayout): LayoutDesks {
         },
       ]);
     }
+    const deskGroups = deskTabGroups(desk, sessionOf);
+    if (deskGroups.length > 0) tabGroups.set(desk.key, deskGroups);
   }
-  return { list, at, owned };
+  return { list, at, owned, tabGroups };
 }
 
 /** 사람이 Recent에서 지운 줄의 key → 지운 때(epoch ms). */
@@ -549,23 +559,54 @@ export function sidebarWorkspaces(input: WorkspacesInput): SidebarWorkspace[] {
       }
       return main?.key ?? null;
     };
+    const workflowGroupOf = (
+      item: SidebarSession,
+    ): { readonly key: string; readonly label: string } | null => {
+      if (
+        (item.kind !== "session" && item.kind !== "terminal") ||
+        ref.kind !== "project"
+      ) {
+        return null;
+      }
+      const origin =
+        item.kind === "session"
+          ? workflowOriginBy.get(item.ref)
+          : terminalWorkflowOriginBy.get(item.ref);
+      if (origin == null || origin.project !== ref.id) return null;
+      return {
+        key: `${origin.instance}:${origin.step}`,
+        label: origin.step,
+      };
+    };
     // layout을 아직 못 읽은 workspace는 desk 이름 없는 묶음 하나다(묶음이 하나면 이름 줄을 그리지 않는다).
-    const groups: SidebarDeskGroup[] =
+    const groups: {
+      desk: { readonly key: string; readonly label: string } | null;
+      items: SidebarSession[];
+    }[] =
       desks === undefined || desks.list.length === 0
         ? [{ desk: null, items }]
         : desks.list.map((desk) => ({
             desk,
             items: items.filter((item) => deskOf(item) === desk.key),
           }));
+    const currentGroups: SidebarDeskGroup[] = groups
+      .filter((group) => group.items.length > 0)
+      .map((group) => {
+        const deskKey = group.desk?.key ?? null;
+        return {
+          desk: group.desk,
+          items: groupDeskSessions({
+            roots: teamTree(group.items).map(withMembers),
+            layoutGroups:
+              deskKey === null ? [] : (desks?.tabGroups.get(deskKey) ?? []),
+            workflowGroupOf,
+          }),
+        };
+      });
     return {
       ref,
       name,
-      current: groups
-        .filter((group) => group.items.length > 0)
-        .map((group) => ({
-          ...group,
-          items: teamTree(group.items).map(withMembers),
-        })),
+      current: currentGroups,
       recent: (recent.get(key) ?? []).sort(byNewest),
       also: row.also,
       ...(row.listed === undefined ? {} : { listed: row.listed }),

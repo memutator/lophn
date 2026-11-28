@@ -372,6 +372,34 @@ button.deskHead:hover {
   margin-inline-start: auto;
 }
 
+/* 탭 group·workflow step으로 묶인 session 줄 묶음. session 줄과 같은 열에 서고 누르면 펼치고 접는다. */
+.groupToggle {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  width: 100%;
+  min-height: var(--control-sm-height);
+  padding: var(--space-1) var(--space-3) var(--space-1)
+    calc(var(--space-3) + var(--space-6));
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--type-small-size);
+  text-align: start;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+}
+
+.groupToggle:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-muted);
+}
+
+.groupToggle[aria-current="true"] {
+  color: var(--color-text-primary);
+  background: var(--color-selection);
+}
+
 /* 펼친 Recent의 page 줄. 줄 들여쓰기에 맞추고 화살표 사이에 범위를 둔다. */
 .pager {
   display: flex;

@@ -1,5 +1,5 @@
 id: git-worktree-stage1
-version: 0.23.189
+version: 0.23.190
 platform_note: none
 title: "git worktree 1단계(화면 밖): core 엔진·source control·session/terminal/command/workflow/team 격리·CLI·앱 SDK"
 modules:

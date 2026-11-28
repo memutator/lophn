@@ -2,10 +2,6 @@
 // `coding_agents/*`다. 연결 생성·회수·token은 이 통로에 없다.
 import type { z } from "zod";
 
-import {
-  SHARED_APPS_SETTING_KEY,
-  sharedAppsSettingSchema,
-} from "../../../../../protocol/approvals/share-request.ts";
 import type { Route } from "../../../../../protocol/base/route.ts";
 import {
   codingAgentsHookStatus,
@@ -14,8 +10,11 @@ import {
   codingAgentsRefresh,
   codingAgentsUninstallHooks,
 } from "../../../../../protocol/coding-agent/coding-agents.ts";
+import { CODING_DEPLOYED_SKILLS_SETTING_KEY } from "../../../../../protocol/lophn-agent/skill-settings.ts";
+import { createLink } from "../../../workspace/agents/core-link.ts";
+import { readDeployable } from "../../../workspace/agents/core-extensions.ts";
 import type { CoreSource } from "../../connection/connection.ts";
-import { chooseSetting, readEffective } from "../declared.ts";
+import { chooseSetting } from "../declared.ts";
 import type { CodingConnectionsSource, SourceResult } from "./source.ts";
 
 async function call<R extends Route>(
@@ -41,28 +40,16 @@ async function call<R extends Route>(
 export function coreCodingConnectionsSource(
   core: CoreSource,
 ): CodingConnectionsSource {
-  // 공유 요청 승인이 같은 값에 slug를 더하므로 빼기 직전에 다시 읽어 한 slug만 빼고 값 전체를 쓴다.
-  async function readShared(): Promise<SourceResult<string[]>> {
-    const read = await readEffective(core, [SHARED_APPS_SETTING_KEY]);
-    if (!read.ok) return read;
-    const parsed = sharedAppsSettingSchema.safeParse(
-      read.value.get(SHARED_APPS_SETTING_KEY),
-    );
-    return parsed.success
-      ? { ok: true, value: parsed.data }
-      : { ok: false, code: "internal" };
-  }
+  const link = createLink(core, () => crypto.randomUUID().slice(0, 8));
 
   return {
-    async unshareApp(slug) {
-      const current = await readShared();
-      if (!current.ok) return current;
-      return chooseSetting(
-        core,
-        SHARED_APPS_SETTING_KEY,
-        current.value.filter((one) => one !== slug),
-      );
+    async deployable() {
+      const read = await readDeployable(link);
+      return read.ok ? read : { ok: false, code: read.message };
     },
+
+    setDeployed: (next) =>
+      chooseSetting(core, CODING_DEPLOYED_SKILLS_SETTING_KEY, next),
 
     async harnesses() {
       const read = await call(core, codingAgentsList, {});

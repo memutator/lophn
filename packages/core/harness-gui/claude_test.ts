@@ -19,11 +19,7 @@ import type {
 } from "../../protocol/acp/mod.ts";
 import { EMPTY_ACP_STATE, reduceAcp } from "../../protocol/acp/reduce.ts";
 import type { AcpState, AcpUpdate } from "../../protocol/acp/state.ts";
-import {
-  type ClaudeSdk,
-  claudeDenyTools,
-  createClaudeAdapter,
-} from "./claude.ts";
+import { type ClaudeSdk, createClaudeAdapter } from "./claude.ts";
 
 // 녹화(fixtures/claude)로 adapter를 돌린다. 실제 `claude`는 띄우지 않고, SDK의 query()를 녹화 메시지를 내는
 // 대역으로 바꾸고 canUseTool은 test가 직접 부른다.
@@ -114,7 +110,7 @@ async function setup(
     /** 두 번째부터의 query는 메시지 없이 끝나거나(`true`) query()가 바로 던진다(`"throw"`). 새 CLI가 뜨지 못함. */
     emptyReopen?: boolean | "throw";
     /** lophn 팀원 탭이다. */
-    member?: { deny: readonly string[] };
+    member?: true;
     launch?: { model?: string; options?: Record<string, string> };
     carry?: { model?: string; effort?: string };
     args?: readonly string[];
@@ -1623,20 +1619,16 @@ test("lophn 봉투로 싼 firstPrompt는 봉투를 벗긴 본문 첫 줄이 제�
 });
 
 // 팀원 탭의 `!`는 사람이 친 명령이다. turn 자격 file 경로를 비운 env로 띄워 `!lophn …`이 사람 자격으로 돈다. 팀원 탭은 `lophn`을 부를
-// Bash를 허락하고 정의의 deny를 막는다.
-test("a member tab's `!` runs with the turn credential file cleared, and the CLI may run lophn but not the denied commands", async () => {
+// Bash를 허락한다.
+test("a member tab's `!` runs with the turn credential file cleared, and the CLI may run lophn", async () => {
   const member = await setup({
-    member: { deny: ["lophn(myapp deploy)"] },
+    member: true,
   });
   await member.input(member.send("1", "!lophn tab open --url https://x"));
   const shell = member.processes.find((one) => one.command === "/bin/sh");
   assert.deepEqual(shell?.env, { LOPHN_AGENT_CREDENTIAL_FILE: "" });
   const options = member.queries[0]?.options;
   assert.ok(options?.allowedTools?.includes("Bash(lophn *)"));
-  assert.deepEqual(options?.disallowedTools, [
-    "Bash(lophn myapp deploy)",
-    "Bash(lophn myapp deploy *)",
-  ]);
 
   const person = await setup();
   await person.input(person.send("1", "!ls"));
@@ -1718,14 +1710,6 @@ test("fetchCatalog는 메시지 없이 model 목록과 설정의 기본값을 �
   });
   assert.equal(stopped.ok, false);
   assert.equal(t.queries.at(-1)?.closed, true);
-});
-
-test("claudeDenyTools는 lophn(<cmd>)만 Bash disallow 목록으로 옮기고 알 수 없는 규칙은 null을 낸다", () => {
-  assert.deepEqual(claudeDenyTools(["lophn(notes remove)"]), [
-    "Bash(lophn notes remove)",
-    "Bash(lophn notes remove *)",
-  ]);
-  assert.equal(claudeDenyTools(["Bash(rm *)"]), null);
 });
 
 test("SDK가 process.env.CLAUDE_AGENT_SDK_VERSION을 먼저 덮어써도 자식 CLI env에 SDK 표지를 그대로 넘긴다", async () => {

@@ -10,7 +10,6 @@ export const CHANGE_NAMES = [
   "app_activity",
   "releases",
   "activation_consents",
-  "share_requests",
   "notices",
   "annotations",
   "packages",

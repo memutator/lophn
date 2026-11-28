@@ -107,20 +107,7 @@ export type ClaudeSdk = {
 
 export type ClaudeAdapter = HarnessGuiAdapter & {
   catalogScope: "global";
-  enforcesDeny: true;
 };
-
-/** agent 정의의 `lophn(<slug> <cmd>)` deny 규칙을 Claude `disallowedTools` 목록으로 옮긴다. 알 수 없는 규칙이 있으면 null이다. */
-export function claudeDenyTools(rules: readonly string[]): string[] | null {
-  const flags: string[] = [];
-  for (const rule of rules) {
-    const inner = /^lophn\((.+)\)$/.exec(rule)?.[1];
-    if (inner === undefined) return null;
-    // 인자 없는 호출과 인자 있는 호출을 둘 다 막는다.
-    flags.push(`Bash(lophn ${inner})`, `Bash(lophn ${inner} *)`);
-  }
-  return flags;
-}
 
 // SDK 메시지에서 읽는 칸만 적은 모양이다. SDK의 type은 Beta API type을 끌고 와 좁히기가 무겁다.
 type Block = {
@@ -2995,7 +2982,7 @@ const start: (sdk: ClaudeSdk) => HarnessGuiAdapter["start"] =
         // flag 층의 설정이라 사람의 설정 file에는 쓰이지 않는다.
         ...(carry.fast === null ? {} : { settings: { fastMode: carry.fast } }),
         ...(carry.thinking === false ? { thinking: { type: "disabled" } } : {}),
-        // lophn 팀원·agent는 `lophn`을 부를 Bash를 허락하고 정의의 deny를 막는다(deny가 allow보다 앞선다).
+        // lophn 팀원·agent는 `lophn`을 부를 Bash를 허락한다.
         ...(carry.rules.size === 0 && member === undefined
           ? {}
           : {
@@ -3003,11 +2990,6 @@ const start: (sdk: ClaudeSdk) => HarnessGuiAdapter["start"] =
                 ...carry.rules,
                 ...(member === undefined ? [] : [LOPHN_BASH]),
               ],
-            }),
-        ...(member === undefined || member.deny.length === 0
-          ? {}
-          : {
-              disallowedTools: claudeDenyTools(member.deny) ?? [],
             }),
         ...(carry.dirs.size === 0
           ? {}
@@ -4170,7 +4152,6 @@ export function createClaudeAdapter(sdk: ClaudeSdk): ClaudeAdapter {
   return {
     handoff: GUI_HANDOFF.claude,
     catalogScope: "global",
-    enforcesDeny: true,
     start: start(sdk),
     exitTui,
     fetchCatalog: fetchCatalog(sdk),

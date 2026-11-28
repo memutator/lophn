@@ -74,10 +74,7 @@ release의 상태는 `prepared`, `activating`, `active`, `superseded`, `failed`�
 12. 같은 release는 한 줄이다. 같은 release를 다시 `release.activate`해도 같은 비교면 줄과 카드가 늘지 않는다. 비교가 달라졌으면 줄을 덮어 다시 기다린다(`requested_at`이 바뀌어 옛 카드의 동의는 `conflict`다).
 13. 거절은 줄을 지우고 release는 `prepared`로 남는다. 이유를 받지 않는다(읽는 곳이 없다).
 14. 더 새 release의 activation이 시작되면 그 앱의 동의 줄을 모두 닫는다(기다리던 것은 `cancelled`). 낡은 동의가 새 release에 쓰이면 안 된다. 시작과 같은 tx다.
-15. 같은 앱에 열린 앱 공유 요청(`architecture/approval.md`)이 있으면 동의 카드가 그 요청(받을 agent, coding agent, 이유, 받게 되는 공개 skill·command 수)을 같이 보이고, 허락하면 같은 tx에서 그 요청도 승인한다.
-    - `activation.consent`의 선택 입력 `share_requested_at`이 카드가 본 요청의 `requested_at`이고, 지금 열린 요청과 다르거나 없으면 동의째 `conflict`다(사람이 보지 못한 요청을 승인하지 않는다).
-    - 공유가 먼저 적용되고 실패하면 tx가 되돌아가 동의는 대기로 남는다. 거절은 공유 요청을 건드리지 않아 공유 요청이 제 줄로 다시 보인다.
-    - approvals를 import하지 않으려고 activation은 port만 부르고 구현은 조립이 꽂는다.
+15. 동의는 그 release 하나에 대한 것이다. 다른 요청을 같이 승인하는 길은 없다(앱 skill을 agent에 닿게 하는 일은 배포 기록이고 동의와 따로다).
 16. unattended에서도 동의는 사람이 한다. 저절로 동의하는 장치를 두지 않는다.
 
 순서
@@ -129,7 +126,7 @@ release의 상태는 `prepared`, `activating`, `active`, `superseded`, `failed`�
 | --- | --- | --- |
 | `release.activate {release}` | 그 앱 workspace의 agent session | 시도를 열거나 동의를 요청한다. 결과 `active`·`failed`·`waiting_consent`·`running`. 오류 `invalid_input`·`forbidden`·`not_found`·`conflict`·`unavailable` |
 | `activation.ask_consent` | machine | `activation_consents`에 줄을 쓴다. 같은 비교면 줄을 늘리지 않는다 |
-| `activation.consent` | 사람만 | `allow`·`reject`, compare `{requested_at}`, 선택 입력 `share_requested_at` |
+| `activation.consent` | 사람만 | `allow`·`reject`, compare `{requested_at}` |
 | `activations.consents` | 읽기 | 대기 목록. 앱 id와 함께 앱 이름(`app_name`)을 싣는다 |
 | `activation.start` | machine | 시도를 연다(같은 tx에서 그 앱의 동의 줄을 닫는다) |
 | `activation.record_backup` | machine | 복구본을 ledger에 확정한다 |
@@ -161,7 +158,6 @@ release의 상태는 `prepared`, `activating`, `active`, `superseded`, `failed`�
 - complete의 일(active 참조, superseded, grant 맞춤, 복구본 정리, 돌아가기 요청 삭제)을 함수로 나누거나 tx를 쪼개지 않는다. 이유: 한 tx여야 하는 이유가 중간 상태 금지이고, 나눠 얻는 것은 읽기 쉬움뿐이다. 닫은 이슈 "복구본 보존과 complete 한 tx에 몰린 일"(kept).
 - 앱 source와 겹치는 경로 규칙(grant가 앱 source를 감싸거나 그 안이면 거절)을 지웠다. 이유: 이 검사는 complete의 마지막 commit에서만 돌아 사람의 동의를 다 지난 뒤에 떨어졌고, 막아야 하는 것(앱 code 쓰기와 `secrets.json`·다른 앱 data 같은 data root)을 정확히 막지 못했다. `~/.lophn`을 지키는 장치는 사람의 동의 화면뿐이다. (사람, 0.13.0)
 - 기다리지 않은 시도의 결과는 release를 만든 session에 알린다. 이유: 동의 표에는 부른 session이 없고, release를 만든 session과 activate를 부른 session은 보통 같다. 버린 안: 동의 표에 session을 더하기(schema migration이 필요하다). (agent, 0.13.0)
-- 앱 공유 요청을 activation 동의와 한 번에 승인한다. 이유: 사람이 command를 만들고 grant하는 것까지 agent가 알아서 하기를 바랐고, 사람의 승인은 남기되 한 번으로 줄였다. (사람, 2026-11-07) 카드가 본 공유 요청이 바뀌었으면 동의째 `conflict`, 공유 적용이 실패하면 동의는 대기로 남음, 거절은 공유 요청을 건드리지 않음은 agent가 정했다.
 - take-in은 prepared release만 두고 동의는 받은 기계에서 사람이 한다. 이유: grant와 동의는 그 기계에서 앱이 닿는 자원의 허락이고, 기계마다 secret과 폴더가 다르다. 동의를 옮기면 사람이 보지 않은 기계에서 앱이 돈다. (planner)
 - 폴더 take-in만 앱 id를 정해 등록한다. 이유: 기계 사이 같은 앱은 같은 id여야 data stream과 기록이 이어지고, 그 밖의 등록이 id를 고르면 다른 앱의 id를 가로챌 수 있다. (planner, agent)
 - 앱 알림과 toast가 앱 id가 아니라 앱 이름을 보이도록 event와 읽기에 `app_name`을 싣는다. 이유: renderer가 이름을 따로 찾지 않게 한다. (agent, 0.13.0)
@@ -179,7 +175,6 @@ release의 상태는 `prepared`, `activating`, `active`, `superseded`, `failed`�
 - 사람이 허락한 줄이나 돌아가기 요청 행을 시작하려다 `conflict`·`invalid_input`으로 거절되면 같은 줄을 매 sweep(1초)마다 다시 시작하려 하는지 확인하지 못했다. 거절은 조용히 돌려준다.
 - `held`의 이유(`restore_failed` 등)는 release 실패 기록에 남지 않고 `app_unavailable` 기록의 reason에만 남는다.
 - 실패 reason에는 앱의 migration script가 낸 글이 앞 200자까지 실릴 수 있다. 복원된 실패는 toast가 둘(실패, data 복원) 뜰 수 있다.
-- 카드가 열린 동안 새로 열린 공유 요청은 그 동의에 묶이지 않고 따로 선다.
 - data root(`secrets.json`, 다른 앱 data)를 지키는 규칙은 아직 없다. 앱 grant가 그 경로를 덮는 선언은 사람의 동의 화면이 유일한 장치다.
 - 따라가기는 두 개발 core가 한 폴더를 나눈 끝에서 끝 확인으로만 보았다(change-log `machine-update`). 실제 두 기계, 실제 바깥 동기화 도구, 실제 agent가 합친 release는 보지 못했다.
 - 사람이 거절한 따라가기는 core가 다시 뜰 때마다 다시 묻는다. 거절을 ledger에 남기지 않기로 한 대가다.

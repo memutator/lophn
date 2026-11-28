@@ -2,11 +2,6 @@
 // 메모리에서 받아 항목을 빼고 event를 흘린다.
 
 import {
-  type ShareRequest,
-  shareRequestDecide,
-  shareRequestList,
-} from "../../../../../protocol/approvals/share-request.ts";
-import {
   type TurnRequest,
   turnRequestDecide,
 } from "../../../../../protocol/approvals/turn-request.ts";
@@ -172,21 +167,6 @@ export const FIRST_ACTIVATION = (): ActivationConsent => ({
     loss_steps: [],
   },
   requested_at: ago(1),
-});
-
-export const SHARE_REQUEST = (): ShareRequest => ({
-  app: INVENTORY,
-  app_name: "Inventory",
-  agents: [
-    { id: id("agt", 1), name: "Bookkeeper" },
-    { id: id("agt", 2), name: "Support" },
-  ],
-  coding_agents: true,
-  reason: "Both agents answer stock questions and should read the same counts.",
-  session: id("ses", 5),
-  public_skills: 2,
-  public_commands: 3,
-  requested_at: ago(2),
 });
 
 const hoursAgo = (hours: number) => ago(hours * 60);
@@ -517,7 +497,6 @@ type Item =
   | ReturnType<typeof MAIL_HOLD_EXPIRED>
   | ReturnType<typeof JOB_HOLD_BLOCKED>
   | ReturnType<typeof JOB_APPROVAL_TOOL>
-  | ShareRequest
   | "question";
 
 /** 모든 종류가 섞인 한 목록. */
@@ -583,7 +562,6 @@ export function createFakeWaiting(
   let mail: MailHold[] = [];
   const expired = new Set<string>();
   let pending: JobRecord[] = [];
-  let shares: ShareRequest[] = [];
   const blocked = new Set<string>();
   let questionSession: FakeSession | null = null;
   const notices: Notice[] = [];
@@ -630,8 +608,6 @@ export function createFakeWaiting(
         ...snapshot,
         turn_requests: [...snapshot.turn_requests, item.request],
       });
-    } else if ("coding_agents" in item) {
-      shares.push(item);
     } else if ("approval" in item) {
       pending.push(item.approval);
     } else if ("origin" in item) {
@@ -736,27 +712,6 @@ export function createFakeWaiting(
           },
         });
         return ok({ release: consent.release, outcome: decided.choice });
-      }
-      if (
-        key === `read:${shareRequestList.resource}/${shareRequestList.method}`
-      ) {
-        return ok({ ...COMMON, requests: shares });
-      }
-      if (
-        key ===
-        `command:${shareRequestDecide.resource}/${shareRequestDecide.method}`
-      ) {
-        const decided = body.input as { app: string; choice: string };
-        const request = shares.find((one) => one.app === decided.app);
-        if (!request) return fail("not_found");
-        shares = shares.filter((one) => one !== request);
-        emitEvent(base, {
-          type: "ShareRequestClosed",
-          subject: request.app,
-          at: at(),
-          payload: { app: request.app, outcome: decided.choice },
-        });
-        return ok({ app: request.app, outcome: decided.choice });
       }
       if (key === `read:${noticesOpen.resource}/${noticesOpen.method}`) {
         return ok({ ...COMMON, notices: notices.filter((n) => !n.read_at) });

@@ -26,7 +26,6 @@ import * as worktrees from "./wiring/worktrees.ts";
 import * as remote from "./wiring/remote.ts";
 import * as rewindRegistration from "./wiring/rewind-registration.ts";
 import * as routerRegistration from "./wiring/router-registration.ts";
-import * as shareRequests from "./wiring/share-requests.ts";
 
 export const BUNDLED_TEAM_MODULES: readonly unknown[] = [
   projects,
@@ -46,7 +45,6 @@ export const BUNDLED_TEAM_MODULES: readonly unknown[] = [
   rewindRegistration,
   appsUsage,
   assignmentFile,
-  shareRequests,
   acpRegistration,
   appsDelete,
   agentDelete,

@@ -84,7 +84,7 @@ areas:
     owns:
       - tool 호출 판정(Gate), shell 규칙, turn mode
       - 사람에게 묻기(turn request)와 결정, 팀 자식의 물음이 부모에게 가기
-      - 앱 할당 읽기·쓰기, 앱 공유 요청 승인
+      - 다른 컴퓨터 앱 할당 읽기·쓰기
       - session rewind, file revert
       - 사람 결정 handle(decision handle)
     read:

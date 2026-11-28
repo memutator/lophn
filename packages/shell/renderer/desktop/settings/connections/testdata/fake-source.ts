@@ -1,5 +1,7 @@
-// Coding agents 화면의 가짜 통로. main을 부르지 않고 부른 것을 기록한다. 공유 목록은 가짜 core의 설정에 둔다.
-import { SHARED_APPS_SETTING_KEY } from "../../../../../../protocol/approvals/share-request.ts";
+// Coding agents 화면의 가짜 통로. main을 부르지 않고 부른 것을 기록한다. 배포 목록은 가짜 core의 설정에 둔다.
+import { CODING_DEPLOYED_SKILLS_SETTING_KEY } from "../../../../../../protocol/lophn-agent/skill-settings.ts";
+import type { SkillDeployment } from "../../../../../../protocol/lophn-agent/skill-settings.ts";
+import { DEPLOYABLE } from "../../../../workspace/agents/fake-data.ts";
 import { type FakeCore, fakeCore } from "../../testdata/fake-core.ts";
 import type {
   CodingConnectionsSource,
@@ -80,11 +82,11 @@ const HOOKS: readonly HarnessHookView[] = [
 ];
 
 interface FakeConnectionsOptions {
-  shared?: readonly string[];
+  deployed?: readonly SkillDeployment[];
   hooks?: SourceResult<readonly HarnessHookView[]>;
   harnesses?: SourceResult<readonly HarnessSettingsView[]>;
   refresh?: SourceResult<readonly HarnessSettingsView[]>;
-  /** 공유 목록을 둘 가짜 core. 없으면 새로 만든다. */
+  /** 배포 목록을 둘 가짜 core. 없으면 새로 만든다. */
   core?: FakeCore;
 }
 
@@ -97,7 +99,7 @@ interface FakeConnections {
     hookStatus: number;
     installed: HarnessName[];
     uninstalled: HarnessName[];
-    unshared: string[];
+    deployed: (readonly SkillDeployment[])[];
   };
 }
 
@@ -110,11 +112,13 @@ export function fakeConnections(
     hookStatus: 0,
     installed: [],
     uninstalled: [],
-    unshared: [],
+    deployed: [],
   };
   const core = options.core ?? fakeCore();
-  let shared = [...(options.shared ?? ["grocery-list", "trip-notes"])];
-  core.set(SHARED_APPS_SETTING_KEY, shared);
+  core.set(CODING_DEPLOYED_SKILLS_SETTING_KEY, [
+    ...(options.deployed ??
+      DEPLOYABLE.slice(0, 1).map(({ app, skill }) => ({ app, skill }))),
+  ]);
   let hooks =
     options.hooks?.ok === false ? [] : [...(options.hooks?.value ?? HOOKS)];
   const source: CodingConnectionsSource = {
@@ -136,10 +140,12 @@ export function fakeConnections(
           : { ok: true, value: hooks },
       );
     },
-    unshareApp(slug) {
-      calls.unshared.push(slug);
-      shared = shared.filter((one) => one !== slug);
-      core.set(SHARED_APPS_SETTING_KEY, shared);
+    deployable() {
+      return Promise.resolve({ ok: true, value: DEPLOYABLE });
+    },
+    setDeployed(next) {
+      calls.deployed.push(next);
+      core.set(CODING_DEPLOYED_SKILLS_SETTING_KEY, [...next]);
       core.changed("settings");
       return Promise.resolve({ ok: true, value: null });
     },

@@ -113,7 +113,7 @@ agent event와 화면
 21. 서버는 `watch` frame마다 받은 차례로 `ready` 하나를 답한다. shell main은 그 차례로 짝지어, 한 창이 조건을 바꿔 건 `watch`의 `ready`는 그 창에만 보내고 새로 붙은 연결의 `ready`만 모든 창에 보낸다. 창 안에서도 그 `watch`를 걸 때 아직 `ready`를 못 받은 구독자만 다시 읽는다. 기존 구독자는 서버가 동기로 다시 구독해 event를 잃지 않는다. tab 하나를 열고 닫을 때마다 모든 창이 snapshot을 다시 읽던 것을 막는다.
 22. session을 건 조건은 session이 없는 event(남지 않는 event)와 맞지 않는다. 그런 event는 종류 조건으로만 받는다. 섞어 쓰면 전역 대기 목록이 조용히 빈다. `AcpUpdated`는 subject가 null이지만 envelope의 session이 조건에 걸린다.
 23. 구독 조건은 "어느 session의, 어떤 종류"다. 조건 여럿은 OR이고 같은 event는 연결 하나에 한 번만 간다. 조건 없는 구독은 아무 event도 받지 않는다. `AppViewEvent`는 조건과 따로 payload의 owner가 그 연결의 owner(사람 token 연결은 credential의 principal)일 때만 간다. owner를 받지 않은 연결에는 가지 않는다. view는 그것을 연 사람·기기의 것이라 다른 연결이 그 화면의 앱 event와 binding을 보면 안 된다.
-24. core는 toast를 모르고 toast는 shell의 정책이다. 끊긴 사이 놓친 toast는 다시 띄우지 않는다. 앱 멈춤(`AppRestartHalted`)·activation 동의 요청·앱 공유 요청의 toast는 renderer가 남지 않는 event를 듣고 띄운다. agent의 turn 끝·권한 물음·질문 알림은 renderer가 아니라 shell main이 같은 event를 듣고 터미널 agent와 같은 규칙으로 toast나 OS 알림을 정한다(`architecture/terminal-agent.md`).
+24. core는 toast를 모르고 toast는 shell의 정책이다. 끊긴 사이 놓친 toast는 다시 띄우지 않는다. 앱 멈춤(`AppRestartHalted`)·activation 동의 요청의 toast는 renderer가 남지 않는 event를 듣고 띄운다. agent의 turn 끝·권한 물음·질문 알림은 renderer가 아니라 shell main이 같은 event를 듣고 터미널 agent와 같은 규칙으로 toast나 OS 알림을 정한다(`architecture/terminal-agent.md`).
 25. 사람 화면에 가는 것은 앱 화면과 agent 결과(대화)뿐이다. call의 진행은 agent끼리의 일이라 화면의 대상이 아니다.
 26. 꺼졌다 켜지면 돌던 turn은 interrupted로 닫고 그 turn의 turn 안 request와 질문은 cancelled다. activation 동의 대기는 apps의 표에 남는다(`architecture/activation.md`).
 

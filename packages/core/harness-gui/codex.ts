@@ -60,7 +60,6 @@ type Json = Record<string, J>;
 
 export type CodexAdapter = HarnessGuiAdapter & {
   catalogScope: "global";
-  enforcesDeny: false;
 };
 
 /** app-server와 말하는 길과 file system. 기본은 실제 socket이고 test는 녹화를 재생하는 가짜를 넣는다. */
@@ -944,7 +943,6 @@ export function createCodexAdapter(io: CodexIo): CodexAdapter {
   return {
     handoff: GUI_HANDOFF.codex,
     catalogScope: "global",
-    enforcesDeny: false,
     fetchCatalog: fetchCatalog(io),
 
     // TUI는 빈 composer에서 Ctrl+C로 바로 끝난다(`DOUBLE_PRESS_QUIT_SHORTCUT_ENABLED = false`, tui/src/chatwidget/interaction.rs

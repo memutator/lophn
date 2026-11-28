@@ -1,7 +1,6 @@
 // 사람의 결정을 route로 보낸다. 항목을 목록에서 빼는 것은 이 호출이 아니라 TurnRequestClosed·
 // ActivationConsentClosed·QuestionResolved와 snapshot 읽기다. 대화 쪽 core source도 같은 호출을 쓴다.
 
-import { shareRequestDecide } from "../../../../../protocol/approvals/share-request.ts";
 import {
   type TurnRequest,
   type TurnRequestChoice,
@@ -115,18 +114,15 @@ export async function decideWaiting(
   if (entry.kind === "activation") {
     if (choice !== "allow" && choice !== "reject") return UNAVAILABLE;
     // command는 입력을 봉투에 담아 보낸다. 같은 동의의 같은 결정은 같은 key라 core가 한 번만 접수한다.
-    // 카드가 같이 보인 공유 요청은 허락할 때만 실어 보내 같은 tx에서 승인한다(거절이면 공유 요청은 제 줄로 남는다).
-    const share = choice === "allow" ? entry.share?.requested_at : undefined;
     const reply = await core
       .call(
         commandCall(activationConsent, {
           input: {
             release: entry.request.release,
             choice,
-            ...(share === undefined ? {} : { share_requested_at: share }),
           },
           compare: { requested_at: entry.request.requested_at },
-          key: `activation-consent-${entry.request.release}-${choice}-${share ?? ""}`,
+          key: `activation-consent-${entry.request.release}-${choice}`,
         }),
       )
       .catch(() => null);
@@ -222,30 +218,6 @@ export async function decideJobApproval(
   if (!reply) return UNAVAILABLE;
   if (!reply.ok) return { ok: false, code: reply.error?.code ?? "unavailable" };
   return jobApprove.output.safeParse(reply.value).success
-    ? { ok: true }
-    : UNAVAILABLE;
-}
-
-/** 앱 공유 요청을 승인하거나 거절한다. 항목은 ShareRequestClosed가 목록에서 뺀다. */
-export async function decideShare(
-  core: CoreSource,
-  entry: WaitingEntry & { kind: "share" },
-  choice: "approve" | "reject",
-): Promise<
-  { readonly ok: true } | { readonly ok: false; readonly code: string }
-> {
-  const reply = await core
-    .call(
-      commandCall(shareRequestDecide, {
-        input: { app: entry.request.app, choice },
-        compare: { requested_at: entry.request.requested_at },
-        key: `share-${entry.request.app}-${entry.request.requested_at}-${choice}`,
-      }),
-    )
-    .catch(() => null);
-  if (!reply) return UNAVAILABLE;
-  if (!reply.ok) return { ok: false, code: reply.error?.code ?? "unavailable" };
-  return shareRequestDecide.output.safeParse(reply.value).success
     ? { ok: true }
     : UNAVAILABLE;
 }

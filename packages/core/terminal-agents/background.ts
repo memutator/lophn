@@ -1,7 +1,7 @@
 // 터미널 탭이 없는 harness session(Home·App·Job·custom harness agent)을 상주 ACP adapter(`terminal: null`)로 돌린다.
 // - queue 감시: `onQueued` + 기동 후 sweep + 1초 주기 sweep(재시작 replay와 TUI hold 해제를 잡는다).
 // - transcript: agent 글(`message_recorded`)과 tool 결과(`tool_ended`)를 모두 ledger에 남겨 Home/App 대화가 그대로 보인다.
-// - 안전: 사람 탭이 없는 실행이라 승인·질문은 자동으로 거절/취소하고 이유를 남긴다. deny 규칙을 지키지 못하는 adapter는 띄우지 않는다.
+// - 안전: 사람 탭이 없는 실행이라 승인·질문은 자동으로 거절/취소하고 이유를 남긴다.
 // - 수명: turn이 끝나고 queue가 비면 짧은 linger 뒤 handle을 닫는다. TUI hold 요청 시 유휴 handle은 즉시 내보낸다(evict).
 import { canonicalize } from "../../base/canonical-json.ts";
 import type {
@@ -34,7 +34,6 @@ export type BackgroundMembersDeps = {
   members(): HarnessMembers | null;
   files: CredentialFiles | null;
   handlers(): AcpTabHandlers | null;
-  enforcesDeny(harness: GuiHarness): boolean;
   after(ms: number, run: () => void): () => void;
   every(ms: number, run: () => void): () => void;
   onCatalog?(
@@ -637,7 +636,7 @@ export function createBackgroundMembers(deps: BackgroundMembersDeps) {
       const def =
         members.definition !== undefined
           ? await members.definition(session)
-          : { ok: true as const, value: { deny: [] as readonly string[] } };
+          : { ok: true as const, value: {} };
       if (!def.ok) {
         await failBeforeSend(
           members,
@@ -646,17 +645,6 @@ export function createBackgroundMembers(deps: BackgroundMembersDeps) {
           input,
           "closed",
           "The agent definition could not be read.",
-        );
-        return;
-      }
-      if (def.value.deny.length > 0 && !deps.enforcesDeny(guiHarness)) {
-        await failBeforeSend(
-          members,
-          session,
-          ledgerTurn,
-          input,
-          "unconfigured",
-          `${info.harness} cannot keep this agent's deny rules, so it was not started.`,
         );
         return;
       }
@@ -739,7 +727,7 @@ export function createBackgroundMembers(deps: BackgroundMembersDeps) {
             ...(def.value.harness_config === undefined
               ? {}
               : { launch: def.value.harness_config }),
-            member: { deny: def.value.deny },
+            member: true,
           });
         } catch (cause) {
           runner.opening = false;

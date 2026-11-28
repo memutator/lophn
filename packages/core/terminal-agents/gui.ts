@@ -80,7 +80,7 @@ export type TabGuiDeps = {
     read(path: string): Promise<Uint8Array | null>;
   };
   /**
-   * 팀원이 되는 탭(project 터미널)이면 그 CLI가 `lophn`을 부를 turn 자격 file(없으면 null)과 그 harness agent 정의의 deny 규칙이고,
+   * 팀원이 되는 탭(project 터미널)이면 그 CLI가 `lophn`을 부를 turn 자격 file(없으면 null)과 launch 설정이고,
    * 아니면 null이다. CLI의 env에는 file 경로만 넣는다.
    */
   member?(
@@ -88,7 +88,6 @@ export type TabGuiDeps = {
     harness: GuiHarness,
   ): {
     credentialFile: string | null;
-    deny: readonly string[];
     launch?: HarnessLaunchConfig;
   } | null;
   log(message: string): void;
@@ -323,7 +322,7 @@ export function createTabGui(deps: TabGuiDeps): TabGui {
         ...(resume === undefined ? {} : { resume }),
         ...(args === undefined ? {} : { args }),
         ...(member?.launch === undefined ? {} : { launch: member.launch }),
-        ...(member === null ? {} : { member: { deny: member.deny } }),
+        ...(member === null ? {} : { member: true as const }),
       };
       await handlers.gui(request);
       if (!checkStarted || handlers.running(terminalRef) !== null) {

@@ -110,8 +110,8 @@ export type AcpTabRequest = {
   launch?: HarnessLaunchConfig;
   /** `<harness> --gui ...`나 TUI argv에서 전달된 CLI flag(resume 제외). */
   args?: readonly string[];
-  /** 이 실행이 lophn 팀원·agent다. adapter는 CLI가 `lophn`을 부를 길을 연다. `deny`는 그 agent 정의의 deny 규칙이다. */
-  member?: { deny: readonly string[] };
+  /** 이 실행이 lophn 팀원·agent다. adapter는 CLI가 `lophn`을 부를 길을 연다. */
+  member?: true;
 };
 
 /** handle을 여는 값. `terminal`이 있으면 그 탭에 GUI가 붙고, null이면 터미널 없는 background 실행이다. */

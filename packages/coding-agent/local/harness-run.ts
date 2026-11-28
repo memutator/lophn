@@ -208,11 +208,15 @@ export type SkillSyncRow = SkillCopyResult & {
   dir: string;
 };
 
-// hook을 놓은 harness의 skill 폴더에 공유 skill 사본을 맞춘다. hook이 없는 harness의 폴더는 lophn이 쓴 앱 공유 사본만 지운다.
+// hook을 놓은 harness의 skill 폴더에 배포한 앱 skill 사본을 맞춘다: `skills`는 앱의 public skill이고 `deployed`에 이름이 적힌 것만 둔다.
+// hook이 없는 harness의 폴더는 lophn이 쓴 앱 skill 사본만 지운다.
 // hook 상태를 못 읽은 폴더(`failed`)는 건드리지 않는다. codex와 pi는 폴더를 같이 쓰므로 하나라도 놓였으면 둔다.
 // lophn-agent skill은 hook과 상관없이 모든 harness skill 폴더에 늘 둔다.
 export async function runHarnessSyncSkills(
-  input: { skills: SharedSkill[] },
+  input: {
+    skills: SharedSkill[];
+    deployed: readonly { app: string; skill: string }[];
+  },
   home: string,
   now: string,
 ): Promise<Result<SkillSyncRow[], LophnError>> {
@@ -229,6 +233,12 @@ export async function runHarnessSyncSkills(
       { id: row.harness, hook: row.hook },
     ]);
   }
+  const named = new Set(
+    input.deployed.map((one) => `${one.app}\0${one.skill}`),
+  );
+  const wanted = input.skills.filter((one) =>
+    named.has(`${one.slug}\0${one.name}`),
+  );
   const rows: SkillSyncRow[] = [];
   for (const [skillDir, harnesses] of byDir) {
     const installed = harnesses.some((one) => one.hook === "unchanged");
@@ -239,7 +249,7 @@ export async function runHarnessSyncSkills(
     try {
       const done = await syncSkillCopies(nodePorts, {
         dir,
-        skills: [LOPHN_AGENT_SKILL, ...(installed ? input.skills : [])],
+        skills: [LOPHN_AGENT_SKILL, ...(installed ? wanted : [])],
       });
       rows.push({ ...done, harnesses: harnesses.map((one) => one.id), dir });
     } catch {

@@ -77,8 +77,7 @@ export type TerminalAgentsDeps = {
     harness: GuiHarness;
     cli_session: string | null;
   }): Promise<Result<string>>;
-  // 그 GUI 탭 팀원의 agent 정의(session이 있으면 그 session의 agent, 없으면 내장 coding_<harness>)가 가진 deny 규칙과 launch 설정.
-  memberDeny?(harness: GuiHarness, session?: string | null): readonly string[];
+  // 그 GUI 탭 팀원의 agent 정의(session이 있으면 그 session의 agent, 없으면 내장 coding_<harness>)가 가진 launch 설정.
   memberLaunch?(
     harness: GuiHarness,
     session?: string | null,
@@ -87,8 +86,6 @@ export type TerminalAgentsDeps = {
   memberAgent?(session: string): { id: string; name: string } | null;
   // workflow step 또는 그 팀 자식의 팀원 session이면 원 workflow 출처.
   memberWorkflowOrigin?(session: string): WorkflowOrigin | null;
-  /** 그 adapter가 agent 정의의 deny 규칙을 지킬 수 있는가(background 실행 시 검사). */
-  enforcesDeny?(harness: GuiHarness): boolean;
   /** 열린 GUI 탭이나 background handle이 model 목록을 받았을 때 catalog cache를 공짜로 채운다. */
   onCatalog?(
     harness: GuiHarness,
@@ -295,7 +292,6 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
       const launch = deps.memberLaunch?.(harness, session);
       return {
         credentialFile: deps.credentials?.pathOf(ref) ?? null,
-        deny: deps.memberDeny?.(harness, session) ?? [],
         ...(launch === undefined ? {} : { launch }),
       };
     },
@@ -338,7 +334,6 @@ export function createTerminalAgents(deps: TerminalAgentsDeps) {
     members: () => deps.members?.() ?? null,
     files: deps.credentials ?? null,
     handlers: deps.handlers,
-    enforcesDeny: deps.enforcesDeny ?? (() => false),
     after: deps.after,
     every:
       deps.every ??

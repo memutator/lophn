@@ -84,7 +84,7 @@ async function setup(
     /** 저장된 적 없는 session을 resume한다: 첫 process는 ready 전에 끝난다. */
     unsaved?: string;
     /** lophn 팀원 탭이다. */
-    member?: { deny: readonly string[] };
+    member?: true;
     args?: readonly string[];
     carry?: { model?: string; effort?: string };
     launch?: { model?: string; options?: Record<string, string> };
@@ -461,7 +461,7 @@ test("!ls goes to bash and never to the model, and it is only the user's tool li
 
 // 팀원 탭의 `!`는 사람이 친 명령이다. turn 자격 file 경로를 비워 띄워 `!lophn …`이 사람 자격으로 돈다(turn 밖에서 unauthorized가 아니다).
 test("!lophn in a member tab runs without the turn credential file and shows what the person typed", async () => {
-  const omp = await setup("bash", { member: { deny: [] } });
+  const omp = await setup("bash", { member: true });
   await omp.input(send("msg_1", "!lophn tab open --url https://example.com"));
   const bash = omp.sent.find((body) => body.type === "bash");
   assert.equal(

@@ -24,7 +24,7 @@ import {
   acpImageUpload,
   acpToolBodyRead,
 } from "../../../../protocol/acp/routes.ts";
-import { SHARED_APPS_SETTING_KEY } from "../../../../protocol/approvals/share-request.ts";
+import { CODING_DEPLOYED_SKILLS_SETTING_KEY } from "../../../../protocol/lophn-agent/skill-settings.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import {
   codingAgentsHookStatus,
@@ -391,7 +391,6 @@ export const terminalAgentsWiring: WiringFactory = () => {
           });
           return found.ok ? found.value : null;
         },
-        enforcesDeny: (harness) => HARNESS_GUI_ADAPTERS[harness].enforcesDeny,
         onCatalog: (harness, cwd, result) =>
           void ctx.peek.harnessCatalog?.observe(harness, cwd, result),
         ids: { request: () => randomUUID() },
@@ -643,7 +642,7 @@ export const terminalAgentsWiring: WiringFactory = () => {
       beatTimer = setInterval(() => agents.holds.beat(), BEAT_MS);
       beatTimer.unref?.();
 
-      // 공유 skill 사본은 core 기동 뒤, 앱 activation 뒤, 설정이 바뀔 때 맞춘다. 사본이 같으면 아무것도 쓰지 않는다.
+      // harness의 앱 skill 사본은 core 기동 뒤, 앱 activation 뒤, 설정이 바뀔 때 맞춘다. 사본이 같으면 아무것도 쓰지 않는다.
       offs.push(
         ctx.bus.subscribe([{ types: ["AppViewChanged", "StateChanged"] }], {
           send(event) {
@@ -664,7 +663,8 @@ export const terminalAgentsWiring: WiringFactory = () => {
               changes.some(
                 (change) =>
                   change.name === "settings" &&
-                  (change.id === null || change.id === SHARED_APPS_SETTING_KEY),
+                  (change.id === null ||
+                    change.id === CODING_DEPLOYED_SKILLS_SETTING_KEY),
               )
             ) {
               skillSync.request();

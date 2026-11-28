@@ -1,4 +1,5 @@
-// skill 배포의 조립. 배포 기록은 세 층의 설정에 있다: 전역 설정, workspace `extensions.json`, agent 정의의 `deployed_skills`.
+// skill 배포의 조립. 배포 기록은 네 자리에 있다: 전역 설정, workspace `extensions.json`, agent 정의의 `deployed_skills`, 터미널 coding agent(harness)의 설정 `coding-agent.deployed_skills`.
+// 앞의 셋은 lophn agent의 session에 닿고 harness 자리는 harness의 skill 폴더로 복사된다(`lophn harness sync-skills`).
 // 이 module이 층을 읽고 쓰고, 한 session에 닿는 배포를 합치고(Gate, 호출 판정, 앱 삭제가 같은 읽기를 쓴다), `lophn skill deploy|undeploy|deployments`의
 // 규칙(누가 묻지 않고 하는가)을 건다. 표는 없다: skill 본문은 앱의 active release bundle이 봉한 사본이고 기록은 그것을 가리킨다.
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
@@ -9,6 +10,7 @@ import { parseActor } from "../../../../protocol/base/mod.ts";
 import {
   type AgentId,
   type AgentWorkspace,
+  CODING_DEPLOYED_SKILLS_SETTING_KEY,
   LOPHN_HOME_ID,
   type SkillDeployment,
   type SkillDeploymentRow,
@@ -47,6 +49,7 @@ import { platformEntryUrl } from "../../../install-and-update/mod.ts";
 import type { MemoryHandler } from "../../../server/mod.ts";
 import type { WiringContext } from "./context.ts";
 import { agentDirectory } from "./lophn-agent-team.ts";
+import { codingDeployedSkillsSetting } from "./setting-declarations.ts";
 
 // 동기 file API는 core 프로세스의 module graph에 정적으로 두지 않는다. adapter는 URL로 연다.
 const NODE_AGENT_FILES = platformEntryUrl(import.meta.url, "agentNodeFs").href;
@@ -59,7 +62,8 @@ type Query = Pick<Sql, "get" | "all">;
 type Layer =
   | { layer: "global" }
   | { layer: "workspace"; workspace: AgentWorkspace | null }
-  | { layer: "agent"; agent: AgentId };
+  | { layer: "agent"; agent: AgentId }
+  | { layer: "harness" };
 
 export type DeployWho = { agent: AgentId; workspace: AgentWorkspace | null };
 
@@ -107,6 +111,9 @@ export function createSkillDeployments(ctx: Ctx) {
     if (target.layer === "global") {
       return ok([...(ctx.settings.get(globalDeployedSkillsSetting) ?? [])]);
     }
+    if (target.layer === "harness") {
+      return ok([...(ctx.settings.get(codingDeployedSkillsSetting) ?? [])]);
+    }
     if (target.layer === "workspace") {
       const found = await readWorkspace(target.workspace);
       return found.ok ? ok(found.value.deployed_skills) : found;
@@ -122,16 +129,19 @@ export function createSkillDeployments(ctx: Ctx) {
     target: Layer,
     next: SkillDeployment[],
   ): Promise<Result<void>> {
-    if (target.layer === "global") {
+    if (target.layer === "global" || target.layer === "harness") {
       const written = ctx.settingsUpdate([
         {
-          key: globalDeployedSkillsSetting.key,
+          key:
+            target.layer === "global"
+              ? globalDeployedSkillsSetting.key
+              : CODING_DEPLOYED_SKILLS_SETTING_KEY,
           action: "set",
           value: next,
         },
       ]);
       return !written.ok || written.value.rejected.length > 0
-        ? unavailable("the global deployments could not be saved")
+        ? unavailable(`the ${target.layer} deployments could not be saved`)
         : ok(undefined);
     }
     if (target.layer === "workspace") {
@@ -245,6 +255,8 @@ export function createSkillDeployments(ctx: Ctx) {
     };
     const global = await read({ layer: "global" });
     if (global.ok) add("global", null, global.value);
+    const harness = await read({ layer: "harness" });
+    if (harness.ok) add("harness", null, harness.value);
     const places = snapshot((sql) => {
       const deps = workspaceDepsOf(sql);
       const apps = loadApps(sql, undefined);
@@ -281,7 +293,7 @@ export function createSkillDeployments(ctx: Ctx) {
     return ok(rows);
   }
 
-  // 앱을 지우거나 보관할 때 그 앱의 배포를 세 층에서 거둔다. 읽지 못하는 층은 건너뛴다.
+  // 앱을 지우거나 보관할 때 그 앱의 배포를 모든 자리에서 거둔다. 읽지 못하는 층은 건너뛴다.
   async function strip(slug: string): Promise<void> {
     const places = snapshot((sql) => {
       const apps = loadApps(sql, undefined);
@@ -301,6 +313,7 @@ export function createSkillDeployments(ctx: Ctx) {
     });
     const targets: Layer[] = [
       { layer: "global" },
+      { layer: "harness" },
       { layer: "workspace", workspace: null },
       ...(places.ok
         ? [
@@ -333,13 +346,14 @@ export type SkillDeployments = ReturnType<typeof createSkillDeployments>;
 const DENIED_HINT =
   "only the person, an agent in the app's own workspace and the Home lophn deploy without asking. Calling the app's command (`lophn <app> <command>`) asks the person to allow it, and allowing it always deploys the app's skills to that workspace.";
 
-// `to`는 `global`, `workspace`, `workspace:<ref>`, `agent:<handle>`이다. workspace의 ref는 `home`, project 이름이나 id, 앱 slug·이름이나 id다.
+// `to`는 `global`, `harness`, `workspace`, `workspace:<ref>`, `agent:<handle>`이다. workspace의 ref는 `home`, project 이름이나 id, 앱 slug·이름이나 id다.
 function parseTarget(
   sql: Query,
   to: string,
   here: AgentWorkspace | null | undefined,
 ): Result<Layer> {
   if (to === "global") return ok({ layer: "global" });
+  if (to === "harness") return ok({ layer: "harness" });
   if (to === "workspace") {
     return here === undefined
       ? err({
@@ -393,12 +407,14 @@ function parseTarget(
   }
   return err({
     code: "invalid_input",
-    message: "--to is global, workspace, workspace:<name> or agent:<handle>",
+    message:
+      "--to is global, harness, workspace, workspace:<name> or agent:<handle>",
   });
 }
 
 function describe(layer: Layer, sql: Query): string {
   if (layer.layer === "global") return "every agent";
+  if (layer.layer === "harness") return "the coding agents in terminals";
   if (layer.layer === "agent") {
     return `agent ${agentDirectory(sql).agent(layer.agent)?.handle ?? layer.agent}`;
   }

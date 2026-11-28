@@ -102,10 +102,7 @@ import { serverWiring } from "./wiring/server.ts";
 import { sessionLifecycleWiring } from "./wiring/session-lifecycle.ts";
 import { sessionSnapshotsWiring } from "./wiring/session-snapshots.ts";
 import { settingDeclarationsWiring } from "./wiring/setting-declarations.ts";
-import {
-  createCoreRegistration as createShareRequestsRegistration,
-  shareRequestsWiring,
-} from "./wiring/share-requests.ts";
+import { createCoreRegistration as createShareRequestsRetiredRegistration } from "./wiring/share-requests-retired.ts";
 import { shellAgentTabsWiring } from "./wiring/shell-agent-tabs.ts";
 import { createSkillsOffWiring } from "./wiring/skills-off.ts";
 import { stateChangesWiring } from "./wiring/state-changes.ts";
@@ -136,7 +133,8 @@ export const TEAMS = [
   { createCoreRegistration: createWorkspaceRegistration },
   { createCoreRegistration: createUsageRegistration },
   { createCoreRegistration: createAssignmentRegistration },
-  { createCoreRegistration: createShareRequestsRegistration },
+  // 걷어낸 share-requests의 옛 ledger step 자리다(빼면 기동을 거절한다).
+  { createCoreRegistration: createShareRequestsRetiredRegistration },
   { createCoreRegistration: createAcpRegistration },
   { createCoreRegistration: createAppsDeleteRegistration },
   { createCoreRegistration: createAgentDeleteRegistration },
@@ -194,7 +192,6 @@ export const WIRINGS: readonly WiringFactory[] = [
   globalFloatsTabsWiring,
   // workspace-rename이 layout을 판 10으로, global-floats-tabs가 전역 float을 판 2로 올린 뒤에 두 파일에서 Agent 탭을 걷어낸다.
   shellAgentTabsWiring,
-  shareRequestsWiring,
   routerWiring,
   appsWiring,
   // 쓰기 앞 처리기는 앞이 안쪽이다. lophn-agent의 session 정리(rewind files)보다 안쪽이라 app.delete의 session 정리도 이 위에서 한다.

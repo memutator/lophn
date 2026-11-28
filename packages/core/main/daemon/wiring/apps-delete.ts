@@ -21,10 +21,6 @@ import type {
   Tx,
 } from "../../../../protocol/server/mod.ts";
 import {
-  eraseShareRequest,
-  sharedAppsSetting,
-} from "../../../approvals/share-requests/mod.ts";
-import {
   appLaunchSetting,
   quickLaunchSetting,
   sidebarPanelsOffSetting,
@@ -103,7 +99,6 @@ function eraseRemnants(
   }
 
   eraseJobsOfApp(tx, app.id);
-  eraseShareRequest(tx, app.id);
   // 폰 sync log. 임시 snapshot file은 앱 폴더 아래라 commit 뒤 폴더와 같이 지워진다.
   const synced = eraseSyncLog(tx, app.id);
   if (!synced.ok) return synced;
@@ -183,7 +178,7 @@ export const appsDeleteWiring: WiringFactory = () => ({
     }
 
     // 사람이 쓰는 설정에서 이 앱을 가리키는 것을 뺀다. 없는 앱은 shell이 그릴 때 건너뛰지만, 같은 slug의 새 앱이
-    // 공유(coding agent)나 고정을 물려받지 않게 지운다.
+    // 배포나 고정을 물려받지 않게 지운다.
     function cleanSettings(app: Deleted): void {
       const changes: { key: string; action: "set"; value: unknown }[] = [];
       const quick = ctx.settings.get(quickLaunchSetting) ?? {
@@ -237,14 +232,6 @@ export const appsDeleteWiring: WiringFactory = () => ({
             value: off.filter((item) => item.app !== app.id),
           });
         }
-      }
-      const shared = ctx.settings.get(sharedAppsSetting) ?? [];
-      if (shared.includes(app.slug)) {
-        changes.push({
-          key: sharedAppsSetting.key,
-          action: "set",
-          value: shared.filter((slug) => slug !== app.slug),
-        });
       }
       if (changes.length === 0) return;
       const written = ctx.settingsUpdate(changes);

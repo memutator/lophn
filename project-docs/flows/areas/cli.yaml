@@ -485,7 +485,6 @@ links:
   - {entry: "cli:agent.create", flow: agent-create}
   - {entry: "cli:agent.update", flow: agent-change}
   - {entry: "cli:agent.run", flow: run-agent-start}
-  - {entry: "cli:app.share", flow: share-request-open}
   - {entry: "cli:app.read", flow: app-read}
   - {entry: "cli:app.tools", flow: app-declaration-read}
   - {entry: "cli:app.create", flow: app-create}

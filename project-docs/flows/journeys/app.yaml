@@ -78,26 +78,6 @@ journeys:
     gaps:
       - "이슈 activation-result-notice-rules-differ: 거절은 session에 알리지 않는다(사람이 session에 말한다)."
 
-  - id: app-consent-with-share
-    title: "앱 공유 요청이 붙은 activation 동의를 허락하면 공유도 같이 승인된다"
-    actor: person
-    goal: "앱을 만든 agent가 청한 공유를 동의 카드에서 함께 보고 한 번에 허락한다"
-    refs: [A11, C25]
-    steps:
-      - {do: "앱 workspace agent가 lophn app share로 이 앱의 공유를 청한다", flow: share-request-open:opened}
-      - {do: "activation 동의 카드에 그 공유 요청이 같이 보인다", screen: new-waiting-activation, flow: activation-state-read:ok}
-      - {do: "Allow를 누르면 같은 tx에서 공유 요청도 승인된다", screen: new-waiting-activation, flow: share-request-consent:approved-with-consent}
-
-  - id: app-share-request-decide
-    title: "앱 공유 요청을 대기 목록에서 따로 승인한다"
-    actor: person
-    goal: "받을 agent와 coding agent에게 앱을 공유할지 대기 목록에서 정한다"
-    refs: [C25, H3, G2]
-    steps:
-      - {do: "앱 workspace agent가 다른 agent에게 앱 공유를 청한다", flow: share-request-open:opened}
-      - {do: "대기 목록에서 받을 agent와 공개 skill·command 수를 읽는다", screen: waiting-share-request, flow: share-request-list:ok}
-      - {do: "승인한다", screen: waiting-share-request, flow: share-request-decide:approved}
-
   - id: app-activation-fails-and-fixed
     title: "activation이 migration 실패로 끝나 이전 release가 돌아오고, session이 고쳐 다시 올린다"
     actor: agent

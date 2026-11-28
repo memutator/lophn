@@ -50,7 +50,6 @@ function textOf(cause: Cause, showNames: boolean): Text {
         : { title: `An agent ${cause.outcome}` };
     }
     case "consent":
-    case "share_request":
       return showNames
         ? { title: `${cause.app_name} is waiting for you`, body: "lophn" }
         : { title: "An app needs you" };
@@ -80,7 +79,6 @@ function dataOf(cause: Cause, host: string): Pick<PushMessage, "data"> {
     case "long_finish":
       return { data: { host, kind: "session", session: cause.session } };
     case "consent":
-    case "share_request":
       return { data: { host, kind: "inbox" } };
     case "program_notice":
       return cause.app === null

@@ -40,8 +40,6 @@ export const data = {
   "secret-input.title.request-save": "Save a site login",
   "waiting.button.allow": "Allow",
   "waiting.button.approve-job": "Approve",
-  "waiting.button.approve-share": "Share",
-  "waiting.button.reject-share": "Reject",
   "waiting.button.allow-always": "Always allow",
   "waiting.button.allow-once": "Allow once",
   "waiting.button.answer-in-terminal": "Answer in terminal",
@@ -113,8 +111,6 @@ export const data = {
   "waiting.label.group-question": "Questions",
   "waiting.label.group-job": "Jobs",
   "waiting.label.group-mail": "Mail from other computers",
-  "waiting.label.group-share": "App sharing",
-  "waiting.label.share-coding": "coding agents in terminals",
   "waiting.label.filter-all-apps": "All apps",
   "waiting.label.filter-all-projects": "All projects",
   "waiting.label.hide-details": "Hide details",
@@ -169,8 +165,6 @@ export const data = {
     "Only added declarations and data-loss steps are shown.",
   "waiting.notice.activation-first":
     "First activation, so every declaration is new: {declared, plural, one {# declaration} other {# declarations}}, {lost, plural, one {# data-loss step} other {# data-loss steps}}.",
-  "waiting.notice.activation-share":
-    "Allowing also shares the app with {who}: {skills, plural, one {# public skill} other {# public skills}} and {commands, plural, one {# public command} other {# public commands}}.",
   "waiting.notice.activation-since":
     "Since the last version: {declared, plural, one {# new declaration} other {# new declarations}}, {lost, plural, one {# data-loss step} other {# data-loss steps}}.",
   "waiting.notice.tool-external":
@@ -187,8 +181,6 @@ export const data = {
   "waiting.notice.empty": "Nothing needs you right now.",
   "waiting.notice.machine-off":
     "{name} is off. This is how it looked last; you can answer when it is back.",
-  "waiting.notice.share":
-    "Wants {who} to use its {skills, plural, one {# public skill} other {# public skills}} and {commands, plural, one {# public command} other {# public commands}}. Nothing changes until you approve.",
   "waiting.notice.job-agent": "Asks {agent}.",
   "waiting.notice.job-pass-event":
     "The event's data is passed into the command input.",
@@ -233,16 +225,11 @@ export const data = {
   "waiting.toast-activation.body": "Look at what it changes before you decide.",
   "waiting.toast-activation.button": "Review",
   "waiting.toast-activation.title": "{app} has an update that needs approval",
-  "waiting.toast-share.body":
-    "An agent asks to share it with other agents. Look at who gets it before you decide.",
-  "waiting.toast-share.button": "Review",
-  "waiting.toast-share.title": "{app} asks to be shared",
   "waiting.toast-restart-halted.button": "Open app",
   "waiting.toast-restart-halted.body":
     "{app} kept crashing, so lophn stopped restarting it.",
   "waiting.toast-restart-halted.title": "App restart halted",
   "waiting.title.mail-hold": "{name} on {computer}",
-  "waiting.title.share": "Share {app} with other agents",
   "waiting.title.activation": "Activate a new version of {app}",
   "waiting.title.tool": "Use {tool} in {app}",
   "waiting.title.coding": "Permission request in the terminal",

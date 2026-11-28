@@ -62,7 +62,6 @@ export type { HarnessCatalogResult, HarnessLaunchConfig };
 type Start = HarnessGuiAdapter["start"];
 export type OmpAdapter = HarnessGuiAdapter & {
   catalogScope: "global";
-  enforcesDeny: false;
 };
 
 /** adapter가 파일 시스템에 닿는 길. 이미지 첨부, omp 설정(role, 승인 mode), 지난 session 목록을 읽는다. 쓰는 길은 없다. test가 바꾼다. */
@@ -3322,7 +3321,6 @@ export function createOmpAdapter(io: OmpIo): OmpAdapter {
   return {
     handoff: GUI_HANDOFF.omp,
     catalogScope: "global",
-    enforcesDeny: false,
     fetchCatalog: fetchOmpCatalog,
     start: start(io),
     // TUI의 omp를 SIGTERM으로 끈다. Ctrl+D는 입력창이 비었을 때만 끝나고 사람이 바꿀 수 있다. SIGTERM은 TUI가 Ctrl+D와

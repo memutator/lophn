@@ -2,7 +2,6 @@
 import {
   ASSIGNMENT_ROUTES,
   PERMISSIONS_VIEW_ROUTES,
-  SHARE_REQUEST_ROUTES,
   turnRequestDecide,
 } from "../../../../protocol/approvals/mod.ts";
 import type { Route } from "../../../../protocol/base/mod.ts";
@@ -29,7 +28,6 @@ export const SHELL_ROUTES: readonly Route[] = [
   turnRequestDecide as Route,
   ...(ASSIGNMENT_ROUTES as readonly Route[]),
   ...(PERMISSIONS_VIEW_ROUTES as readonly Route[]),
-  ...(SHARE_REQUEST_ROUTES as readonly Route[]),
   devicesList as Route,
   devicesSetPrimary as Route,
   rosterList as Route,

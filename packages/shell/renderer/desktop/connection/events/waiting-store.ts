@@ -2,7 +2,6 @@
 // 항목은 원래 request 값을 그대로 들고, 같은 id는 한 번만 든다.
 
 import type { z } from "zod";
-import type { ShareRequest } from "../../../../../protocol/approvals/share-request.ts";
 import type { TurnRequest } from "../../../../../protocol/approvals/turn-request.ts";
 import type { ActivationConsent } from "../../../../../protocol/apps/activation/consent.ts";
 import type { Notice } from "../../../../../protocol/apps/notice.ts";
@@ -29,7 +28,6 @@ import {
   readOpenFollowUps,
   readOpenNotices,
   readSessionSnapshots,
-  readShareRequests,
 } from "./snapshots.ts";
 import { createValueStore, syncOnReady } from "./store.ts";
 import type { UnseenStore } from "./unseen-store.ts";
@@ -58,12 +56,10 @@ export type WaitingEntry =
       readonly request: TurnRequest;
     })
   | (Common & { readonly kind: "question"; readonly request: QuestionRequest })
-  // id는 release다. 같은 release는 한 줄이다. share는 그 앱의 열린 공유 요청이다: 있으면 이 동의가 같이 승인하고
-  // 공유 요청은 따로 줄을 서지 않는다(publish에서 붙인다).
+  // id는 release다. 같은 release는 한 줄이다.
   | (Common & {
       readonly kind: "activation";
       readonly request: ActivationConsent;
-      readonly share?: ShareRequest;
     })
   // 놓친 차례를 사람이 정한다. id는 job run이다. session도 request도 없는 job 표의 줄이다.
   | (Common & { readonly kind: "job_hold"; readonly hold: JobHold })
@@ -72,12 +68,10 @@ export type WaitingEntry =
   // (project는 기계 사이 이름(`pri_`)이라 이 store가 풀지 못한다).
   | (Common & { readonly kind: "mail_hold"; readonly hold: MailHold })
   // agent가 만든 job의 등록 승인. id는 job이다.
-  | (Common & { readonly kind: "job_approval"; readonly job: JobRecord })
-  // 앱 workspace의 agent가 청한 앱 공유. id는 앱이다(앱마다 열린 요청은 하나).
-  | (Common & { readonly kind: "share"; readonly request: ShareRequest });
+  | (Common & { readonly kind: "job_approval"; readonly job: JobRecord });
 
 /**
- * 합친 Inbox의 항목 key. activation id(release)와 share id(app)가 기계를 건너 같은 앱 id로 겹쳐서 기계를 붙인다.
+ * 합친 Inbox의 항목 key. activation id(release)와 notice id가 기계를 건너 겹칠 수 있어 기계를 붙인다.
  * 이 컴퓨터(null)는 `here`다(기계 id `mch_`와 겹치지 않는다).
  */
 export function inboxKey(machine: string | null, id: string): string {
@@ -117,8 +111,6 @@ const WAITING_CONDITION: EventCondition = {
     "QuestionResolved",
     "ActivationConsentRequested",
     "ActivationConsentClosed",
-    "ShareRequestOpened",
-    "ShareRequestClosed",
     // 알림(앱과 program 기록)도 session이 없어 types에만 건다.
     "NoticePosted",
     "NoticeClosed",
@@ -173,33 +165,8 @@ export function createWaitingStore(
     { agent: AgentId; workspace: Workspace | null }
   >();
 
-  // 동의 대기가 있는 앱의 공유 요청은 그 동의 항목에 붙이고 따로 세우지 않는다. 동의를 거절하면 동의 항목이 빠져
-  // 공유 요청이 다시 제 줄로 보인다.
-  function bundled(): WaitingEntry[] {
-    const shares = new Map<string, ShareRequest>();
-    for (const entry of entries.values()) {
-      if (entry.kind === "share") shares.set(entry.request.app, entry.request);
-    }
-    const bundledApps = new Set<string>();
-    const list: WaitingEntry[] = [];
-    for (const entry of entries.values()) {
-      if (entry.kind === "activation") {
-        const share = shares.get(entry.request.app);
-        if (share !== undefined) {
-          bundledApps.add(share.app);
-          list.push({ ...entry, share });
-          continue;
-        }
-      }
-      list.push(entry);
-    }
-    return list.filter(
-      (entry) => entry.kind !== "share" || !bundledApps.has(entry.request.app),
-    );
-  }
-
   function publish() {
-    const list = bundled();
+    const list = [...entries.values()];
     state.set({
       entries: list,
       count: list.length,
@@ -267,18 +234,6 @@ export function createWaitingStore(
       id: request.release,
       kind: "activation",
       session: null,
-      agent: null,
-      workspace: { kind: "app", id: request.app },
-      receivedAt: request.requested_at,
-      request,
-    };
-  }
-
-  function share(request: ShareRequest): WaitingEntry {
-    return {
-      id: request.app,
-      kind: "share",
-      session: request.session,
       agent: null,
       workspace: { kind: "app", id: request.app },
       receivedAt: request.requested_at,
@@ -373,13 +328,6 @@ export function createWaitingStore(
       case "ActivationConsentClosed":
         entries.delete(event.payload.release);
         break;
-      case "ShareRequestOpened":
-        // 새 요청이 옛 것을 대신하고 내용은 event에 없다. 다시 읽어 맞추고, 그 읽기가 publish한다.
-        void refreshShares();
-        return;
-      case "ShareRequestClosed":
-        entries.delete(event.payload.app);
-        break;
       case "NoticePosted":
         notices.set(event.payload.id, event.payload);
         publish();
@@ -448,30 +396,23 @@ export function createWaitingStore(
   }
 
   async function readAll() {
-    const [snapshots, consents, shares, appNotices, jobs, mail, openFollowUps] =
+    const [snapshots, consents, appNotices, jobs, mail, openFollowUps] =
       await Promise.all([
         readSessionSnapshots(client.core),
         readActivationConsents(client.core),
-        readShareRequests(client.core),
         readOpenNotices(client.core),
         readJobs(),
         readMailHolds(client.core),
         readOpenFollowUps(client.core),
       ]);
-    // snapshot과 동의와 공유 요청은 모두 읽혀야 통째로 맞춘다. 하나만 읽고 맞추면 읽지 못한 쪽 항목이 지워진다.
+    // snapshot과 동의는 모두 읽혀야 통째로 맞춘다. 하나만 읽고 맞추면 읽지 못한 쪽 항목이 지워진다.
     // job·mail·follow-up은 따로 본다. 못 읽으면(null) 지금의 그 항목을 둔 채 나머지만 맞춘다.
-    if (
-      snapshots === null ||
-      consents === null ||
-      shares === null ||
-      appNotices === null
-    ) {
+    if (snapshots === null || consents === null || appNotices === null) {
       return null;
     }
     return {
       snapshots,
       consents,
-      shares,
       notices: appNotices,
       jobs,
       mail,
@@ -487,17 +428,6 @@ export function createWaitingStore(
       if (entry.kind === "activation" && !open.has(id)) entries.delete(id);
     }
     for (const one of consents) put(consent(one));
-    publish();
-  }
-
-  async function refreshShares() {
-    const shares = await readShareRequests(client.core);
-    if (shares === null) return;
-    const open = new Set(shares.map((one) => one.app));
-    for (const [id, entry] of entries) {
-      if (entry.kind === "share" && !open.has(id)) entries.delete(id);
-    }
-    for (const one of shares) entries.set(one.app, share(one));
     publish();
   }
 
@@ -535,7 +465,6 @@ export function createWaitingStore(
   function replace(read: {
     snapshots: SessionSnapshot[];
     consents: ActivationConsent[];
-    shares: ShareRequest[];
     notices: Notice[];
     jobs: JobReads | null;
     mail: MailHold[] | null;
@@ -551,7 +480,6 @@ export function createWaitingStore(
     );
     const next = replaceTurnRequests(read.snapshots);
     for (const one of read.consents) next.push(consent(one));
-    for (const one of read.shares) next.push(share(one));
     if (read.jobs !== null) next.push(...jobEntries(read.jobs));
     if (read.mail !== null) next.push(...read.mail.map(mailHold));
     next.sort((a, b) => (a.receivedAt < b.receivedAt ? -1 : 1));

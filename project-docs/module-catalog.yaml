@@ -52,7 +52,7 @@ modules:
 
   - path: packages/core/approvals
     boundary: approvals
-    notes: 정의 파일도 앱 표도 모르고 import하지 않는다. 다른 컴퓨터 앱 할당 읽기·쓰기와 앱 공유 요청이 이름을 푸는 길은 ports.ts의 port이고 core/main의 wiring/assignment-file.ts와 wiring/share-requests.ts가 끼운다. 앱 skill 배포(읽기, 쓰기, 앱에 닿는지)는 core/main의 wiring/skill-deploy.ts가 하고 approvals는 그 결과를 port로 받는다. 옛 할당 표의 data step은 하는 일이 없이 목록에 남는다.
+    notes: 정의 파일도 앱 표도 모르고 import하지 않는다. 다른 컴퓨터 앱 할당 읽기·쓰기가 이름을 푸는 길은 ports.ts의 port이고 core/main의 wiring/assignment-file.ts가 끼운다. 앱 skill 배포(읽기, 쓰기, 앱에 닿는지)는 core/main의 wiring/skill-deploy.ts가 하고 approvals는 그 결과를 port로 받는다. 옛 할당 표의 data step은 하는 일이 없이 목록에 남고, 걷어낸 공유 요청의 ledger step도 wiring/share-requests-retired.ts에 남는다(낸 step은 뺄 수 없다).
 
   - path: packages/core/apps
     boundary: apps

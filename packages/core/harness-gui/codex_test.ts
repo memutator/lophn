@@ -37,7 +37,7 @@ async function boot(
     resume?: string;
     forkFrom?: string;
     unsaved?: boolean;
-    member?: { deny: readonly string[] };
+    member?: true;
     carry?: { model?: string; effort?: string; args?: readonly string[] };
     launch?: { model?: string; options?: Record<string, string> };
     args?: readonly string[];
@@ -766,7 +766,7 @@ test("app-server가 initialize에 답하지 않으면 30초 뒤 start가 unavail
 
 // 팀원 탭의 `!`는 사람이 친 명령이라 turn 자격 file 없이 돈다. 줄에는 사람이 친 명령만 보이고, 떼는 것은 사람 shell 줄의 맨 앞뿐이다.
 test("a member tab's `!` runs without the turn credential file, and only a person shell line's leading unset is hidden", async () => {
-  const { t } = await boot({ member: { deny: [] } });
+  const { t } = await boot({ member: true });
   const thread = t.state.session?.cli_session;
   const item = (id: string, source: string, command: string) =>
     ({

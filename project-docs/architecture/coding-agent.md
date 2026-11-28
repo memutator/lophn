@@ -4,7 +4,7 @@ lophn과 사람이 쓰는 coding agent(Claude Code, Codex, OpenCode, omp, Antigr
 
 ## 문제
 
-- 사람은 lophn 밖에서 자기 coding agent를 쓴다. lophn이 그것을 알아보고, 상태를 보이고, lophn의 앎(앱이 공유한 skill, 다른 agent를 부르는 법)을 줄 길이 없으면 둘이 따로 논다.
+- 사람은 lophn 밖에서 자기 coding agent를 쓴다. lophn이 그것을 알아보고, 상태를 보이고, lophn의 앎(사람이 배포한 앱 skill, 다른 agent를 부르는 법)을 줄 길이 없으면 둘이 따로 논다.
 - 그 길이 사람 설정을 함부로 고치면 사람의 다른 hook, 주석, 다른 도구의 항목을 잃는다. 묻지 않고 놓거나, 지울 때 사람의 것까지 지우면 신뢰를 잃는다.
 - lophn agent를 Claude Code나 Codex로 돌리고 싶다. workflow와 job처럼 사람 없이도 돌아야 하고, 그 agent가 다른 lophn agent를 부르고 답할 수도 있어야 한다. 그러려면 harness가 lophn을 부를 자격이 있어야 하는데, 그 자격이 새어 나가면 안 된다.
 - 한 harness session에 background 상주 adapter process와 사람의 TUI process가 같이 쓰면 그 CLI의 대화 기록이 섞이거나 깨진다.
@@ -41,7 +41,7 @@ Settings › Coding agents ─ coding_agents/hook_status ─▶ core가 exec ─
 [Uninstall hooks] ─ coding_agents/uninstall_hooks ─▶ lophn harness uninstall (우리 항목만, lophn이 쓴 skill 사본도)
 core (기동 뒤, 앱 activation, 설정 바뀜, hook 설치·삭제 뒤)
    ─ exec ─▶ lophn harness sync-skills ─ user token ─▶ core: settings.list, app.skills
-   ─▶ hook이 놓인 harness의 skill 폴더에 공유 skill 사본 (표시 file .lophn-shared)
+   ─▶ hook이 놓인 harness의 skill 폴더에 배포한 앱 skill 사본 (표시 file .lophn-shared)
 harness ─ 전역 hook ─▶ lophn hook <harness> <event> ─▶ core hook socket (terminal-agent.md)
 ```
 
@@ -113,16 +113,16 @@ background harness session(`harness_gui = 0`)은 `lophn tab open --session <ses>
     - Codex는 우리 trust table을 지우고, 우리 group 뒤에 있던 다른 도구의 기록은 당겨진 위치의 key로 옮긴다(key가 바뀌면 Codex가 다시 trust하라고 한다).
     - 사람의 handler가 섞인 Devin 항목처럼 offset으로 안전하게 고칠 수 없거나 파싱되지 않으면 아무것도 쓰지 않고 `failed`다.
     - 누른 것이 허락이라 묻지 않고, 지운 뒤 이 실행에서는 터미널이 그 harness를 알아봐도 다시 묻지 않는다. 다음 실행에서는 거절처럼 다시 묻는다.
-13. **coding agent에게 가는 skill은 사람이 승인한 앱 공유의 public skill과 내장 `lophn-agent` 하나다.**
-    - 읽는 것은 설정 `coding-agent.shared_apps`(앱 slug 목록. 앱 workspace의 agent가 청한 공유 요청을 사람이 coding agent까지 골라 승인할 때만 더해진다: [approval.md](approval.md))와 core read `app.skills`([app-call.md](app-call.md))다.
+13. **coding agent에게 가는 skill은 harness에 배포한 앱 skill(public skill 중 이름이 적힌 것)과 내장 `lophn-agent` 하나다.**
+    - 읽는 것은 설정 `coding-agent.deployed_skills`(`{app, skill}` 목록. skill 배포의 네 번째 자리다. `lophn skill deploy|undeploy <app> <skill> --to harness`와 Settings › Coding agents가 바꾼다. 누가 묻지 않고 하는가는 다른 자리와 같은 규칙이다: [approval.md](approval.md))와 core read `app.skills`([app-call.md](app-call.md))다. `app.skills`가 준 public skill 중 목록에 이름이 적힌 것만 복사한다.
     - 쓰는 곳은 hook이 놓인(`unchanged`) harness의 adapter `skill_dir`(사람 home 기준)이다: Claude Code `.claude/skills`, Codex·pi `.agents/skills`, OpenCode `.config/opencode/skills`. 다른 harness는 `skill_dir`이 null이라 사본이 없다. Codex와 pi는 폴더를 같이 쓰므로 하나라도 hook이 놓였으면 둔다. hook이 없는(`missing`) harness의 폴더에서는 lophn이 쓴 사본만 지우고, hook 상태를 못 읽은 폴더(`failed`)는 건드리지 않는다. 그 폴더를 쓸 수 없으면 `unavailable`이다.
-    - `lophn-agent` skill은 hook 상태와 상관없이 `skill_dir`을 가진 harness(Claude Code·Codex·OpenCode)의 skill 폴더에 앱 공유 skill과 같은 표시 file로 늘 동기화한다.
+    - `lophn-agent` skill은 hook 상태와 상관없이 `skill_dir`을 가진 harness(Claude Code·Codex·OpenCode)의 skill 폴더에 앱 skill 사본과 같은 표시 file로 늘 동기화한다.
 14. **사본은 lophn이 쓴 것만 덮고 지운다.**
     - skill 폴더마다 표시 file `.lophn-shared`(JSON `{app, release, files[]}`)를 두고, 표시가 있는 폴더만 덮고 지운다. 같은 이름의 폴더가 사람의 것이면(표시 없음) 건드리지 않고 건너뛰어 `skipped`로 알린다. 표시를 먼저 쓰므로 쓰다 멈춰도 다음에 우리 폴더로 알아본다.
     - 지울 때는 표시 file에 적힌 file만 지우고(recursive가 아니다) 비게 된 폴더만 치워, 사람이 그 안에 넣은 file은 남는다.
     - 폴더 이름은 `[A-Za-z0-9_][A-Za-z0-9_.-]*`, file 이름은 폴더 밖으로 못 나가는 것만 받는다(core가 준 값이라도 사람 home에 쓰는 일이라서다). 같은 이름을 두 앱이 내면 앞의 것(slug 순)만 쓴다. 내용이 같으면 다시 쓰지 않는다.
-    - `shared_apps`에서 slug가 빠지거나 앱의 active release가 그 skill을 public으로 내놓지 않으면 `app.skills`가 주지 않아 다음 sync가 사본을 지운다. Settings › Coding agents의 공유 앱 목록에서 앱마다 Remove로 줄이고, 지우기는 쓰기 직전에 값을 다시 읽어 그 slug만 뺀다(같은 값에 승인이 덧붙는다).
-15. **사본은 core process가 직접 쓰지 않고 core가 CLI(`lophn harness sync-skills`)를 exec해서 맞춘다.** 사람 home에 쓰는 규칙(표시 file, 우리 것만)은 CLI 한 곳에 있다. core가 exec하는 CLI에는 그 core의 주소(`LOPHN_DAEMON_URL`)를 줘서 그 core에만 붙는다. core가 멈추거나 죽으면 CLI는 실패로 끝나고 core를 다시 띄우지 않는다. 맞추는 때는 넷이다: core가 ready가 된 뒤 한 번, 앱 view의 activation 신호(`AppViewChanged`의 reason `activation`. 앱을 가리지 않으므로 공유하지 않은 앱의 activation에도 돌지만 사본이 같으면 아무것도 쓰지 않는다), `settings` 변경(`StateChanged`)의 id에 `coding-agent.shared_apps`나 `extensions.harness.enabled`가 있을 때, hook을 놓거나 지운 뒤. 한 번에 하나만 돌고 도는 중에 온 요청은 끝난 뒤 한 번 더 돈다. 실패는 log만 남기고 부른 쪽을 막지 않는다. session 시작 hook은 core를 부르지 않으므로 쓰지 않는다.
+    - 배포 목록에서 빠지거나 앱의 active release가 그 skill을 public으로 내놓지 않으면 다음 sync가 사본을 지운다. 앱을 지우거나 보관하면 배포 목록에서도 거둔다.
+15. **사본은 core process가 직접 쓰지 않고 core가 CLI(`lophn harness sync-skills`)를 exec해서 맞춘다.** 사람 home에 쓰는 규칙(표시 file, 우리 것만)은 CLI 한 곳에 있다. core가 exec하는 CLI에는 그 core의 주소(`LOPHN_DAEMON_URL`)를 줘서 그 core에만 붙는다. core가 멈추거나 죽으면 CLI는 실패로 끝나고 core를 다시 띄우지 않는다. 맞추는 때는 넷이다: core가 ready가 된 뒤 한 번, 앱 view의 activation 신호(`AppViewChanged`의 reason `activation`. 앱을 가리지 않으므로 배포하지 않은 앱의 activation에도 돌지만 사본이 같으면 아무것도 쓰지 않는다), `settings` 변경(`StateChanged`)이 어느 설정인지 가리지 않거나(id 없음) `coding-agent.deployed_skills`를 가리킬 때, hook을 놓거나 지운 뒤. `extensions.harness.enabled`는 보지 않는다. 한 번에 하나만 돌고 도는 중에 온 요청은 끝난 뒤 한 번 더 돈다. 실패는 log만 남기고 부른 쪽을 막지 않는다. session 시작 hook은 core를 부르지 않으므로 쓰지 않는다.
 16. **`harness uninstall`은 lophn이 쓴 사본도 지운다.** 그 harness의 skill 폴더에서 표시 있는 폴더를 치우고 지운 폴더를 출력 file 목록에 더한다. 같은 폴더를 쓰는 다른 harness의 hook이 남았으면 다음 sync가 다시 둔다.
 17. **설치는 전에 놓은, 지운 skill의 얇은 사본도 지운다.** 지우는 이름은 정해 둔 목록(`lophn-build-app`, `lophn-repair`)이고 패턴이나 목록 읽기로 고르지 않는다. 폴더에 `SKILL.md` 하나뿐이고, 그 글이 lophn이 쓰던 꼴과 byte까지 같고, `dry_run`이 아닐 때만 file 하나와 빈 폴더 하나를 지운다(recursive가 아니다). 사람이 고친 사본, 다른 file이 든 폴더, 다른 이름의 skill은 남긴다. 출력의 `skill` 칸은 이 지우기만 알린다. 옛 사본이 있는 사람은 `lophn harness install`을 한 번 돌려야 지워진다.
 18. **harness 실행은 별도 extension 켜기 설정(`extensions.harness.enabled`) 없이 core에 기본 내장된다.** 다섯 구조화 harness runtime(`claude-code`, `codex`, `opencode`, `omp`, `antigravity`)이 `tab`·`background` 모드로 바로 동작한다. 편집기 `Runs on`의 기본 runtime 선택지는 `Settings › Coding agents`의 `favorites`를 따르되, 나머지 지원 harness도 보조 선택지로 고를 수 있고 이미 저장된 runtime은 즐겨찾기 해제 후에도 보존한다.
@@ -144,11 +144,11 @@ background harness session(`harness_gui = 0`)은 `lophn tab open --session <ses>
 
 ## 경계와 계약
 
-경계: `coding-agent-cli`(명령 표와 binary), `coding-agent`(hook·감지·공유 skill 사본), `coding-agent-cli-interface`, `coding-agent-harness-api`, `harness-host-interface`, `external-coding-agent`(사람의 coding agent).
+경계: `coding-agent-cli`(명령 표와 binary), `coding-agent`(hook·감지·배포한 앱 skill 사본), `coding-agent-cli-interface`, `coding-agent-harness-api`, `harness-host-interface`, `external-coding-agent`(사람의 coding agent).
 
 - **env.** `LOPHN_DAEMON_URL`(CLI가 붙을 core 주소), `LOPHN_AGENT_CREDENTIAL_FILE`(GUI 탭 팀원과 background harness의 turn 자격 file 경로. secret이 아니다), `LOPHN_AGENT_SHELL`(lophn agent의 shell.run·ACP terminal 표시. 자격이 없으면 CLI가 바로 멈춘다), `LOPHN_SESSION_ID`(background harness CLI에 넣는 lophn session id `ses_…`. 터미널 env는 바깥 `LOPHN_*`를 지우고 탭의 shell에 `term:<탭>`을 넣으며, GUI view가 띄운 CLI도 같은 값을 싣는다), `LOPHN_CLI`(shell과 CLI가 쓰는 개발 launcher 경로. core는 보지 않는다), `LOPHN_HOME`(data root), `LPN_TERMINAL_HOOK`(lophn 터미널이 넣는 hook 표지). CLI exit: success 0, internal 1, invalid_input 2, unauthorized·forbidden 3, failed 4, `unavailable` 5(transport), effect_unknown 6.
 - **CLI 명령.** `lophn harness detect|refresh|install [--dry_run]|status|uninstall|sync-skills`, `lophn hook <harness> <event>`, `lophn core stop`, `lophn tab open --session <ses> --tui`, 그 밖은 core를 부르는 명령 표.
-- **설정 key.** `coding-agent.shared_apps`(앱 slug 목록), `shell.coding_agents`(즐겨찾기·명령).
+- **설정 key.** `coding-agent.deployed_skills`(`{app, skill}` 목록), `shell.coding_agents`(즐겨찾기·명령).
 - **core route·command.** `app.create`, `app.connect_source`, `app.skills`, `harness_catalog/read|refresh`, Settings › Coding agents의 `coding_agents/list|refresh|hook_status|install_hooks|uninstall_hooks`와 event `HookInstallFinished`, `turns/read`, `agents/read`, `projects/get`, `apps/get`. 기존 command StartTurn, RecordMessage, FinishTurn, machine 전용 `BindHarnessSession`·`OpenHarnessMember`·`FailHarnessMemberCall`. event `TurnEnded`, `MessageRecorded`, `StateChanged`(`settings`, `harness_catalog`), `AppViewChanged`.
 - **저장 모양.** session 행의 `harness`, 외부 session id `harness_session`(ledger step `lophn-agent.sessions.harness`), GUI 탭 팀원 표시 `harness_gui`(ledger step `lophn-agent.sessions.gui-member`, `1` = tab 모드, `0` = background 모드). turn 자격 file `<per-run 폴더>/credentials/<터미널 또는 session>`(0700 폴더, 0600 file, turn 동안만). model catalog disk cache `<data root>/cache/harness-catalog.json`. 메시지 part `harness_tool {name, summary, status}`. `<data root>/harness-home/<session>/`, `<data root>/apps/<app>/source`, harness의 사용자 전역 설정(hook), 사람 home의 skill 폴더와 표시 file `.lophn-shared`, `~/.codex/config.toml`의 `[hooks.state."…"] trusted_hash`, 개발 launcher `<저장소>/.cache/dev-cli/lophn`.
 - **TUI 열기 요청.** `tabs/open` target `{tui: <ses>}`이면 core가 그 session의 hold를 걸고 그 project에 터미널을 열어(`terminals/open`의 `resume {harness: <adapter id>, external_session}`) resume 줄을 친 뒤, host queue의 `tab_open`(target `{terminal: {terminal_ref}}`)으로 창에 탭을 보인다(key `host:<tab>`). runtime → adapter id 대응은 한 곳에서만 정한다.

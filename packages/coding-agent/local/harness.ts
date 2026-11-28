@@ -3,16 +3,16 @@
 import { z } from "zod";
 import { err, ok } from "../../base/mod.ts";
 import { appSkills } from "../../protocol/apps/declaration/read.ts";
-import {
-  SHARED_APPS_SETTING_KEY,
-  sharedAppsSettingSchema,
-} from "../../protocol/approvals/mod.ts";
 import { settingsList } from "../../protocol/config/mod.ts";
 import {
   harnessInstallInputSchema,
   harnessStatusInputSchema,
   harnessUninstallInputSchema,
 } from "../../protocol/coding-agent/mod.ts";
+import {
+  CODING_DEPLOYED_SKILLS_SETTING_KEY,
+  deployedSkillsSchema,
+} from "../../protocol/lophn-agent/skill-settings.ts";
 import {
   runHarnessDetect,
   runHarnessInstall,
@@ -82,9 +82,9 @@ export const HARNESS_COMMANDS: readonly LocalCommand[] = [
   },
   {
     name: "harness.sync_skills",
-    summary: "Copy the shared apps' public skills into coding agent harnesses",
+    summary: "Copy the app skills deployed to coding agents into harnesses",
     description:
-      "Reads the apps you gave to coding agents and copies their public skills into the skill folder of every harness whose lophn hook is installed. " +
+      "Reads the app skills deployed to coding agents (lophn skill deploy --to harness) and copies those public skills into the skill folder of every harness whose lophn hook is installed. " +
       "Also copies the lophn-agent skill (how a harness agent replies to calls) into every harness skill folder, hook or not. " +
       "Only folders lophn wrote (they hold a .lophn-shared file) are overwritten or removed; a folder of yours with the same name is skipped. Needs lophn running.",
     input: empty,
@@ -94,26 +94,25 @@ export const HARNESS_COMMANDS: readonly LocalCommand[] = [
       if (!connected.ok) return connected;
       const core = connected.value;
       const setting = await core.read(settingsList, {
-        keys: [SHARED_APPS_SETTING_KEY],
+        keys: [CODING_DEPLOYED_SKILLS_SETTING_KEY],
       });
       if (!setting.ok) return setting;
       const entry = setting.value.settings.find(
-        (one) => one.key === SHARED_APPS_SETTING_KEY,
+        (one) => one.key === CODING_DEPLOYED_SKILLS_SETTING_KEY,
       );
-      const apps = sharedAppsSettingSchema.safeParse(
+      const parsed = deployedSkillsSchema.safeParse(
         entry?.chosen ?? entry?.default ?? [],
       );
-      // route 입력의 상한이다.
-      const slugs = apps.success ? apps.data.slice(0, 64) : [];
+      const deployed = parsed.success ? parsed.data : [];
+      // route 입력의 상한이다. 앱의 public skill을 읽어 배포에 이름이 적힌 것만 둔다(runHarnessSyncSkills).
+      const slugs = [...new Set(deployed.map((one) => one.app))].slice(0, 64);
       const read =
         slugs.length === 0
           ? { ok: true as const, value: { skills: [] } }
           : await core.read(appSkills, { apps: slugs });
       if (!read.ok) return read;
       return await runHarnessSyncSkills(
-        {
-          skills: read.value.skills,
-        },
+        { skills: read.value.skills, deployed },
         ctx.home,
         ctx.now(),
       );

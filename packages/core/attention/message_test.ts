@@ -62,7 +62,6 @@ const events: BusEvent[] = [
     type: "ActivationConsentRequested",
     payload: { app: "app_x", app_name: "Notes", release: "rel_x" },
   },
-  { type: "ShareRequestOpened", payload: { app: "app_x", app_name: "Notes" } },
   {
     type: "JobHeld",
     payload: { job: "job_x", run: "jbr_x", job_title: "Nightly" },

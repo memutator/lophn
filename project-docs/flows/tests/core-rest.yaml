@@ -90,15 +90,6 @@ files:
     covers: [data-steps-apply:applied]
     note: "옛 approvals.shell_rules를 통합 approvals.permission_rules(category: shell)로 보존 이전하고 옛 키를 지우며 멱등하게 합치는 data step"
 
-  - path: packages/core/approvals/share-requests/commands_test.ts
-    covers:
-      - share-request-open:opened
-      - share-request-open:forbidden
-      - share-request-decide:forbidden
-      - share-request-decide:conflict
-      - share-request-decide:approved
-      - share-request-decide:approve-write-failed
-
   - path: packages/core/config/store_test.ts
     covers:
       - settings-update:changed
@@ -558,10 +549,9 @@ files:
     covers: [data-steps-apply:applied, apps-sealed-marker:marked]
     note: 옛 봉인 사본에 표지 쓰기
 
-  - path: packages/core/main/daemon/wiring/share-activation_test.ts
-    covers:
-      - share-request-consent:share-replaced
-      - share-request-consent:approved-with-consent
+  - path: packages/core/main/daemon/wiring/share-requests-retired_test.ts
+    covers: []
+    note: "걷어낸 앱 공유 요청의 ledger 표를 거두는 schema step과 settings.json의 `coding-agent.shared_apps`를 지우는 data step"
 
   - path: packages/core/main/daemon/wiring/workspace-data-move_test.ts
     covers:

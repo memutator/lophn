@@ -148,18 +148,6 @@ export function AppUpdateScreen({ place }: { place: PlaceOf<"app-update"> }) {
       >
         {view.description}
       </Text>
-      {view.share !== null && (
-        <Text
-          variant="control"
-          style={{ marginHorizontal: 20, marginBottom: 12 }}
-        >
-          {t("waiting.notice.activation-share", {
-            who: view.share.who,
-            skills: view.share.skills,
-            commands: view.share.commands,
-          })}
-        </Text>
-      )}
       <Card
         style={{
           marginHorizontal: 16,

@@ -168,7 +168,6 @@ export const appDelete = defineCommand({
     "sessions",
     "agents",
     "jobs",
-    "share_requests",
     "follow_ups",
   ],
   input: z.strictObject({

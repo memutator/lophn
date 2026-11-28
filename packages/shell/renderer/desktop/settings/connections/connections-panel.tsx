@@ -14,9 +14,12 @@ import { HARNESS_ADAPTERS } from "../../../../../protocol/coding-agent/harness-a
 import type { HarnessId } from "../../../../../protocol/coding-agent/harness-id.ts";
 import { actionIcons, browserIcons } from "../../../icons/mod.ts";
 import {
-  SHARED_APPS_SETTING_KEY,
-  sharedAppsSettingSchema,
-} from "../../../../../protocol/approvals/share-request.ts";
+  CODING_DEPLOYED_SKILLS_SETTING_KEY,
+  deployedSkillsSchema,
+  type SkillDeployment,
+} from "../../../../../protocol/lophn-agent/skill-settings.ts";
+import { DeployedSkills } from "../../../workspace/agents/editor/deployed-skills.tsx";
+import type { DeployableSkill } from "../../../workspace/agents/views.ts";
 import { settingsList } from "../../../../../protocol/config/file.ts";
 import { useCoreRead } from "../../connection/core-read.ts";
 import { effectiveOf } from "../declared.ts";
@@ -79,18 +82,30 @@ export function CodingConnectionsPanel({
   const [hooks, setHooks] = useState<readonly HarnessHookView[]>([]);
   const [changing, setChanging] = useState<HarnessName | null>(null);
   const [hookFailed, setHookFailed] = useState<HookAction | null>(null);
-  // 공유 요청 승인과 다른 창도 이 목록을 바꾼다. 못 읽었거나 모양이 틀리면 비어 보인다.
-  const { loaded: sharedRead } = useCoreRead(settingsList, {
-    keys: [SHARED_APPS_SETTING_KEY],
+  // 다른 창이나 agent도 이 목록을 바꾼다. 못 읽었거나 모양이 틀리면 비어 보인다.
+  const { loaded: deployedRead } = useCoreRead(settingsList, {
+    keys: [CODING_DEPLOYED_SKILLS_SETTING_KEY],
   });
-  const shared = useMemo(() => {
-    if (sharedRead.state !== "ready") return [];
-    const parsed = sharedAppsSettingSchema.safeParse(
-      effectiveOf(sharedRead.value).get(SHARED_APPS_SETTING_KEY),
+  const deployed = useMemo(() => {
+    if (deployedRead.state !== "ready") return [];
+    const parsed = deployedSkillsSchema.safeParse(
+      effectiveOf(deployedRead.value).get(CODING_DEPLOYED_SKILLS_SETTING_KEY),
     );
     return parsed.success ? parsed.data : [];
-  }, [sharedRead]);
-  const [unshareFailed, setUnshareFailed] = useState(false);
+  }, [deployedRead]);
+  const [deployable, setDeployable] = useState<
+    readonly DeployableSkill[] | null
+  >(null);
+  useEffect(() => {
+    let live = true;
+    void source.deployable().then((result) => {
+      if (live) setDeployable(result.ok ? result.value : null);
+    });
+    return () => {
+      live = false;
+    };
+  }, [source]);
+  const [deployFailed, setDeployFailed] = useState(false);
   const [query, setQuery] = useState("");
   const { coding, set: setCoding } = useCodingPrefs();
   const toggleFavorite = (id: HarnessId) =>
@@ -151,9 +166,9 @@ export function CodingConnectionsPanel({
     if (!done.ok || done.value.status !== wanted) setHookFailed(action);
   }
 
-  async function unshare(slug: string): Promise<void> {
-    const done = await source.unshareApp(slug);
-    setUnshareFailed(!done.ok);
+  async function setDeployed(next: readonly SkillDeployment[]): Promise<void> {
+    const done = await source.setDeployed(next);
+    setDeployFailed(!done.ok);
   }
 
   if (loaded.state === "failed") {
@@ -203,9 +218,9 @@ export function CodingConnectionsPanel({
           {t("settings.error.coding-hooks-uninstall")}
         </p>
       ) : null}
-      {unshareFailed ? (
-        <p className={styles.rejected} role="alert" data-shared="failed">
-          {t("settings.error.coding-unshare")}
+      {deployFailed ? (
+        <p className={styles.rejected} role="alert" data-deployed="failed">
+          {t("settings.error.coding-deploy")}
         </p>
       ) : null}
       <Loading
@@ -268,41 +283,18 @@ export function CodingConnectionsPanel({
         <p className={`${styles.lineHelp} ${styles.tableNote}`}>
           {t("settings.note.coding-favorites")}
         </p>
-        <section className={styles.groupBlock} data-shared-apps="">
+        <section className={styles.groupBlock} data-deployed-apps="">
           <h2 className={styles.groupTitle}>
-            {t("settings.label.coding-shared-apps")}
+            {t("settings.label.coding-deployed-skills")}
           </h2>
           <p className={styles.lineHelp}>
-            {t("settings.note.coding-shared-apps")}
+            {t("settings.note.coding-deployed-skills")}
           </p>
-          {shared.length === 0 ? (
-            <p className={styles.lineHelp} data-shared="empty">
-              {t("settings.empty.coding-shared-apps")}
-            </p>
-          ) : (
-            <ul className={styles.lines}>
-              {shared.map((slug) => (
-                <li key={slug} className={styles.line} data-shared-app={slug}>
-                  <div className={styles.lineMain}>
-                    <span className={`${styles.lineName} ${styles.mono}`}>
-                      {slug}
-                    </span>
-                  </div>
-                  <div className={styles.lineControl}>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      icon={actionIcons.remove}
-                      data-action="unshare"
-                      onClick={() => void unshare(slug)}
-                    >
-                      {t("settings.button.coding-unshare")}
-                    </Button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+          <DeployedSkills
+            entries={deployed}
+            deployable={deployable}
+            onChange={(next) => void setDeployed(next)}
+          />
         </section>
       </Loading>
     </div>

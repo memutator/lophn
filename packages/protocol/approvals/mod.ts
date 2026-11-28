@@ -4,7 +4,6 @@ export * from "./gate-call.ts";
 export * from "./permission-rules.ts";
 export * from "./permissions-view.ts";
 export * from "./session-grants.ts";
-export * from "./share-request.ts";
 export * from "./shell-rules.ts";
 export * from "./tool-gate.ts";
 export * from "./turn-request.ts";

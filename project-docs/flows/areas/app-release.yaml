@@ -243,24 +243,21 @@ flows:
     code:
       - packages/core/apps/releases/commands.ts
       - packages/core/apps/releases/activation/consents.ts
-      - packages/core/approvals/share-requests/
-      - packages/core/main/daemon/wiring/share-requests.ts
     steps:
       - "사람 자격이 아니면 forbidden이다. release가 없거나 범위 밖이어도 forbidden이다"
       - "대기 줄의 requested_at이 compare 값과 같을 때만 본다. 줄이 없거나 다르면 conflict다. 사람이 본 것이 아니다"
-      - "허락이면서 share_requested_at이 있으면 같은 tx에서 앱 공유 요청을 먼저 승인한다. 승인이 conflict(요청이 지금 열린 것과 다름)나 다른 오류로 실패하면 tx째 되돌아가 동의는 대기로 남는다"
       - "허락은 allowed_at으로 표에 남기고(시작은 activation-sweep이 한다), 거절은 줄을 지운다. release는 prepared로 남는다"
       - "두 경우 모두 commit 뒤 ActivationConsentClosed를 낸다"
     outcomes:
       - id: allow
-        when: "허락. 같이 본 공유 요청이 있으면 그것도 승인된다"
-        observe: ["ledger:activation_consents", "ledger:share_requests", "event:ActivationConsentClosed"]
+        when: "허락"
+        observe: ["ledger:activation_consents", "event:ActivationConsentClosed"]
       - id: reject
         when: "거절. 줄을 지운다"
         observe: ["ledger:activation_consents", "event:ActivationConsentClosed"]
       - id: conflict
         code: conflict
-        when: "줄이 이미 결정됐거나 닫힘, requested_at이 다름(사람이 본 것이 아님), 공유 요청이 지금 열린 것과 다름(승인의 conflict)"
+        when: "줄이 이미 결정됐거나 닫힘, requested_at이 다름(사람이 본 것이 아님)"
         observe: [response]
       - id: forbidden
         code: forbidden

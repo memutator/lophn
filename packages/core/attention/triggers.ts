@@ -30,7 +30,6 @@ export type Cause =
       who: Who;
     }
   | { kind: "consent"; app: string; app_name: string }
-  | { kind: "share_request"; app: string; app_name: string }
   // 앱이 없는 기록(SDK 업데이트 필요)은 app이 null이고 누르면 Inbox를 연다.
   | { kind: "program_notice"; app: string | null; title: string }
   | { kind: "app_notify"; app: string; app_name: string | null; title: string }
@@ -57,7 +56,6 @@ export const CAUSE_ROW: Record<Cause["kind"], Row> = {
     priority: "default",
   },
   consent: { setting: "app_update", ...APPS },
-  share_request: { setting: "app_update", ...APPS },
   program_notice: { setting: "app_update", ...APPS },
   app_notify: { setting: "app_notify", ...APPS },
   job_held: {
@@ -121,12 +119,6 @@ export function causeOf(
     case "ActivationConsentRequested":
       return {
         kind: "consent",
-        app: event.payload.app,
-        app_name: event.payload.app_name,
-      };
-    case "ShareRequestOpened":
-      return {
-        kind: "share_request",
         app: event.payload.app,
         app_name: event.payload.app_name,
       };

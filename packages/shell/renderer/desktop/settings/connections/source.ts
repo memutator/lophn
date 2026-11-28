@@ -5,11 +5,13 @@ import type {
   HarnessSettingsView,
 } from "../../../../../protocol/coding-agent/coding-agents.ts";
 import type { HarnessId as HarnessName } from "../../../../../protocol/coding-agent/harness-id.ts";
+import type { SkillDeployment } from "../../../../../protocol/lophn-agent/skill-settings.ts";
+import type { DeployableSkill } from "../../../workspace/agents/views.ts";
 import type { SourceResult } from "../source.ts";
 
 export type { HarnessHookView, HarnessName, HarnessSettingsView, SourceResult };
 
-/** 공유한 앱 목록(설정 `coding-agent.shared_apps`)은 화면이 `settings/list`를 useCoreRead로 읽는다. */
+/** 배포한 앱 skill 목록(설정 `coding-agent.deployed_skills`)은 화면이 `settings/list`를 useCoreRead로 읽는다. */
 export interface CodingConnectionsSource {
   /** 저장한 감지 결과. 화면이 열릴 때·다시 들어올 때 부른다. 다시 감지하지 않는다. */
   harnesses(): Promise<SourceResult<readonly HarnessSettingsView[]>>;
@@ -21,6 +23,8 @@ export interface CodingConnectionsSource {
   installHooks(harness: HarnessName): Promise<SourceResult<HarnessHookView>>;
   /** 사람이 [Uninstall hooks]를 누를 때만 부른다. 제품의 전역 설정 file에서 lophn 항목만 지운다. */
   uninstallHooks(harness: HarnessName): Promise<SourceResult<HarnessHookView>>;
-  /** 목록에서 앱을 뺀다. 사본은 shell main이 설정 변경(`StateChanged`의 `settings`)을 듣고 다음 sync에서 지운다. */
-  unshareApp(slug: string): Promise<SourceResult<null>>;
+  /** 배포할 수 있는 앱 skill 전부. */
+  deployable(): Promise<SourceResult<readonly DeployableSkill[]>>;
+  /** 배포 목록을 통째로 바꾼다. 사본은 shell main이 설정 변경(`StateChanged`의 `settings`)을 듣고 다음 sync에서 맞춘다. */
+  setDeployed(next: readonly SkillDeployment[]): Promise<SourceResult<null>>;
 }

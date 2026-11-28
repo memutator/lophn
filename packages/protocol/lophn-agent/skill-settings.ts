@@ -20,6 +20,10 @@ export const skillDeploymentSchema = z.strictObject({
   skill: skillNameSchema,
 });
 export type SkillDeployment = z.infer<typeof skillDeploymentSchema>;
+// coding agent(터미널의 harness)에게 배포한 앱 skill의 설정 key다. 값은 lophn agent의 세 층과 같은 `{app, skill}` 목록이고 harness는 넷째 자리다.
+// 사본은 `lophn harness sync-skills`가 harness의 skill 폴더에 쓴다. 바꾸는 길은 Settings › Coding agents와 `lophn skill deploy --to harness`다.
+export const CODING_DEPLOYED_SKILLS_SETTING_KEY =
+  "coding-agent.deployed_skills";
 export const DEPLOYED_SKILLS_MAX = 256;
 export const deployedSkillsSchema = z
   .array(skillDeploymentSchema)
@@ -296,8 +300,8 @@ export const skillsUndeploy = defineMemory({
 const deploymentRowSchema = z.object({
   app: slugSchema,
   skill: skillNameSchema,
-  layer: z.enum(["global", "workspace", "agent"]),
-  // workspace 층이면 그 workspace의 이름이고(project 이름, 앱 slug, `home`), agent 층이면 handle이다. 전역은 없다.
+  layer: z.enum(["global", "harness", "workspace", "agent"]),
+  // workspace 층이면 그 workspace의 이름이고(project 이름, 앱 slug, `home`), agent 층이면 handle이다. 전역과 harness는 없다.
   at: z.string().nullable(),
 });
 export type SkillDeploymentRow = z.infer<typeof deploymentRowSchema>;

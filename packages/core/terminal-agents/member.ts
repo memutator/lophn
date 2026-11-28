@@ -109,12 +109,10 @@ export type HarnessMembers = {
   cwd?(session: string): Promise<string | null>;
   /** background session에 주입할 worktree 환경변수(PROJECT_ROOT, WORKTREE_*). */
   env?(session: string): Promise<Readonly<Record<string, string>>>;
-  /** background session의 agent 정의에서 launch 설정과 deny 규칙을 읽는다. */
+  /** background session의 agent 정의에서 launch 설정을 읽는다. */
   definition?(
     session: string,
-  ): Promise<
-    Result<{ harness_config?: HarnessLaunchConfig; deny: readonly string[] }>
-  >;
+  ): Promise<Result<{ harness_config?: HarnessLaunchConfig }>>;
   /**
    * background 실행 중 harness가 권한 승인을 물었을 때 session/agent의 skip과 shell·할당 규칙으로 허용 여부를 판정한다.
    * 없으면 fail-closed로 거절한다.

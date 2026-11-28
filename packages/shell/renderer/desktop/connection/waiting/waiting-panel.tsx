@@ -24,7 +24,6 @@ import {
   PermissionCard,
 } from "./cards/permission-card.tsx";
 import { QuestionCard } from "./cards/question-card.tsx";
-import { ShareCard } from "./cards/share-card.tsx";
 import { decideWaiting, dismissNotice, type SettledState } from "./decide.ts";
 import type { FinishedRow } from "./finished.ts";
 import { HistoryView } from "./history-view.tsx";
@@ -43,7 +42,6 @@ const GROUPS = [
   },
   { title: "waiting.label.group-question", kinds: ["question"] },
   { title: "waiting.label.group-activation", kinds: ["activation"] },
-  { title: "waiting.label.group-share", kinds: ["share"] },
   { title: "waiting.label.group-job", kinds: ["job_approval", "job_hold"] },
   { title: "waiting.label.group-mail", kinds: ["mail_hold"] },
 ] as const;
@@ -383,10 +381,6 @@ export function WaitingPanel({
         );
       case "activation":
         return <ActivationCard key={entry.key} {...props} />;
-      case "share":
-        return (
-          <ShareCard key={entry.key} entry={entry} view={view} core={core} />
-        );
       case "job_hold":
         return (
           <JobHoldCard key={entry.key} entry={entry} view={view} core={core} />

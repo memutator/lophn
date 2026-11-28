@@ -99,7 +99,6 @@ export const attentionWiring: WiringFactory = () => {
               "QuestionAsked",
               "AcpUpdated",
               "ActivationConsentRequested",
-              "ShareRequestOpened",
               "NoticePosted",
               "JobHeld",
             ],

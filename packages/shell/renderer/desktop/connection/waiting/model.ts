@@ -1,7 +1,6 @@
 // 대기 항목 하나를 카드가 그릴 값으로 바꾸는 순수 함수. 문구는 turn request의 subject와 activation 동의에서
 // program이 만든다(요청한 agent가 쓴 설명 칸은 없다).
 import { formatRelativeTime, t } from "@lophn/i18n";
-import type { ShareRequest } from "../../../../../protocol/approvals/share-request.ts";
 import type { TurnRequest } from "../../../../../protocol/approvals/turn-request.ts";
 import type { ActivationConsent } from "../../../../../protocol/apps/activation/consent.ts";
 import type { PhoneCapability } from "../../../../../protocol/apps/phone-request.ts";
@@ -33,20 +32,6 @@ export interface Line {
   readonly value: string;
 }
 
-export interface ShareView {
-  readonly who: string;
-  readonly reason: string;
-  readonly skills: number;
-  readonly commands: number;
-}
-
-function shareWho(request: ShareRequest): string {
-  return [
-    ...request.agents.map((agent) => agent.name),
-    ...(request.coding_agents ? [t("waiting.label.share-coding")] : []),
-  ].join(", ");
-}
-
 export interface CardView {
   readonly kind: WaitingEntry["kind"];
   /** 이 컴퓨터가 아닌 기계의 이름(꼬리표). */
@@ -69,8 +54,6 @@ export interface CardView {
   readonly loss: readonly Line[];
   /** 이전 활성 release가 없다. */
   readonly first: boolean;
-  /** activation 카드가 같이 승인할 앱 공유 요청. */
-  readonly share: ShareView | null;
   /** 되돌리기(rewind) 기록 밖의 호출인지. */
   readonly outsideRewind?: boolean;
   readonly choices: readonly WaitingChoice[];
@@ -115,8 +98,6 @@ function metaOf(entry: WaitingEntry, names: InboxNames): string {
   if (entry.kind === "mail_hold") return mailTo(entry.hold, names);
   // activation 동의는 앱이 대상이고 요청한 agent도 session도 없다. 앱은 id 대신 이름이다.
   if (entry.kind === "activation") return entry.request.app_name;
-  // 공유 요청은 그 앱 workspace의 agent가 청했다. session의 agent 이름은 요청에 없어 앱 이름을 보인다.
-  if (entry.kind === "share") return entry.request.app_name;
   return [who, session, workspace].filter((part) => part !== "").join(" · ");
 }
 
@@ -666,7 +647,6 @@ export function cardOf(
     added: NO_LINES,
     loss: NO_LINES,
     first: false,
-    share: null as ShareView | null,
     choices: [] as readonly WaitingChoice[],
   };
   switch (entry.kind) {
@@ -700,19 +680,6 @@ export function cardOf(
         title: entry.job.title,
         description: jobActionText(entry.job.action, names),
       };
-    case "share": {
-      const { request } = entry;
-      const who = shareWho(request);
-      return {
-        ...base,
-        title: t("waiting.title.share", { app: request.app_name }),
-        description: t("waiting.notice.share", {
-          who,
-          skills: request.public_skills,
-          commands: request.public_commands,
-        }),
-      };
-    }
     case "activation": {
       const view = activationView(entry.request.comparison, names);
       const counts = { declared: view.added.length, lost: view.loss.length };
@@ -725,15 +692,6 @@ export function cardOf(
         description: view.first
           ? t("waiting.notice.activation-first", counts)
           : t("waiting.notice.activation-since", counts),
-        share:
-          entry.share === undefined
-            ? null
-            : {
-                who: shareWho(entry.share),
-                reason: entry.share.reason,
-                skills: entry.share.public_skills,
-                commands: entry.share.public_commands,
-              },
         choices: ["allow", "reject"],
       };
     }

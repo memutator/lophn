@@ -87,7 +87,7 @@ async function files(root: string, sub: string) {
   return (await readdir(join(root, sub))).sort();
 }
 
-// 옛 모양의 root(전역 lophn.md, `lophn` id로 저장된 session·job·run·call·share request, call 정책 규칙, MCP token)를
+// 옛 모양의 root(전역 lophn.md, `lophn` id로 저장된 session·job·run·call, call 정책 규칙, MCP token)를
 // 옮기면 모든 workspace의 lophn이 같은 값을 갖고 옛 `lophn` id가 남지 않으며, 다시 돌려도 같다.
 test("옛 root를 옮기면 모든 workspace의 lophn이 같은 값을 갖고 옛 lophn id가 남지 않으며 다시 돌려도 같다", async () => {
   const root = await mkdtemp(join(tmpdir(), "lophn-split-"));
@@ -174,10 +174,6 @@ test("옛 root를 옮기면 모든 workspace의 lophn이 같은 값을 갖고 �
         agent: { agent: "lophn", workspace: { kind: "app", id: APP } },
       }),
     );
-    db.prepare(
-      `insert into share_requests (app, agents, coding_agents, reason, session, requested_at)
-       values (?, ?, 0, 'r', 'ses_agt', 'x')`,
-    ).run(APP, JSON.stringify(["lophn", AGT]));
     db.close();
 
     await mkdir(join(root, "agents"));
@@ -265,10 +261,6 @@ test("옛 root를 옮기면 모든 workspace의 lophn이 같은 값을 갖고 �
     assert.deepStrictEqual(agents("agent_calls", `"to" ->> '$.agent.agent'`), [
       `lophn_${APP}`,
     ]);
-    assert.deepStrictEqual(
-      JSON.parse(agents("share_requests", "agents")[0]!).sort(),
-      [AGT, ...LOPHNS].sort(),
-    );
     // 끝난 행을 막는 trigger는 다시 서 있다.
     assert.throws(() =>
       check.exec("update runs set state = 'running' where id = 'run_1'"),

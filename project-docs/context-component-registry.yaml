@@ -227,11 +227,11 @@ components:
   - id: architecture-approval
     kind: doc
     roles: [planner, lead]
-    description: '"해도 되나"를 정하는 설계: 시킨 것이 승낙이고 할당이 허락이라는 원칙, 판정(Gate), 사람에게 묻는 길 하나(turn 안 request), turn mode, shell 규칙, 앱 공유 요청, 팀 자식의 물음.'
+    description: '"해도 되나"를 정하는 설계: 시킨 것이 승낙이고 할당이 허락이라는 원칙, 판정(Gate), 사람에게 묻는 길 하나(turn 안 request), turn mode, shell 규칙, 팀 자식의 물음.'
     path: project-docs/architecture/approval.md
     change_reasons:
       boundaries: [approvals, agent-tools, agent-workspaces, jobs]
-      paths: [packages/core/approvals/share-requests/, packages/core/main/daemon/wiring/assignment-file.ts, packages/core/main/daemon/wiring/share-requests.ts, packages/core/remote/call.ts, packages/core/remote/grants.ts, packages/protocol/remote/allowlist.ts]
+      paths: [packages/core/main/daemon/wiring/assignment-file.ts, packages/core/remote/call.ts, packages/core/remote/grants.ts, packages/protocol/remote/allowlist.ts]
 
   - id: architecture-testing
     kind: doc

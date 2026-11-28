@@ -1,6 +1,6 @@
 # attention
 
-사람을 기다리는 일(승인, 질문, 터미널 coding agent의 대기, 앱의 동의·공유 요청, job의 놓친 차례)과 오래 돈 turn의 끝, 앱의 `notify()`를 어느 기기에 알릴지 정하는 메커니즘이다. core가 host(desktop, 폰)의 보고로 "사람이 지금 무엇을 보고 있나"를 알고, 못 본 turn 끝(`unseen`)을 들고, 보고 있지 않은 폰에 Expo Push를 직접 보낸다. desktop 안에서 toast와 OS 알림 중 무엇을 띄울지는 이 문서가 아니라 shell의 정책이다(`app-notice.md`, `terminal-agent.md`).
+사람을 기다리는 일(승인, 질문, 터미널 coding agent의 대기, 앱의 동의, job의 놓친 차례)과 오래 돈 turn의 끝, 앱의 `notify()`를 어느 기기에 알릴지 정하는 메커니즘이다. core가 host(desktop, 폰)의 보고로 "사람이 지금 무엇을 보고 있나"를 알고, 못 본 turn 끝(`unseen`)을 들고, 보고 있지 않은 폰에 Expo Push를 직접 보낸다. desktop 안에서 toast와 OS 알림 중 무엇을 띄울지는 이 문서가 아니라 shell의 정책이다(`app-notice.md`, `terminal-agent.md`).
 
 ## 문제
 
@@ -39,7 +39,7 @@ Bus event ─────────┐                    │
   |---|---|---|---|---|
   | 승인(`TurnRequestOpened`), 질문(`QuestionAsked`), 터미널 coding agent의 대기 | `needs_you` | `needs-you` | high | 그 session. 터미널은 폰이 열 수 없어 Inbox |
   | 60초 넘게 일한 turn의 완료·실패(터미널 포함) | `long_finish` | `finished` | default | 그 session. 터미널은 Inbox |
-  | 앱의 activation 동의, 공유 요청, 사람이 알아야 하는 program 기록(release 실패와 되돌림, 앱 사용 불가, data 복원, SDK 업데이트 필요, 앱이 session을 멈춤, 폴더로 맞추는 앱이 다른 컴퓨터들에서 너무 오래 떨어짐) | `app_update` | `apps` | default | 그 앱, 앱이 없는 기록과 동의·공유 요청은 Inbox |
+  | 앱의 activation 동의, 사람이 알아야 하는 program 기록(release 실패와 되돌림, 앱 사용 불가, data 복원, SDK 업데이트 필요, 앱이 session을 멈춤, 폴더로 맞추는 앱이 다른 컴퓨터들에서 너무 오래 떨어짐) | `app_update` | `apps` | default | 그 앱, 앱이 없는 기록과 동의는 Inbox |
   | 앱의 `notify()`(`NoticePosted`의 앱 줄, 안 읽은 것) | `app_notify` | `apps` | default | 그 앱 |
   | job의 놓친 차례가 새로 held가 됨(`JobHeld`) | `job_missed` | `needs-you` | default | Inbox |
 

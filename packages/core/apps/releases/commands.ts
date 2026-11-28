@@ -48,11 +48,7 @@ import {
   loadApp,
   replaceApp,
 } from "../registration/mod.ts";
-import {
-  bundledShare,
-  pushConsentEvent,
-  waitingConsents,
-} from "./activation/consents.ts";
+import { pushConsentEvent, waitingConsents } from "./activation/consents.ts";
 import { inProgress, storeActivation } from "./activation/state.ts";
 import { manifestBytes } from "./bundle/manifest.ts";
 import { factsOfDeclaration } from "./facts.ts";
@@ -563,13 +559,6 @@ export function createReleaseCommands(): {
           return conflict("the consent is already decided or closed");
         }
         if (input.choice === "allow") {
-          // 공유가 먼저다: 공유가 실패하면 tx째 되돌아가 동의는 대기로 남고 사람이 다시 누를 수 있다.
-          if (input.share_requested_at !== undefined) {
-            const shared = tx
-              .port(bundledShare)
-              .approve(release.app, input.share_requested_at);
-            if (!shared.ok) return shared;
-          }
           tx.sql.run(
             "UPDATE activation_consents SET allowed_at = ? WHERE release = ?",
             [tx.now(), release.id],

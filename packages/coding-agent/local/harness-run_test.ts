@@ -40,7 +40,7 @@ test("sync-skills는 lophn-agent skill 사본을 두고 사람의 같은 이름 
     await writeFile(join(codex, "SKILL.md"), "mine");
 
     const synced = await runHarnessSyncSkills(
-      { skills: [] },
+      { skills: [], deployed: [] },
       home,
       "2026-11-04T00:00:00Z",
     );
@@ -53,6 +53,44 @@ test("sync-skills는 lophn-agent skill 사본을 두고 사람의 같은 이름 
 });
 
 // 사람의 dotfile 관리 도구가 settings.json을 symlink로 두므로 지킨다: 설치가 symlink를 보통 file로 바꾸거나 권한을 잃으면 안 된다.
+// 배포하지 않은 앱 skill이 사람의 harness에 복사되면 안 되고, 배포를 거두면 우리가 쓴 사본이 지워진다.
+test("sync-skills는 배포에 이름이 적힌 public skill만 복사하고 배포를 거두면 사본을 지운다", async () => {
+  const home = await mkdtemp(join(tmpdir(), "lophn-skill-deployed-"));
+  try {
+    const installed = await runHarnessInstall(
+      { harness: "claude" },
+      home,
+      "2026-11-12T00:00:00Z",
+    );
+    assert.equal(installed.ok, true);
+    const skill = (name: string) => ({
+      slug: "notes",
+      release: "rel_1",
+      name,
+      skill_md: `---\nname: ${name}\ndescription: d\n---\n`,
+      files: [],
+    });
+    const folder = (name: string) => join(home, ".claude/skills", name);
+    const skills = [skill("export"), skill("import")];
+    await runHarnessSyncSkills(
+      { skills, deployed: [{ app: "notes", skill: "export" }] },
+      home,
+      "2026-11-12T00:00:00Z",
+    );
+    assert.equal(await exists(join(folder("export"), "SKILL.md")), true);
+    assert.equal(await exists(join(folder("import"), "SKILL.md")), false);
+
+    await runHarnessSyncSkills(
+      { skills, deployed: [] },
+      home,
+      "2026-11-12T00:00:00Z",
+    );
+    assert.equal(await exists(join(folder("export"), "SKILL.md")), false);
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
 test("`.claude/settings.json`이 symlink면 설치 뒤에도 symlink이고 대상 file에 우리 hook이 들며 mode가 그대로다", async () => {
   const home = await mkdtemp(join(tmpdir(), "lophn-install-"));
   try {

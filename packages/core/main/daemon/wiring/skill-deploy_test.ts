@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { test } from "node:test";
+import { CODING_DEPLOYED_SKILLS_SETTING_KEY } from "../../../../protocol/lophn-agent/skill-settings.ts";
 import type { ReleaseRecord } from "../../../../protocol/apps/mod.ts";
 import type { Tx } from "../../../../protocol/server/mod.ts";
 import { PROJECT_LAYER } from "../../../agent-workspaces/workspace/project-layer.ts";
@@ -59,7 +60,7 @@ test("앱 자기 workspace의 agent와 Home의 lophn만 묻지 않고 배포한�
 async function withRoot(
   run: (t: {
     root: string;
-    global: { value: object[] };
+    global: { value: object[]; keys: string[] };
     deployments: ReturnType<typeof createSkillDeployments>;
     ctx: Parameters<typeof createSkillDeployments>[0];
   }) => Promise<void>,
@@ -116,12 +117,13 @@ async function withRoot(
       join(root, "agents", `${AGENT}.md`),
       "---\nhandle: helper\nname: helper\n---\nbody\n",
     );
-    const global = { value: [] as object[] };
+    const global = { value: [] as object[], keys: [] as string[] };
     const ctx = {
       ledgerPath: join(root, "lophn.db"),
       root: { path: root },
       settings: { get: () => global.value },
-      settingsUpdate: (changes: { value: object[] }[]) => {
+      settingsUpdate: (changes: { key: string; value: object[] }[]) => {
+        global.keys.push(changes[0].key);
         global.value = changes[0].value;
         return { ok: true, value: { rejected: [] } };
       },
@@ -282,6 +284,23 @@ test("배포 명령은 묻지 않는 자격이 아니면 사람의 허락이 있
       ).ok,
     );
     assert.deepStrictEqual(global.value, [guide]);
+
+    // 터미널 coding agent(harness)에 배포하는 것도 같은 규칙이다: 사람은 묻지 않고, 앱 workspace도 Home lophn도 아닌 agent는 묻는다.
+    global.value = [];
+    global.keys = [];
+    assert.ok((await deploy(person, input("harness"))).ok);
+    assert.deepStrictEqual(global.keys, [CODING_DEPLOYED_SKILLS_SETTING_KEY]);
+    global.value = [];
+    const harnessUnaskable = await deploy(
+      asAgent(PROJECT_SESSION),
+      input("harness"),
+    );
+    assert.ok(
+      !harnessUnaskable.ok && harnessUnaskable.error.code === "forbidden",
+    );
+    assert.deepStrictEqual(global.value, []);
+    assert.equal(asked.length, 2);
+    global.value = [];
 
     // Home의 lophn은 묻지 않고 한다.
     global.value = [];

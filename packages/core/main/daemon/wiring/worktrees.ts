@@ -3,6 +3,7 @@
 // - 좁은 상태 감시자(watcher), setup/teardown 훅(Project Command PTY 재사용),
 // - 기동 시 `creating|removing` 크래시 복구(`recoverOnStartup`)를 조립한다.
 // 표를 만드는 schema step이 lock 끝에 붙어야 하므로 WIRINGS 맨 뒤에 둔다.
+import { SHARE_REQUESTS_DROP_STEP } from "./share-requests-retired.ts";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
@@ -145,7 +146,8 @@ export const worktreesWiring: WiringFactory = () => {
 
   return {
     name: "worktrees",
-    schemaStepsAfterTeams: [...WORKTREES_SCHEMA_STEPS],
+    // 낸 step 목록의 맨 끝 wiring이라 다른 영역의 새 step도 여기 뒤에 붙는다(schema-steps.lock.json).
+    schemaStepsAfterTeams: [...WORKTREES_SCHEMA_STEPS, SHARE_REQUESTS_DROP_STEP],
     operations: () => [
       {
         name: worktreesStore.name,

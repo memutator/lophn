@@ -3128,7 +3128,7 @@ flows:
     docs: [architecture/coding-agent.md]
 
   - id: harness-sync-skills
-    title: 공유 앱 skill과 lophn-agent skill의 사본을 harness skill 폴더에 맞춘다
+    title: harness에 배포한 앱 skill과 lophn-agent skill의 사본을 harness skill 폴더에 맞춘다
     actor: shell
     entries: [cli:harness.sync_skills]
     boundary: [coding-agent-cli, coding-agent]
@@ -3138,9 +3138,9 @@ flows:
       - packages/coding-agent/harnesses/skill-copies.ts
       - packages/coding-agent/skills/lophn-agent.ts
     steps:
-      - "core가 준비 때 한 번, 앱 activation 때, coding-agent.shared_apps가 바뀔 때, hook을 놓거나 지운 뒤 exec한다"
-      - "core에 user token으로 붙어 설정 값과 공유 앱의 public skill을 읽는다(app.skills)"
-      - "hook이 놓인 harness의 skill 폴더에 공유 사본을 맞추고, lophn-agent skill은 hook과 상관없이 늘 둔다"
+      - "core가 준비 때 한 번, 앱 activation 때, coding-agent.deployed_skills가 바뀔 때, hook을 놓거나 지운 뒤 exec한다"
+      - "core에 user token으로 붙어 설정 `coding-agent.deployed_skills`(앱과 skill 이름)와 그 앱들의 public skill을 읽는다(app.skills)"
+      - "hook이 놓인 harness의 skill 폴더에 배포에 이름이 적힌 public skill의 사본만 맞추고(배포를 거두면 우리가 쓴 사본이 지워진다), lophn-agent skill은 hook과 상관없이 늘 둔다"
       - "폴더 이름과 file 이름은 폴더 밖으로 못 나가는 것만 받는다. 표시 file(.lophn-shared)이 있는 폴더만 덮고 지우고, 사람 폴더는 건너뛴다(skipped)"
       - "core에 못 붙거나 core 읽기가 실패하거나 skill 폴더를 못 쓰면 unavailable이다"
     outcomes:

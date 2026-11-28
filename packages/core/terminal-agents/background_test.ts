@@ -47,8 +47,6 @@ const settle = async () => {
 
 function setup(options?: {
   harness?: HarnessRuntime;
-  enforcesDeny?: (harness: GuiHarness) => boolean;
-  deny?: readonly string[];
   launch?: HarnessLaunchConfig;
   held?: boolean;
   approve?: HarnessMembers["approve"];
@@ -135,7 +133,6 @@ function setup(options?: {
     cwd: async () => "/work/bg",
     definition: async () =>
       ok({
-        deny: options?.deny ?? [],
         ...(options?.launch === undefined
           ? {}
           : { harness_config: options.launch }),
@@ -195,7 +192,6 @@ function setup(options?: {
       sessions: async () => [],
       rewindPreview: async () => null,
     }),
-    enforcesDeny: options?.enforcesDeny ?? ((h) => h === "claude"),
     after: (ms, fn) => {
       const entry = { ms, fn, cancelled: false };
       afterTimers.push(entry);
@@ -536,24 +532,7 @@ test("background run delegates approval_opened to members.approve: allows permit
   }
 });
 
-test("background run refuses unsupported deny rules without starting adapter, skips held sessions, and evicts idle handles", async () => {
-  const deniedKit = setup({
-    harness: "codex",
-    enforcesDeny: () => false,
-    deny: ["lophn(mail send)"],
-  });
-  try {
-    deniedKit.bg.start();
-    await deniedKit.enqueue("send mail");
-    assert.equal(deniedKit.requests.length, 0);
-    assert.deepEqual(deniedKit.finished, [
-      { turn: id("trn", 1), end: "unconfigured" },
-    ]);
-  } finally {
-    await deniedKit.bg.stop();
-    deniedKit.cleanup();
-  }
-
+test("background run skips held sessions and evicts idle handles", async () => {
   const heldKit = setup({ held: true });
   try {
     heldKit.bg.start();

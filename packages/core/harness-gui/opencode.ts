@@ -356,7 +356,6 @@ export type OpencodeDeps = {
 export type { HarnessCatalogResult, HarnessLaunchConfig };
 export type OpencodeAdapter = HarnessGuiAdapter & {
   catalogScope: "workspace";
-  enforcesDeny: false;
 };
 
 const realDeps: OpencodeDeps = {
@@ -3215,7 +3214,6 @@ export function createOpencodeAdapter(deps: OpencodeDeps): OpencodeAdapter {
   return {
     handoff: GUI_HANDOFF.opencode,
     catalogScope: "workspace",
-    enforcesDeny: false,
     fetchCatalog,
     start,
     // TUI의 `/exit`(slash 명령 `app.exit`, 별칭 quit·q)다. 키(ctrl+c·ctrl+d)는 입력 상태에 따라 다른 뜻이라 쓰지 않는다.

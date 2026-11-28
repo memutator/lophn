@@ -65,8 +65,6 @@ export type HarnessGuiAdapter = {
   handoff: "restart" | "shared";
   /** catalog가 전역 설정을 따르는지(`global`), 작업 폴더마다 다른지(`workspace`). */
   catalogScope: "global" | "workspace";
-  /** 정의의 `permissions.deny` 규칙을 CLI 권한 설정으로 강제할 수 있는지(Claude만 true). */
-  enforcesDeny: boolean;
   /** 새 session을 만들지 않고 CLI가 알려 주는 model 목록과 기본값을 읽는다. */
   fetchCatalog(options: {
     cwd?: string;
@@ -88,8 +86,8 @@ export type HarnessGuiAdapter = {
     carry?: HarnessGuiCarry;
     /** agent 정의의 `harness_config`(args > carry > launch). */
     launch?: HarnessLaunchConfig;
-    /** 이 실행이 lophn 팀원·agent다(`AcpTabRequest.member`). Claude는 `Bash(lophn *)`를 허락하고 deny를 막고, Codex는 network를 연다. */
-    member?: { deny: readonly string[] };
+    /** 이 실행이 lophn 팀원·agent다(`AcpTabRequest.member`). Claude는 `Bash(lophn *)`를 허락하고, Codex는 network를 연다. */
+    member?: true;
     session: AcpSessionHandle;
     spawn: CliSpawn;
     clock: Clock;

@@ -22,7 +22,6 @@ export type { HarnessCatalogResult, HarnessLaunchConfig };
 
 export type AntigravityAdapter = HarnessGuiAdapter & {
   catalogScope: "global";
-  enforcesDeny: false;
 };
 
 /** adapter가 파일 시스템에 닿는 길. 이미지 첨부를 읽고 agy 대화 file이 있는지만 본다. 쓰는 길은 없다. test가 바꾼다. */
@@ -60,7 +59,6 @@ export function createAntigravityAdapter(
   return {
     handoff: GUI_HANDOFF.antigravity,
     catalogScope: "global",
-    enforcesDeny: false,
     fetchCatalog(options) {
       return fetchAcpCatalog({
         dialect: makeDialect(),

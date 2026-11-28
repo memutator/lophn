@@ -37,20 +37,6 @@ export function ActivationCard({
         agent={entry.agent}
         toggle={{ open, onToggle: () => setOpen(!open) }}
       />
-      {view.share === null ? null : (
-        <div className={styles.reason} data-bundled-share="">
-          <p className={styles.desc}>
-            {t("waiting.notice.activation-share", {
-              who: view.share.who,
-              skills: view.share.skills,
-              commands: view.share.commands,
-            })}
-          </p>
-          {view.share.reason === "" ? null : (
-            <p className={styles.desc}>{view.share.reason}</p>
-          )}
-        </div>
-      )}
       {open ? (
         <div className={styles.detail}>
           <p className={styles.detailHead}>

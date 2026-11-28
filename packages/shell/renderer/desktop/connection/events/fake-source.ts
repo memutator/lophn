@@ -15,10 +15,6 @@ import {
   activationConsents,
 } from "../../../../../protocol/apps/activation/consent.ts";
 import {
-  type ShareRequest,
-  shareRequestList,
-} from "../../../../../protocol/approvals/share-request.ts";
-import {
   type Notice,
   noticesOpen,
 } from "../../../../../protocol/apps/notice.ts";
@@ -59,7 +55,6 @@ import { matchesCondition } from "./client.ts";
 interface FakeSnapshot {
   readonly snapshots: readonly SessionSnapshot[];
   readonly consents: readonly ActivationConsent[];
-  readonly shares?: readonly ShareRequest[];
   readonly notices?: readonly Notice[];
   /** 위 넷 밖의 read·memory route 답. 같은 route가 여럿이면 앞의 것이다. */
   readonly answers?: readonly FakeAnswer[];
@@ -152,15 +147,6 @@ export function createFakeSource(initial: FakeSnapshot = EMPTY): FakeSource {
         return Promise.resolve({
           ok: true,
           value: { ...COMMON, consents: snapshot.consents },
-        });
-      }
-      if (
-        input.resource === shareRequestList.resource &&
-        input.method === shareRequestList.method
-      ) {
-        return Promise.resolve({
-          ok: true,
-          value: { ...COMMON, requests: snapshot.shares ?? [] },
         });
       }
       if (

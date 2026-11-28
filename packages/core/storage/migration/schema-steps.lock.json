@@ -466,5 +466,9 @@
   {
     "id": "projects.worktrees",
     "sha256": "f6a4724427a7787b92c8e4e938526f36cab6fdfa8aa33e23d0739cb6020db785"
+  },
+  {
+    "id": "approvals.share_requests.drop",
+    "sha256": "956150f4cbb57b7ba5ba3f4fbe372be6ab4939f0fed221470a0883f09f7c9c11"
   }
 ]

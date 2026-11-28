@@ -8,6 +8,7 @@ import {
   PERMISSION_RULES_SETTING_KEY,
   WORKFLOW_MODES_SETTING_KEY,
 } from "../../../../../protocol/approvals/permission-rules.ts";
+import { CODING_DEPLOYED_SKILLS_SETTING_KEY } from "../../../../../protocol/lophn-agent/skill-settings.ts";
 import { slugText, valueText } from "../model.ts";
 import type { SettingEntry, SettingRejectReason } from "../source.ts";
 
@@ -91,8 +92,8 @@ const SHOWN_ELSEWHERE = [
   PERMISSION_RULES_SETTING_KEY,
   WORKFLOW_MODES_SETTING_KEY,
   LOCAL_TOOL_TRUST_SETTING_KEY,
-  // Coding agents 항목이 공유 앱 목록을 보이고 뺀다.
-  "coding-agent.shared_apps",
+  // Coding agents 항목이 배포한 앱 skill 목록을 보이고 바꾼다.
+  CODING_DEPLOYED_SKILLS_SETTING_KEY,
   "lophn-agent.extensions.",
   // Extensions 항목이 설치와 함께 켜고 끈다.
   "extensions.",

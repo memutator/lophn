@@ -7,14 +7,11 @@ import type { AgentId } from "../../../../protocol/lophn-agent/workspaces.ts";
 import type { SchemaStep, Sql } from "../../../../protocol/server/mod.ts";
 import {
   type AssignmentPorts,
-  type LocalAppLine,
   assignmentGetRead,
   assignmentPorts,
   assignmentSetCommand,
   type AssignmentState,
 } from "../../../approvals/assignment/mod.ts";
-import { publicSkillsOf } from "../../../apps/lookups.ts";
-import { loadApp } from "../../../apps/registration/store.ts";
 import { agentAssignment } from "../../../apps/usage/users.ts";
 import type {
   AgentInfo,
@@ -24,7 +21,6 @@ import type { AgentFileSystem } from "../../../lophn-agent/agents/ports.ts";
 import {
   createAgentStore,
   dataRootOf,
-  writeAgentDeployedSkills,
   writeAgentRemoteApps,
 } from "../../../lophn-agent/agents/store.ts";
 import {
@@ -94,11 +90,10 @@ function remoteLinesOf(entries: readonly AssignmentEntry[]): RemoteAppLine[] {
   }));
 }
 
-// 이 컴퓨터 앱의 줄(`machine`이 없는 줄)은 그 앱의 public skill 전부를 agent 층에 배포하는 것이다(공유 요청의 승인). 다른 컴퓨터 앱의 줄만 `remote_apps`로 쓴다.
 export function writeAssignment(
   sql: Query,
   agent: AgentId,
-  entries: readonly (AssignmentEntry | LocalAppLine)[],
+  entries: readonly AssignmentEntry[],
   revision: number,
 ): Result<AssignmentState> {
   const info = agentDirectory(sql).agent(agent);
@@ -114,49 +109,11 @@ export function writeAssignment(
   const root = dataRootOf(sql, undefined);
   if (!root.ok) return root;
   const store = createAgentStore(createNodeAgentFiles(), root.value);
-  const remote = entries.filter(
-    (entry): entry is AssignmentEntry => "machine" in entry,
-  );
-  if (remote.length > 0 || info.remoteApps.length > 0) {
-    const written = writeAgentRemoteApps(store, agent, remoteLinesOf(remote));
+  if (entries.length > 0 || info.remoteApps.length > 0) {
+    const written = writeAgentRemoteApps(store, agent, remoteLinesOf(entries));
     if (!written.ok) return written;
   }
-  for (const entry of entries) {
-    if ("machine" in entry) continue;
-    const deployed = deployApp(sql, agent, entry.app);
-    if (!deployed.ok) return deployed;
-  }
   return readAssignment(sql, agent);
-}
-
-function deployApp(sql: Query, agent: AgentId, app: string): Result<void> {
-  const info = agentDirectory(sql).agent(agent);
-  if (info === null) {
-    return err({ code: "not_found", message: "agent not found" });
-  }
-  const loaded = loadApp(sql, app);
-  if (!loaded.ok) return loaded;
-  if (loaded.value === null) {
-    return err({ code: "not_found", message: "app not found" });
-  }
-  const slug = loaded.value.slug;
-  const added = publicSkillsOf(sql, app)
-    .filter(
-      (skill) =>
-        !info.deployedSkills.some(
-          (one) => one.app === slug && one.skill === skill,
-        ),
-    )
-    .map((skill) => ({ app: slug, skill }));
-  if (added.length === 0) return ok(undefined);
-  const root = dataRootOf(sql, undefined);
-  if (!root.ok) return root;
-  const written = writeAgentDeployedSkills(
-    createAgentStore(createNodeAgentFiles(), root.value),
-    agent,
-    [...info.deployedSkills, ...added],
-  );
-  return written.ok ? ok(undefined) : written;
 }
 
 function portsOf(sql: Query): AssignmentPorts {

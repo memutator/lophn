@@ -64,7 +64,6 @@ import {
   decideJobApproval,
   decideJobHold,
   decideMailHold,
-  decideShare,
   decideWaiting,
   dismissNotice,
   readQuestions,
@@ -469,10 +468,6 @@ export interface Inbox extends WaitingState {
     entry: WaitingEntry & { kind: "job_approval" },
     choice: "approve" | "reject",
   ): Promise<Done>;
-  share(
-    entry: WaitingEntry & { kind: "share" },
-    choice: "approve" | "reject",
-  ): Promise<Done>;
   dismiss(notice: string): Promise<Done>;
   markRead(notices: readonly string[]): Promise<boolean>;
 }
@@ -491,7 +486,6 @@ export function useInbox(): Inbox {
       jobHold: (entry, choice) => decideJobHold(core, entry, choice),
       mailHold: (entry, choice) => decideMailHold(core, entry, choice),
       jobApproval: (entry, choice) => decideJobApproval(core, entry, choice),
-      share: (entry, choice) => decideShare(core, entry, choice),
       dismiss: (notice) => dismissNotice(core, notice),
       markRead: (notices) => markNoticesRead(core, notices),
     }),

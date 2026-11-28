@@ -27,11 +27,7 @@ const recording = (name: string): Entry[] =>
 
 const flush = () => new Promise<void>((resolve) => setImmediate(resolve));
 
-async function setup(
-  name: string,
-  resume?: string,
-  member?: { deny: readonly string[] },
-) {
+async function setup(name: string, resume?: string, member?: true) {
   const rec = [...recording("start"), ...recording(name)];
   // 손으로 만든 줄: 저장된 적 없는 session을 읽으면 server가 404로 답한다.
   if (resume !== undefined)
@@ -640,7 +636,7 @@ test("`!ls`는 POST …/shell로만 가고 prompt로 가지 않는다. 그 shell
 
 // 팀원 탭의 `!`는 사람이 친 명령이다. server의 shell이 turn 자격 file 없이 돌게 맨 앞에 unset을 붙인다.
 test("a member tab's `!` goes to the server with the turn credential file unset, and a person's tab sends the command as typed", async () => {
-  const member = await setup("shell_live", undefined, { deny: [] });
+  const member = await setup("shell_live", undefined, true);
   await member.input(member.send("sh", "!lophn tab open --url https://x"));
   const shell = (t: typeof member) =>
     t.requests.find((one) => one.path.endsWith("/shell"))?.body as {

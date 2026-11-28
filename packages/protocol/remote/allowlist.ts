@@ -12,10 +12,6 @@ import {
   sessionGrantRevoke,
   sessionPermissionsRead,
 } from "../approvals/permissions-view.ts";
-import {
-  shareRequestDecide,
-  shareRequestList,
-} from "../approvals/share-request.ts";
 import { turnRequestDecide } from "../approvals/turn-request.ts";
 import {
   activationsCompare,
@@ -442,8 +438,6 @@ export const REMOTE_ALLOWED_ROUTES = [
   jobDecideHold,
   jobPending,
   jobApprove,
-  shareRequestList,
-  shareRequestDecide,
   // 늦게 닿아 대기 목록에 선 다른 컴퓨터의 mail과 사람의 결정(job hold처럼 화면이면 허락 없이 정한다. 터미널은 REMOTE_TERMINAL_DENIED)
   mailHolds,
   mailDecideHold,
@@ -732,12 +726,11 @@ export const REMOTE_TERMINAL_DENIED = [
   jobApprove,
   mailDecideHold,
   activationConsent,
-  shareRequestDecide,
   acpSend,
 ] as const;
 
 // 등록한 기기의 `watch`가 받을 수 있는 event type의 전부다. 기기가 건 조건과 상관없이 core가 이 밖은 보내지 않는다.
-// 위 route로 그리는 화면이 듣는 것이다: session 목록의 상태, 대화의 ACP 갱신, 대기 줄(물음, 동의, 공유 요청, 알림, job).
+// 위 route로 그리는 화면이 듣는 것이다: session 목록의 상태, 대화의 ACP 갱신, 대기 줄(물음, 동의, 알림, job).
 // Jobs, Agents, workflow, 앱 실행 기록은 따로 event가 없고 `StateChanged`의 이름(jobs, agents, workflow_instances, runs,
 // app_activity, app_runtime, releases)으로 다시 읽는다. 앱 event는 `AppViewEvent`로만 받는다: 묶인 release가 구독을 선언한 view의
 // owner에게만 가고, Gateway가 이 기기(owner)가 연 view의 것만 보낸다. `AppSyncChanged`(앱 id와 seq만 싣는다)도 받는다. `AppEventPublished`(모든 앱의 event 원본)는 폰에
@@ -757,8 +750,6 @@ export const REMOTE_ALLOWED_EVENTS = [
   // Inbox
   "ActivationConsentRequested",
   "ActivationConsentClosed",
-  "ShareRequestOpened",
-  "ShareRequestClosed",
   "NoticePosted",
   "NoticeClosed",
   "NoticeRead",

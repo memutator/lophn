@@ -3,7 +3,6 @@
 import type { WorkspaceKind } from "../../protocol/lophn-agent/workspaces.ts";
 import { AGENT_COMMANDS } from "./agent.ts";
 import { APP_COMMANDS } from "./app.ts";
-import { APP_SHARE_COMMANDS } from "./app-share.ts";
 import { ARTIFACT_COMMANDS } from "./artifact.ts";
 import { ASK_COMMANDS } from "./ask.ts";
 import { BROWSER_COMMANDS } from "./browser.ts";
@@ -56,7 +55,6 @@ export const COMMANDS: readonly Command[] = [
   ...MACHINE_COMMANDS,
   ...ASK_COMMANDS,
   ...APP_COMMANDS,
-  ...APP_SHARE_COMMANDS,
   ...BROWSER_COMMANDS,
   ...PACKAGE_COMMANDS,
   ...PREVIEW_COMMANDS,

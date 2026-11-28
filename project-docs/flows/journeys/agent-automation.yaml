@@ -262,36 +262,6 @@ journeys:
       - {do: "agent가 skill이 닿지 않은 앱 tool을 부른다", flow: tool-gate-check:denied-no-person}
       - {do: "agent가 막힌 결과를 tool 결과로 받는다. 대화에 Denied 표시가 붙는다", screen: new-agent-tool-failed, flow: tool-call-execute:gate-denied}
 
-  # ---- 앱 공유 요청 ----
-
-  - id: app-share-request-approve
-    title: "앱 workspace agent의 공유 요청을 사람이 승인한다"
-    actor: agent
-    goal: "앱 workspace의 agent가 그 앱을 다른 agent에게 공유하도록 청하고, 사람이 승인하면 받을 agent에 할당된다"
-    refs: [C25, H3]
-    steps:
-      - {do: "앱 workspace의 agent가 lophn app share로 공유를 청한다", flow: share-request-open:opened}
-      - {do: "대기 목록에서 열린 공유 요청을 읽는다", screen: waiting-share-request, flow: share-request-list:ok}
-      - {do: "요청을 승인한다", screen: waiting-share-request, flow: share-request-decide:approved}
-
-  - id: app-share-request-reject
-    title: "앱 공유 요청을 사람이 거절한다"
-    actor: agent
-    goal: "사람이 공유 요청을 거절하면 agent 정의는 바뀌지 않고 요청이 닫힌다"
-    refs: [C25]
-    steps:
-      - {do: "앱 workspace의 agent가 공유를 청한다", flow: share-request-open:opened}
-      - {do: "대기 목록에서 요청을 거절한다", screen: waiting-share-request, flow: share-request-decide:rejected}
-
-  - id: app-share-with-activation-consent
-    title: "앱 activation 동의와 함께 공유 요청을 승인한다"
-    actor: agent
-    goal: "앱 activation 동의 카드에서 허락하면 그 앱에 붙은 공유 요청도 같은 transaction에서 승인된다"
-    refs: [H2, C25]
-    steps:
-      - {do: "앱 workspace의 agent가 공유를 청한다", flow: share-request-open:opened}
-      - {do: "동의 카드에서 허락을 누르면 공유도 함께 승인된다", screen: new-waiting-first-activation, flow: share-request-consent:approved-with-consent}
-
   # ---- call (agent가 다른 session에 일을 맡김) ----
 
   - id: call-with-result

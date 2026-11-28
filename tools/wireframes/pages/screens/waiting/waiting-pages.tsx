@@ -23,7 +23,6 @@ import {
   MAIL_HOLD_EXPIRING,
   MAIL_HOLD_WINDOWS,
   SETTLED,
-  SHARE_REQUEST,
   SHELL_COMMAND,
 } from "../../../../../packages/shell/renderer/desktop/connection/waiting/fake-source.ts";
 import {
@@ -207,11 +206,6 @@ export const WaitingFirstActivation = () => {
 /** 결정한 뒤 잠깐 남는 줄: 허락, 거절, cancelled를 구별한다. */
 export const WaitingSettled = () => (
   <Over items={["question"]} initial={{ open: true, settled: SETTLED }} />
-);
-
-/** 앱 공유 요청: 앱 workspace의 agent가 이 앱을 다른 agent와 터미널 coding agent에게 할당해 달라고 청한 것이다. 받을 agent, 이유, 승인하면 열리는 공개 skill·command 수가 보이고 단추는 [Reject], [Share]이다. */
-export const WaitingShare = () => (
-  <Over items={[SHARE_REQUEST()]} initial={{ open: true }} />
 );
 
 /** job hold: 놓친 차례가 "Jobs" 묶음으로 다른 대기 항목 아래에 섞여 있다. 단추는 오른쪽 끝에 [Skip], [Start now]이다. */

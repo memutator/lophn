@@ -40,7 +40,6 @@ const GROUPS = [
   { title: "waiting.label.group-permission", kinds: ["permission"] },
   { title: "waiting.label.group-question", kinds: ["question"] },
   { title: "waiting.label.group-activation", kinds: ["activation"] },
-  { title: "waiting.label.group-share", kinds: ["share"] },
   { title: "waiting.label.group-job", kinds: ["job_approval", "job_hold"] },
   { title: "waiting.label.group-mail", kinds: ["mail_hold"] },
 ] as const;
@@ -101,8 +100,6 @@ function EntryItem({ entry, ...shared }: { entry: WaitingEntry } & Shared) {
       return <QuestionItem entry={entry} {...shared} />;
     case "activation":
       return <ActivationItem entry={entry} {...shared} />;
-    case "share":
-      return <ShareItem entry={entry} {...shared} />;
     case "job_hold":
       return <JobHoldItem entry={entry} {...shared} />;
     case "mail_hold":
@@ -355,53 +352,6 @@ function ActivationItem({
       <Buttons>
         <Button size="sm" trailingIcon={ChevronRight} onPress={review}>
           {t("waiting.toast-activation.button")}
-        </Button>
-      </Buttons>
-    </Item>
-  );
-}
-
-function ShareItem({
-  entry,
-  inbox,
-  names,
-  workspaces,
-  locked,
-}: { entry: Kind<"share"> } & Shared) {
-  const nav = useNav();
-  const view = cardOf(entry, names);
-  const answering = useAnswering();
-  const answer = (choice: "approve" | "reject") =>
-    answering.send(() => inbox.share(entry, choice));
-  const disabled = locked || answering.busy;
-  return (
-    <Item
-      face={<Asker agent={entry.agent} />}
-      title={view.title}
-      onTitle={() =>
-        nav.open({
-          name: "workspace",
-          workspace: { kind: "app", id: entry.request.app },
-        })
-      }
-      age={ago(entry.receivedAt, Date.now())}
-      text={[view.description, entry.request.reason]
-        .filter((part) => part !== "")
-        .join(" ")}
-      meta={metaOf(entry, view, workspaces)}
-      error={answering.error}
-    >
-      <Buttons>
-        <Button size="sm" disabled={disabled} onPress={() => answer("reject")}>
-          {t("waiting.button.reject-share")}
-        </Button>
-        <Button
-          size="sm"
-          variant="primary"
-          disabled={disabled}
-          onPress={() => answer("approve")}
-        >
-          {t("waiting.button.approve-share")}
         </Button>
       </Buttons>
     </Item>

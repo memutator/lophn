@@ -1,17 +1,9 @@
 // activation 동의 표(`activation_consents`)를 읽고 쓰는 helper. 동의 command, 읽기, driver가 같이 쓴다.
 // 대기와 허락 모두 표에 남아 재시작을 넘는다: 허락만 메모리에서 시작으로 넘기면 허락이 commit된 뒤 시작하기 전에
 // core가 꺼질 때 허락을 잃는다.
-import { definePort } from "../../../../protocol/base/mod.ts";
-import type { Result } from "../../../../base/mod.ts";
 import type { ActivationConsent } from "../../../../protocol/apps/mod.ts";
 import type { Sql, Tx } from "../../../../protocol/server/mod.ts";
 import { afterCommit } from "../../../storage/ledger/after-commit.ts";
-
-// 동의와 같이 승인하는 앱 공유 요청. 공유 요청은 approvals의 것이라 apps는 모르고, 조립(core/main)이 꽂는다.
-export interface BundledShare {
-  approve(app: string, requestedAt: string): Result<void>;
-}
-export const bundledShare = definePort<BundledShare>("apps.bundled-share");
 
 // 남지 않는 동의 event를 commit 뒤 Bus로 내는 topic. apps wiring의 writer가 받는다.
 export const ACTIVATION_CONSENT_TOPIC = "activation_consent";

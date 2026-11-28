@@ -34,10 +34,9 @@ const GROUP: Record<WaitingEntry["kind"], number> = {
   permission: 0,
   question: 1,
   activation: 2,
-  share: 3,
-  job_approval: 4,
-  job_hold: 4,
-  mail_hold: 5,
+  job_approval: 3,
+  job_hold: 3,
+  mail_hold: 4,
 };
 
 /** One thing waiting, with the computer it waits on. */

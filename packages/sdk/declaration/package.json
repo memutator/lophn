@@ -1,6 +1,6 @@
 {
   "name": "@lophn/declaration",
-  "version": "6.0.0",
+  "version": "6.1.0",
   "type": "module",
   "lophn": {
     "supported_from": "4.0.0"

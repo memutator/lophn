@@ -49,10 +49,10 @@ const PLACES: readonly unknown[] = [
   "tray",
   "phone",
 ];
-// tray popup 크기의 범위(px). 창이 더 작으면 shell이 창 안으로 줄인다.
-const TRAY_SIZE = {
-  width: { min: 240, max: 720 },
-  height: { min: 160, max: 720 },
+// tray popup(머리 줄 포함) 크기의 범위(px). 하한은 두세 줄짜리 요약이 꼭 맞게 들어가는 크기다. 창이 더 작으면 shell이 창 안으로 줄인다.
+export const TRAY_SIZE = {
+  width: { min: 120, max: 720 },
+  height: { min: 80, max: 720 },
 } as const;
 
 function blankDescription(schema: InputSchema): string | undefined {

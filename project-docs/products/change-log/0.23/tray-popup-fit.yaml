@@ -1,0 +1,26 @@
+id: tray-popup-fit
+version: 0.23.188
+platform_note: none
+title: tray popup이 작은 내용에 꼭 맞게 너비와 높이 양쪽으로 줄어든다
+modules:
+  - packages/protocol
+  - packages/sdk
+  - packages/core/agent-workspaces
+  - packages/shell/renderer
+  - packages/shell/preload
+  - packages/shell/ipc
+change: |
+  - 화면 선언 `tray` 크기의 하한이 너비 240 → 120, 높이 160 → 80이 됐다(상한 720은 그대로). 선언 검사의 `TRAY_SIZE`가 정본이고 shell의 popup 자리 계산이 같은 값을 쓴다(따로 적어 둔 사본을 지웠다).
+  - 범위(`{min?, max?}`)로 선언한 너비가 내용보다 넓으면 줄어든다. 전에는 앱 page가 가로로 넘친 만큼(`overflow`)만 올려 min에서 시작해 넓어지기만 했다. 이제 `app:content-size`의 payload가 `{overflow, height}` → `{width, height}`이고, `width`는 앱 preload가 root를 잠깐 max-content로 놓고 잰 내용 너비(세로 scrollbar 너비 포함)다. 글만 바뀌어 문서 크기가 그대로인 변화도 다시 잰다(MutationObserver).
+  - 모든 앱·모든 SDK 판에 적용되는 shell 동작이다. 범위 너비를 선언한 기존 tray는 min에 머물지 않고 내용 너비(max-content, max까지)를 따른다.
+  - `@lophn/declaration` 6.1.0(하한 변경과 guide), `@lophn/app-ui` 2.26.1·`@lophn/app-ui-native` 1.12.1(정확한 의존 판만). `design-app` skill과 `migrate-sdk` 메모가 새 범위와 맞추는 법을 적는다.
+why: |
+  작은 요약 표를 그리는 tray(앱 Masup)의 popup이 내용보다 커서 오른쪽과 아래에 빈 곳이 남았다. 하한(240×160)이 내용(머리 줄 포함 약 130px 높이, 240보다 좁은 표)보다 컸고, 너비는 줄어드는 길이 없었다.
+decisions:
+  - text: "범위 너비는 내용의 max-content를 따른다(CSS의 shrink-to-fit과 같다). 버린 길: 넘친 만큼만 더하기(좁아질 수 없다), 앱이 너비를 직접 알리는 API(앱 code가 할 일이 생긴다). 긴 글은 max까지 넓어진 뒤 줄을 바꾸므로 글이 많은 화면은 max로 읽는 너비를 정한다."
+    by: agent
+  - text: "하한은 너비 120, 높이 80(머리 줄 약 36px 포함)이다. 두세 줄짜리 요약이 꼭 맞고, 머리 줄의 pin과 줄인 제목이 들어가는 가장 작은 크기로 잡았다."
+    by: agent
+checklist:
+  - "해야: 작은 tray 화면을 가진 앱(Masup 등)은 `@lophn/declaration` 6.1.0으로 옮기고 `tray`를 `{ width: { max }, height: { max } }`처럼 min 없이 선언해 다시 release한다"
+  - tray popup을 열어 내용 오른쪽과 아래에 빈 곳이 남지 않는지 본다

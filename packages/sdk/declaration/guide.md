@@ -41,19 +41,23 @@ import { defineApp, validateDeclaration } from "@lophn/declaration";
   - `tray` 칸 — tray popup의 크기다. `{width?, height?}`이고 단위는 px다. 둘 중 하나는
     있어야 하고 없는 쪽은 기본값(너비 360, 높이 480)이다. 각 쪽은 둘 중 하나다.
     - 숫자: 그 크기로 고정한다.
-    - `{min?, max?}`: 화면 내용에 맞춰 그 범위 안에서 늘고 준다. 높이는 내용 높이를 따른다
-      (목록이 짧으면 짧고, max를 넘으면 popup 안에서 스크롤한다). 너비는 min(없으면 기본값을
-      범위 안으로 맞춘 값)에서 시작해 내용이 가로로 넘칠 때만 max까지 넓어진다. 높이를 맞추려면
-      html·body·root 요소에 `height: 100%`를 두지 않는다(그러면 내용 높이를 잴 수 없어
-      처음 높이에 머문다).
+    - `{min?, max?}`: popup이 화면 내용에 꼭 맞게 그 범위 안에서 늘고 준다. 빈 끝은 아래 한계다
+      (`{max: 480}`의 min은 가장 작은 값).
+      - 높이는 내용 높이를 따른다(목록이 짧으면 짧고, max를 넘으면 popup 안에서 스크롤한다).
+      - 너비는 내용이 줄을 바꾸지 않고 다 보이는 너비(max-content)를 따른다. 작은 표는 표만큼
+        좁아지고, 긴 글은 max까지 넓어진 뒤 줄을 바꾼다.
+      - 맞추려면 html·body·root 요소에 `height: 100%`·`100vh`나 `width: 100vw`·고정 너비를
+        두지 않는다(그러면 내용 크기를 잴 수 없어 그 크기에 머문다).
 
-    너비는 240~720, 높이는 160~720의 정수이고 min은 max보다 클 수 없다. `places`에 `tray`가
-    없는 화면에 두면 선언 오류다. 창이 더 작으면 lophn이 창 안으로 줄인다. 크기는 release에
-    고정되므로 바꾸려면 다시 release한다.
+    popup 전체(화면 이름과 pin이 있는 머리 줄 약 36px 포함)의 크기다. 너비는 120~720, 높이는
+    80~720의 정수이고 min은 max보다 클 수 없다. `places`에 `tray`가 없는 화면에 두면 선언
+    오류다. 창이 더 작으면 lophn이 창 안으로 줄인다. 크기는 release에 고정되므로 바꾸려면 다시
+    release한다.
 
     ```ts
+    // 두세 줄짜리 요약 표: 표 크기에 꼭 맞는다
     { key: "status", label: "Status", path: "/status", places: ["tray"],
-      tray: { width: { max: 520 }, height: { min: 160, max: 480 } } }
+      tray: { width: { max: 480 }, height: { max: 480 } } }
     ```
   - `params` — 화면이 받는 인자의 schema다. 없으면 인자가 없는 화면이다. root type은
     object이고 command `inputSchema`와 같은 schema 규칙이다. 한 화면 안의 부분을
@@ -223,7 +227,7 @@ const declaration = defineApp({
   commands: [],
   permissions: [],
   app_connections: [],
-  sdk_dependencies: [{ name: "@lophn/declaration", version: "6.0.0" }],
+  sdk_dependencies: [{ name: "@lophn/declaration", version: "6.1.0" }],
 });
 
 const result = validateDeclaration(declaration);

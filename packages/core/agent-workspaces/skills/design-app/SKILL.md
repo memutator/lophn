@@ -151,13 +151,13 @@ Each screen declares `places`. They decide where people can open it:
   `useTabHead` actions, as icon buttons (no status, crumbs, tabs or menu): give
   the one or two actions that matter at a glance, such as refresh, an `icon`
   and put them first. The popup is 360 x 480 px by default. Set its size on
-  the screen with `tray: { width, height }` in px (width 240-720, height
-  160-720, either may be left out). Each side is a number (fixed) or
-  `{ min?, max? }`, which fits the screen's content inside that range. Prefer
-  a range for content that grows, such as a list: `height: { max: 480 }`
-  keeps a short list short. For the height to fit, do not give html, body or
-  the root element `height: 100%`. lophn shrinks the popup to fit a small
-  window.
+  the screen with `tray: { width, height }` in px, head included (width
+  120-720, height 80-720, either optional). Each side is a number (fixed)
+  or `{ min?, max? }`, which fits the popup to the content inside that
+  range. Prefer a range on both sides: `{ max: 480 }` wraps a small table
+  and keeps a short list short. To fit, do not give html, body or the root
+  element `height: 100%`, `100vh`, `width: 100vw` or a fixed width. lophn
+  shrinks it to fit a small window.
 - `phone`: the lophn phone app. It stands alone: a screen with `phone` has no
   other place. It is written in React Native, not as a desktop screen; see
   "Phone screens".

@@ -196,8 +196,8 @@ function Popup({
       host.onContentSize((size) => {
         setSized(true);
         onContent({
-          // 지금 너비에 모자란 만큼을 더한다. 넘치지 않으면 지금 너비 그대로라 줄지 않는다.
-          width: (box.current?.offsetWidth ?? 0) + size.overflow,
+          // 앱 화면은 popup 너비를 다 쓰므로 내용 너비가 곧 popup 너비다. 머리 줄은 좁으면 제목을 줄인다.
+          width: size.width,
           height: size.height + (headRow.current?.offsetHeight ?? 0),
         });
       }),

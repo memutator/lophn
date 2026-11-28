@@ -2,18 +2,16 @@
 // 항목이 작업 표시줄(맨 아래)이나 title bar(맨 위)에 있으므로 popup은 그 줄 바로 위·아래에 붙는다(tray.module.css의 .popup).
 // 항목의 세로 자리를 재지 않는 까닭은 창 크기가 막 바뀌어 잰 값이 옛 것일 수 있어서다.
 // 크기는 앱이 tray 화면 선언에 적은 값이다(범위는 선언 검사가 본다). 숫자면 고정, 범위면 앱 page가 알린 내용 크기를
-// 그 범위 안으로 맞춘다(내용 크기가 오기 전에는 기본값을 범위 안으로 맞춘 값). 없는 쪽은 기본값이다. 창이 더 작으면
-// 창 안으로 줄인다.
-import type { TraySide } from "../../../../protocol/apps/declaration/mod.ts";
+// 그 범위 안으로 맞춘다(너비도 높이도 내용보다 크면 줄고 작으면 는다. 내용 크기가 오기 전에는 기본값을 범위 안으로
+// 맞춘 값). 없는 쪽은 기본값이다. 창이 더 작으면 창 안으로 줄인다.
+import {
+  TRAY_SIZE,
+  type TraySide,
+} from "../../../../protocol/apps/declaration/mod.ts";
 
 export const POPUP_WIDTH = 360;
 export const POPUP_HEIGHT = 480;
 const MARGIN = 8;
-// 범위의 빈 끝. 선언 검사의 범위(protocol/apps/declaration/tools.ts의 TRAY_SIZE)와 같다.
-const BOUNDS = {
-  width: { min: 240, max: 720 },
-  height: { min: 160, max: 720 },
-} as const;
 
 export interface PopupPlace {
   left: number;
@@ -41,6 +39,7 @@ function sideOf(
 ): number {
   if (side === undefined) return fallback;
   if (typeof side === "number") return side;
+  // 범위의 빈 끝은 선언 검사의 끝이다.
   const low = side.min ?? bounds.min;
   const high = side.max ?? bounds.max;
   return Math.min(high, Math.max(low, content ?? fallback));
@@ -53,13 +52,13 @@ export function placePopup(
   content?: PopupContent,
 ): PopupPlace {
   const width = Math.min(
-    sideOf(size.width, POPUP_WIDTH, BOUNDS.width, content?.width),
+    sideOf(size.width, POPUP_WIDTH, TRAY_SIZE.width, content?.width),
     viewport.width - MARGIN * 2,
   );
   const height = sideOf(
     size.height,
     POPUP_HEIGHT,
-    BOUNDS.height,
+    TRAY_SIZE.height,
     content?.height,
   );
   const left = Math.max(

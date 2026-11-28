@@ -42,7 +42,11 @@ export {
   subscriptionHandlerName,
   DESTINATION_NAME_PATTERN,
 } from "./types.ts";
-export { handlerNames, requiredHandlerNames } from "./tools.ts";
+export {
+  handlerNames,
+  requiredHandlerNames,
+  TRAY_SIZE,
+} from "./tools.ts";
 export { canonicalInputHash, validateInput } from "./schema.ts";
 export { canonicalJson } from "./json.ts";
 export { validateDeclaration } from "./value.ts";

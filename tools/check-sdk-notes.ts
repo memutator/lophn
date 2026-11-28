@@ -12,6 +12,11 @@ const NOTES = "packages/core/agent-workspaces/skills/migrate-sdk";
 const PLATFORM_UPDATE_DIR = "packages/core/agent-workspaces/skills/update";
 const PLATFORM_NOTES_MANIFEST = `${PLATFORM_UPDATE_DIR}/platform-notes.json`;
 const PLATFORM_NOTES_DIR = `${PLATFORM_UPDATE_DIR}/notes`;
+const TEMPLATE_APP = "packages/core/apps/packages/template/app";
+const SAMPLE_APP_DECLARATION = "tests/support/app/sample/lophn.ts.tmpl";
+// `name: "@lophn/<part>", version: "x.y.z"`(선언)와 `sdk/<part>/x.y.z`(file: 의존, 지침의 경로).
+const PIN =
+  /name: "@lophn\/([a-z-]+)", version: "(\d+\.\d+\.\d+)"|\.lophn\/sdk\/([a-z-]+)\/(\d+\.\d+\.\d+)/g;
 const SEMVER = /^\d+\.\d+\.\d+$/;
 const NOTE_FILE = /^(.+)-(\d+\.\d+\.\d+)\.md$/;
 const KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -148,7 +153,37 @@ export async function checkSdkNotes(root: string): Promise<Issue[]> {
       });
     }
   }
+  issues.push(...(await checkTemplatePins(root, sdks)));
   issues.push(...(await checkPlatformNotes(root)));
+  return issues;
+}
+
+// 설치는 packages/sdk의 지금 판 하나만 data root에 깐다. template과 e2e 샘플 앱이 다른 판을 걸면
+// 새로 설치한 lophn은 이 template으로 앱을 만들지 못한다(SDK is not installed).
+async function checkTemplatePins(root: string, sdks: Sdk[]): Promise<Issue[]> {
+  const current = new Map(sdks.map((sdk) => [sdk.part, sdk.version]));
+  const files = [
+    ...(await readdir(`${root}/${TEMPLATE_APP}`, { withFileTypes: true }))
+      .filter((entry) => entry.isFile())
+      .map((entry) => entry.name)
+      .map((name) => `${TEMPLATE_APP}/${name}`),
+    SAMPLE_APP_DECLARATION,
+  ];
+  const issues: Issue[] = [];
+  for (const where of files) {
+    const text = await readFile(`${root}/${where}`, "utf8");
+    for (const pin of text.matchAll(PIN)) {
+      const part = pin[1] ?? pin[3];
+      const version = pin[2] ?? pin[4];
+      const now = current.get(part);
+      if (now !== undefined && now !== version) {
+        issues.push({
+          where,
+          message: `@lophn/${part} ${version}을 건다. 설치되는 판은 ${now}뿐이다. pin을 ${now}로 고친다.`,
+        });
+      }
+    }
+  }
   return issues;
 }
 

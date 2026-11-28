@@ -243,6 +243,7 @@ export type CarryLinksDeps = {
 type Lane = {
   running: boolean;
   again: boolean;
+  woken: boolean;
   attempts: number;
   notBefore: number;
 };
@@ -262,7 +263,13 @@ export function createCarryLinks(deps: CarryLinksDeps) {
     if (!active) return;
     let lane = lanes.get(machine);
     if (lane === undefined) {
-      lane = { running: false, again: false, attempts: 0, notBefore: 0 };
+      lane = {
+        running: false,
+        again: false,
+        woken: false,
+        attempts: 0,
+        notBefore: 0,
+      };
       lanes.set(machine, lane);
     }
     const one = lane;
@@ -279,6 +286,7 @@ export function createCarryLinks(deps: CarryLinksDeps) {
       try {
         for (;;) {
           one.again = false;
+          one.woken = false;
           const paced = deps.throughPublicRelay(machine);
           const pace: CarryPace = paced
             ? {
@@ -309,6 +317,11 @@ export function createCarryLinks(deps: CarryLinksDeps) {
                 message: done.error.message,
               },
             });
+            // 이전 연결 실패가 도는 사이 새 연결이 ready로 깨웠으면 물러나지 않고 바로 다시 받는다.
+            if (one.woken && active) {
+              one.woken = false;
+              continue;
+            }
             one.notBefore =
               deps.clock.nowMs() +
               Math.min(
@@ -384,8 +397,16 @@ export function createCarryLinks(deps: CarryLinksDeps) {
       for (const cancel of debounces.values()) cancel();
       debounces.clear();
     },
-    // link가 붙었다.
-    ready: kick,
+    // link가 붙었다. 앞 연결에서 실패해 남은 물러남은 새 연결에서 바로 지우고 받는다.
+    ready(machine: Id<"mch">) {
+      const lane = lanes.get(machine);
+      if (lane !== undefined) {
+        lane.attempts = 0;
+        lane.notBefore = 0;
+        if (lane.running) lane.woken = true;
+      }
+      kick(machine);
+    },
     // 상대가 든 옮기는 file이 바뀌었다.
     peerChanged(machine: Id<"mch">) {
       debounce(machine, () => kick(machine));

@@ -41,6 +41,8 @@ const askedCallOptions = [
   z.strictObject({
     kind: z.literal("shell"),
     command: z.string().min(1),
+    // 명령 없는 대화형 터미널 열기처럼 스캐너와 무관하게 opaque로 판정해야 하는 호출 표시.
+    opaque: z.literal(true).optional(),
   }),
   // 등록 폴더 밖이나 민감 경로(.env* 등) 파일 읽기.
   z.strictObject({

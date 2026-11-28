@@ -4,7 +4,6 @@
 // 표를 합치는 ledger step(`apps.notices.unified`)은 낸 step 목록의 맨 끝에 붙어야 해서(schema-steps.lock.json) 앱 팀의
 // schemaSteps가 아니라 목록 맨 뒤 wiring의 schemaStepsAfterTeams에 둔다.
 import { readFile } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
 import { err, errorCode, ok, type Result } from "../../../../base/mod.ts";
 import {
   type NoticeRecordInput,
@@ -37,10 +36,9 @@ export type NoticeRecorder = (
   input: NoticeRecordInput,
 ) => Promise<Result<{ id: string }>>;
 
+import { platformPath } from "../../../install-and-update/mod.ts";
 // 제품 판은 root package.json 하나다. 이 file 위치에서 본 repo root(개발)이거나 설치본의 platform/(tools/package가 root package.json을 싣는다)다.
-const PRODUCT_PACKAGE_JSON = fileURLToPath(
-  new URL("../../../../../package.json", import.meta.url),
-);
+const PRODUCT_PACKAGE_JSON = platformPath(import.meta.url, "package.json");
 
 export async function readProductVersion(): Promise<Result<string>> {
   try {

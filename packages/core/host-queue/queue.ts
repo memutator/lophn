@@ -55,17 +55,32 @@ export type PhoneTab = {
     refs: Map<string, number>;
   } | null;
 };
+export type TerminalTabInfo = {
+  ref: string;
+  agentOpened: boolean;
+  personControlling: boolean;
+};
+
+export type TerminalRemovedInfo = {
+  tab: Id<"tab">;
+  ref: string;
+  agentOpened: boolean;
+  handed: boolean;
+  reason: "closed" | "session_ended" | "reported_closed";
+};
+
 type TabEntry = {
   owner: TabOwner;
   workspace: HostWorkspace;
-  kind: "agent" | "browser" | "preview" | "artifact" | "phone";
+  kind: "agent" | "browser" | "preview" | "artifact" | "phone" | "terminal";
   // 연 대상이다. 탭 목록의 kind·title·path를 낸다. browser는 연 url이다.
   target: HostTabTarget | { phone: { app: Id<"app"> } };
   // preview·phone 탭은 앱마다, artifact 탭은 artifact마다 하나라 이 key로 찾는다. 다른 탭은 null이다.
   single: string | null;
   state: BrowserTabState | null;
   phone: PhoneTab | null;
-  // 사람이 넘겨준 browser 탭이다. 주인 session도 닫지 못한다.
+  terminal: TerminalTabInfo | null;
+  // 사람이 넘겨준 browser·terminal 탭이다. 주인 session도 닫지 못한다.
   handed: boolean;
   // 이 탭을 준 session들이다(`tabs/give`, 먼저 준 쪽부터). 끝은 지금 주인에게 준 session이다. 받은 session은 닫지 못하고, 여기 있는
   // session은 되찾을 수 있다. core 메모리에만 있어 창이 다시 알린 탭은 빈 사슬이다.
@@ -109,7 +124,7 @@ const GIVEN_TAB =
   "Another session gave you this tab; you cannot close it. Tell that session when you are done: it takes the tab back with `lophn tab give <tab> --back`, and the tab goes back to it when your session ends.";
 // `tabs/give`의 거절 문장도 model이 그대로 받는다(work.ts).
 const NOT_GIVABLE =
-  "Only a browser tab can be given. Open the page with `lophn tab open --url` and give that tab.";
+  "Only a browser or terminal tab can be given. Open one with `lophn tab open --url` or `lophn tab open --terminal` and give that tab.";
 const NOT_HOLDER =
   "You do not hold this tab, so you cannot give it. Only the session that holds a tab gives it on; a session that gave it can take it back with `lophn tab give <tab> --back`.";
 
@@ -127,8 +142,29 @@ export type HostQueue = {
   abandon(id: Id<"hrq">, message?: string): void;
   // 기한이 지난 호출(browser 호출, browser 탭 열기, 연결 요청)을 거둔다. 부른 쪽이 주기로 부른다.
   expire(): void;
-  // 자기가 연 browser·preview·artifact·phone 탭의 종류. 없는 탭, 남의 탭, session·agent 탭은 `not_found`다.
+  // 자기가 연 browser·preview·artifact·phone 탭의 종류. 없는 탭, 남의 탭, session·agent·terminal 탭은 `not_found`다.
   browserTab(tab: Id<"tab">, caller: TabOwner): Result<BrowserTabView>;
+  // 자기가 다루는 TUI 터미널 탭(`tab open --terminal` 또는 사람이 넘긴 터미널 탭). 없는 탭·남의 탭은 `not_found`다.
+  terminalTab(
+    tab: Id<"tab">,
+    caller: TabOwner,
+  ): Result<{
+    tab: Id<"tab">;
+    ref: string;
+    handed: boolean;
+    personControlling: boolean;
+  }>;
+  // 터미널 탭의 take control 상태를 바꾼다(사람 버튼 또는 키 입력). 대상이 agent 터미널 탭이면 true.
+  setTerminalControl(terminalRef: string, held: boolean): boolean;
+  // 현재 core 표에 올라간 TUI 터미널 탭 목록(자원 상한 계산 및 정리용).
+  terminalTabs(): readonly {
+    tab: Id<"tab">;
+    owner: TabOwner;
+    ref: string;
+    agentOpened: boolean;
+    handed: boolean;
+    personControlling: boolean;
+  }[];
   // 자기 탭(browserTab과 같은 탭)의 browser profile. null은 기본 profile이고, preview·artifact·phone 탭은 profile이 없어
   // NOT_BROWSER_TAB이다(그 탭의 login을 누가 다루는지는 부르는 쪽이 정한다). 없는 탭과 남의 탭은 `not_found`다.
   tabProfile(
@@ -163,7 +199,12 @@ export type HostQueue = {
   // `not_found`다. 표에 있는 넘긴 탭은 창이 다시 알린 것이라 주인은 core 표의 것을 그대로 두고(그 사이 주었거나 돌아갔을 수 있다)
   // workspace와 profile만 맞춘다. agent가 연 탭은 `conflict`다.
   hand(input: HandInput, open: () => boolean): Result<Id<"tab">>;
-  // caller가 든 browser 탭을 to에게 준다. to가 caller면 되찾기이고 caller가 준 사슬에 있어야 한다. 받는 session의 검사(자기 밑,
+  // 사람이 창의 터미널 탭을 session에 넘긴다. browser의 hand와 같은 규칙이다.
+  handTerminal(
+    input: HandTerminalInput,
+    open: () => boolean,
+  ): Result<Id<"tab">>;
+  // caller가 든 browser·terminal 탭을 to에게 준다. to가 caller면 되찾기이고 caller가 준 사슬에 있어야 한다. 받는 session의 검사(자기 밑,
   // 열림, 탭을 다룸)는 부른 쪽이 한다. sees가 거짓인 주인의 탭은 없는 탭과 같다. 주인이 바뀌면 창에 tab_owner를 보낸다.
   give(
     tab: Id<"tab">,
@@ -172,12 +213,13 @@ export type HostQueue = {
     sees: (owner: TabOwner) => boolean,
   ): Result<Id<"ses">>;
   // session이 끝났다. 그 session이 받은 탭은 준 session이 열려 있으면 그쪽으로, 아니면 사람에게 돌아가고, 사람이 넘긴 탭은 사람에게
-  // 돌아간다(넘긴 탭은 표에서 빠진다). 자기가 연 탭은 그대로다.
+  // 돌아간다(넘긴 탭은 표에서 빠진다). agent가 연 TUI 터미널 탭은 표에서 빼고 닫기를 알린다. 자기가 연 browser 탭은 그대로다.
   ended(session: Id<"ses">, open: (session: Id<"ses">) => boolean): void;
   // inScope가 참인 주인의 탭 목록이다. session 탭의 title은 sessionTitle로 읽는다. title·url은 부른 쪽이 redaction을 거친다.
   list(
     inScope: (owner: TabOwner) => boolean,
     sessionTitle: (session: string) => string,
+    terminalTitle?: (terminalRef: string) => string,
   ): TabListItem[];
   // `/host-link` 연결이 열려 있다.
   attached(): boolean;
@@ -193,6 +235,8 @@ type OpenInput = {
   tab?: Id<"tab">;
   // browser 탭의 profile이다. 없으면 기본 profile이다.
   profile?: Id<"bpf">;
+  // `tab open --terminal`로 연 TUI 터미널 탭 표시.
+  drivableTerminal?: true;
   // workflow_origin이 있는 session의 탭은 그 workflow instance의 desk에 연다.
   desk?: { workflow: string; instance?: string };
   // 같은 부모·step에서 병렬로 생긴 탭이 같은 묶음 key를 가지면 renderer가 한 묶음으로 둔다.
@@ -205,6 +249,13 @@ type HandInput = {
   workspace: HostWorkspace;
   profile: Id<"bpf"> | null;
   url: string;
+};
+
+type HandTerminalInput = {
+  tab?: Id<"tab">;
+  owner: Id<"ses">;
+  workspace: HostWorkspace;
+  terminal: string;
 };
 
 const sameWorkspace = (a: HostWorkspace, b: HostWorkspace) =>
@@ -260,6 +311,7 @@ function listItem(
   tab: Id<"tab">,
   entry: TabEntry,
   sessionTitle: (session: string) => string,
+  terminalTitle?: (terminalRef: string) => string,
 ): TabListItem {
   const { target, state } = entry;
   const item = {
@@ -274,7 +326,13 @@ function listItem(
   if ("session" in target) {
     return { ...item, kind: "session", title: sessionTitle(target.session) };
   }
-  if ("terminal" in target) return { ...item, kind: "terminal" };
+  if ("terminal" in target) {
+    return {
+      ...item,
+      kind: "terminal",
+      title: terminalTitle?.(target.terminal.terminal_ref) ?? "",
+    };
+  }
   if ("preview" in target) {
     return { ...item, kind: "preview", title: target.preview.app };
   }
@@ -304,15 +362,29 @@ export function createHostQueue(deps: {
   ids: IdSource;
   // browser 탭이 생기거나 빠지거나 그 상태가 바뀌었다(멀리서 보는 목록). 다른 kind는 부르지 않는다.
   changed?(): void;
+  // TUI 터미널 탭이 표에서 빠졌다(닫기, session 끝, 창 보고). wiring이 PTY 종료와 agent_control 해제를 맡는다.
+  terminalRemoved?(info: TerminalRemovedInfo): void;
 }) {
   const pending: Entry[] = [];
   const tabs = new Map<Id<"tab">, TabEntry>();
-  const forget = (tab: Id<"tab">) => {
+  const forget = (
+    tab: Id<"tab">,
+    reason: TerminalRemovedInfo["reason"] = "closed",
+  ) => {
     const entry = tabs.get(tab);
     tabs.delete(tab);
     // 아직 창에 가지 않은 주인 고치기는 버린다. 창이 다시 알린 탭이 core 표의 주인과 다른 주인을 그리지 않게 한다.
     dropOwner(tab);
     if (entry?.kind === "browser") deps.changed?.();
+    if (entry?.kind === "terminal" && entry.terminal !== null) {
+      deps.terminalRemoved?.({
+        tab,
+        ref: entry.terminal.ref,
+        agentOpened: entry.terminal.agentOpened,
+        handed: entry.handed,
+        reason,
+      });
+    }
   };
   // 그 탭의 아직 창에 가지 않은 주인 고치기를 뺀다. 창은 마지막 것만 알면 된다.
   const dropOwner = (tab: Id<"tab">) => {
@@ -570,6 +642,8 @@ export function createHostQueue(deps: {
       }
     }
     const tab = input.tab ?? (deps.ids.newId("tab") as Id<"tab">);
+    const isDrivableTerminal =
+      "terminal" in target && input.drivableTerminal === true;
     const kind =
       "preview" in target
         ? "preview"
@@ -577,7 +651,9 @@ export function createHostQueue(deps: {
           ? "artifact"
           : "browser" in target
             ? "browser"
-            : "agent";
+            : isDrivableTerminal
+              ? "terminal"
+              : "agent";
     tabs.set(tab, {
       owner: input.owner,
       workspace: input.workspace,
@@ -586,6 +662,13 @@ export function createHostQueue(deps: {
       single,
       state: null,
       phone: null,
+      terminal: isDrivableTerminal
+        ? {
+            ref: target.terminal.terminal_ref,
+            agentOpened: true,
+            personControlling: false,
+          }
+        : null,
       handed: false,
       givers: [],
       profile: input.profile ?? null,
@@ -680,15 +763,59 @@ export function createHostQueue(deps: {
         }
       }
     },
-    // 자기가 연 browser·preview·artifact·phone 탭이다. 없는 탭, 남의 탭, session·agent 탭은 `not_found`다.
+    // 자기가 연 browser·preview·artifact·phone 탭이다. 없는 탭, 남의 탭, session·agent·terminal 탭은 `not_found`다.
     browserTab(tab: Id<"tab">, caller: TabOwner): Result<BrowserTabView> {
       const found = owned(tab, caller, "read");
       if (!found.ok) return found;
       const { kind, phone } = found.value;
-      if (kind === "agent") return noSuchTab();
+      if (kind === "agent" || kind === "terminal") return noSuchTab();
       return kind === "phone"
         ? ok({ view: kind, phone: phone! })
         : ok({ view: kind });
+    },
+    terminalTab(tab: Id<"tab">, caller: TabOwner) {
+      const found = owned(tab, caller, "read");
+      if (!found.ok) return found;
+      const { kind, terminal, handed } = found.value;
+      if (kind !== "terminal" || terminal === null) return noSuchTab();
+      return ok({
+        tab,
+        ref: terminal.ref,
+        handed,
+        personControlling: terminal.personControlling,
+      });
+    },
+    setTerminalControl(terminalRef: string, held: boolean): boolean {
+      for (const entry of tabs.values()) {
+        if (entry.kind === "terminal" && entry.terminal?.ref === terminalRef) {
+          entry.terminal.personControlling = held;
+          return true;
+        }
+      }
+      return false;
+    },
+    terminalTabs() {
+      const out: {
+        tab: Id<"tab">;
+        owner: TabOwner;
+        ref: string;
+        agentOpened: boolean;
+        handed: boolean;
+        personControlling: boolean;
+      }[] = [];
+      for (const [tab, entry] of tabs) {
+        if (entry.kind === "terminal" && entry.terminal !== null) {
+          out.push({
+            tab,
+            owner: entry.owner,
+            ref: entry.terminal.ref,
+            agentOpened: entry.terminal.agentOpened,
+            handed: entry.handed,
+            personControlling: entry.terminal.personControlling,
+          });
+        }
+      }
+      return out;
     },
     tabProfile(
       tab: Id<"tab">,
@@ -697,7 +824,7 @@ export function createHostQueue(deps: {
       const found = owned(tab, caller, "read");
       if (!found.ok) return found;
       const { kind, profile } = found.value;
-      if (kind === "agent") return noSuchTab();
+      if (kind === "agent" || kind === "terminal") return noSuchTab();
       return ok(kind === "browser" ? profile : NOT_BROWSER_TAB);
     },
     attached,
@@ -728,6 +855,7 @@ export function createHostQueue(deps: {
           single: null,
           state: { url: input.url, title: "", loading: false },
           phone: null,
+          terminal: null,
           handed: true,
           givers: [],
           profile: input.profile,
@@ -755,6 +883,63 @@ export function createHostQueue(deps: {
       deps.changed?.();
       return ok(input.tab!);
     },
+    handTerminal(
+      input: HandTerminalInput,
+      open: () => boolean,
+    ): Result<Id<"tab">> {
+      const found = input.tab === undefined ? undefined : tabs.get(input.tab);
+      const closed = () =>
+        err({ code: "not_found" as const, message: "session not found" });
+      if (found === undefined) {
+        if (!open()) return closed();
+        // 이미 tab open(`--terminal`, `--tui`, `--coding` 등)으로 core 표에 오른 터미널은 소유자와 무관하게 넘길 수 없다.
+        for (const existing of tabs.values()) {
+          if (
+            !existing.handed &&
+            (existing.terminal?.ref === input.terminal ||
+              ("terminal" in existing.target &&
+                existing.target.terminal.terminal_ref === input.terminal))
+          ) {
+            return err({
+              code: "conflict" as const,
+              message:
+                "Only a terminal tab the person opened can be handed over.",
+            });
+          }
+        }
+        const tab = input.tab ?? (deps.ids.newId("tab") as Id<"tab">);
+        tabs.set(tab, {
+          owner: input.owner,
+          workspace: input.workspace,
+          kind: "terminal",
+          target: { terminal: { terminal_ref: input.terminal } },
+          single: null,
+          state: null,
+          phone: null,
+          terminal: {
+            ref: input.terminal,
+            agentOpened: false,
+            personControlling: false,
+          },
+          handed: true,
+          givers: [],
+          profile: null,
+        });
+        return ok(tab);
+      }
+      if (
+        found.kind !== "terminal" ||
+        !found.handed ||
+        found.terminal?.ref !== input.terminal
+      ) {
+        return err({
+          code: "conflict" as const,
+          message: "Only a terminal tab the person opened can be handed over.",
+        });
+      }
+      found.workspace = input.workspace;
+      return ok(input.tab!);
+    },
     give(
       tab: Id<"tab">,
       caller: Id<"ses">,
@@ -763,7 +948,10 @@ export function createHostQueue(deps: {
     ): Result<Id<"ses">> {
       const entry = tabs.get(tab);
       if (entry === undefined || !sees(entry.owner)) return noSuchTab();
-      if (entry.kind !== "browser") {
+      if (
+        entry.kind !== "browser" &&
+        !(entry.kind === "terminal" && entry.terminal !== null)
+      ) {
         return err({ code: "invalid_input" as const, message: NOT_GIVABLE });
       }
       if (to === caller) {
@@ -786,7 +974,18 @@ export function createHostQueue(deps: {
     ended(session: Id<"ses">, open: (session: Id<"ses">) => boolean): void {
       for (const [tab, entry] of [...tabs]) {
         if (entry.owner !== session) continue;
-        if (entry.givers.length === 0 && !entry.handed) continue;
+        if (entry.givers.length === 0 && !entry.handed) {
+          if (entry.kind === "terminal" && entry.terminal !== null) {
+            forget(tab, "session_ended");
+            enqueue({
+              id: deps.ids.newId("hrq") as Id<"hrq">,
+              kind: "tab_close",
+              workspace: entry.workspace,
+              payload: { tab },
+            });
+          }
+          continue;
+        }
         // `team end`는 자손을 잎부터 한 tx에서 닫아 event가 commit 뒤에 오므로, 바로 준 session도 이미 끝났을 수 있다. 가장 가까운
         // 열린 session에게 돌아가고 끝난 session은 사슬에서 빠진다.
         const at = entry.givers.findLastIndex(open);
@@ -795,8 +994,18 @@ export function createHostQueue(deps: {
           entry.givers = entry.givers.slice(0, at);
         } else if (entry.handed) {
           // 사람의 탭으로 돌아간다. 창이 되찾기처럼 owner·handed_tab을 지운다.
-          forget(tab);
+          forget(tab, "session_ended");
           entry.owner = "person";
+        } else if (entry.kind === "terminal") {
+          // agent가 연 터미널 탭을 넘긴 뒤 원 주인 session도 모두 끝났다. 프로세스 그룹 정리 후 닫는다.
+          forget(tab, "session_ended");
+          enqueue({
+            id: deps.ids.newId("hrq") as Id<"hrq">,
+            kind: "tab_close",
+            workspace: entry.workspace,
+            payload: { tab },
+          });
+          continue;
         } else {
           // agent가 연 탭은 사람 token의 탭으로 만들지 않는다(그 agent의 profile login에 닿는다). 끝난 연 session의 탭으로 돌아가
           // 그 session이 스스로 연 탭과 같이 아무 agent도 다루지 못하고 사람은 창에서 본다. 사슬 처음이 연 session이다.
@@ -809,10 +1018,13 @@ export function createHostQueue(deps: {
     list(
       inScope: (owner: TabOwner) => boolean,
       sessionTitle: (session: string) => string,
+      terminalTitle?: (terminalRef: string) => string,
     ): TabListItem[] {
       return [...tabs]
         .filter(([, entry]) => inScope(entry.owner))
-        .map(([tab, entry]) => listItem(tab, entry, sessionTitle));
+        .map(([tab, entry]) =>
+          listItem(tab, entry, sessionTitle, terminalTitle),
+        );
     },
     // browser 탭 전부다(멀리서 보기의 대상). state는 renderer가 아직 알리지 않았으면 null이다.
     pages(): {
@@ -851,6 +1063,7 @@ export function createHostQueue(deps: {
         single,
         state: null,
         phone: { app: input.app, screen: input.screen, counter: 0, last: null },
+        terminal: null,
         handed: false,
         givers: [],
         profile: null,
@@ -864,7 +1077,7 @@ export function createHostQueue(deps: {
     done,
     // renderer가 host 탭의 상태나 닫힘을 알린다. 모르는 탭은 무시한다.
     report(tab: Id<"tab">, state: BrowserTabState | "closed"): void {
-      if (state === "closed") forget(tab);
+      if (state === "closed") forget(tab, "reported_closed");
       else {
         const entry = tabs.get(tab);
         if (entry === undefined) return;

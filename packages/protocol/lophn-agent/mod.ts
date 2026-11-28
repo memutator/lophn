@@ -41,6 +41,7 @@ export * from "./session-status.ts";
 export * from "./sessions.ts";
 export * from "./skill-settings.ts";
 export * from "./team.ts";
+export * from "./terminal-use.ts";
 export * from "./tool-calls.ts";
 export * from "./tool-catalog.ts";
 export * from "./tool-lists.ts";

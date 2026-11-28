@@ -146,6 +146,7 @@ export function matchesSessionGrant(
           isPathInside(call.path, g.pattern, options?.homeDir),
       );
     case "shell": {
+      if (call.opaque === true) return false;
       const scan =
         options?.scan ?? scanShellCommand(call.command, options?.homeDir);
       if (
@@ -323,6 +324,7 @@ export function evaluatePermission(
   // ---------- 1. Floor / 자기 보호 ----------
   if (call.kind === "shell") {
     const scan = scanShellCommand(call.command, request.homeDir);
+    const isOpaque = scan.opaque || call.opaque === true;
     const floorHit = matchFloorRules(layers.floor, scan);
     if (floorHit !== null) {
       return {
@@ -400,7 +402,7 @@ export function evaluatePermission(
     }
 
     // 내장 읽기 명령 목록(opaque·elevated·출력 리다이렉션·위험 env가 없을 때).
-    if (isReadOnlyShellCommand(scan, shellPathOpts)) {
+    if (!isOpaque && isReadOnlyShellCommand(scan, shellPathOpts)) {
       return { kind: "run" };
     }
 
@@ -414,13 +416,13 @@ export function evaluatePermission(
     }
 
     // elevated(sudo 등)와 opaque 명령은 user allow·session grant·읽기 목록으로 통과하지 못한다.
-    if (userRule.action === "allow" && !scan.opaque && !scan.elevated) {
+    if (userRule.action === "allow" && !isOpaque && !scan.elevated) {
       return { kind: "run" };
     }
 
     // ---------- 5. 이번 대화 허락 (shell) ----------
     if (
-      !scan.opaque &&
+      !isOpaque &&
       !scan.elevated &&
       matchesSessionGrant(sessionGrants, call, {
         scan,
@@ -449,17 +451,21 @@ export function evaluatePermission(
       );
     }
 
-    if (scan.opaque) {
+    if (isOpaque) {
       return finalizeContext(
         {
           kind: "ask",
           reason:
-            "Shell command could not be statically verified (unclosed syntax, dynamic expansion, or size limit).",
+            call.opaque === true
+              ? "Opening an interactive shell requires explicit one-time approval."
+              : "Shell command could not be statically verified (unclosed syntax, dynamic expansion, or size limit).",
           outside_rewind: true,
           allowed_choices: ["once", "reject"],
           unattendedRecovery: null,
           unattendedHint:
-            "Simplify the command so it can be verified, or run it interactively.",
+            call.opaque === true
+              ? "Pass --command with a specific command, or open the interactive shell in an attended session."
+              : "Simplify the command so it can be verified, or run it interactively.",
         },
         request,
         context,

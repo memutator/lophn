@@ -36,14 +36,12 @@ import {
 } from "../../../storage/ledger/mod.ts";
 import type { DataStep } from "../../../storage/migration/mod.ts";
 import { assignmentSchema } from "../../../../protocol/approvals/mod.ts";
+import { platformEntryUrl } from "../../../install-and-update/mod.ts";
 import type { WiringFactory } from "./context.ts";
 import { agentDirectory } from "./lophn-agent-team.ts";
 
 // 동기 file API는 core 프로세스의 module graph에 정적으로 두지 않는다. adapter는 URL로 연다.
-const NODE_AGENT_FILES = new URL(
-  "../../../lophn-agent/agents/adapters/node-fs.ts",
-  import.meta.url,
-).href;
+const NODE_AGENT_FILES = platformEntryUrl(import.meta.url, "agentNodeFs").href;
 const { createNodeAgentFiles } = (await import(NODE_AGENT_FILES)) as {
   createNodeAgentFiles(): AgentFileSystem;
 };

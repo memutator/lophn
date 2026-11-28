@@ -3,7 +3,7 @@
 
 const SECRET_NAME =
   /(TOKEN|SECRET|PASSWORD|CREDENTIAL|KEYCHAIN|HANDLE|API_KEY|AUTH)/i;
-const INTERNAL_NAME = /^(LOPHN_|ELECTRON_|NODE_CHANNEL_FD$)/;
+const INTERNAL_NAME = /^(LOPHN_|ELECTRON_|NODE_CHANNEL_FD$|COLUMNS$|LINES$)/;
 // 터미널을 연 process가 agent session 안에서 도는 중이면 그 session이 자식 env에 넣은 표지다. 새 터미널은
 // 사람의 것이라 물려받지 않는다(Claude Code는 CLAUDE_CODE_CHILD_SESSION이 있으면 transcript를 저장하지
 // 않는다). 이름은 각 CLI가 자식 process env에 넣는 목록이다. CLAUDE_CODE_USE_BEDROCK 같은 사용자 설정은

@@ -6,6 +6,7 @@ import type { Readable } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import { DECLARATION_EXTRACT_LIMIT_MS } from "../../../protocol/apps/mod.ts";
+import { platformEntryUrl } from "../../install-and-update/mod.ts";
 import { windowsEnvironment } from "../../supervision/security/child-env.ts";
 import { nodeCommand } from "../../supervision/security/node-command.ts";
 import {
@@ -24,7 +25,7 @@ type ExtractedDeclaration = {
   hashInput: string;
 };
 
-const CHILD = new URL("./extract-child.ts", import.meta.url);
+const CHILD = platformEntryUrl(import.meta.url, "extractChild");
 
 // 선언 판정 결과의 검사기 모양. wrapper(mod.ts)가 다시 내보내는 protocol
 // ValidationResult와 같은 모양이다.

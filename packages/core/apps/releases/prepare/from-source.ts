@@ -14,7 +14,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import process from "node:process";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { pathToFileURL } from "node:url";
 import {
   err,
   errorCode,
@@ -23,6 +23,10 @@ import {
   signalTree,
 } from "../../../../base/mod.ts";
 import { appStagingFolder } from "../../../../protocol/apps/mod.ts";
+import {
+  platformEntry,
+  platformEntryUrl,
+} from "../../../install-and-update/mod.ts";
 import {
   type NodeCommand,
   nodeCommand,
@@ -152,16 +156,13 @@ async function runChild(
   }
 }
 
-const EVAL_DECLARATION = fileURLToPath(
-  new URL("../ui-build/eval-declaration.ts", import.meta.url),
-);
-const APP_BUILD = fileURLToPath(
-  new URL("../ui-build/app-build.ts", import.meta.url),
-);
-const PHONE_BACKEND = fileURLToPath(
-  new URL("../phone-backend/main.ts", import.meta.url),
-);
-const PACKAGES_URL = new URL("../../../../", import.meta.url).href;
+const EVAL_DECLARATION = platformEntry(import.meta.url, "evalDeclaration");
+const APP_BUILD = platformEntry(import.meta.url, "appBuild");
+const PHONE_BACKEND = platformEntry(import.meta.url, "phoneBackend");
+const APP_ENTRYPOINT_URL = platformEntryUrl(
+  import.meta.url,
+  "appEntrypoint",
+).href;
 
 // 화면 build 결과(dist/screens/<key>/)를 bundle 입력으로 읽는다. desktop 화면의 main.js는 화면이고 나머지(폰 화면의
 // phone.js·phone.json·preview.js 등)는 자원이다.
@@ -274,7 +275,7 @@ export async function prepareFromSource(
 ): Promise<Result<PreparedRelease, PrepareFailure>> {
   const git: GitRunner = deps.git ?? gitCommandRunner();
   const limitMs = deps.stepLimitMs ?? STEP_LIMIT_MS;
-  const platformEntry = runtimeEntry(PACKAGES_URL);
+  const platformEntry = runtimeEntry(APP_ENTRYPOINT_URL);
   const aborted = () =>
     deps.signal?.aborted === true || deps.cancelled?.() === true;
   const extracted = await extractCommit(git, {

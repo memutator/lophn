@@ -9,6 +9,7 @@ import type {
   TerminalProject,
   TerminalRuntime,
 } from "../../protocol/coding-agent/terminals.ts";
+import type { TuiScreenSnapshot, TuiScreenState } from "./host/screen.ts";
 
 // 열기. project는 Home(`home`)일 수 있고 그 폴더는 사람의 home 폴더다. cwd는 등록 폴더 안이어야 한다. command는 첫 출력 뒤 잠잠할 때 한 번 넣고, resume은 그 harness의 resume 명령을 친다.
 export type TerminalOpen = {
@@ -17,13 +18,18 @@ export type TerminalOpen = {
   cwd?: string;
   command?: string;
   resume?: { harness: string; external_session: string };
-  /** 지정하면 대화형 셸이 아니라 명령 전용 PTY로 바로 실행한다(project commands). */
+  /** 지정하면 대화형 셸이 아니라 명령 전용 PTY로 바로 실행한다(project commands, agent TUI --command). */
   exec?: string;
   /** 명령 전용 PTY에 덮어쓸 환경변수. */
   env?: Readonly<Record<string, string>>;
   /** 지정하면 같은 터미널 참조를 generation을 올려 재사용한다. */
   terminal_ref?: string;
+  /** 초기 PTY 크기. 없으면 80x24다. */
+  columns?: number;
+  rows?: number;
   dedicated?: true;
+  /** agent가 `tab open --terminal`로 연 TUI 터미널. */
+  agent?: true;
 };
 
 // 터미널 하나를 열 때 그 PTY에 더할 env(hook socket, browser bridge)를 준다. 터미널 참조는 PTY host가 열면서 정하므로 env는 열기 전에
@@ -100,12 +106,27 @@ export type Terminals = {
     tail: number,
     known?: TerminalScreenKnown,
   ): Promise<Result<TerminalScreen | null>>;
+  /** 모델용 경량 상태(모드, 커서, 제목, 시각 해시)를 읽는다. */
+  tuiState(
+    terminal: string,
+  ): Promise<Result<{ runtime: TerminalRuntime; state: TuiScreenState }>>;
+  /** 모델용 화면 스냅샷(평문/ANSI, highlights, 선택 scrollback, 시각 해시)을 읽는다. */
+  tuiSnapshot(
+    terminal: string,
+    options?: { scrollback?: number; ansi?: boolean },
+  ): Promise<Result<{ runtime: TerminalRuntime; snapshot: TuiScreenSnapshot }>>;
+  /** desktop xterm client가 이 터미널에 붙었는지 PTY host에 알린다. */
+  setClientAttached(terminal: string, attached: boolean): void;
   list(project?: TerminalProject): readonly TerminalRuntime[];
   runtime(terminal: string): TerminalRuntime | null;
-  // tracker가 정한 agent(null이면 뺀다)와 탭 이름을 runtime에 싣는다. 바뀌면 `onRuntime`이 듣는다.
+  // tracker가 정한 agent(null이면 뺀다), 탭 이름, agent take control 상태(null이면 뺀다)를 runtime에 싣는다. 바뀌면 `onRuntime`이 듣는다.
   patch(
     terminal: string,
-    patch: { agent?: TerminalAgent | null; tab_name?: string },
+    patch: {
+      agent?: TerminalAgent | null;
+      tab_name?: string;
+      agent_control?: { held: boolean } | null;
+    },
   ): void;
   onRuntime(listener: (runtime: TerminalRuntime) => void): () => void;
   onOutput(listener: (output: readonly TerminalOutput[]) => void): () => void;

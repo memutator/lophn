@@ -9,11 +9,13 @@ type RuntimeEntry = {
   files: { path: string; bytes: Uint8Array }[];
 };
 
-// `packagesUrl`은 플랫폼 `packages/` 폴더의 file URL이다(끝에 `/`).
-export function runtimeEntry(packagesUrl: string): RuntimeEntry {
-  const module = JSON.stringify(
-    `${packagesUrl}core/apps/runtime/entrypoint/main.ts`,
-  );
+// `entrypointUrl`은 플랫폼 앱 진입점(`dist/app-entrypoint.mjs` 또는 `packages/core/apps/runtime/entrypoint/main.ts`)의 file URL이다.
+// 기존 `packages/` 폴더 URL(끝이 `/`)을 넘겨도 진입 파일 경로로 이어 준다.
+export function runtimeEntry(entrypointUrl: string): RuntimeEntry {
+  const target = entrypointUrl.endsWith("/")
+    ? `${entrypointUrl}core/apps/runtime/entrypoint/main.ts`
+    : entrypointUrl;
+  const module = JSON.stringify(target);
   const source = `// lophn이 만든 진입 파일이다. 앱 code는 \`main.ts\`다.
 import { run } from ${module};
 

@@ -38,16 +38,14 @@ import {
 import type { AgentFileSystem } from "../../../lophn-agent/agents/ports.ts";
 import { appWorkspaceSessions } from "../../../lophn-agent/session/model.ts";
 import { eraseToolResults } from "../../../lophn-agent/session/rewind/erase.ts";
+import { platformEntryUrl } from "../../../install-and-update/mod.ts";
 import { defineTxPort } from "../../../storage/ledger/mod.ts";
 import type { WiringFactory } from "./context.ts";
 import { agentDirectory } from "./lophn-agent-team.ts";
 import { readAssignment, writeAssignment } from "./assignment-file.ts";
 
 // 동기 file API는 core 프로세스의 module graph에 정적으로 두지 않는다. adapter는 URL로 연다.
-const NODE_AGENT_FILES = new URL(
-  "../../../lophn-agent/agents/adapters/node-fs.ts",
-  import.meta.url,
-).href;
+const NODE_AGENT_FILES = platformEntryUrl(import.meta.url, "agentNodeFs").href;
 const { createNodeAgentFiles } = (await import(NODE_AGENT_FILES)) as {
   createNodeAgentFiles(): AgentFileSystem;
 };

@@ -184,9 +184,11 @@ information). Use `lophn app link-source` only for an existing git repo with a c
   two with `lophn call send` (`to: {agent: "lophn", workspace: {home: true}}`,
   `--reply none`): what it is and whom to ask. Home keeps the map of the
   workspaces in the global memory.
-- Apps have no terminal, so `lophn tab open --coding` does not work here.
-  Work for a coding agent (including one with a `harness_config` profile) runs
-  in the background with `lophn team spawn <handle>`.
+- Apps have no terminal, so `lophn tab open --coding` and
+  `lophn tab open --terminal` do not work here. Use `shell.run` for commands in
+  the source folder; work for a coding agent (including one with a
+  `harness_config` profile) runs in the background with
+  `lophn team spawn <handle>`.
 - The lophn browser (`lophn tab open`, `lophn browser ...`) is the browser for
   this work. If it fails, do not start another browser (Chrome, Playwright,
   browser-use or any other) and do not read the person's browser profile or

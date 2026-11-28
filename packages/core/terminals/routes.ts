@@ -71,6 +71,24 @@ export function createTerminalRoutes(deps: {
 }) {
   const { terminals } = deps;
   const leases = new Map<string, { terminal: string; expiresAt: number }>();
+  const attached = new Set<string>();
+  const syncAttached = (terminal: string) => {
+    const now = deps.clock.nowMs();
+    let active = false;
+    for (const lease of leases.values()) {
+      if (lease.terminal === terminal && lease.expiresAt > now) {
+        active = true;
+        break;
+      }
+    }
+    if (active && !attached.has(terminal)) {
+      attached.add(terminal);
+      terminals.setClientAttached(terminal, true);
+    } else if (!active && attached.has(terminal)) {
+      attached.delete(terminal);
+      terminals.setClientAttached(terminal, false);
+    }
+  };
   const opens = new Map<
     string,
     Promise<Result<{ terminal: string; runtime: TerminalRuntime }>>
@@ -226,6 +244,7 @@ export function createTerminalRoutes(deps: {
       const key = `${principal}\n${input.watcher}\n${input.terminal}`;
       if (!input.on) {
         leases.delete(key);
+        syncAttached(input.terminal);
         return ok({});
       }
       if (terminals.runtime(input.terminal) === null) return gone();
@@ -233,6 +252,7 @@ export function createTerminalRoutes(deps: {
         terminal: input.terminal,
         expiresAt: deps.clock.nowMs() + LEASE_MS,
       });
+      syncAttached(input.terminal);
       return ok({});
     },
 
@@ -254,9 +274,14 @@ export function createTerminalRoutes(deps: {
     // 기한이 지난 lease를 거둔다(주기로 부른다).
     expire(): void {
       const now = deps.clock.nowMs();
+      const touched = new Set<string>();
       for (const [key, lease] of leases) {
-        if (lease.expiresAt <= now) leases.delete(key);
+        if (lease.expiresAt <= now) {
+          leases.delete(key);
+          touched.add(lease.terminal);
+        }
       }
+      for (const terminal of touched) syncAttached(terminal);
     },
   };
 }

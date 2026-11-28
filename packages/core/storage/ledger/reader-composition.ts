@@ -1,4 +1,5 @@
 import type { ReadDefinition } from "../../../protocol/server/mod.ts";
+import { platformEntryUrl } from "../../install-and-update/mod.ts";
 import { type ReaderRegistrationModule, readKey } from "./reads.ts";
 
 export type ReaderReads = Map<
@@ -6,17 +7,35 @@ export type ReaderReads = Map<
   { read: ReadDefinition; ports: ReadonlyMap<unknown, unknown> }
 >;
 
+type MaybeBundledReaderModule = ReaderRegistrationModule & {
+  BUNDLED_TEAM_MODULES?: readonly ReaderRegistrationModule[];
+};
+
+function expandReaderModules(
+  loaded: readonly MaybeBundledReaderModule[],
+): ReaderRegistrationModule[] {
+  return loaded.flatMap((mod) =>
+    Array.isArray(mod.BUNDLED_TEAM_MODULES) ? mod.BUNDLED_TEAM_MODULES : [mod],
+  );
+}
+
 // core가 reader Worker에 건넬 등록 module이다. ledger 자신의 read 등록이 먼저이고, createReaderRegistration을
 // 내보내는 팀 module이 그 뒤다. read 없이 환경만 놓는 module도 그 export로 reader에 들어간다.
 export async function readerModulesOf(
   modules: readonly string[],
 ): Promise<URL[]> {
-  const found = [new URL("./reader-registration.ts", import.meta.url)];
+  const found = [platformEntryUrl(import.meta.url, "readerRegistration")];
   const loaded = (await Promise.all(
     modules.map((url) => import(url)),
-  )) as ReaderRegistrationModule[];
+  )) as MaybeBundledReaderModule[];
   for (let i = 0; i < modules.length; i += 1) {
-    if (typeof loaded[i]?.createReaderRegistration === "function") {
+    const mod = loaded[i];
+    const hasReader =
+      mod !== undefined &&
+      expandReaderModules([mod]).some(
+        (entry) => typeof entry?.createReaderRegistration === "function",
+      );
+    if (hasReader) {
       found.push(new URL(modules[i]!));
     }
   }
@@ -30,9 +49,10 @@ export async function composeReaderReads(
   modules: readonly string[],
   own: ReadonlyMap<unknown, unknown>,
 ): Promise<ReaderReads> {
-  const loaded: ReaderRegistrationModule[] = await Promise.all(
+  const raw = (await Promise.all(
     modules.map((url) => import(url)),
-  );
+  )) as MaybeBundledReaderModule[];
+  const loaded = expandReaderModules(raw);
   const registrations = loaded.flatMap((module) =>
     module.createReaderRegistration ? [module.createReaderRegistration()] : [],
   );

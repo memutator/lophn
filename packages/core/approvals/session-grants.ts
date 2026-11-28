@@ -68,6 +68,7 @@ export function sessionGrantInputForRequest(
         label: subject.folder,
       };
     case "shell": {
+      if (subject.opaque === true) return null;
       const scan = scanShellCommand(subject.command, homeDir);
       if (scan.opaque || scan.elevated) return null;
       const safe = alwaysPatterns(layers, subject.command, homeDir, dataRoot);

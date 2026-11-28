@@ -75,6 +75,8 @@ export class TerminalStore {
   readonly #agents = new Map<string, TabAgent>();
   // core가 알린 터미널의 live generation. xterm 탭이 서지 않는 GUI 탭도 focus를 보고하려면 항목 없이 알아야 한다.
   readonly #generations = new Map<string, number>();
+  // agent가 다루는 터미널의 take control 상태.
+  readonly #agentControls = new Map<string, { readonly held: boolean }>();
   // 터미널마다 coding session(GUI view, handoff, 바꿀 수 있는가).
   #coding = new Map<string, CodingSession>();
   // 못 본 끝이 있는 terminal_ref. 창의 event 연결(EventsProvider)이 넣는다.
@@ -194,6 +196,12 @@ export class TerminalStore {
     return ref === null ? undefined : this.#coding.get(ref);
   }
 
+  /** agent가 다루는 터미널이면 take control 상태(`{ held }`), 아니면 undefined다. */
+  agentControlOf(key: string): { readonly held: boolean } | undefined {
+    const ref = this.refOf(key);
+    return ref === null ? undefined : this.#agentControls.get(ref);
+  }
+
   /** 항목이나 agent가 바뀔 때마다 오르는 값. 탭 줄이 useSyncExternalStore로 읽어 다시 그린다. */
   version(): number {
     return this.#version;
@@ -205,6 +213,11 @@ export class TerminalStore {
     const ref = runtime.terminal_ref;
     const generationChanged = this.#generations.get(ref) !== runtime.generation;
     this.#generations.set(ref, runtime.generation);
+    const prevControl = this.#agentControls.get(ref);
+    const nextControl = runtime.agent_control;
+    const controlChanged = prevControl?.held !== nextControl?.held;
+    if (nextControl === undefined) this.#agentControls.delete(ref);
+    else this.#agentControls.set(ref, nextControl);
     const before = this.#agents.get(ref);
     const next =
       runtime.agent === undefined
@@ -213,7 +226,7 @@ export class TerminalStore {
     // 칸을 골라 비교하면 새 칸(foreground, name)이 빠져, hook 뒤에 온 foreground 알림을 버리고 GUI 전환을 막았다.
     // core(tracker)가 agent를 같은 순서로 만들어 JSON으로 비교한다.
     if (JSON.stringify(before) === JSON.stringify(next)) {
-      if (generationChanged) this.#agentsChanged();
+      if (generationChanged || controlChanged) this.#agentsChanged();
       return;
     }
     if (next === undefined) this.#agents.delete(ref);

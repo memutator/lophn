@@ -4,12 +4,23 @@ import {
   WORKSPACE_KINDS,
   type WorkspaceKind,
 } from "../../../protocol/lophn-agent/mod.ts";
+import { platformPath } from "../../install-and-update/mod.ts";
 
 // Node는 text import가 없어 module을 읽을 때 한 번 읽는다. prompt 파일이 없으면 core가 뜨지 않는다.
 const WORKSPACE_PROMPTS = new Map<WorkspaceKind, string>(
   WORKSPACE_KINDS.map((kind) => [
     kind,
-    readFileSync(new URL(`./${kind}.md`, import.meta.url), "utf8"),
+    readFileSync(
+      platformPath(
+        import.meta.url,
+        "packages",
+        "core",
+        "agent-workspaces",
+        "prompts",
+        `${kind}.md`,
+      ),
+      "utf8",
+    ),
   ]),
 );
 

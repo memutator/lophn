@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { err, ok } from "../../base/mod.ts";
+import { err, manualClock, ok } from "../../base/mod.ts";
 import type { Id } from "../../protocol/base/ids.ts";
 import {
   CARRY_CHUNK_MAX_BYTES,
   CARRY_WANTS_MAX,
 } from "../../protocol/remote/carry.ts";
 import type { FolderReplica } from "../folder/ports.ts";
-import { carryFrom, type PeerCall } from "./carry.ts";
+import { carryFrom, createCarryLinks, type PeerCall } from "./carry.ts";
 
 const machine = "mch_01jx0000000000000000000000" as Id<"mch">;
 const zeros = "0".repeat(64);
@@ -154,4 +154,39 @@ test("받는 자리가 믿지 않은 manifest는 다음 pass에서 다시 받지
   assert.deepEqual(await carryFrom(call, port, rejected), nothing);
   assert.deepEqual(await carryFrom(call, port, rejected), nothing);
   assert.equal(reads.get(path), 1);
+});
+
+// 앞 연결이 실패해 60초 backoff에 들어가도 새 연결이 붙으면(ready) 기다리지 않고 바로 받는다.
+test("carry links의 ready는 앞선 실패의 backoff를 지우고 즉시 다시 받는다", async () => {
+  const clock = manualClock(1_000_000);
+  let calls = 0;
+  let fail = true;
+  const { port } = replica([]);
+  const links = createCarryLinks({
+    call: async () => {
+      calls += 1;
+      if (fail) {
+        return err({ code: "unavailable", message: "disconnected" });
+      }
+      return ok({ manifests: [] });
+    },
+    peers: () => [machine],
+    replica: () => port,
+    throughPublicRelay: () => false,
+    clock,
+    wait: () => () => undefined,
+    logger: { info() {}, warn() {}, error() {} } as never,
+  });
+  links.start();
+  links.ready(machine);
+  await new Promise((r) => setImmediate(r));
+  assert.equal(calls, 1);
+
+  // backoff 중에는 peerChanged/all이 바로 돌지 않지만 ready는 backoff를 지우고 바로 돈다.
+  fail = false;
+  clock.advance(5_000);
+  links.ready(machine);
+  await new Promise((r) => setImmediate(r));
+  assert.equal(calls, 2);
+  links.stop();
 });

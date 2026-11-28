@@ -113,7 +113,7 @@ elements:
 
           - id: host-queue-core
             kind: component
-            description: core가 shell에 시킬 일의 메모리 queue와 탭 표(agent가 연 탭, 사람이 session에 넘긴 browser 탭. 주인과 browser profile을 든다). shell main이 `/host-link`로 받는다. 요청은 창이 있어야 하는 것(탭 열기·닫기·보이기, browser 호출)뿐이고 터미널과 coding session은 core가 갖는다. phone 탭(사람의 폰에 뜬 preview 화면)은 shell에 가지 않고 core가 폰 link의 `drive.*`로 다룬다(ref 번호, snapshot 글, 오류 문장, redaction은 core).
+            description: core가 shell에 시킬 일의 메모리 queue와 탭 표(agent가 연 탭, 사람이 session에 넘긴 browser·터미널 탭. 주인과 browser profile, 대화형 터미널 take control 상태를 든다). shell main이 `/host-link`로 받는다. 창이 필요한 일(탭 열기·닫기·보이기, browser 호출)은 host에 보내고, 대화형 터미널(`tab open --terminal`, `terminal/read|snapshot|act|wait|resize`)과 coding session은 core가 창 없이도 직접 다룬다. phone 탭(사람의 폰에 뜬 preview 화면)은 shell에 가지 않고 core가 폰 link의 `drive.*`로 다룬다(ref 번호, snapshot 글, 오류 문장, redaction은 core).
 
           - id: harness-host-core
             kind: component
@@ -432,7 +432,7 @@ interfaces:
 
   - id: host-queue-interface
     kind: interface
-    description: host(desktop 앱의 shell main, display 없는 Linux에서 core가 `--page-host`로 띄운 page host)가 사람 token으로 여는 양방향 연결 `/host-link`(WebSocket, subprotocol `lophn.host-link.1`)의 frame(host가 올리는 `hello`·`visible`(보이는 workspace), `response`, `report`, `page_frame`(보는 쪽이 있는 page의 JPEG frame)·`page_state`(painting, agent, held)와 core가 미는 `request`(`tab_open`·`tab_close`·`tab_show`, `browser_call`, 연결이 있을 때만 가는 연결 요청 `page_stream`·`page_read`·`page_input`·`page_control`). page를 드는 쪽이 있어야 하는 일만 다루고 터미널과 coding session은 core가 갖는다)와 agent 자격 또는 사람 token의 `tabs/open`(phone 탭을 여는 target `phone` 포함), `tabs/close`, `tabs/show`, `tabs/list`(자기 탭과 자기 밑 session의 탭), `browser/read|snapshot|act|navigate|screenshot|evaluate|logs|wait`, 사람 자격만의 `tabs/hand`(창의 browser 탭을 열린 session에 넘긴다. 이 route만 renderer의 호출 통로에 있다), 사람 자격만의 `page_view/list|snapshot|watch|input|control|open`(멀리서 page 보기, event `PageViewChanged`·`StateChanged{browser_pages}`. 기기 route 목록에 있고 다른 기계의 창은 이 컴퓨터 core의 `machines/call`로 부른다. input·control·open은 그 기기의 터미널 입력 허락이 있어야 한다). `tabs/hand` 밖은 이 컴퓨터 renderer의 호출 통로에 없다.
+    description: host(desktop 앱의 shell main, display 없는 Linux에서 core가 `--page-host`로 띄운 page host)가 사람 token으로 여는 양방향 연결 `/host-link`(WebSocket, subprotocol `lophn.host-link.1`)의 frame(host가 올리는 `hello`·`visible`(보이는 workspace), `response`, `report`, `page_frame`(보는 쪽이 있는 page의 JPEG frame)·`page_state`(painting, agent, held)와 core가 미는 `request`(`tab_open`·`tab_close`·`tab_show`·`tab_owner`, `browser_call`, 연결이 있을 때만 가는 연결 요청 `page_stream`·`page_read`·`page_input`·`page_control`). page를 드는 쪽이 있어야 하는 일만 host로 보내고 터미널과 coding session은 core가 갖는다)와 agent 자격 또는 사람 token의 `tabs/open`(browser·preview·artifact·session·tui·coding·phone·`terminal` 포함), `tabs/close`, `tabs/show`, `tabs/list`(자기 탭과 자기 밑 session의 탭), `tabs/give`(agent만, browser·대화형 터미널 탭 주기·되찾기), `browser/read|snapshot|act|navigate|screenshot|evaluate|logs|wait`, `terminal/read|snapshot|act|wait|resize`(대화형 터미널 탭 읽기·모드 기반 입력·대기·리사이즈), 사람 자격만의 `tabs/hand`(창의 browser 탭 또는 이 컴퓨터 일반 터미널 탭을 열린 session에 넘긴다. 이 route와 `terminals/control`이 renderer의 호출 통로에 있다), 사람 자격만의 `page_view/list|snapshot|watch|input|control|open`(멀리서 page 보기, event `PageViewChanged`·`StateChanged{browser_pages}`. 기기 route 목록에 있고 다른 기계의 창은 이 컴퓨터 core의 `machines/call`로 부른다. input·control·open은 그 기기의 터미널 입력 허락이 있어야 한다). `tabs/hand`·`terminals/control` 밖은 이 컴퓨터 renderer의 호출 통로에 없다.
     interface_type: protocol
     defined_by: lophn-agent
     provided_by:

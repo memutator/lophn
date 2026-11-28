@@ -400,6 +400,7 @@ export const RESERVED_APP_SLUGS: readonly string[] = [
   "ext",
   "tab",
   "browser",
+  "terminal",
   "team",
   "project",
   // core가 event의 발행자일 때 쓰는 source 이름과 겹치면 안 된다.

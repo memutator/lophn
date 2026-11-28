@@ -2,7 +2,7 @@
 // control socket 한 줄로 보낸다. 창을 닫거나 Quit해도 core는 남는다.
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { connect } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -10,6 +10,7 @@ import {
   err,
   type ErrorCode,
   ok,
+  resolvePlatformEntry,
   type Result,
   systemClock,
 } from "../../../../base/mod.ts";
@@ -101,14 +102,10 @@ function coreLaunch(options: ShellLaunch): {
   args: readonly string[];
   env: NodeJS.ProcessEnv;
 } {
-  const entry = join(
-    options.repoRoot,
-    "packages",
-    "core",
-    "main",
-    "daemon",
-    "main.ts",
-  );
+  const entry = resolvePlatformEntry(options.repoRoot, "daemon", {
+    exists: existsSync,
+    join,
+  });
   return {
     // shell main이 Electron이므로 그 binary가 곧 lophn의 Node다. PATH의 node에 기대지 않는다.
     command: process.execPath,

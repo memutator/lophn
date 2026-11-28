@@ -18,7 +18,10 @@ import type {
   HostReply,
   HostScreenReply,
   HostSnapshotReply,
+  HostTuiSnapshotReply,
+  HostTuiStateReply,
 } from "./host/wire.ts";
+import { encodePaste } from "./input-encoder.ts";
 import type {
   PersonEnv,
   TerminalClipboardWrite,
@@ -57,13 +60,18 @@ function settled(reply: HostReply): Result<TerminalRuntime> {
 }
 
 /**
- * 열 때 넣을 명령의 입력 글. 한 줄이면 Enter까지 쳐서 실행한다. 여러 줄이면 bracketed paste로 감싸 붙여 넣기만
- * 한다. 줄마다 실행되지 않고 사람이 보고 Enter를 누른다(bash·zsh는 5.1부터 bracketed paste가 기본이다).
+ * 열 때 넣을 명령의 입력 글. 한 줄이면 Enter까지 쳐서 실행한다. 여러 줄이면 라이브 bracketed_paste 모드에 따라
+ * 순수 인코더(`encodePaste`)로 안전하게 인코딩한다(ESC[201~·NUL 제거).
  */
-function commandInput(command: string | undefined): string | null {
+function commandInput(
+  command: string | undefined,
+  bracketedPaste = true,
+): string | null {
   const text = command?.replace(/\r\n?/g, "\n").replace(/\n+$/, "") ?? "";
   if (text.trim() === "") return null;
-  return text.includes("\n") ? `\x1b[200~${text}\x1b[201~` : `${text}\r`;
+  if (!text.includes("\n")) return `${text}\r`;
+  const encoded = encodePaste(text, { bracketed_paste: bracketedPaste });
+  return encoded.ok ? encoded.value : null;
 }
 
 // 저장한 session을 다시 여는 명령 한 줄. resume 규칙이 없는 harness면 null이다.
@@ -122,7 +130,11 @@ export function createTerminals(deps: {
   });
   const extras = new Map<
     string,
-    { agent?: TerminalAgent; tab_name?: string }
+    {
+      agent?: TerminalAgent;
+      tab_name?: string;
+      agent_control?: { held: boolean };
+    }
   >();
   // 같은 scrollback을 PTY host가 생략했을 때 이어 붙일 마지막 scrollback 사본.
   const scrollbacks = new Map<
@@ -141,11 +153,19 @@ export function createTerminals(deps: {
 
   function decorate(runtime: TerminalRuntime): TerminalRuntime {
     const extra = extras.get(runtime.terminal_ref);
-    const { agent: _agent, tab_name: _name, ...bare } = runtime;
+    const {
+      agent: _agent,
+      tab_name: _name,
+      agent_control: _control,
+      ...bare
+    } = runtime;
     return {
       ...bare,
       ...(extra?.agent === undefined ? {} : { agent: extra.agent }),
       ...(extra?.tab_name === undefined ? {} : { tab_name: extra.tab_name }),
+      ...(extra?.agent_control === undefined
+        ? {}
+        : { agent_control: extra.agent_control }),
     };
   }
 
@@ -248,10 +268,11 @@ export function createTerminals(deps: {
         cli === null
           ? undefined
           : prependPath(hostEnv, dirname(cli), deps.platform);
-      const isDedicated = input.exec !== undefined || input.dedicated === true;
-      const hooked = isDedicated
-        ? []
-        : [...envHooks].map((hook) => hook(input));
+      const isAgent = input.agent === true;
+      const isDedicated =
+        input.dedicated === true || (!isAgent && input.exec !== undefined);
+      const hooked =
+        isDedicated || isAgent ? [] : [...envHooks].map((hook) => hook(input));
       const env: Record<string, string> = {
         // 사람 token의 `lophn tab open --url`이 이 project에 탭을 놓게 한다. Home은 env가 없을 때의 기본이라 넣지 않는다.
         ...(input.project === HOME_TERMINAL_PROJECT
@@ -269,20 +290,21 @@ export function createTerminals(deps: {
           folder_ref: start?.folder_ref ?? input.folder_ref,
           ...(start === null ? {} : { cwd: start.path }),
           folders: folders.value,
-          columns: 80,
-          rows: 24,
+          columns: input.columns ?? 80,
+          rows: input.rows ?? 24,
           env,
           ...(input.exec === undefined ? {} : { exec: input.exec }),
           ...(input.terminal_ref === undefined
             ? {}
             : { terminal_ref: input.terminal_ref }),
           ...(isDedicated ? { dedicated: true as const } : {}),
+          ...(isAgent ? { agent: true as const } : {}),
         }),
       );
       const runtime = done.ok ? decorate(done.value) : null;
       for (const one of hooked) one.opened(runtime);
       if (runtime === null) return done;
-      if (isDedicated) return ok(runtime);
+      if (isDedicated || isAgent) return ok(runtime);
       const line =
         input.resume === undefined
           ? null
@@ -290,12 +312,31 @@ export function createTerminals(deps: {
               input.resume,
               deps.codingCommand?.(input.resume.harness),
             );
-      const typed = line !== null ? `${line}\r` : commandInput(input.command);
-      if (typed !== null) {
+      if (line !== null || input.command !== undefined) {
         // 터미널은 이미 열렸다. 친 줄이 거절돼도 열기를 실패로 만들지 않고 다시 치지 않는다.
-        void quiet(runtime.terminal_ref).then(() =>
-          typeInto(runtime.terminal_ref, runtime.generation, typed),
-        );
+        void quiet(runtime.terminal_ref).then(async () => {
+          if (line !== null) {
+            await typeInto(
+              runtime.terminal_ref,
+              runtime.generation,
+              `${line}\r`,
+            );
+            return;
+          }
+          // 여러 줄 명령은 라이브 bracketed_paste 모드를 읽어 순수 인코더로 안전하게 인코딩한다.
+          const liveState = (await supervisor.request({
+            type: "tui_state",
+            terminal_ref: runtime.terminal_ref,
+          })) as HostTuiStateReply | HostReply;
+          const bracketed =
+            liveState.ok && "state" in liveState
+              ? liveState.state.modes.bracketed_paste
+              : false;
+          const typed = commandInput(input.command, bracketed);
+          if (typed !== null) {
+            await typeInto(runtime.terminal_ref, runtime.generation, typed);
+          }
+        });
       }
       return ok(runtime);
     },
@@ -444,6 +485,48 @@ export function createTerminals(deps: {
       return ok({ ...raw, scrollback: reused.lines });
     },
 
+    async tuiState(terminal) {
+      const found = target(terminal);
+      if (!found.ok) return found;
+      const reply = (await supervisor.request({
+        type: "tui_state",
+        terminal_ref: terminal,
+      })) as HostTuiStateReply | HostReply;
+      if (!reply.ok) return failed(reply.reason, reply.message);
+      if (!("state" in reply)) return failed("host_lost", "terminal is gone");
+      return ok({ runtime: decorate(reply.runtime), state: reply.state });
+    },
+
+    async tuiSnapshot(terminal, options) {
+      const found = target(terminal);
+      if (!found.ok) return found;
+      const reply = (await supervisor.request({
+        type: "tui_snapshot",
+        terminal_ref: terminal,
+        ...(options?.scrollback === undefined
+          ? {}
+          : { scrollback: options.scrollback }),
+        ...(options?.ansi === undefined ? {} : { ansi: options.ansi }),
+      })) as HostTuiSnapshotReply | HostReply;
+      if (!reply.ok) return failed(reply.reason, reply.message);
+      if (!("snapshot" in reply)) {
+        return failed("host_lost", "terminal is gone");
+      }
+      return ok({
+        runtime: decorate(reply.runtime),
+        snapshot: reply.snapshot,
+      });
+    },
+
+    setClientAttached(terminal, attached) {
+      if (current(terminal) === undefined) return;
+      void supervisor.request({
+        type: "client_attached",
+        terminal_ref: terminal,
+        attached,
+      });
+    },
+
     list(project) {
       return supervisor
         .runtimes()
@@ -464,6 +547,10 @@ export function createTerminals(deps: {
       else if (patch.agent !== undefined) extra.agent = patch.agent;
       if (patch.tab_name === "") delete extra.tab_name;
       else if (patch.tab_name !== undefined) extra.tab_name = patch.tab_name;
+      if (patch.agent_control === null) delete extra.agent_control;
+      else if (patch.agent_control !== undefined) {
+        extra.agent_control = patch.agent_control;
+      }
       extras.set(terminal, extra);
       changed(found);
     },

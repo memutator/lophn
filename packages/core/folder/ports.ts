@@ -115,7 +115,7 @@ export type FolderReplica = {
   >;
   /** manifest 글. 믿고 표시보다 새면 `accepted`, 같거나 옛 것이면 `have`, 믿지 못하면 `rejected`. */
   offerManifest(text: string, via: CarryVia): Promise<Result<CarryReceived>>;
-  /** 믿는 manifest가 싣거나 덮는데 아직 없는 file. (machine, path) 글자 순서로 `after` 뒤부터 limit개. */
+  /** 믿는 manifest가 싣거나 덮는데 아직 없는 file. (machine, 우선순위 path) 순서로 `after` 뒤부터 limit개. */
   wants(
     limit: number,
     after?: { machine: Id<"mch">; path: string },

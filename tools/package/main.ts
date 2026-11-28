@@ -32,6 +32,7 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import { checklistFor, installedVersion } from "../install-checklist.ts";
+import { bundlePlatform } from "./bundle-platform.ts";
 import * as linux from "./linux.ts";
 import * as mac from "./mac.ts";
 import { markSpawnHelpers } from "./spawn-helper.ts";
@@ -197,12 +198,17 @@ async function stagePlatform(bundle: string, copyMembers: boolean) {
   await cp(join(repo, "packages"), join(platform, "packages"), {
     recursive: true,
     // shell은 Electron이 따로 싣는다. mobile은 폰 앱(root workspace 밖)이라 설치본에 필요 없다. node_modules는 아래 npm ci가 새로 푼다.
+    // test·testdata·fixtures는 실행에 쓰지 않는다.
     filter: (source) => {
       const rel = relative(join(repo, "packages"), source).split(sep);
+      const base = rel.at(-1) ?? "";
       return (
         rel[0] !== "shell" &&
         rel[0] !== "mobile" &&
-        !rel.includes("node_modules")
+        !rel.includes("node_modules") &&
+        !rel.includes("testdata") &&
+        !rel.includes("fixtures") &&
+        !base.endsWith("_test.ts")
       );
     },
   });
@@ -234,6 +240,7 @@ async function stagePlatform(bundle: string, copyMembers: boolean) {
     await copyLinkedMembers(join(platform, "node_modules"));
     await rm(join(platform, "tools"), { recursive: true, force: true });
   }
+  await bundlePlatform(repo, platform);
   await markSpawnHelpers(join(platform, "node_modules"));
   // core가 띄우는 PTY host가 node-pty를 load한다. node-pty 1.1.0은 macOS·Windows의 N-API prebuild를 싣고 Linux만 없어(위
   // `--ignore-scripts`라 build도 없다) Linux에서만 core가 도는 Electron에 맞춰 source로 compile한다.

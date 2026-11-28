@@ -85,6 +85,12 @@ workspace information gives the Workflows folder.
   this work. If it fails, do not start another browser (Chrome, Playwright,
   browser-use or any other) and do not read the person's browser profile or
   cookies. Tell the person the reason the error gave you.
+- For non-interactive commands use `shell.run`. Use `lophn tab open --terminal`
+  and `lophn terminal read|snapshot|act|wait|resize` only for interactive
+  programs that draw a screen and wait for keys (`vim`, `psql`, `gdb`, TUIs,
+  REPLs), or a terminal tab the person handed to you. When a terminal asks for a
+  password or 2FA code, show the tab (`lophn tab show <tab>`) and ask the person
+  to type it directly.
 - If the project has no app yet and the person wants one, you cannot create it.
   A new app is registered at home: tell the person, who asks lophn at home.
 - When you hear that a public command you use has changed, read the change

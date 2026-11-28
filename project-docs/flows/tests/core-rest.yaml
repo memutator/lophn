@@ -990,7 +990,15 @@ files:
 
   - path: packages/core/terminals/host/screen_test.ts
     covers: [terminals-read:ok]
-    note: "core의 PTY host. 다시 붙은 화면(headless screen)이 처음 쓴 history와 mouse 인코딩, 커서 숨김을 되살리고, 폰에 주는 화면은 색·굵게·폭 2 글자·자동 줄바꿈이 run에 맞게 나온다"
+    note: "core의 PTY host. 다시 붙은 화면(headless screen)이 처음 쓴 history와 mouse 인코딩, 커서 숨김을 되살리고, 폰에 주는 화면은 색·굵게·폭 2 글자·자동 줄바꿈이 run에 맞게 나온다. TUI 모드 추적(DECCKM·bracketed paste·alt screen·mouse·Kitty), 조건부 질의 회신, 전각 highlights·시각 hash·32 KiB 아래 행 보존 절단도 본다"
+
+  - path: packages/core/terminals/input-encoder_test.ts
+    covers: [host-terminal-use:invalid_input, host-terminal-use:conflict]
+    note: "TUI 순수 입력 인코더(type·paste·press·mouse): DECCKM, Ctrl/Alt, Kitty keyboard flags, bracketed paste ?2004h 및 ESC[201~·NUL 제거, SGR 1006 마우스, 모르는 키 거절을 본다"
+
+  - path: packages/core/host-queue/terminal-use_test.ts
+    covers: [host-terminal-use:ok, host-terminal-use:not_found, host-terminal-use:conflict, host-terminal-use:unavailable, terminals-control:updated]
+    note: "agent TUI 터미널 소유권 격리, take control 차단/허용, known-value redaction과 fail-closed unavailable, wait 종료 깨움·시간 초과 스냅샷, 넘긴 터미널 닫기 금지와 session 종료 시 PTY 정리를 본다"
 
   - path: packages/core/main/daemon/wiring/remote_test.ts
     covers: [roster-forget:forgotten, roster-forget:removed-from-roster, roster-forget:kept, roster-identity:created, roster-identity:adopted, roster-grants:seeded, roster-grants:already-seeded, roster-grants:granted, roster-grants:revoked, roster-commit:invited-granted, roster-set-terminal-input:ok, roster-set-terminal-input:not_found, roster-set-terminal-input:this-computer, roster-join:pending, remote-host-key-machine:stamped, roster-join:conflict, roster-join:forbidden, roster-invite:forbidden, roster-remove:forbidden, roster-rename:forbidden, roster-set-terminal-input:forbidden, roster-list:forbidden, roster-leave:forbidden, core-machines-list:forbidden, core-machines-call:forbidden, core-machines-watch:forbidden, core-machines-call:no-shell-capability, core-machines-watch:no-shell-capability, roster-commit:folded, shell-viewer-roster:moved, shell-viewer-roster:dropped, shell-viewer-drop:dropped]

@@ -1,4 +1,5 @@
-import { MenuIcon, Toast } from "@lophn/ui/overlay";
+import { MenuIcon, Toast, Tooltip } from "@lophn/ui/overlay";
+import { Button } from "@lophn/ui/primitives";
 import { useObservedSize } from "@lophn/ui/shared";
 import { t } from "@lophn/i18n";
 import {
@@ -21,6 +22,7 @@ import { useScopeMachineItem } from "../desktop/machines/context.tsx";
 import { useWindowCommands } from "../commands/react.tsx";
 import type { Disposable } from "../commands/registry.ts";
 import { conversationIcons } from "../icons/mod.ts";
+import { useOwner } from "../parts/agent-session/owner.tsx";
 import { useCardHead } from "../parts/card-head/card-head.tsx";
 import type { TerminalDeps } from "./deps.ts";
 import { MachineTag } from "../shell/left-sidebar.tsx";
@@ -69,6 +71,10 @@ interface TerminalTabProps {
    * 때만 알린다: 작업대가 없는 창(detached)의 탭도 이 길로 이름을 따라간다.
    */
   onAgentChange?: () => void;
+  /** 탭의 주인 session(agent가 연 터미널이나 사람이 넘긴 터미널). take control 줄이 그 이름을 말한다. */
+  owner?: string;
+  /** 사람이 넘긴 터미널 탭이면 take control 줄에 [Take back] 단추를 둔다. */
+  onTakeBack?: () => void;
 }
 
 const IDLE: Phase = { kind: "idle" };
@@ -125,6 +131,8 @@ export function TerminalTab({
   onAgentChange,
   openLinkTab,
   paths,
+  owner,
+  onTakeBack,
 }: TerminalTabProps) {
   const { store, bridge, core } = deps;
   // 다른 기계의 터미널이면 그 기계(꼬리표, 입력 거절 toast의 이름)다.
@@ -428,6 +436,10 @@ export function TerminalTab({
 
   const boundRef = entry?.terminalRef ?? null;
   const boundGeneration = entry?.generation ?? 0;
+  // agent가 이 터미널을 다루는 중이고 사람이 아직 Take control하지 않았으면 관전 모드다: 클릭·focus·창 리사이즈로 PTY 크기를 바꾸지 않는다.
+  const agentControl = store.agentControlOf(tabKey);
+  const agentWatching = agentControl !== undefined && !agentControl.held;
+  const agentOwner = useOwner(owner);
   // 다른 기기가 PTY 크기를 잡았다. 칸에 맞추지 않고, 사람이 이 탭을 고르거나 누르면 칸 크기로 다시 잡는다(마지막에 잡은 쪽이
   // 이긴다). 다른 기계의 터미널은 늘 이렇다: 그 기계의 탭과 칸 크기를 다투지 않는다.
   const remote = entry?.remote === true;
@@ -441,6 +453,7 @@ export function TerminalTab({
   }
   const [elsewhere, setElsewhere] = useState(false);
   const reclaim = (fromKey = false) => {
+    if (agentWatching) return;
     if (!(remote || copy) || !core || boundRef === null) return;
     // 이미 이 탭이 PTY 크기를 쥐고 있으면 키를 칠 때마다 fit(강제 layout·getComputedStyle)과 resize를 부르지 않는다.
     if (
@@ -519,10 +532,10 @@ export function TerminalTab({
   const restored = entry?.restored ?? 0;
   useEffect(() => {
     if (!liveKey || !core || boundRef === null) return;
-    if (remote || copy) {
+    if (remote || copy || agentWatching) {
       lastSize.current = "";
       // watch 직후 처음 snapshot이 끝나고 아직 크기를 못 잡았거나(열기 직후 watch 전 conflict), 이 탭이 잡은 크기를 쥔 채 칸이 바뀌면 다시 맞춘다.
-      if (!copy || !active || elsewhere) return;
+      if (!copy || !active || elsewhere || agentWatching) return;
       if (grabbedDims.current === "" && restored === 0) return;
       const timer = setTimeout(() => reclaim(), 150);
       return () => clearTimeout(timer);
@@ -545,6 +558,7 @@ export function TerminalTab({
     copy,
     active,
     elsewhere,
+    agentWatching,
   ]);
 
   // 그 기계가 이 컴퓨터의 입력을 거절했다. 화면은 그대로 보이고 toast가 허락을 켤 곳을 말한다.
@@ -713,12 +727,53 @@ export function TerminalTab({
     );
   }
 
+  const agentBarText =
+    agentControl === undefined
+      ? null
+      : agentControl.held
+        ? t("browser.text.agent-held")
+        : agentOwner === null
+          ? t("terminal.text.agent-controlling")
+          : t("terminal.text.agent-controlling-named", {
+              name: agentOwner.name,
+            });
+
   return (
     <div
       className={styles.terminal}
       data-terminal-tab={tabKey}
       data-phase={phase.kind}
     >
+      {agentControl !== undefined &&
+      agentBarText !== null &&
+      boundRef !== null ? (
+        <div
+          className={styles.agentBar}
+          data-agent-control={agentControl.held ? "held" : "agent"}
+        >
+          <Tooltip content={agentBarText}>
+            <span className={styles.agentText}>{agentBarText}</span>
+          </Tooltip>
+          <div className={styles.agentActions}>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => void core?.control?.(boundRef, !agentControl.held)}
+            >
+              {t(
+                agentControl.held
+                  ? "browser.button.agent-release"
+                  : "browser.button.agent-take",
+              )}
+            </Button>
+            {onTakeBack === undefined ? null : (
+              <Button size="sm" variant="ghost" onClick={onTakeBack}>
+                {t("shell.button.tab-take-back")}
+              </Button>
+            )}
+          </div>
+        </div>
+      ) : null}
       {guiHarness === null ? null : toggle.overlays}
       {guiHarness === null || inCard ? null : (
         // card 밖(floated 패널, 떼어 낸 창)에는 머리 줄이 없어 본문 위 모서리에 둔다.

@@ -2722,6 +2722,80 @@ flows:
     crosses_process: false
     docs: [architecture/terminal-agent.md, architecture/event.md]
 
+  - id: terminals-control
+    title: 사람이 agent가 다루는 터미널 탭을 Take control하거나 Hand back한다
+    actor: person
+    entries: [route:terminals/control]
+    boundary: [core, host-queue-core]
+    code:
+      - packages/protocol/coding-agent/terminals.ts
+      - packages/core/host-queue/queue.ts
+      - packages/core/main/daemon/wiring/host-queue.ts
+    steps:
+      - "사람 자격(actor user)이 terminal ref와 held(true=Take control, false=Hand back)를 보낸다"
+      - "core의 HostQueue에서 그 터미널의 personControlling을 바꾸고 TerminalRuntime.agent_control을 patch해 TerminalRuntimeChanged를 낸다"
+      - "held=true 동안 agent의 terminal/act·terminal/resize는 고정 conflict 문장을 돌려주고, read·snapshot·wait는 계속 허용된다"
+    outcomes:
+      - id: updated
+        observe: [response, event:TerminalRuntimeChanged]
+      - id: not_found
+        code: not_found
+        when: "agent가 다루는 터미널이 아니다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "사람 자격(actor user)이 아니다(dispatch)"
+        observe: [response]
+    crosses_process: false
+    docs: [architecture/terminal-agent.md]
+
+  - id: host-terminal-use
+    title: agent나 사람 token이 자기가 연 터미널 탭이나 넘겨받은 터미널 탭을 읽고 조작하고 기다리고 리사이즈한다
+    actor: agent
+    entries:
+      - route:terminal/read
+      - route:terminal/snapshot
+      - route:terminal/act
+      - route:terminal/wait
+      - route:terminal/resize
+    boundary: [host-queue-interface, host-queue-core, core]
+    code:
+      - packages/protocol/lophn-agent/terminal-use.ts
+      - packages/core/host-queue/terminal-use.ts
+      - packages/core/terminals/input-encoder.ts
+      - packages/core/terminals/host/screen.ts
+      - packages/core/main/daemon/wiring/host-queue.ts
+    steps:
+      - "agent 자격의 session이나 사람 token이 부른다. 주인이 아니거나 넘겨받지 않은 터미널, 닫힌 탭은 모두 같은 not_found다"
+      - "act와 resize는 사람이 Take control 중이거나 프로세스가 종료됐으면 conflict다. act는 라이브 TerminalModes를 읽어 순수 인코더로 type·paste·press·mouse를 변환해 쓰고, --wait-idle·--wait-text가 있으면 쓰기 전 베이스라인을 선캡처해 기다린다"
+      - "wait는 출력·종료 이벤트로 깨고 text·regex와 idle_ms를 AND로 평가하며, 프로세스 종료 시 즉시 exited로 깨고 시간 초과 시 matched=false와 최신 스냅샷을 돌려준다"
+      - "화면·제목·scrollback·highlights는 caller로 나가기 전에 known-value redaction을 거치고(실패 시 unavailable), CLI·agent는 결과를 <lophn-untrusted source=\"terminal.<명령>\">로 감싼다"
+    outcomes:
+      - id: ok
+        observe: [response]
+      - id: invalid_input
+        code: invalid_input
+        when: "모르는 키 이름, 범위 초과 좌표·크기, 잘못된 정규식, 빈 wait 조건이다"
+        observe: [response]
+      - id: not_found
+        code: not_found
+        when: "주인이 아니거나 없거나 닫힌 터미널 탭이다"
+        observe: [response]
+      - id: conflict
+        code: conflict
+        when: "사람이 Take control 중이거나 프로세스가 종료됐거나 마우스 모드가 꺼진 프로그램에 --force 없이 mouse를 보냈다"
+        observe: [response]
+      - id: unavailable
+        code: unavailable
+        when: "redaction이 알려진 비밀을 다 모르거나 PTY host가 응답하지 않는다"
+        observe: [response]
+      - id: forbidden
+        code: forbidden
+        when: "agent 자격도 사람 token도 아니다"
+        observe: [response]
+    crosses_process: true
+    docs: [architecture/terminal-agent.md, architecture/workspace-layout.md]
+
   - id: terminals-name
     title: 화면이 탭 줄에 보이는 터미널 이름을 core에 둔다
     actor: person

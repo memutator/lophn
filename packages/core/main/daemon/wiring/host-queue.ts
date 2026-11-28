@@ -1,6 +1,12 @@
 import { lstat } from "node:fs/promises";
 import { createIdSource, err, ok, type Result } from "../../../../base/mod.ts";
 import { describeThrown } from "../../../../base/telemetry/mod.ts";
+import type {
+  PermissionDenial,
+  ToolGateInput,
+  ToolGateResult,
+} from "../../../../protocol/approvals/mod.ts";
+import { toolGateCheck } from "../../../../protocol/approvals/mod.ts";
 import { appTools } from "../../../../protocol/apps/declaration/read.ts";
 import type { Id } from "../../../../protocol/base/ids.ts";
 import { handoffCommand } from "../../../../protocol/coding-agent/handoff.ts";
@@ -9,6 +15,8 @@ import type { HarnessId } from "../../../../protocol/coding-agent/harnesses.ts";
 import {
   HOME_TERMINAL_PROJECT,
   type TerminalProject,
+  type TerminalRuntime,
+  terminalsControl,
 } from "../../../../protocol/coding-agent/terminals.ts";
 import { publishStateChanged } from "../../../../protocol/events/changes.ts";
 import type { HostToolContent } from "../../../../protocol/lophn-agent/host-queue.ts";
@@ -37,6 +45,15 @@ import {
   tabsList,
   tabsOpen,
   tabsShow,
+  TUI_DEFAULT_COLS,
+  TUI_DEFAULT_ROWS,
+  TUI_MAX_GLOBAL,
+  TUI_MAX_PER_SESSION,
+  terminalUseAct,
+  terminalUseRead,
+  terminalUseResize,
+  terminalUseSnapshot,
+  terminalUseWait,
 } from "../../../../protocol/lophn-agent/mod.ts";
 import { PHONE_TAB_TEXT } from "../../../../protocol/phone/drive.ts";
 import {
@@ -56,6 +73,7 @@ import {
 } from "../../../config/shell-settings.ts";
 import {
   createHostQueue,
+  createTerminalUseDriver,
   fileHandoffs,
   type HandoffFiles,
   type HarnessHold,
@@ -64,6 +82,7 @@ import {
   SHELL_NOT_ATTACHED,
   SHELL_START_FAILED,
   type TabOwner,
+  type TerminalUseDriver,
   withinTeam,
 } from "../../../host-queue/mod.ts";
 import {
@@ -198,6 +217,30 @@ type TabDeps = {
     command?: string;
     resume?: { harness: string; external_session: string };
   }): Promise<Result<string>>;
+  // `tab open --terminal`로 agent용 TUI 터미널을 연다. command가 있으면 exec로 실행하고 없으면 대화형 shell이다.
+  openAgentTerminal?(input: {
+    project: TerminalProject;
+    command?: string;
+    cwd?: string;
+    columns: number;
+    rows: number;
+  }): Promise<Result<string>>;
+  // 터미널 runtime 조회(상한 계산, 넘기기 검증, tab list 제목).
+  terminalRuntime?(terminalRef: string): TerminalRuntime | null;
+  // 터미널의 take control 표시를 runtime에 싣는다.
+  patchTerminalControl?(
+    terminalRef: string,
+    control: { held: boolean } | null,
+  ): void;
+  // `tab open --terminal` 승인 판정(`tool_gate/check`).
+  askGate?(
+    who: AuthenticatedContext,
+    input: ToolGateInput,
+  ): Promise<Result<ToolGateResult>>;
+  // standalone CLI에서 `tool_call`이 비어 있을 때 승인 카드용 id를 만든다.
+  newToolCallId?(): Id<"tcl">;
+  // `lophn terminal read|snapshot|act|wait|resize` 실행기.
+  terminalUse?: TerminalUseDriver;
   // `tui`로 연 터미널이 그 ledger session을 쥔다. 그 harness가 foreground에 보인 뒤 떠나면 푼다.
   holdTui(terminal: string, session: Id<"ses">): void;
   // shell(앱)을 띄운다. 시작이 실패하면 받은 `failed`를 부른다. 없으면 shell이 없을 때 browser 탭 열기는 SHELL_NOT_ATTACHED로
@@ -219,6 +262,21 @@ type TabDeps = {
   // agent가 browser 탭을 폈다(`TabShowRequested`). 그 session을 다른 컴퓨터에서 보는 창이 원격 보기 탭을 연다.
   shown(session: Id<"ses">, tab: Id<"tab">): void;
 };
+
+const TERMINAL_OPEN_UNAVAILABLE =
+  "terminal host is not configured to open agent terminals";
+const TERMINAL_USE_UNAVAILABLE =
+  "terminal control is not configured on this core";
+
+function formatTerminalDenial(denial: PermissionDenial): string {
+  const head =
+    denial.rule_pattern !== null
+      ? `terminal open was denied (${denial.reason_kind}, rule: ${denial.rule_pattern}): ${denial.message}`
+      : `terminal open was denied (${denial.reason_kind}): ${denial.message}`;
+  return denial.recovery_hint !== null && denial.recovery_hint.trim() !== ""
+    ? `${head} ${denial.recovery_hint}`
+    : head;
+}
 
 // agent는 자격의 session으로, 사람은 사람 token으로 부른다. 탭의 주인은 session, 사람 token은 모두 "person"이다.
 export function createTabHandlers(deps: TabDeps) {
@@ -379,12 +437,144 @@ export function createTabHandlers(deps: TabDeps) {
       });
       return ok({ tab, status: "accepted" as const });
     }
+    if ("terminal" in input.target) {
+      let where: HostWorkspace;
+      let origin: WorkflowOrigin | null = null;
+      if (caller.value === "person") {
+        where = input.workspace ?? { kind: "home" };
+      } else {
+        const row = sessionRow(caller.value);
+        if (row === undefined) {
+          return err({ code: "not_found", message: "session not found" });
+        }
+        where = hostWorkspaceOf(workspaceOf(row));
+        origin = workflowOriginOf(row.workflow_origin);
+      }
+      if (where.kind === "app") {
+        return err({
+          code: "invalid_input",
+          message:
+            "terminals open in a project or home workspace; apps have no terminal",
+        });
+      }
+      if (deps.openAgentTerminal === undefined) {
+        return err({
+          code: "unavailable",
+          message: TERMINAL_OPEN_UNAVAILABLE,
+        });
+      }
+      // 자원 상한: session당 살아 있는 agent 터미널 4개, 컴퓨터 전체 16개.
+      const liveAgentTerminals = queue.terminalTabs().filter((item) => {
+        if (!item.agentOpened) return false;
+        const rt = deps.terminalRuntime?.(item.ref);
+        return rt === null || rt === undefined
+          ? true
+          : rt.state === "starting" || rt.state === "running";
+      });
+      if (liveAgentTerminals.length >= TUI_MAX_GLOBAL) {
+        return err({
+          code: "conflict",
+          message: `Too many live agent terminals on this computer (limit ${TUI_MAX_GLOBAL}). Close an existing terminal tab with \`lophn tab close\` first.`,
+        });
+      }
+      const perOwner = liveAgentTerminals.filter(
+        (item) => item.owner === caller.value,
+      );
+      if (perOwner.length >= TUI_MAX_PER_SESSION) {
+        return err({
+          code: "conflict",
+          message: `Too many live agent terminals for this session (limit ${TUI_MAX_PER_SESSION}). Close an existing terminal tab with \`lophn tab close\` first.`,
+        });
+      }
+      // 허락 판정: 사람 token은 판정하지 않고, agent는 기존 shell 판정(명령 없음은 opaque)을 부른다.
+      if (caller.value !== "person") {
+        const session = who.conditions.session;
+        const turn = who.conditions.turn;
+        const toolCall = input.tool_call ?? deps.newToolCallId?.();
+        if (
+          deps.askGate === undefined ||
+          session === undefined ||
+          turn === undefined ||
+          toolCall === undefined
+        ) {
+          return err({
+            code: "forbidden",
+            message:
+              "opening a terminal requires approval; only an active agent turn can ask",
+          });
+        }
+        const cmd = input.target.terminal.command;
+        const asked = await deps.askGate(who, {
+          session,
+          turn,
+          tool_call: toolCall,
+          tool: "tab.open",
+          call:
+            cmd !== undefined
+              ? { kind: "shell", command: cmd }
+              : {
+                  kind: "shell",
+                  command: "(interactive shell)",
+                  opaque: true,
+                },
+        });
+        if (!asked.ok) return asked;
+        const outcome = asked.value;
+        if (outcome.kind === "denied") {
+          return err({
+            code: "forbidden",
+            message: formatTerminalDenial(outcome.denial),
+          });
+        }
+        if (outcome.kind === "rejected") {
+          const whoRejected =
+            outcome.by === "parent" ? "the parent" : "the person";
+          return err({
+            code: "forbidden",
+            message:
+              outcome.reason === null
+                ? `${whoRejected} rejected opening this terminal`
+                : `${whoRejected} rejected opening this terminal: ${outcome.reason}`,
+          });
+        }
+        if (outcome.kind === "cancelled") {
+          return err({
+            code: "forbidden",
+            message: "the approval request ended before it was decided",
+          });
+        }
+      }
+      const spec = input.target.terminal;
+      const opened = await deps.openAgentTerminal({
+        project:
+          where.kind === "home"
+            ? HOME_TERMINAL_PROJECT
+            : (where.id as Id<"prj">),
+        ...(spec.command === undefined ? {} : { command: spec.command }),
+        ...(spec.cwd === undefined ? {} : { cwd: spec.cwd }),
+        columns: spec.columns ?? TUI_DEFAULT_COLS,
+        rows: spec.rows ?? TUI_DEFAULT_ROWS,
+      });
+      if (!opened.ok) return opened;
+      const tab = queue.openTab({
+        owner: caller.value,
+        workspace: where,
+        target: { terminal: { terminal_ref: opened.value } },
+        // relation은 renderer의 `openAt()`이 target `"terminal"` 기본값(`work`)으로 푼다.
+        relation: input.relation ?? null,
+        source: caller.value === "person" ? null : caller.value,
+        drivableTerminal: true,
+        ...sameProjectDeskOf(where, origin),
+      });
+      deps.patchTerminalControl?.(opened.value, { held: false });
+      return ok({ tab, status: "accepted" as const });
+    }
     const person = caller.value === "person";
     if (person && !("browser" in input.target)) {
       return err({
         code: "invalid_input",
         message:
-          "a person token opens --url, --preview, --phone and --artifact tabs",
+          "a person token opens --url, --preview, --phone, --artifact and --terminal tabs",
       });
     }
     const from = person ? undefined : sessionRow(caller.value);
@@ -458,7 +648,7 @@ export function createTabHandlers(deps: TabDeps) {
         workspace:
           origin === null ? here : { kind: "project", id: origin.project },
         target: { terminal: { terminal_ref: terminal.value } },
-        relation: input.relation ?? null,
+        relation: input.relation ?? "aside",
         source: caller.value as Id<"ses">,
         tab,
         ...workflowDeskOf(origin),
@@ -502,7 +692,7 @@ export function createTabHandlers(deps: TabDeps) {
               ? hostWorkspaceOf(there!)
               : { kind: "project", id: origin.project },
           target: { terminal: { terminal_ref: terminal.value } },
-          relation: input.relation ?? null,
+          relation: input.relation ?? "aside",
           source: caller.value === "person" ? null : caller.value,
           ...workflowDeskOf(origin),
         });
@@ -625,6 +815,10 @@ export function createTabHandlers(deps: TabDeps) {
           (session) => row(session)?.spawned_by ?? null,
         ),
       (session) => row(session)?.title ?? "",
+      (terminalRef) => {
+        const rt = deps.terminalRuntime?.(terminalRef);
+        return rt?.tab_name ?? rt?.agent?.screen_title ?? "";
+      },
     );
     const tabs = [];
     for (const item of items) {
@@ -642,9 +836,52 @@ export function createTabHandlers(deps: TabDeps) {
     return ok({ tabs });
   };
   const isOpen = (session: string) => sessionRow(session)?.lifecycle === "open";
-  // 사람이 창의 browser 탭을 열린 session에 넘긴다(route actor가 사람뿐이다).
+  // 사람이 창의 browser 또는 터미널 탭을 열린 session에 넘긴다(route actor가 사람뿐이다).
   const hand: MemoryHandler = (_who, body) => {
     const input = tabsHand.input.parse(body);
+    const hasUrl = input.url !== undefined;
+    const hasTerminal = input.terminal !== undefined;
+    if (hasUrl === hasTerminal) {
+      return err({
+        code: "invalid_input",
+        message: "give exactly one of url or terminal",
+      });
+    }
+    const isOpenLocal = () => {
+      const row = sessionRow(input.session);
+      return row?.lifecycle === "open" && row.runs_on === null;
+    };
+    if (input.terminal !== undefined) {
+      const rt = deps.terminalRuntime?.(input.terminal);
+      if (rt === null || rt === undefined) {
+        return err({ code: "not_found", message: "terminal is not open" });
+      }
+      if (rt.dedicated === true) {
+        return err({
+          code: "conflict",
+          message:
+            "Project command terminals belong to that command and cannot be handed over.",
+        });
+      }
+      const handed = queue.handTerminal(
+        {
+          ...(input.tab === undefined ? {} : { tab: input.tab as Id<"tab"> }),
+          owner: input.session as Id<"ses">,
+          workspace: input.workspace,
+          terminal: input.terminal,
+        },
+        isOpenLocal,
+      );
+      if (handed.ok) {
+        const current = queue
+          .terminalTabs()
+          .find((item) => item.tab === handed.value);
+        deps.patchTerminalControl?.(input.terminal, {
+          held: current?.personControlling ?? false,
+        });
+      }
+      return handed.ok ? ok({ tab: handed.value }) : handed;
+    }
     // 다른 컴퓨터에서 도는 팀원의 자리는 이 컴퓨터의 browser를 다루지 못해 받을 session으로 치지 않는다.
     const handed = queue.hand(
       {
@@ -652,12 +889,9 @@ export function createTabHandlers(deps: TabDeps) {
         owner: input.session as Id<"ses">,
         workspace: input.workspace,
         profile: (input.profile ?? null) as Id<"bpf"> | null,
-        url: input.url,
+        url: input.url!,
       },
-      () => {
-        const row = sessionRow(input.session);
-        return row?.lifecycle === "open" && row.runs_on === null;
-      },
+      isOpenLocal,
     );
     return handed.ok ? ok({ tab: handed.value }) : handed;
   };
@@ -665,10 +899,10 @@ export function createTabHandlers(deps: TabDeps) {
   const NOT_BELOW =
     "You can give a tab only to a session you opened with `lophn team spawn` or one below it.";
   const NO_TABS =
-    "That session is a coding agent chat tab; it cannot drive browser tabs.";
+    "That session is a coding agent chat tab; it cannot drive browser or terminal tabs.";
   const ELSEWHERE =
-    "That team member runs on another computer; it cannot drive browser tabs on this one.";
-  // 자기가 든 browser 탭을 자기 밑의 열린 lophn session에 주거나(`session`), 준 탭을 되찾는다(`session`이 없거나 자기).
+    "That team member runs on another computer; it cannot drive browser or terminal tabs on this one.";
+  // 자기가 든 browser·터미널 탭을 자기 밑의 열린 lophn session에 주거나(`session`), 준 탭을 되찾는다(`session`이 없거나 자기).
   const give: MemoryHandler = (who, body) => {
     const caller = agentSession(who);
     if (!caller.ok) return caller;
@@ -684,9 +918,9 @@ export function createTabHandlers(deps: TabDeps) {
       if (!withinTeam(caller.value, to, parentOf)) {
         return err({ code: "forbidden", message: NOT_BELOW });
       }
-      // GUI 탭 팀원의 turn은 그 터미널 탭의 coding agent가 돌려 lophn browser를 쓰지 않는다.
+      // GUI 탭 팀원의 turn은 그 터미널 탭의 coding agent가 돌려 lophn browser·terminal을 쓰지 않는다.
       if (row.harness_gui) return err({ code: "conflict", message: NO_TABS });
-      // 다른 컴퓨터에서 도는 팀원의 자리도 이 컴퓨터의 browser를 쓰지 않는다.
+      // 다른 컴퓨터에서 도는 팀원의 자리도 이 컴퓨터의 browser·terminal을 쓰지 않는다.
       if (row.runs_on !== null) {
         return err({ code: "conflict", message: ELSEWHERE });
       }
@@ -950,6 +1184,81 @@ export function createTabHandlers(deps: TabDeps) {
     ) => driver.wait(tab, by, input),
   );
 
+  const terminalReadHandler: MemoryHandler = async (who, body) => {
+    const caller = owner(who);
+    if (!caller.ok) return caller;
+    if (deps.terminalUse === undefined) {
+      return err({ code: "unavailable", message: TERMINAL_USE_UNAVAILABLE });
+    }
+    const input = terminalUseRead.input.parse(body);
+    return await deps.terminalUse.read(input.tab as Id<"tab">, caller.value);
+  };
+  const terminalSnapshotHandler: MemoryHandler = async (who, body) => {
+    const caller = owner(who);
+    if (!caller.ok) return caller;
+    if (deps.terminalUse === undefined) {
+      return err({ code: "unavailable", message: TERMINAL_USE_UNAVAILABLE });
+    }
+    const input = terminalUseSnapshot.input.parse(body);
+    return await deps.terminalUse.snapshot(
+      input.tab as Id<"tab">,
+      caller.value,
+      {
+        ...(input.scrollback === undefined
+          ? {}
+          : { scrollback: input.scrollback }),
+        ...(input.ansi === undefined ? {} : { ansi: input.ansi }),
+      },
+    );
+  };
+  const terminalActHandler: MemoryHandler = async (who, body) => {
+    const caller = owner(who);
+    if (!caller.ok) return caller;
+    if (deps.terminalUse === undefined) {
+      return err({ code: "unavailable", message: TERMINAL_USE_UNAVAILABLE });
+    }
+    const input = terminalUseAct.input.parse(body);
+    return await deps.terminalUse.act(caller.value, {
+      ...input,
+      tab: input.tab as Id<"tab">,
+    });
+  };
+  const terminalWaitHandler: MemoryHandler = async (who, body) => {
+    const caller = owner(who);
+    if (!caller.ok) return caller;
+    if (deps.terminalUse === undefined) {
+      return err({ code: "unavailable", message: TERMINAL_USE_UNAVAILABLE });
+    }
+    const input = terminalUseWait.input.parse(body);
+    return await deps.terminalUse.wait(caller.value, {
+      ...input,
+      tab: input.tab as Id<"tab">,
+    });
+  };
+  const terminalResizeHandler: MemoryHandler = async (who, body) => {
+    const caller = owner(who);
+    if (!caller.ok) return caller;
+    if (deps.terminalUse === undefined) {
+      return err({ code: "unavailable", message: TERMINAL_USE_UNAVAILABLE });
+    }
+    const input = terminalUseResize.input.parse(body);
+    return await deps.terminalUse.resize(input.tab as Id<"tab">, caller.value, {
+      columns: input.columns,
+      rows: input.rows,
+    });
+  };
+  const terminalControlHandler: MemoryHandler = (_who, body) => {
+    const input = terminalsControl.input.parse(body);
+    if (!queue.setTerminalControl(input.terminal, input.held)) {
+      return err({
+        code: "not_found",
+        message: "terminal is not controlled by an agent",
+      });
+    }
+    deps.patchTerminalControl?.(input.terminal, { held: input.held });
+    return ok({ held: input.held });
+  };
+
   return {
     open,
     close,
@@ -966,6 +1275,12 @@ export function createTabHandlers(deps: TabDeps) {
     evaluate,
     logs,
     wait,
+    terminalRead: terminalReadHandler,
+    terminalSnapshot: terminalSnapshotHandler,
+    terminalAct: terminalActHandler,
+    terminalWait: terminalWaitHandler,
+    terminalResize: terminalResizeHandler,
+    terminalControl: terminalControlHandler,
     abandonCalls() {
       for (const abandon of [...inflight]) abandon();
     },
@@ -981,17 +1296,32 @@ export const hostQueueWiring: WiringFactory = () => {
     build(ctx) {
       // 멀리서 보기(page view)는 browser 탭 표가 바뀌면 빠진 탭을 지우고 목록이 바뀌었다고 알린다.
       let pages: PageView | undefined;
+      const ids = createIdSource({ clock: ctx.clock, random: ctx.random });
       const made = createHostQueue({
         clock: ctx.clock,
-        ids: createIdSource({ clock: ctx.clock, random: ctx.random }),
+        ids,
         changed() {
           pages?.pruned();
           publishStateChanged(ctx.bus, ctx.clock.now(), [
             { name: "browser_pages", id: null },
           ]);
         },
+        terminalRemoved(info) {
+          ctx.terminals?.patch(info.ref, { agent_control: null });
+          // agent가 연 터미널이 닫히거나(tab close, UI 닫기) 주인 session이 끝나면 PTY와 headless Screen을 즉시 정리한다.
+          if (info.agentOpened) {
+            const rt = ctx.terminals?.runtime(info.ref) ?? null;
+            if (rt !== null) void ctx.terminals.close(info.ref, rt.generation);
+          }
+        },
       });
       ctx.provide("hostQueue", made);
+      // 사람이 agent가 다루는 터미널에 키를 치면 곧바로 take control 상태가 된다.
+      ctx.terminals?.onHumanInput((terminalRef) => {
+        if (made.setTerminalControl(terminalRef, true)) {
+          ctx.terminals.patch(terminalRef, { agent_control: { held: true } });
+        }
+      });
       const hostLink = createHostLink({
         queue: made,
         logger: ctx.telemetry.logger,
@@ -1085,6 +1415,59 @@ export const hostQueueWiring: WiringFactory = () => {
           const opened = await ctx.terminals.open(input);
           return opened.ok ? ok(opened.value.terminal_ref) : opened;
         },
+        async openAgentTerminal(input) {
+          const opened = await ctx.terminals.open({
+            project: input.project,
+            ...(input.command === undefined ? {} : { exec: input.command }),
+            ...(input.cwd === undefined ? {} : { cwd: input.cwd }),
+            columns: input.columns,
+            rows: input.rows,
+            agent: true,
+          });
+          if (!opened.ok) return opened;
+          const ref = opened.value.terminal_ref;
+          // 스폰 직후 짧은 유예(최대 50ms) 동안 즉시 종료·첫 출력을 관찰해 초기 상태를 정직하게 반영한다.
+          await new Promise<void>((resolve) => {
+            let done = false;
+            const finish = () => {
+              if (done) return;
+              done = true;
+              clearTimeout(grace);
+              offOut();
+              offRt();
+              resolve();
+            };
+            const grace = setTimeout(finish, 50);
+            const offOut = ctx.terminals.onOutput((chunks) => {
+              if (chunks.some((chunk) => chunk.terminal_ref === ref)) finish();
+            });
+            const offRt = ctx.terminals.onRuntime((rt) => {
+              if (
+                rt.terminal_ref === ref &&
+                (rt.state === "exited" || rt.state === "unknown")
+              ) {
+                finish();
+              }
+            });
+          });
+          return ok(ref);
+        },
+        terminalRuntime: (ref) => ctx.terminals.runtime(ref),
+        patchTerminalControl: (ref, control) =>
+          ctx.terminals.patch(ref, { agent_control: control }),
+        askGate: async (who, input) => {
+          const gate = ctx.runtime.memory.handlers.get(key(toolGateCheck));
+          return gate === undefined
+            ? err({ code: "unavailable", message: "route unavailable" })
+            : ((await gate(who, input)) as Result<ToolGateResult>);
+        },
+        newToolCallId: () => ids.newId("tcl") as Id<"tcl">,
+        terminalUse: createTerminalUseDriver({
+          queue: made,
+          terminals: ctx.terminals,
+          clock: ctx.clock,
+          redact,
+        }),
         holdTui: (terminal, session) =>
           ctx.terminalAgents.holds.hold(terminal, session, "tui"),
         ...(launchShell === undefined
@@ -1174,6 +1557,12 @@ export const hostQueueWiring: WiringFactory = () => {
           [key(browserEvaluate), handlers.evaluate],
           [key(browserLogs), handlers.logs],
           [key(browserWait), handlers.wait],
+          [key(terminalUseRead), handlers.terminalRead],
+          [key(terminalUseSnapshot), handlers.terminalSnapshot],
+          [key(terminalUseAct), handlers.terminalAct],
+          [key(terminalUseWait), handlers.terminalWait],
+          [key(terminalUseResize), handlers.terminalResize],
+          [key(terminalsControl), handlers.terminalControl],
           [
             key(pageViewWatch),
             (who, input) =>

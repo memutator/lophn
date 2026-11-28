@@ -1,6 +1,6 @@
-import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { err, ok, type Result } from "../../base/mod.ts";
+import { platformEntry, platformEntryUrl } from "../install-and-update/mod.ts";
 import { declareSetting } from "../../protocol/config/mod.ts";
 import {
   askAnswer,
@@ -210,9 +210,7 @@ import {
 export function agentRuntimeLaunchSpec(): KindLaunchSpec {
   return {
     kind: "lophn-agent/runtime",
-    entry: fileURLToPath(
-      new URL("../main/agent-runtime/main.ts", import.meta.url),
-    ),
+    entry: platformEntry(import.meta.url, "agentRuntime"),
     policy: "always",
     memory_limit_bytes: 512 * 1024 * 1024,
   };
@@ -447,9 +445,9 @@ function globalSkillSources(
 
 // 동기 file 읽기는 writer·reader Worker 안의 handler가 한다. core 프로세스의 module graph에는 동기 file API를
 // 두지 않으므로 adapter는 이 module이 올라올 때 URL로 연다.
-const NODE_EXTENSION_FILES = new URL(
-  "./extensions/adapters/node-fs.ts",
+const NODE_EXTENSION_FILES = platformEntryUrl(
   import.meta.url,
+  "extensionNodeFs",
 ).href;
 const { createNodeWorkspaceFiles, createNodeSkillFiles } = (await import(
   NODE_EXTENSION_FILES
@@ -583,10 +581,7 @@ function sharedHeadsOf(
 
 // 정의 파일의 동기 읽기·쓰기는 writer·reader Worker 안의 handler가 한다. core 프로세스의 module graph에는
 // 동기 file API를 두지 않으므로 adapter는 이 module이 올라올 때 URL로 연다.
-const NODE_AGENT_FILES = new URL(
-  "./agents/adapters/node-fs.ts",
-  import.meta.url,
-).href;
+const NODE_AGENT_FILES = platformEntryUrl(import.meta.url, "agentNodeFs").href;
 const {
   createNodeAgentFiles,
   createNodeMessageImageFiles,

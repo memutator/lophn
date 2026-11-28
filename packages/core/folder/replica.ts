@@ -81,7 +81,7 @@ export type ReplicaDeps = {
   /** 든 manifest가 바뀌었다(`StateChanged{carry_files}`). */
   manifestsChanged(): void;
   /** 다른 기계의 하위 폴더에 file을 두거나 지웠다(읽기 scan을 깨우고, 그 scan이 `StateChanged{carry_files}`를 한 번 낸다). */
-  filesChanged(): void;
+  filesChanged(path?: string): void;
 };
 
 export type Replica = FolderReplica & {
@@ -165,6 +165,26 @@ export function createShaCache() {
 
 const same = (a: Expected | null, b: Expected) =>
   a !== null && a.size === b.size && a.sha256 === b.sha256;
+
+// 작고 시급한 mail과 기계 기록을 큰 앱 snapshot·bundle보다 먼저 나르도록 `wants`·`wantedOf` 순서를 정한다.
+// `wants`의 `after` cursor와 같은 comparator를 써서 page 넘김이 일관되게 유지된다.
+function carryPathRank(path: string): number {
+  const parts = path.split("/");
+  if (parts[2] === "mail") return 0;
+  if (
+    parts.length === 3 &&
+    (parts[2] === "record.json" || parts[2] === "roster.json")
+  ) {
+    return 1;
+  }
+  return 2;
+}
+
+export function compareCarryPath(a: string, b: string): number {
+  const diff = carryPathRank(a) - carryPathRank(b);
+  if (diff !== 0) return diff;
+  return a < b ? -1 : a > b ? 1 : 0;
+}
 
 export function createReplica(deps: ReplicaDeps): Replica {
   const root = join(deps.dataRoot, COMPUTERS_DIR);
@@ -379,7 +399,7 @@ export function createReplica(deps: ReplicaDeps): Replica {
     if (body === null) return [];
     const out: { path: string; size: number; sha256: string }[] = [];
     const entries = [...chainOf(machine, body).files].sort(([a], [b]) =>
-      a < b ? -1 : 1,
+      compareCarryPath(a, b),
     );
     for (const [path, want] of entries) {
       if (!(await shas.matches(abs(path), want))) out.push({ path, ...want });
@@ -665,7 +685,7 @@ export function createReplica(deps: ReplicaDeps): Replica {
     if (isCover(path) || parseDataPath(path)?.kind === "snapshot") {
       await serial(() => prune(machine));
     }
-    deps.filesChanged();
+    deps.filesChanged(path);
     return ok("accepted");
   }
 
@@ -735,7 +755,7 @@ export function createReplica(deps: ReplicaDeps): Replica {
           if (
             after !== undefined &&
             machine === after.machine &&
-            file.path <= after.path
+            compareCarryPath(file.path, after.path) <= 0
           ) {
             continue;
           }

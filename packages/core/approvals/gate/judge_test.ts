@@ -886,3 +886,62 @@ test("read_only 단계는 저장된 shell allow 규칙을 이기고, 위험한 �
     );
   }
 });
+
+test("opaque shell(대화형 shell 터미널 열기)은 full·allow 규칙·session grant에서도 묻고 unattended는 no_person, read_only는 mode 거부다", () => {
+  const opaqueCall: GateCall = {
+    kind: "shell",
+    command: "interactive shell",
+    opaque: true,
+  };
+  const allowAll = layers([
+    {
+      id: "r-all",
+      category: "shell",
+      pattern: "*",
+      action: "allow",
+      source: "global",
+    },
+  ]);
+  const grants: SessionGrant[] = [
+    {
+      id: "grt_0000000000000000000000000z",
+      session: SES,
+      category: "shell",
+      pattern: "*",
+      label: "*",
+      created_at: "2026-01-01T00:00:00.000Z",
+    },
+  ];
+
+  const ro = evalReq(opaqueCall, "read_only", "attended", {}, allowAll, grants);
+  assert.strictEqual(ro.kind, "deny");
+  assert.strictEqual(ro.denial.reason_kind, "mode");
+
+  for (const mode of ["ask", "workspace", "full"] as PermissionMode[]) {
+    const attended = evalReq(
+      opaqueCall,
+      mode,
+      "attended",
+      {},
+      allowAll,
+      grants,
+    );
+    assert.strictEqual(attended.kind, "ask", `${mode} attended`);
+    assert.deepStrictEqual(attended.allowed_choices, ["once", "reject"]);
+
+    const unattended = evalReq(
+      opaqueCall,
+      mode,
+      "unattended",
+      {},
+      allowAll,
+      grants,
+    );
+    assert.strictEqual(unattended.kind, "deny", `${mode} unattended`);
+    assert.strictEqual(unattended.denial.reason_kind, "no_person");
+
+    const child = evalReq(opaqueCall, mode, "team_child", {}, allowAll, grants);
+    assert.strictEqual(child.kind, "ask", `${mode} team_child`);
+    assert.deepStrictEqual(child.allowed_choices, ["once", "reject"]);
+  }
+});

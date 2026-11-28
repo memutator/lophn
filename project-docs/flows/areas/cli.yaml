@@ -517,6 +517,11 @@ links:
   - {entry: "cli:browser.act", flow: host-browser-act}
   - {entry: "cli:browser.navigate", flow: host-browser-act}
   - {entry: "cli:browser.evaluate", flow: host-browser-act}
+  - {entry: "cli:terminal.read", flow: host-terminal-use}
+  - {entry: "cli:terminal.snapshot", flow: host-terminal-use}
+  - {entry: "cli:terminal.act", flow: host-terminal-use}
+  - {entry: "cli:terminal.wait", flow: host-terminal-use}
+  - {entry: "cli:terminal.resize", flow: host-terminal-use}
   - {entry: "cli:call.send", flow: call-send}
   - {entry: "cli:handoff.write", flow: handoff-write}
   - {entry: "cli:call.reply", flow: call-reply}

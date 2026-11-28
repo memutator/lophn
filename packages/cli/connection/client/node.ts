@@ -2,10 +2,17 @@
 // core가 없으면 detached로 띄워 stdout 첫 JSON 줄(`ready`/`start_failed`)까지만 읽는다.
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
+import { existsSync } from "node:fs";
 import { connect } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { err, ok, type OsPlatform, type Result } from "../../../base/mod.ts";
+import {
+  err,
+  ok,
+  type OsPlatform,
+  resolvePlatformEntry,
+  type Result,
+} from "../../../base/mod.ts";
 import {
   type ControlDial,
   coreSocketPath,
@@ -79,14 +86,10 @@ export function spawnDetachedCore(options: {
 }): SpawnDetached {
   return ({ timeoutMs }) => {
     const { promise, resolve } = Promise.withResolvers<DetachedStart>();
-    const entry = join(
-      options.platformRoot,
-      "packages",
-      "core",
-      "main",
-      "daemon",
-      "main.ts",
-    );
+    const entry = resolvePlatformEntry(options.platformRoot, "daemon", {
+      exists: existsSync,
+      join,
+    });
     // CLI를 띄운 binary(설치본·개발 모두 shell main과 같은 Electron)를 Node로 쓴다. PATH의 node에 기대지 않는다.
     const child = spawn(process.execPath, [entry, "--port=0"], {
       cwd: options.platformRoot,

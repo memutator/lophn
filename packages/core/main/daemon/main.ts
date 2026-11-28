@@ -7,6 +7,7 @@ import { dirname } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { createAlwaysOnOs } from "../../always-on/os/mod.ts";
+import { platformRootFrom } from "../../install-and-update/mod.ts";
 import { startFailureReason } from "../../storage/migration/mod.ts";
 import { TEAM_MODULES, TEAMS, WIRINGS } from "./assembly.ts";
 import { startCore } from "./core.ts";
@@ -19,7 +20,7 @@ import { createShellLauncher } from "./shell-launcher.ts";
 const portArg = process.argv.find((arg) => arg.startsWith("--port="));
 const port = portArg === undefined ? undefined : Number(portArg.slice(7));
 
-const platformRoot = fileURLToPath(new URL("../../../..", import.meta.url));
+const platformRoot = platformRootFrom(import.meta.url);
 
 // shell 없이 띄운다. 기한을 넘기면 끄고 code null, 띄우지 못하면(없는 명령) reject한다.
 const exec = (file: string, args: readonly string[], timeoutMs: number) =>

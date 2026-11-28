@@ -1,0 +1,37 @@
+id: mail-carry-lane-and-diagnostics
+version: 0.23.187
+platform_note: none
+title: Decouple folder mail delivery from scan debounce and add end-to-end carry diagnostics
+modules:
+  - packages/core/folder
+  - packages/core/remote
+  - packages/core/main
+  - packages/protocol
+change: >
+  Folder-carried mail delivery (`readMail`) now runs on a dedicated `mail`
+  scheduler lane triggered immediately when `replica.receive` accepts a `mail/`
+  file (in addition to startup, scan, and the 2-minute timer), instead of
+  waiting behind `scan` debounce and other scan stages. `ReceiveScheduler`
+  debounce now supports a `maxWaitMs` cap (`5s` for `scan`) so continuous
+  `fs.watch` events cannot starve `scan()`, and post-scan stages isolate errors
+  individually. `replica.wants` / `wantedOf` prioritize `mail/` and
+  `record.json`/`roster.json` ahead of `apps/` while keeping cursor pagination
+  consistent, and `createCarryLinks.ready()` clears stale backoff on reconnect.
+  Diagnostic logging was added for `folder_scan_done`, `scan_record_errors`,
+  `mail_carry_applied`, `mail_carry_waiting`, and remote host `peer_attached`,
+  `peer_disconnected`, and `carry_call_failed`.
+why: >
+  Dual-boot cross-machine offline handoff mail transferred cleanly through a
+  Hub to the receiving machine's `computers/` folder, but `scan()` and
+  `readMail()` did not run for nearly a minute afterward while continuous
+  directory events or scan-lane delays left zero diagnostic logs on either the
+  receiver or the Hub.
+decisions:
+  - text: >
+      Run `readMail` on its own `mail` lane triggered by `filesChanged(path)` on
+      `mail/` arrival, cap `scan` debounce with `maxWaitMs = 5000`, prioritize
+      `mail/` and metadata records in `compareCarryPath` (shared between
+      `wantedOf` and `wants` cursor comparison), reset carry lane backoff in
+      `ready()`, and add concise structured logs across folder scan/mail and
+      remote host without logging mail bodies.
+    by: agent

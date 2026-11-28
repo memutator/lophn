@@ -1,0 +1,28 @@
+id: platform-bundle-startup
+version: 0.23.188
+platform_note: none
+title: 설치 묶음의 platform 진입점을 esbuild로 bundle하고 shell의 failed-start 자동 붙기를 추가한다
+modules:
+  - packages/base
+  - packages/cli
+  - packages/core/install-and-update
+  - packages/core/main
+  - packages/core/storage
+  - packages/shell/main
+  - tools
+change: |
+  - 설치 묶음(`tools/package/bundle-platform.ts`, `tools/package/main.ts`)이 `PLATFORM_ENTRIES` 23개 진입점(`daemon`, `writer-worker`, `reader-worker`, `team-modules`, `io-entry`, `app-supervisor`, `agent-runtime`, `cli`, `app-entrypoint` 등)을 `platform/dist/*.mjs`(ESM + code splitting)로 묶어 싣는다. `node-pty`, `npm`, `esbuild`, `typescript`, `unpdf`, `@anthropic-ai/claude-agent-sdk`는 external로 유지한다.
+  - `packages/base/install/platform-entries.ts`와 `packages/core/install-and-update/platform-paths.ts`가 `platform/dist/*.mjs`가 있으면 bundle을, 없으면 개발용 raw `.ts`를 고르고, 모든 `import.meta.url` 상대 경로 자산·진입점 참조를 `platformRoot` 기준으로 통일한다.
+  - `packages/core/main/daemon/team-modules.ts`로 25개 팀 등록 모듈을 묶어 `writer`·`reader` Worker가 25개 `.ts` 트리를 중복 로드하지 않도록 한다.
+  - 설치본 CLI launcher(`linux-install.ts`, `win-install.ts`, `mac-install.ts`)와 `verify-linux-install.ts`가 `dist/cli.mjs`, `dist/daemon.mjs`, `dist/app-entrypoint.mjs`를 쓰도록 바꾼다.
+  - `packages/shell/main/desktop/core/connection.ts`가 `failed-start`(schema 실패 제외)에서도 2초 주기로 `control.join()`을 물어 이미 띄운 `core`가 뒤늦게 `ready`가 되면 자동으로 붙는다.
+why: |
+  설치본이 raw `.ts` 2,183개와 `node_modules` 12,090개를 그대로 풀어 놓고 `core`·Worker 3개·자식 프로세스 3개가 각각 다시 여는 구조라 Linux에서도 기동이 느리고, Windows에서는 재부팅 직후 콜드 I/O + Defender 실시간 스캔이 겹쳐 `ensureCore` 90초 timeout을 넘기는 문제가 발생했다.
+decisions:
+  - text: "`esbuild` bundling은 `splitting: true` ESM(`.mjs`)으로 `platform/dist/`에 두고 `dist/` 존재 여부로 개발(.ts)과 설치본(.mjs)을 가른다. 버린 길: `splitting: false`(32MB로 커지고 Worker/daemon 간 캐시 공유가 안 됨), raw `.ts` 유지 + timeout만 늘리기(근본 I/O 병목이 남음)."
+    by: agent
+  - text: "`failed-start` 자동 붙기는 `control.join()`만 호출해 새 `core`를 중복 spawn하지 않고, `failed-schema`는 기존처럼 자동 복구하지 않는다."
+    by: agent
+checklist:
+  - 설치본으로 재부팅 직후 앱이 timeout 없이 빠르게 뜨는지 본다
+  - 설치본에서 `lophn version` 등 CLI가 정상 동작하는지 본다

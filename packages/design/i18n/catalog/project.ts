@@ -330,6 +330,9 @@ export const project = {
     "lophn couldn't confirm that this shell stopped.",
   "terminal.status.unknown":
     "lophn lost track of this shell, so how it ended is unknown.",
+  "terminal.text.agent-controlling": "An agent is controlling this terminal",
+  "terminal.text.agent-controlling-named":
+    "{name} is controlling this terminal",
   "terminal.title.close": "Close this terminal?",
   "terminal.title.switch": "Restart {harness} to switch?",
   "terminal.toast.view-only":

@@ -3,13 +3,13 @@ import { createHash } from "node:crypto";
 import { readdir, readFile, realpath } from "node:fs/promises";
 import { dirname, extname, join } from "node:path";
 import process from "node:process";
-import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { err, ok, type Result } from "../../../base/mod.ts";
 import type {
   ToolEffect,
   ToolResult,
 } from "../../../protocol/lophn-agent/mod.ts";
+import { platformEntry } from "../../install-and-update/mod.ts";
 import type { ToolDefinition } from "./registry.ts";
 import { spillLarge } from "./spill.ts";
 import type { ToolContext } from "./tool-context.ts";
@@ -26,9 +26,7 @@ const EXTENSIONS = new Set([".ts", ".js", ".mjs"]);
 const INTERNAL_ENV = /^(LOPHN_|ELECTRON_|NODE_CHANNEL_FD$)/;
 const INSPECT_TIMEOUT_MS = 5_000;
 const RUN_TIMEOUT_MS = 60_000;
-const RUNNER_PATH = fileURLToPath(
-  new URL("./local-tool-runner.ts", import.meta.url),
-);
+const RUNNER_PATH = platformEntry(import.meta.url, "localToolRunner");
 
 export function localToolModelName(name: string): string {
   return `${LOCAL_TOOL_PREFIX}${name}`;

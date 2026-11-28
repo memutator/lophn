@@ -6,7 +6,6 @@ import { existsSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import process from "node:process";
-import { fileURLToPath } from "node:url";
 import { err, ok } from "../../../../base/mod.ts";
 import {
   HOME_TERMINAL_PROJECT,
@@ -40,6 +39,10 @@ import {
   spawnNodeHost,
 } from "../../../terminals/mod.ts";
 import type { Terminals } from "../../../terminals/ports.ts";
+import {
+  platformEntry,
+  platformRootFrom,
+} from "../../../install-and-update/mod.ts";
 import { installedLayout } from "../entry-layout.ts";
 import type { WiringFactory } from "./context.ts";
 
@@ -49,13 +52,9 @@ const key = (route: { resource: string; method: string }) =>
 // lease 기한(30초)을 이 주기로 본다.
 const EXPIRE_MS = 5000;
 
-const HOST_ENTRY = fileURLToPath(
-  new URL("../../../terminals/host/cli.ts", import.meta.url),
-);
+const HOST_ENTRY = platformEntry(import.meta.url, "terminalHost");
 // 설치본은 platform/ 폴더, 개발은 저장소 root다.
-const PLATFORM_ROOT = fileURLToPath(
-  new URL("../../../../../", import.meta.url),
-);
+const PLATFORM_ROOT = platformRootFrom(import.meta.url);
 
 // login shell을 shell 없이 한 번 띄워 stdout을 모은다. 기한을 넘기면 끄고 null이다.
 const runLoginShell: RunLoginShell = (shell, args, env, timeoutMs) =>
@@ -165,7 +164,7 @@ export const terminalsWiring: WiringFactory = () => {
                 ? { kind: "home" }
                 : { kind: "project", id: project },
             target: { terminal: { terminal_ref: terminal } },
-            relation,
+            relation: relation ?? "aside",
             source: null,
           });
         },

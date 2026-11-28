@@ -37,6 +37,8 @@ import {
   eventFilePath,
   eventFileSchema,
   machineSigningKey,
+  mailAcksPath,
+  mailFilePath,
   manifestPath,
   rosterFilePath,
   rosterFileSchema,
@@ -93,6 +95,7 @@ import { createRosterFiles } from "./import/roster.ts";
 import { sourceCursor } from "./apps/state.ts";
 import { createMirror } from "./mirror.ts";
 import type { FolderLog } from "./ports.ts";
+import { createReceiveScheduler } from "./receive-scheduler.ts";
 import { createReplica } from "./replica.ts";
 import {
   FOLDER_AWAY_NOTIFIED_STEPS,
@@ -2531,4 +2534,107 @@ test("settings_export: permission_rules와 locked_fields는 confirm_permissions=
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+// fs.watch event가 계속 들어와도 scan debounce가 2분 timer까지 굶으면 mail과 기록 갱신이 늦는다.
+test("receive scheduler debounce는 maxWaitMs가 있으면 계속된 event에도 최대 대기 안에 실행한다", () => {
+  let now = 0;
+  let scheduled: { at: number; fn: () => void } | undefined;
+  let runs = 0;
+  const scheduler = createReceiveScheduler({
+    nowMs: () => now,
+    wait(ms, fn) {
+      const entry = { at: now + ms, fn };
+      scheduled = entry;
+      return () => {
+        if (scheduled === entry) scheduled = undefined;
+      };
+    },
+  });
+
+  scheduler.debounce("scan", 2000, () => void (runs += 1), 5000);
+  assert.equal(scheduled?.at, 2000);
+
+  now = 1500;
+  scheduler.debounce("scan", 2000, () => void (runs += 1), 5000);
+  assert.equal(scheduled?.at, 3500);
+
+  now = 3000;
+  scheduler.debounce("scan", 2000, () => void (runs += 1), 5000);
+  assert.equal(scheduled?.at, 5000);
+
+  now = 4500;
+  scheduler.debounce("scan", 2000, () => void (runs += 1), 5000);
+  assert.equal(scheduled?.at, 5000);
+  assert.equal(runs, 0);
+
+  now = 5000;
+  scheduled?.fn();
+  assert.equal(runs, 1);
+
+  // 한 번 실행한 뒤의 새 debounce는 새 firstAt에서 다시 5000ms를 센다.
+  scheduler.debounce("scan", 2000, () => void (runs += 1), 5000);
+  assert.equal(scheduled?.at, 7000);
+});
+
+// 큰 앱 snapshot/bundle보다 작은 mail과 기계 기록이 먼저 와야 하고, cursor pagination도 같은 순서로 빈틈없이 이어져야 한다.
+test("replica.wants는 mail을 record·roster·apps보다 먼저 돌려주고 after cursor가 같은 순서로 page를 잇는다", async () => {
+  await carryEnv(async (env) => {
+    const mailId = "mal_01hzzzzzzzzzzzzzzzzzzzzzzz" as Id<"mal">;
+    const mailBytes = new TextEncoder().encode('{"mail":1}\n');
+    const acksBytes = new TextEncoder().encode('{"format":1}\n');
+    const recordBytes = new TextEncoder().encode('{"record":1}\n');
+    const rosterBytes = new TextEncoder().encode('{"roster":1}\n');
+    const appListBytes = new TextEncoder().encode('{"files":[]}\n');
+    const entry = (path: string, bytes: Uint8Array): CarryFileEntry => ({
+      path,
+      size: bytes.byteLength,
+      sha256: createHash("sha256").update(bytes).digest("hex"),
+    });
+    const mail1 = mailFilePath(OTHER, mailId);
+    const acks = mailAcksPath(OTHER);
+    const rec = recordPath(OTHER);
+    const ros = rosterFilePath(OTHER);
+    const appList = appFilesPath(OTHER, APP);
+    const manifest = signManifest(
+      {
+        format: 1,
+        machine: OTHER,
+        revision: 1,
+        written_at: AT,
+        files: [
+          entry(appList, appListBytes),
+          entry(rec, recordBytes),
+          entry(ros, rosterBytes),
+        ],
+        mail: [entry(acks, acksBytes), entry(mail1, mailBytes)],
+      },
+      laptop.signing.secretKey,
+    );
+    assert.deepEqual(
+      await env.replica.offerManifest(manifest, "link"),
+      ok("accepted"),
+    );
+
+    const expectedOrder = [acks, mail1, rec, ros, appList];
+    const all = await env.replica.wants(100);
+    assert.ok(all.ok);
+    assert.deepEqual(
+      all.value.map((each) => each.path),
+      expectedOrder,
+    );
+
+    // page 크기 1로 after cursor를 끝까지 넘겨도 정확히 같은 순서로 한 번씩 나온다.
+    const paged: string[] = [];
+    let after: { machine: Id<"mch">; path: string } | undefined;
+    for (let i = 0; i < 10; i++) {
+      const page = await env.replica.wants(1, after);
+      assert.ok(page.ok);
+      const last = page.value.at(-1);
+      if (last === undefined) break;
+      paged.push(...page.value.map((each) => each.path));
+      after = { machine: last.machine, path: last.path };
+    }
+    assert.deepEqual(paged, expectedOrder);
+  });
 });

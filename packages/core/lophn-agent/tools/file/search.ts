@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { Worker } from "node:worker_threads";
 import { ok, type Result } from "../../../../base/mod.ts";
 import type { ToolResult } from "../../../../protocol/lophn-agent/mod.ts";
+import { platformEntryUrl } from "../../../install-and-update/mod.ts";
 import { continuation } from "../bundles/paging.ts";
 import { fitJson } from "../result.ts";
 import type { ToolContext } from "../tool-context.ts";
@@ -40,7 +41,7 @@ function runSearch(
   ctx: ToolContext,
 ): Promise<Result<SearchOutput & { ok: true }>> {
   const { read, write, base, results } = ctx.scope;
-  const worker = new Worker(new URL("./search-worker.ts", import.meta.url), {
+  const worker = new Worker(platformEntryUrl(import.meta.url, "searchWorker"), {
     workerData: {
       ...input,
       maxLine: MAX_TESTED_LINE_CHARS,

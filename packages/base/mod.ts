@@ -36,3 +36,10 @@ export {
   type TreeDeps,
   type TreeResult,
 } from "./os/mod.ts";
+export {
+  findPlatformRoot,
+  PLATFORM_ENTRIES,
+  type PlatformEntryName,
+  type PlatformPathDeps,
+  resolvePlatformEntry,
+} from "./install/platform-entries.ts";

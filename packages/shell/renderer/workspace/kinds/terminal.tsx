@@ -27,6 +27,7 @@ import {
 } from "../../terminal/store.ts";
 import { GuiSwitch, guiTitleOf } from "../../terminal/terminal-gui.tsx";
 import { TerminalTab } from "../../terminal/terminal-tab.tsx";
+import { takeBack } from "../hand.ts";
 import type { TabItem } from "../model.ts";
 import { openAt, showAfter } from "../open-policy.ts";
 import { createProjectCommandsSource } from "../project-commands/source.ts";
@@ -156,6 +157,7 @@ export function openTerminal(
     key,
     kind: "terminal",
     title,
+    ...(options.open?.owner === undefined ? {} : { owner: options.open.owner }),
     fields: {
       auto,
       ...(options.terminal === undefined ? {} : { terminal: options.terminal }),
@@ -514,6 +516,12 @@ export const terminalKind: TabKindDef = {
         attach={terminalRefOf(tab)}
         active={active}
         deps={terminal}
+        owner={tab.owner}
+        onTakeBack={
+          tab.handedTab === undefined
+            ? undefined
+            : () => takeBack(tab, (key, patch) => host.patchTab(key, patch))
+        }
         onAgentChange={() =>
           syncTerminalTab(tab, terminal.store, host.patchTab)
         }

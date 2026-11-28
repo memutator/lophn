@@ -4,7 +4,6 @@
 // 앱 호출(`app.call_tool`)·invocation·rewind는 wiring/apps.ts가 각 module을 잇는다.
 import { readFile } from "node:fs/promises";
 
-import { fileURLToPath } from "node:url";
 import {
   type Clock,
   createIdSource,
@@ -14,6 +13,7 @@ import {
   ok,
   type Result,
 } from "../../base/mod.ts";
+import { platformEntry } from "../install-and-update/mod.ts";
 import { bundleFileStore } from "../../protocol/apps/app-storage.ts";
 import { appTools } from "../../protocol/apps/declaration/read.ts";
 import {
@@ -978,9 +978,7 @@ async function readTextOrEmpty(path: string): Promise<string> {
 export function appSupervisorSpec(): KindLaunchSpec {
   return {
     kind: APPS_SUPERVISOR_KIND,
-    entry: fileURLToPath(
-      new URL("../main/app-supervisor/main.ts", import.meta.url),
-    ),
+    entry: platformEntry(import.meta.url, "appSupervisor"),
     policy: "always",
     memory_limit_bytes: 256 * 1024 * 1024,
   };

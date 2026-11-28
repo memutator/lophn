@@ -47,17 +47,26 @@ export function reportState(tab: string, item: TabItem): void {
 }
 
 /**
- * 넘길 수 있는 탭: browser 탭이고 잠깐 뜬 탭(transient)·크기 준 popup(native view)이 아니며, 사람이 연 탭이다(이미 넘긴 탭은 다른
- * session에 다시 넘긴다). `tab open`으로 연 탭(key `host:`)은 이미 core 표의 탭이라 넘기지 않는다: agent가 연 탭은 그 session의
- * 것이고, 사람 token이 연 탭은 되찾을 때 core 표에서 뺄 길(key에서 id가 사라짐)이 없다.
+ * 넘길 수 있는 탭: 사람이 연 browser 탭(잠깐 뜬 transient·native popup 제외) 또는 사람이 연 이 컴퓨터의 일반 터미널 탭
+ * (`dedicated` project command 제외, PTY가 열려 `fields.terminal`이 있는 탭)이다(이미 넘긴 탭은 다른 session에 다시 넘긴다).
+ * `tab open`으로 연 탭(key `host:`)은 이미 core 표의 탭이라 넘기지 않는다.
  */
 export function canHand(tab: TabItem): boolean {
-  return (
-    tab.kind === "browser" &&
-    tab.transient !== true &&
-    tab.fields?.native !== true &&
-    hostTabOf({ key: tab.key }) === null
-  );
+  if (tab.transient === true || hostTabOf({ key: tab.key }) !== null) {
+    return false;
+  }
+  if (tab.kind === "browser") {
+    return tab.fields?.native !== true;
+  }
+  if (tab.kind === "terminal") {
+    return (
+      tab.fields?.dedicated !== true &&
+      tab.machine === undefined &&
+      typeof tab.fields?.terminal === "string" &&
+      tab.fields.terminal.length > 0
+    );
+  }
+  return false;
 }
 
 /** Hand to 하위 menu의 줄 하나. 얼굴은 그 session의 주인 avatar다. */
@@ -116,15 +125,24 @@ function handInput(
   workspace: WorkspaceRef,
   id: string | null,
 ): Record<string, unknown> {
+  const ws =
+    workspace.kind === "home"
+      ? { kind: "home" }
+      : { kind: workspace.kind, id: workspace.id };
+  if (tab.kind === "terminal") {
+    return {
+      ...(id === null ? {} : { tab: id }),
+      session,
+      workspace: ws,
+      terminal: tab.fields?.terminal,
+    };
+  }
   const profile = tab.fields?.profile;
   const url = tab.fields?.url;
   return {
     ...(id === null ? {} : { tab: id }),
     session,
-    workspace:
-      workspace.kind === "home"
-        ? { kind: "home" }
-        : { kind: workspace.kind, id: workspace.id },
+    workspace: ws,
     ...(typeof profile === "string" ? { profile } : {}),
     url: typeof url === "string" ? url : "",
   };
@@ -157,7 +175,7 @@ export async function handTab(
   if (reply?.ok !== true || typeof handed !== "string") return false;
   if (tab.handedTab !== undefined) report(tab.handedTab);
   patch(tab.key, { owner: session, handedTab: handed });
-  state(handed, tab);
+  if (tab.kind === "browser") state(handed, tab);
   return true;
 }
 
@@ -187,8 +205,15 @@ export async function announceHanded(
 ): Promise<void> {
   await Promise.all(
     tabs.map(async ({ tab, workspace, patch }) => {
+      const supported =
+        tab.kind === "browser" ||
+        (tab.kind === "terminal" &&
+          tab.fields?.dedicated !== true &&
+          tab.machine === undefined &&
+          typeof tab.fields?.terminal === "string" &&
+          tab.fields.terminal.length > 0);
       if (
-        tab.kind !== "browser" ||
+        !supported ||
         tab.handedTab === undefined ||
         tab.owner === undefined
       ) {
@@ -203,8 +228,9 @@ export async function announceHanded(
         })
         .catch(() => null);
       const code = reply?.error?.code;
-      if (reply?.ok === true) state(tab.handedTab, tab);
-      else if (code === "not_found" || code === "conflict") {
+      if (reply?.ok === true) {
+        if (tab.kind === "browser") state(tab.handedTab, tab);
+      } else if (code === "not_found" || code === "conflict") {
         takeBack(tab, patch, report);
       }
     }),

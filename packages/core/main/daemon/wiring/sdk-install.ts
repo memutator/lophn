@@ -1,5 +1,5 @@
-import { fileURLToPath } from "node:url";
 import { err, ok, type Result } from "../../../../base/mod.ts";
+import { platformPath } from "../../../install-and-update/mod.ts";
 import { PACKAGE_GUIDE_BLOB_OWNER_KIND } from "../../../apps/packages/blobs.ts";
 import { PACKAGE_PUBLISH_CONTEXT } from "../../../apps/control.ts";
 import {
@@ -18,7 +18,7 @@ import { installNodeShims } from "../../../supervision/security/node-shims.ts";
 import type { WiringContext, WiringFactory } from "./context.ts";
 
 // 이 file 위치에서 본 repo의 `packages/`. 계산은 여기 한 곳에서만 한다.
-const PACKAGES_ROOT = fileURLToPath(new URL("../../../../", import.meta.url));
+const PACKAGES_ROOT = platformPath(import.meta.url, "packages");
 
 // catalog의 @me version과 bundle blob 등록 여부. blob이 있는지는 ref 행으로 본다.
 function readMeVersions(ctx: WiringContext): Result<MeVersion[]> {

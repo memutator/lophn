@@ -169,6 +169,8 @@ const STABLE_MS = 60_000;
 const RESTART_LIMIT = 5;
 /** 다른 client가 core를 멈춘 뒤 새 core가 섰는지 묻는 간격. 묻기만 하고 띄우지 않는다. */
 const SHUTDOWN_PROBE_MS = 30_000;
+/** ensure가 기한을 넘긴 뒤에도 이미 띄운 core가 뒤늦게 ready가 되면 바로 붙기 위해 묻는 간격. 띄우지는 않는다. */
+const FAILED_START_PROBE_MS = 2_000;
 
 /** main 조립이 부른다. 준비 전에 창은 이미 열려 있다. */
 export function startCoreConnection(
@@ -210,8 +212,9 @@ export function startCoreConnection(
   let stopped = false;
   // 다른 client가 control stop을 보냈다(`closed(shutdown)`). 저절로 다시 띄우지 않는다.
   let shutdownSeen = false;
-  // shutdownSeen 동안 새 core(CLI가 다시 띄운 것)가 섰는지 묻는 timer.
+  // shutdownSeen·failed-start 동안 이미 서 있는 core가 ready가 됐는지 묻는 timer.
   let probe: ReturnType<typeof setInterval> | undefined;
+  let probing = false;
   // 이어진 짧은 crash 수와 마지막 ready 시각. Retry(attachIfAlive)는 수를 비우지 않는다.
   let crashes = 0;
   let readyAt: number | undefined;
@@ -229,14 +232,52 @@ export function startCoreConnection(
     }
   };
 
+  function stopProbe(): void {
+    if (probe === undefined) return;
+    clearInterval(probe);
+    probe = undefined;
+  }
+
   function fail(reason?: StartFailureReason): void {
     state.confirmedAt = null;
     delete state.schemaFailure;
     if (reason !== undefined && reason !== "other") {
+      stopProbe();
       state.state = "failed-schema";
       state.schemaFailure = reason;
     } else {
       state.state = "failed-start";
+      // ensure가 timeout을 넘긴 뒤에도 이미 띄운 core가 뒤늦게 ready가 되면 자동으로 붙는다. 새로 띄우지는 않는다.
+      if (!stopped && control !== undefined) {
+        stopProbe();
+        probe = setInterval(() => {
+          if (
+            stopped ||
+            attached !== undefined ||
+            state.state !== "failed-start"
+          ) {
+            stopProbe();
+            return;
+          }
+          if (probing || recovering !== undefined) return;
+          probing = true;
+          void control
+            .join()
+            .then((joined) => {
+              if (
+                stopped ||
+                attached !== undefined ||
+                state.state !== "failed-start"
+              ) {
+                return;
+              }
+              if (joined.ok) openCore(joined.value);
+            })
+            .finally(() => {
+              probing = false;
+            });
+        }, FAILED_START_PROBE_MS);
+      }
     }
     push();
   }
@@ -249,10 +290,10 @@ export function startCoreConnection(
     attached = undefined;
     state.state = "stale";
     push();
-    probe ??= setInterval(() => {
+    stopProbe();
+    probe = setInterval(() => {
       if (stopped || !shutdownSeen) {
-        clearInterval(probe);
-        probe = undefined;
+        stopProbe();
         return;
       }
       void attachIfAlive();
@@ -341,6 +382,7 @@ export function startCoreConnection(
     });
     attached = { session, capability, gateway, userToken: core.user_token };
     shutdownSeen = false;
+    stopProbe();
     state.state = "ready";
     state.confirmedAt = null;
     delete state.schemaFailure;
@@ -494,7 +536,7 @@ export function startCoreConnection(
     },
     detach() {
       stopped = true;
-      clearInterval(probe);
+      stopProbe();
       controller.abort();
       attached?.gateway.stop();
       attached = undefined;
@@ -502,7 +544,7 @@ export function startCoreConnection(
     async stopCore() {
       // 멈추는 동안의 reconnect는 core를 다시 띄우지 않는다.
       stopped = true;
-      clearInterval(probe);
+      stopProbe();
       controller.abort();
       attached?.gateway.stop();
       attached = undefined;

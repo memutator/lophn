@@ -4,7 +4,7 @@
 // `packages/coding-agent`의 local 명령 가운데 `harness sync-skills`만 같은 길로 core를 읽고,
 // `hook`과 그 밖의 `harness *`는 core를 부르지 않는다.
 import { Buffer } from "node:buffer";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import process from "node:process";
@@ -14,6 +14,7 @@ import { fileURLToPath } from "node:url";
 import productPackage from "../../package.json" with { type: "json" };
 import {
   err,
+  findPlatformRoot,
   homeOf,
   type LophnError,
   type OsPlatform,
@@ -243,7 +244,12 @@ export async function cliMain(
   const dataRoot = dataRootOf(env, home);
   const platform = options.platform ?? process.platform;
   const platformRoot =
-    options.platformRoot ?? fileURLToPath(new URL("../..", import.meta.url));
+    options.platformRoot ??
+    findPlatformRoot(dirname(fileURLToPath(import.meta.url)), {
+      exists: existsSync,
+      dirname,
+      join,
+    });
   let pending: Promise<Result<CommandCore, LophnError>> | undefined;
   // core 연결은 처음 필요할 때 한 번만 한다. help·version·core를 부르지 않는 local 명령은 core를 띄우지 않는다.
   const connect = (): Promise<Result<CommandCore, LophnError>> =>

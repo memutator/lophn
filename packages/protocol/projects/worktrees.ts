@@ -364,6 +364,27 @@ export const worktreesDetectInclude = defineRead({
   errors,
 });
 
+// 모든 active project의 ready worktree 경로. shell main의 파일 adapter가 연결 폴더처럼 읽고 쓰는 범위에 더한다.
+// git을 부르지 않는 ledger 읽기다.
+export const worktreesRoots = defineRead({
+  resource: "worktrees",
+  method: "roots",
+  name: "WorktreesRoots",
+  input: z.strictObject({}),
+  output: z.strictObject({
+    roots: z.array(
+      z.strictObject({
+        project: idSchema("prj"),
+        worktree: idSchema("wkt"),
+        path: z.string().min(1),
+      }),
+    ),
+  }),
+  reads: ["worktrees"],
+  actors: ["user", "machine"],
+  errors,
+});
+
 // core 내부 machine 전용 ledger 쓰기 command. main thread가 검증·git 실행 뒤에 원자적으로 기록한다.
 export const worktreesStore = defineCommand({
   resource: "worktrees",
@@ -405,6 +426,7 @@ export const WORKTREE_READ_ROUTES = [
   worktreesRemovePreflight,
   worktreesSettingsGet,
   worktreesDetectInclude,
+  worktreesRoots,
 ] as const;
 
 export const WORKTREE_MEMORY_ROUTES = [

@@ -27,5 +27,6 @@ export {
 } from "./project-commands.ts";
 export { settingsIcons } from "./settings.ts";
 export { shellIcons } from "./shell.ts";
+export { sourceControlIcons } from "./source-control.ts";
 export { sidebarIcons } from "./sidebar.ts";
 export { workspaceIcons } from "./workspace.ts";

@@ -690,7 +690,7 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
           details: { reason: "unresolved_conflicts" },
         });
       }
-      if (parsedStatus.staged_count === 0 && parsed.data.amend !== true) {
+      if (parsedStatus.staged_count === 0) {
         return err({
           code: "conflict" as const,
           message: "nothing staged to commit",
@@ -715,9 +715,7 @@ export function createSourceControlHandlers(deps: SourceControlHandlersDeps) {
         });
       }
 
-      const commitArgs = ["commit"];
-      if (parsed.data.amend === true) commitArgs.push("--amend");
-      commitArgs.push("-F", "-");
+      const commitArgs = ["commit", "-F", "-"];
       const res = await git(target.value.cwd, commitArgs, {
         stdin: parsed.data.message,
         retryLocks: true,

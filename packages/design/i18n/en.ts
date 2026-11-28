@@ -29,10 +29,12 @@ import { project } from "./catalog/project.ts";
 import { remoteDesk } from "./catalog/remote-desk.ts";
 import { settingsSync } from "./catalog/settings-sync.ts";
 import { shell } from "./catalog/shell.ts";
+import { sourceControl } from "./catalog/source-control.ts";
 import { takeIn } from "./catalog/take-in.ts";
 import { workflow } from "./catalog/workflow.ts";
 import { workspace } from "./catalog/workspace.ts";
 import { workspaceSettings } from "./catalog/workspace-settings.ts";
+import { worktree } from "./catalog/worktree.ts";
 
 export const en = {
   ...agents,
@@ -64,10 +66,12 @@ export const en = {
   ...remoteDesk,
   ...settingsSync,
   ...shell,
+  ...sourceControl,
   ...takeIn,
   ...workflow,
   ...workspace,
   ...workspaceSettings,
+  ...worktree,
 } as const;
 
 export type Catalog = typeof en;

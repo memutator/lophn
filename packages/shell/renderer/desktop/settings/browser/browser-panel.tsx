@@ -13,6 +13,7 @@ import { DeviceRows } from "./device-rows.tsx";
 import { LinkRows } from "./link-rows.tsx";
 import { LoginRows } from "./login-rows.tsx";
 import { ProfileRows } from "./profile-rows.tsx";
+import { SearchEngineRow } from "./search-engine-row.tsx";
 import { ShareRow } from "./share-row.tsx";
 import type { BrowserProfile, BrowserSettingsSource } from "./source.ts";
 
@@ -53,6 +54,12 @@ export function BrowserPanel({ source }: BrowserPanelProps) {
       <section>
         <h2 className={styles.groupTitle}>{t("settings.heading.bookmarks")}</h2>
         <BookmarkRows source={source} />
+      </section>
+      <section className={styles.groupBlock}>
+        <h2 className={styles.groupTitle}>
+          {t("settings.heading.search-engine")}
+        </h2>
+        <SearchEngineRow source={source} />
       </section>
       <section className={styles.groupBlock}>
         <h2 className={styles.groupTitle}>{t("settings.heading.links")}</h2>

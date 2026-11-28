@@ -1,7 +1,12 @@
 // Settings › Browser › Links의 줄 목록. 값은 core 선언 설정이고 main의 bridge가 요청마다 읽는다.
 import type { MessageKey } from "@lophn/i18n";
 
-import type { BrowserProfile, LinkId, LinkWhere } from "./source.ts";
+import type {
+  BrowserProfile,
+  LinkId,
+  LinkWhere,
+  SearchEngineId,
+} from "./source.ts";
 
 interface LinkRow {
   readonly id: LinkId;
@@ -39,6 +44,19 @@ export const LINK_ROWS: readonly LinkRow[] = [
 
 /** 선언의 기본값과 같다. 저장된 값이 선택지 밖이면 쓴다. */
 export const LINK_DEFAULT: LinkWhere = "browser_tab";
+
+export const SEARCH_ENGINE_OPTIONS: readonly {
+  readonly value: SearchEngineId;
+  readonly label: MessageKey;
+}[] = [
+  { value: "google", label: "settings.label.search-engine-google" },
+  { value: "duckduckgo", label: "settings.label.search-engine-duckduckgo" },
+  { value: "bing", label: "settings.label.search-engine-bing" },
+  { value: "naver", label: "settings.label.search-engine-naver" },
+  { value: "brave", label: "settings.label.search-engine-brave" },
+  { value: "perplexity", label: "settings.label.search-engine-perplexity" },
+  { value: "custom", label: "settings.label.search-engine-custom" },
+];
 
 /** 설정 선언의 key. */
 export const DEVICES_KEY = "shell.devices";

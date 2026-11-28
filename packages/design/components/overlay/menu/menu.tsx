@@ -1,6 +1,12 @@
 import * as Radix from "@radix-ui/react-dropdown-menu";
-import { Fragment, type ReactElement, type ReactNode, useRef } from "react";
-import { focusLike, keepFocus, useInputMode } from "../return-focus.ts";
+import {
+  Fragment,
+  type ReactElement,
+  type ReactNode,
+  useRef,
+  useState,
+} from "react";
+import { focusLike, useInputMode } from "../return-focus.ts";
 import { Icon, type IconProps } from "../../primitives/icon/icon.tsx";
 import {
   componentMark,
@@ -29,6 +35,8 @@ export interface MenuItem {
   heading?: ReactNode;
   // 하위 항목은 hover 또는 키보드로 옆에 열린다.
   items?: readonly MenuItem[];
+  // 하위 항목이 있어도 이 줄 자체를 눌러 고를 수 있다(hover·→는 하위 메뉴, click·Enter는 이 항목 선택).
+  selectable?: boolean;
 }
 
 export interface MenuProps {
@@ -71,12 +79,20 @@ export function Menu({
   container,
   placement = "beside",
   returnFocus = true,
-  ...state
+  open,
+  onOpenChange,
 }: MenuProps) {
   const anchor = useRef<HTMLButtonElement>(null);
   const mode = useInputMode();
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const currentOpen = open ?? uncontrolledOpen;
+  const handleOpenChange = (next: boolean) => {
+    if (open === undefined) setUncontrolledOpen(next);
+    onOpenChange?.(next);
+  };
+  const close = () => handleOpenChange(false);
   return (
-    <Radix.Root {...state}>
+    <Radix.Root open={currentOpen} onOpenChange={handleOpenChange}>
       <Radix.Trigger asChild ref={anchor}>
         {trigger}
       </Radix.Trigger>
@@ -98,7 +114,12 @@ export function Menu({
           }}
           {...componentMark("Menu")}
         >
-          <MenuItems items={items} onSelect={onSelect} container={container} />
+          <MenuItems
+            items={items}
+            onSelect={onSelect}
+            close={close}
+            container={container}
+          />
         </Radix.Content>
       </Radix.Portal>
     </Radix.Root>
@@ -108,10 +129,12 @@ export function Menu({
 function MenuItems({
   items,
   onSelect,
+  close,
   container,
 }: {
   items: readonly MenuItem[];
   onSelect: (id: string) => void;
+  close: () => void;
   container?: HTMLElement | null;
 }) {
   return items.map((item) => {
@@ -156,6 +179,33 @@ function MenuItems({
               className={styles.item}
               disabled={item.disabled}
               textValue={textValue}
+              onClick={
+                item.selectable === true
+                  ? (event) => {
+                      if (item.disabled) return;
+                      event.preventDefault();
+                      onSelect(item.id);
+                      close();
+                    }
+                  : undefined
+              }
+              onKeyDown={
+                item.selectable === true
+                  ? (event) => {
+                      if (
+                        item.disabled ||
+                        event.target !== event.currentTarget
+                      ) {
+                        return;
+                      }
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        onSelect(item.id);
+                        close();
+                      }
+                    }
+                  : undefined
+              }
               {...item.data}
             >
               {content}
@@ -165,6 +215,7 @@ function MenuItems({
                 <MenuItems
                   items={item.items}
                   onSelect={onSelect}
+                  close={close}
                   container={container}
                 />
               </Radix.SubContent>

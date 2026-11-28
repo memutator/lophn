@@ -122,7 +122,9 @@ files:
       - browser-navigation:allowed
       - browser-navigation:blocked
       - browser-navigation:os-handoff
-    note: "browser page의 main frame·subframe 목적지 판정표(http·https 허용, credential·scheme 차단, mailto·tel는 OS로)"
+      - browser-page-open:loaded
+      - browser-page-open:invalid-address
+    note: "browser page의 main frame·subframe 목적지 판정표(http·https 허용, credential·scheme 차단, mailto·tel는 OS로)와 주소 칸 입력 정리(주소·검색어 판별, 위험 scheme 유지, custom 검색 URL template 검사)"
 
   - path: packages/shell/main/browser/permission_test.ts
     covers:

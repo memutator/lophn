@@ -1,15 +1,21 @@
 // Browser 항목이 읽고 쓰는 통로. shell IPC(`window.lophnBrowser`)는 window-source.ts만 안다. link 열 곳·기기·login은
 // 화면이 core를 useCoreRead로 읽는다.
 import type { BrowserProfile } from "../../../../../protocol/secrets/browser-vault.ts";
+import type { SearchEngineId } from "../../../../../protocol/shell/browser-search.ts";
 import type { BookmarkList } from "../../../../ipc/browser.ts";
 import type { SourceResult } from "../source.ts";
 
-export type { BookmarkList, BrowserProfile, SourceResult };
+export type { BookmarkList, BrowserProfile, SearchEngineId, SourceResult };
 
 export type LinkId = "web_links" | "local_links";
 export type LinkWhere = "browser_tab" | "system_browser";
 /** 지금 값. 사람이 고르지 않았으면 선언의 기본값이다. */
 export type LinkValues = Readonly<Record<LinkId, LinkWhere>>;
+
+export interface SearchEngineValues {
+  readonly engine: SearchEngineId;
+  readonly custom: string;
+}
 
 export type DeviceOs = "ios" | "android";
 /** 설정 `shell.devices`의 한 줄. 범위는 core의 선언이 본다. */
@@ -50,6 +56,10 @@ export interface BrowserSettingsSource {
   removeBookmark(id: string): Promise<SourceResult<null>>;
   /** terminal에서 연 주소와 Ctrl/Cmd-click한 link를 열 곳(core 선언 설정)의 한 줄을 정한다. 거절되면 code가 이유다. */
   chooseLink(id: LinkId, value: LinkWhere): Promise<SourceResult<null>>;
+  /** browser 주소 칸 검색 엔진(core 선언 설정)을 고른다. */
+  chooseSearchEngine(engine: SearchEngineId): Promise<SourceResult<null>>;
+  /** 사용자 검색 URL template(`%s`)을 저장하고 검색 엔진을 `custom`으로 고른다. */
+  saveCustomSearchEngine(url: string): Promise<SourceResult<null>>;
   /** 등록한 기기들(core 선언 설정)의 목록 전체를 바꾼다. 이름이 겹치거나 범위 밖이면 거절되고 code가 이유다. */
   saveDevices(list: readonly Device[]): Promise<SourceResult<null>>;
   /** 이 컴퓨터가 profile과 저장 login을 다른 컴퓨터와 맞출지(core의 사람만 바꾸는 설정)를 정한다. */

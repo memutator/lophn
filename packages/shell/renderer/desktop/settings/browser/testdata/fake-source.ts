@@ -11,6 +11,12 @@ import {
   loginSecretName,
   loginsList,
 } from "../../../../../../protocol/secrets/logins.ts";
+import {
+  BROWSER_SEARCH_ENGINE_CUSTOM_SETTING,
+  BROWSER_SEARCH_ENGINE_SETTING,
+  DEFAULT_SEARCH_ENGINE,
+  isValidCustomSearchUrl,
+} from "../../../../../../protocol/shell/browser-search.ts";
 import { fakeAnswer } from "../../../connection/events/fake-source.ts";
 import { type FakeCore, fakeCore } from "../../testdata/fake-core.ts";
 import { DEVICES_KEY, LINK_ROWS } from "../model.ts";
@@ -20,6 +26,7 @@ import type {
   Device,
   LinkValues,
   LoginRow,
+  SearchEngineValues,
   SourceResult,
 } from "../source.ts";
 
@@ -36,6 +43,8 @@ interface FakeBrowserSettingsOptions {
   links?: Partial<LinkValues>;
   /** link 고르기가 거절되는 code. 없으면 저장된다. */
   linkCode?: string;
+  /** 처음 검색 엔진 설정. 없으면 Google이다. */
+  searchEngine?: Partial<SearchEngineValues>;
   /** 처음 기기 목록. 없으면 비어 있다. */
   devices?: Device[];
   /** 처음 login 목록. 없으면 비어 있다. */
@@ -73,6 +82,14 @@ export function fakeBrowserSettings(options: FakeBrowserSettingsOptions = {}) {
     ...options.links,
   };
   for (const row of LINK_ROWS) core.set(row.settingKey, links[row.id]);
+  core.set(
+    BROWSER_SEARCH_ENGINE_SETTING,
+    options.searchEngine?.engine ?? DEFAULT_SEARCH_ENGINE,
+  );
+  core.set(
+    BROWSER_SEARCH_ENGINE_CUSTOM_SETTING,
+    options.searchEngine?.custom ?? "",
+  );
   core.set(DEVICES_KEY, options.devices ?? []);
   core.set(BROWSER_SHARE_SETTING, options.share ?? true);
   let profiles: readonly BrowserProfile[] = options.profiles ?? [];
@@ -154,6 +171,21 @@ export function fakeBrowserSettings(options: FakeBrowserSettingsOptions = {}) {
       calls.push(["chooseLink", id, value]);
       if (options.linkCode) return refused(options.linkCode);
       core.set(LINK_ROWS.find((row) => row.id === id)!.settingKey, value);
+      core.changed("settings");
+      return Promise.resolve({ ok: true, value: null });
+    },
+    chooseSearchEngine(engine) {
+      calls.push(["chooseSearchEngine", engine]);
+      core.set(BROWSER_SEARCH_ENGINE_SETTING, engine);
+      core.changed("settings");
+      return Promise.resolve({ ok: true, value: null });
+    },
+    saveCustomSearchEngine(url) {
+      calls.push(["saveCustomSearchEngine", url]);
+      const trimmed = url.trim();
+      if (!isValidCustomSearchUrl(trimmed)) return refused("invalid_value");
+      core.set(BROWSER_SEARCH_ENGINE_CUSTOM_SETTING, trimmed);
+      core.set(BROWSER_SEARCH_ENGINE_SETTING, "custom");
       core.changed("settings");
       return Promise.resolve({ ok: true, value: null });
     },

@@ -379,7 +379,7 @@ export function projectCommandsMenuItems(
         ),
         ...(index === 0
           ? {
-              separatorBefore: true,
+              ...(items.length > 0 ? { separatorBefore: true } : {}),
               heading:
                 group.machine !== null && group.machineName !== undefined
                   ? group.machineName
@@ -408,7 +408,7 @@ export function projectCommandsMenuItems(
       id: manageId,
       label: t("project-commands.button.manage"),
       leading: <MenuIcon icon={commonIcons.settings} />,
-      separatorBefore: true,
+      ...(items.length > 0 ? { separatorBefore: true } : {}),
     });
   }
 

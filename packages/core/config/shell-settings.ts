@@ -38,6 +38,14 @@ import {
 } from "../../protocol/remote/frames.ts";
 import { BROWSER_SHARE_SETTING } from "../../protocol/secrets/browser-vault.ts";
 import {
+  BROWSER_SEARCH_ENGINE_CUSTOM_SETTING,
+  BROWSER_SEARCH_ENGINE_SETTING,
+  CUSTOM_SEARCH_URL_MAX,
+  DEFAULT_SEARCH_ENGINE,
+  isValidCustomSearchUrl,
+  SEARCH_ENGINE_IDS,
+} from "../../protocol/shell/browser-search.ts";
+import {
   bindingId,
   isChordText,
   KEYBINDINGS,
@@ -280,6 +288,30 @@ const localLinksSetting = declareSetting({
   type: z.enum(["browser_tab", "system_browser"]),
   default: "browser_tab",
   description: `Where a localhost link clicked in a terminal opens. ${LINKS}`,
+});
+
+const searchEngineSetting = declareSetting({
+  key: BROWSER_SEARCH_ENGINE_SETTING,
+  type: oneOf(SEARCH_ENGINE_IDS),
+  default: DEFAULT_SEARCH_ENGINE,
+  description:
+    "Search engine used when the person enters a search query in the browser tab address bar. `custom` uses shell.browser.search_engine_custom (falls back to google if empty or invalid).",
+});
+
+const searchEngineCustomSetting = declareSetting({
+  key: BROWSER_SEARCH_ENGINE_CUSTOM_SETTING,
+  type: z.string().max(CUSTOM_SEARCH_URL_MAX),
+  default: "",
+  description:
+    "Custom search URL template used when shell.browser.search_engine is `custom`. Must be an http:// or https:// URL containing `%s` for the encoded query, or empty.",
+  check: (value): readonly SettingIssue[] =>
+    value === "" || isValidCustomSearchUrl(value)
+      ? []
+      : [
+          reject(
+            "a custom search URL must start with http:// or https:// and contain `%s`",
+          ),
+        ],
 });
 
 // 사람이 바꾼 작업대 단축키. OS마다 따로다(macOS는 Cmd, 다른 OS는 Ctrl). key 상한 160은
@@ -590,6 +622,8 @@ export const shellSettings = [
   densitySetting,
   webLinksSetting,
   localLinksSetting,
+  searchEngineSetting,
+  searchEngineCustomSetting,
   keybindingsSetting,
   quickLaunchSetting,
   appLaunchSetting,

@@ -1,5 +1,5 @@
-// 탭 줄의 새 탭 menu. Agent·Browser·App panel은 퀵 실행과 같은 목록을 옆에 연다. browser profile이 있으면 Browser 목록 맨 위가
-// 기본 profile과 profile들이고 고른 profile로 연다(빠른 실행과 단축키는 기본 profile로 연다).
+// 탭 줄의 새 탭 menu. Terminal·Browser·App panel은 그 줄을 바로 누르면 기본 탭을 열고, 하위 항목이 있을 때만 hover로
+// 옆 목록(project commands, 추가 browser profile·bookmark, 앱 panel)을 연다. Agent는 고를 agent 목록을 옆에 연다.
 
 import { t } from "@lophn/i18n";
 import { Menu, MenuIcon, type MenuItem } from "@lophn/ui/overlay";
@@ -84,65 +84,49 @@ export function NewTabMenu(props: NewTabMenuProps) {
       ...keyed("new.document"),
     });
   if (props.onTerminal) {
-    if (props.terminalSubmenu !== undefined) {
-      const cmdItems = projectCommandsMenuItems(
-        props.terminalSubmenu.groups,
-        props.terminalSubmenu.actions,
-        (id, fn) => actions.set(id, fn),
-      );
-      root.push({
-        id: "terminal-menu",
-        label: t("project-workspace.label.menu-terminal"),
-        leading: lead(workspaceIcons.terminal),
-        items: [
-          {
-            id: "terminal",
-            label: t("left-sidebar.button.quick-terminal"),
-            leading: lead(workspaceIcons.terminal),
-            ...keyed("new.terminal"),
-          },
-          ...cmdItems,
-        ],
-      });
-    } else {
-      root.push({
-        id: "terminal",
-        label: t("project-workspace.label.menu-terminal"),
-        leading: lead(workspaceIcons.terminal),
-        ...keyed("new.terminal"),
-      });
-    }
-  }
-  if (props.onBrowser)
+    const cmdItems =
+      props.terminalSubmenu === undefined
+        ? []
+        : projectCommandsMenuItems(
+            props.terminalSubmenu.groups,
+            props.terminalSubmenu.actions,
+            (id, fn) => actions.set(id, fn),
+          );
     root.push({
-      id: "browser-menu",
+      id: "terminal",
+      label: t("project-workspace.label.menu-terminal"),
+      leading: lead(workspaceIcons.terminal),
+      ...keyed("new.terminal"),
+      ...(cmdItems.length > 0 ? { selectable: true, items: cmdItems } : {}),
+    });
+  }
+  if (props.onBrowser) {
+    const profileItems: MenuItem[] = profiles.map((profile) => ({
+      id: `${PROFILE_ITEM}${profile.id}`,
+      label: profile.name,
+      leading: (
+        <MenuIcon>
+          <ProfileMark profile={profile} />
+        </MenuIcon>
+      ),
+    }));
+    const bookmarkItems = rows("bookmark", props.browserItems ?? []).map(
+      (item, index) =>
+        index === 0 && profileItems.length > 0
+          ? { ...item, separatorBefore: true }
+          : item,
+    );
+    const browserSubItems = [...profileItems, ...bookmarkItems];
+    root.push({
+      id: "browser",
       label: t("browser.label.menu-browser"),
       leading: lead(browserIcons.globe),
-      items: [
-        {
-          id: "browser",
-          ...(profiles.length === 0
-            ? { label: t("browser.label.menu-browser") }
-            : {
-                label: t("browser.label.profile-default"),
-                leading: lead(browserIcons.globe),
-              }),
-          ...keyed("new.browser"),
-        },
-        ...profiles.map((profile) => ({
-          id: `${PROFILE_ITEM}${profile.id}`,
-          label: profile.name,
-          leading: (
-            <MenuIcon>
-              <ProfileMark profile={profile} />
-            </MenuIcon>
-          ),
-        })),
-        ...rows("bookmark", props.browserItems ?? []).map((item, index) =>
-          index === 0 ? { ...item, separatorBefore: true } : item,
-        ),
-      ],
+      ...keyed("new.browser"),
+      ...(browserSubItems.length > 0
+        ? { selectable: true, items: browserSubItems }
+        : {}),
     });
+  }
   if (props.choices !== undefined && props.onChoice) {
     const sections = agentSections(
       props.choices,
@@ -185,18 +169,15 @@ export function NewTabMenu(props: NewTabMenuProps) {
           label: t("machines.page.menu", { name: machine.name }),
           leading: lead(browserIcons.globe),
         });
-  if (props.onAppPanel)
+  if (props.onAppPanel) {
+    const panelItems = rows("panel", props.appItems ?? []);
     root.push({
-      id: "app-panel-menu",
+      id: "app-panel",
       label: t("project-workspace.label.menu-app-panel"),
       leading: lead(workspaceIcons.appPanel),
-      items: [
-        { id: "app-panel", label: t("project-workspace.label.menu-app-panel") },
-        ...rows("panel", props.appItems ?? []).map((item, index) =>
-          index === 0 ? { ...item, separatorBefore: true } : item,
-        ),
-      ],
+      ...(panelItems.length > 0 ? { selectable: true, items: panelItems } : {}),
     });
+  }
   return (
     <Menu
       trigger={

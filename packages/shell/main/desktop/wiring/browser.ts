@@ -17,6 +17,11 @@ import {
   BROWSER_STATE_CHANNEL,
 } from "../../../ipc/browser.ts";
 import { browserPartition } from "../../../../protocol/shell/browser-profiles.ts";
+import {
+  BROWSER_SEARCH_ENGINE_CUSTOM_SETTING,
+  BROWSER_SEARCH_ENGINE_SETTING,
+  resolveSearchTemplate,
+} from "../../../../protocol/shell/browser-search.ts";
 import { createActivation } from "../../browser/activation.ts";
 import { electronBrowserViews } from "../../browser/electron-view.ts";
 import { electronBrowserSession } from "../../browser/electron-session.ts";
@@ -130,6 +135,11 @@ export function register(
       shell.openExternal(url).catch(() => log("OS 앱으로 넘기지 못했다"));
     },
     ids: { viewSession: () => `browser-${randomUUID()}` },
+    searchUrl: () =>
+      resolveSearchTemplate(
+        ctx.settings.get(BROWSER_SEARCH_ENGINE_SETTING),
+        ctx.settings.get(BROWSER_SEARCH_ENGINE_CUSTOM_SETTING),
+      ),
     pushState: sendTo(BROWSER_STATE_CHANNEL),
     pushEvent: sendTo(BROWSER_EVENT_CHANNEL),
   });

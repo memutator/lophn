@@ -22,7 +22,7 @@ export const browser = {
     "You have reached the limit of saved bookmarks. Remove one to add another.",
   "browser.heading.palette-bookmarks": "Bookmarks",
   "browser.label.address": "Address",
-  "browser.label.address-placeholder": "Enter a web address",
+  "browser.label.address-placeholder": "Search or enter a web address",
   "browser.label.browser": "the browser",
   "browser.label.devtools": "DevTools",
   "browser.label.devtools-resize": "Resize DevTools",
@@ -60,6 +60,7 @@ export const browser = {
   "settings.button.profile-delete-confirm": "Delete",
   "settings.button.profile-rename": "Rename",
   "settings.button.profile-save": "Save",
+  "settings.button.search-engine-save": "Save",
   "settings.button.browser-clear-confirm": "Clear",
   "settings.error.bookmark-duplicate":
     "Another bookmark already has this address.",
@@ -86,12 +87,17 @@ export const browser = {
   "settings.error.profile-invalid":
     "Enter a name nobody else uses (1 to 40 characters).",
   "settings.error.profiles-load-failed": "Could not load profiles.",
+  "settings.error.search-engine-custom-url":
+    "Enter an http:// or https:// URL containing %s.",
+  "settings.error.search-engine-load-failed":
+    "Could not load search engine settings.",
   "settings.heading.bookmarks": "Bookmarks",
   "settings.heading.browser-data": "Browsing data",
   "settings.heading.devices": "Devices",
   "settings.heading.links": "Links",
   "settings.heading.logins": "Logins",
   "settings.heading.profiles": "Profiles",
+  "settings.heading.search-engine": "Search engine",
   "settings.heading.browser-share": "Your other computers",
   "settings.label.bookmark-title": "Title",
   "settings.label.bookmark-url": "URL",
@@ -113,6 +119,17 @@ export const browser = {
   "settings.label.profile-default": "Default",
   "settings.label.profile-name": "Name",
   "settings.label.local-links": "Local links",
+  "settings.label.search-engine": "Address bar search",
+  "settings.label.search-engine-bing": "Bing",
+  "settings.label.search-engine-brave": "Brave Search",
+  "settings.label.search-engine-custom": "Custom",
+  "settings.label.search-engine-custom-placeholder":
+    "https://example.com/search?q=%s",
+  "settings.label.search-engine-custom-url": "Search URL",
+  "settings.label.search-engine-duckduckgo": "DuckDuckGo",
+  "settings.label.search-engine-google": "Google",
+  "settings.label.search-engine-naver": "Naver",
+  "settings.label.search-engine-perplexity": "Perplexity",
   "settings.label.tab-browser": "Browser",
   "settings.label.web-links": "Web links",
   "settings.note.browser-clear":
@@ -142,6 +159,10 @@ export const browser = {
     "Each profile keeps its own cookies and saved logins. An agent opens its Browser tabs in the profile set in its settings; everything else uses Default.",
   "settings.note.logins":
     "Site logins an agent can use in a Browser tab. Passwords and TOTP keys are entered in a protected window and never shown.",
+  "settings.note.search-engine":
+    "Search engine used when you type a search query instead of a web address in a Browser tab.",
+  "settings.note.search-engine-custom":
+    "Use %s where the search query goes. Example: https://kagi.com/search?q=%s",
   "settings.note.web-links":
     "Where public web addresses go when a program in a terminal opens them or you Ctrl/Cmd-click them.",
   "settings.notice.bookmarks-empty":

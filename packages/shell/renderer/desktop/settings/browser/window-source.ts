@@ -12,14 +12,21 @@ import type { z } from "zod";
 import type { loginsList } from "../../../../../protocol/secrets/logins.ts";
 import type { secretStatus } from "../../../../../protocol/secrets/secret-file.ts";
 import { BROWSER_SHARE_SETTING } from "../../../../../protocol/secrets/browser-vault.ts";
+import {
+  BROWSER_SEARCH_ENGINE_CUSTOM_SETTING,
+  BROWSER_SEARCH_ENGINE_SETTING,
+  DEFAULT_SEARCH_ENGINE,
+  SEARCH_ENGINE_IDS,
+  type SearchEngineId,
+} from "../../../../../protocol/shell/browser-search.ts";
 import { chooseSetting } from "../declared.ts";
 import { DEVICES_KEY, LINK_DEFAULT, LINK_ROWS } from "./model.ts";
 import type {
-  BrowserProfile,
   BrowserSettingsSource,
   Device,
   LinkValues,
   LoginRow,
+  SearchEngineValues,
 } from "./source.ts";
 
 /** key마다의 지금 값에서 link 열 곳. 선택지 밖이면 기본값이다. */
@@ -32,6 +39,23 @@ export function linkValuesOf(read: ReadonlyMap<string, unknown>): LinkValues {
       : LINK_DEFAULT;
   }
   return values as LinkValues;
+}
+
+/** key마다의 지금 값에서 검색 엔진 설정. 선택지 밖이면 기본값이다. */
+export function searchEngineValuesOf(
+  read: ReadonlyMap<string, unknown>,
+): SearchEngineValues {
+  const storedEngine = read.get(BROWSER_SEARCH_ENGINE_SETTING);
+  const engine: SearchEngineId = SEARCH_ENGINE_IDS.includes(
+    storedEngine as SearchEngineId,
+  )
+    ? (storedEngine as SearchEngineId)
+    : DEFAULT_SEARCH_ENGINE;
+  const storedCustom = read.get(BROWSER_SEARCH_ENGINE_CUSTOM_SETTING);
+  return {
+    engine,
+    custom: typeof storedCustom === "string" ? storedCustom : "",
+  };
 }
 
 /** key마다의 지금 값에서 기기 목록. core가 설정 schema로 검사한 값이다. */
@@ -83,6 +107,17 @@ export function windowBrowserSettings(
     chooseLink: (id, value) => {
       const row = LINK_ROWS.find((r) => r.id === id)!;
       return chooseSetting(core, row.settingKey, value);
+    },
+    chooseSearchEngine: (engine) =>
+      chooseSetting(core, BROWSER_SEARCH_ENGINE_SETTING, engine),
+    saveCustomSearchEngine: async (url) => {
+      const savedUrl = await chooseSetting(
+        core,
+        BROWSER_SEARCH_ENGINE_CUSTOM_SETTING,
+        url.trim(),
+      );
+      if (!savedUrl.ok) return savedUrl;
+      return chooseSetting(core, BROWSER_SEARCH_ENGINE_SETTING, "custom");
     },
     saveDevices: (list) => chooseSetting(core, DEVICES_KEY, list),
     chooseShare: (on) => chooseSetting(core, BROWSER_SHARE_SETTING, on),

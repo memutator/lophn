@@ -2077,7 +2077,7 @@ flows:
       - packages/shell/main/browser/navigation.ts
     docs: [architecture/browser-tab.md]
     steps:
-      - "주소 칸 글을 normalizeAddress가 scheme을 채운다(localhost·127.0.0.1은 http, 그 밖은 https). 빈 글은 거절한다"
+      - "주소 칸 글을 normalizeAddress가 정리한다(주소가 아니면 설정된 검색 엔진 `shell.browser.search_engine`·`search_engine_custom`의 URL로 바꾸고, 주소는 localhost·127.0.0.1에 http, 그 밖에 https를 채운다. 명시한 scheme은 검색어로 바꾸지 않고 빈 글은 거절한다)"
       - "decideNavigation이 main frame 목적지를 본다. http·https와 정확히 about:blank만 된다"
       - "userinfo가 있는 http·https와 file·lophn-*·javascript: 같은 scheme은 거절한다"
       - "mailto·tel은 사용자 입력이 5000ms 안이면 OS로 넘기고 page는 그대로 둔다"

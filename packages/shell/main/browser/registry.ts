@@ -101,6 +101,8 @@ interface BrowserViewsDeps {
   activation: BrowserHooks["activation"];
   openExternal(url: string): void;
   ids: { viewSession(): string };
+  /** 주소 칸에서 주소가 아닌 입력을 검색할 URL template(`%s`). */
+  searchUrl?: () => string;
   /** 그 창의 renderer로 상태를 민다. */
   pushState(window: string, state: BrowserViewState): void;
   pushEvent(window: string, event: BrowserEvent): void;
@@ -426,7 +428,12 @@ export function createBrowserViews(deps: BrowserViewsDeps) {
     ): Outcome<BrowserViewState> {
       const entry = ownedEntry(window, view_session);
       if (entry === undefined) return notOpen();
-      const address = normalizeAddress(input);
+      const address = normalizeAddress(
+        input,
+        deps.searchUrl === undefined
+          ? undefined
+          : { searchUrl: deps.searchUrl() },
+      );
       if (address === null) return failure("invalid_input", "address is empty");
       const decision = decideNavigation({ url: address, isMainFrame: true });
       if (!decision.allow) {

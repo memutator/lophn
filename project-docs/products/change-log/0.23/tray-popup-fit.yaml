@@ -1,5 +1,5 @@
 id: tray-popup-fit
-version: 0.23.188
+version: 0.23.189
 platform_note: none
 title: tray popup이 작은 내용에 꼭 맞게 너비와 높이 양쪽으로 줄어든다
 modules:

@@ -1,0 +1,27 @@
+id: e2e-green-and-template-pins
+version: 0.23.192
+title: 앱 template의 SDK pin을 지금 판에 맞추고 e2e를 다시 통과시킨다
+modules: [packages/core/apps]
+platform_note: none
+change: |
+  - 앱 template(`packages/core/apps/packages/template/app/`)과 e2e sample 앱이 `@lophn/agent` 1.19.0을 pin하고 있었다. data root에는 SDK part마다
+    지금 판만 깔리므로(1.21.0) 새로 설치한 lophn에서 template으로 앱을 만들면 "SDK is not installed"로 실패했다. 옛 판 사본이 남은 data root는
+    드러나지 않았다. pin 넷을 1.21.0으로 맞췄다.
+  - `tools/check-sdk-notes.ts`가 template과 sample 앱의 pin이 그 part의 지금 판과 같은지 본다(`npm run check`에 든다).
+  - e2e가 main에서 세 곳에서 깨져 있었다. main에 올리는 길(`main-merge.sh`)이 e2e를 돌리지 않아 드러나지 않았다.
+    - sample 앱: declaration 6.x의 기본이 "모든 표를 computers로 sync"라 INTEGER primary key 표가 release 준비에서 떨어졌다. sample은 sync를
+      보지 않으므로 `sync: "local"`을 선언한다.
+    - project session test(`file-write`, `session`, `secret`, `stop`): 등록 폴더 밖 file과 읽기가 아닌 shell 명령이 `ask`가 된 뒤 test가 그
+      요청에 답하지 않아 turn이 끝나지 않았다. test가 사람처럼 답하거나 거절하고, 거절·거부의 ledger 결과(`not_executed`)를 새 설계대로 본다.
+      경계 단언(secret 읽기, 설정·agent 정의 쓰기, 다른 project와 symlink 밖 쓰기, tool 결과의 key redaction)은 그대로다.
+  제품 동작은 바뀌지 않았다.
+why: |
+  새 설치에서 앱을 만들 수 없었고, e2e가 돌지 않아 그 뒤에 올라간 변경의 회귀를 볼 수 없었다.
+decisions:
+  - text: 'sample 앱은 text id로 바꾸지 않고 `sync: "local"`을 선언한다. sync는 이 sample이 보는 것이 아니다.'
+    by: agent
+  - text: pin 어긋남은 사람이 grep으로 맞추지 않고 check가 잡는다. 버린 길 - sdk-note 절차의 문장으로만 두기(두 번 빠졌다).
+    by: agent
+follow_up: |
+  main에 올리는 길이 여전히 e2e를 돌리지 않는다. declaration 6.x로 올리는 기존 앱은 INTEGER primary key 표가 있으면 `sync: "local"`을 더하거나
+  text id로 바꿔야 release가 된다(`migrate-sdk`의 declaration 6.0.0 메모가 안내한다).

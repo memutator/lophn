@@ -48,6 +48,7 @@ type PermissionCategory =
   | "project_command"
   | "project_command_definition"
   | "workflow_run"
+  | "worktree_remove"
   | "web"
   | "extension_tool"
   | "other";
@@ -151,6 +152,21 @@ type GateCall =
       workflow: string;
       execution: "agent" | "flow";
       lines: string[];
+    }
+  | {
+      kind: "worktree_remove";
+      project: string;
+      worktree: string;
+      path: string;
+      branch: string | null;
+      provenance: "managed" | "adopted";
+      dirty_count: number;
+      untracked_count: number;
+      ahead: number | null;
+      has_submodules: boolean;
+      force: boolean;
+      stop_sessions: boolean;
+      delete_branch: boolean;
     };
 
 type AcpApprovalSubject =

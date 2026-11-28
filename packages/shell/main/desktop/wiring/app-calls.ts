@@ -40,10 +40,37 @@ export function register(ctx: ShellContext, views: AppViews): AppCalls {
   const appMachines = createAppMachines({ call: views.caller });
   const appSessionsApi = createAppSessions({ call: views.caller });
   const appAgents = createAppAgents({ call: views.caller });
-  // 앱 화면이 연 session의 ACP 갱신. 어느 view로 보낼지는 appAgent가 고른다.
-  ctx.relay.conditions.push({ types: ["AcpUpdated"] });
+  // 앱 화면이 연 session의 ACP 갱신과 project worktree 변경 알림.
+  ctx.relay.conditions.push({
+    types: ["AcpUpdated", "WorktreesChanged", "WorktreeStatusChanged"],
+  });
+  const forwardWorktreeEvent = (
+    event: { type?: unknown; payload?: unknown },
+    machine: string | null,
+  ) => {
+    if (
+      event.type !== "WorktreesChanged" &&
+      event.type !== "WorktreeStatusChanged"
+    ) {
+      return;
+    }
+    const payload = event.payload as
+      | { project?: unknown; worktree?: unknown }
+      | undefined;
+    if (typeof payload?.project !== "string") return;
+    views.appFrame.broadcastWorktreesChanged(
+      {
+        project: payload.project,
+        ...(typeof payload.worktree === "string"
+          ? { worktree: payload.worktree }
+          : {}),
+      },
+      machine,
+    );
+  };
   ctx.relay.events.push((event) => {
     if (event.type === "AcpUpdated") appAgent.updated(event.payload, null);
+    else forwardWorktreeEvent(event, null);
   });
   // 다른 기계의 view가 붙은 session의 갱신(`app-views`가 그 기계에 건다). 그 기계에 묶인 view에만 간다.
   ctx.machines.onFrame((machine, message) => {
@@ -54,6 +81,8 @@ export function register(ctx: ShellContext, views: AppViews): AppCalls {
         event.payload as { session: string; update: unknown },
         machine,
       );
+    } else {
+      forwardWorktreeEvent(event, machine);
     }
   });
   views.onViewClosed((view_session) => appAgent.forget(view_session));
@@ -66,6 +95,7 @@ export function register(ctx: ShellContext, views: AppViews): AppCalls {
     agentSnapshot: (view, input) => appAgent.snapshot(view, input),
     agentSend: (view, input) => appAgent.send(view, input),
     projectsList: (view) => appProjects.list(view),
+    projectsWorktrees: (view, input) => appProjects.worktrees(view, input),
     machinesList: (view) => appMachines.list(view),
     sessionsList: (view, input) => appSessionsApi.list(view, input),
     sessionsStatus: (view, input) => appSessionsApi.status(view, input),

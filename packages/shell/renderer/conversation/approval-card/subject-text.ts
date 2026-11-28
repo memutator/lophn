@@ -91,6 +91,12 @@ export function titleOf(subject: ApprovalSubject, agent: string): string {
           : "conversation.title.approval-local-tool",
         { agent, name: subject.name },
       );
+    case "worktree_remove": {
+      const target = subject.branch ?? subject.worktree;
+      return subject.provenance === "adopted"
+        ? `${agent} wants to detach worktree ${target}`
+        : `${agent} wants to remove worktree ${target}`;
+    }
   }
 }
 
@@ -150,6 +156,10 @@ export function targetOf(subject: ApprovalSubject): string {
       return subject.path;
     case "local_tool":
       return `${subject.name} (${subject.path})`;
+    case "worktree_remove":
+      return subject.branch !== null
+        ? `${subject.branch} (${subject.path})`
+        : subject.path;
     case "plan":
       return "";
   }

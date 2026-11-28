@@ -289,6 +289,19 @@ export function ApprovalCard({
                 ))}
               </dd>
             </>
+          ) : subject.kind === "worktree_remove" ? (
+            <>
+              <dt>{t("conversation.label.approval-path")}</dt>
+              <dd>
+                <code className={styles.pattern}>{subject.path}</code>
+              </dd>
+              {subject.branch === null ? null : (
+                <>
+                  <dt>{t("conversation.label.approval-target")}</dt>
+                  <dd>{subject.branch}</dd>
+                </>
+              )}
+            </>
           ) : (
             <>
               <dt>{t("conversation.label.approval-target")}</dt>

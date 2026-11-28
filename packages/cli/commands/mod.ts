@@ -31,6 +31,7 @@ import { TERMINAL_COMMANDS } from "./terminal.ts";
 import type { Command } from "./types.ts";
 import { UPDATE_COMMANDS } from "./update.ts";
 import { WORKFLOW_COMMANDS } from "./workflow.ts";
+import { WORKTREE_COMMANDS } from "./worktree.ts";
 
 export type {
   Command,
@@ -72,6 +73,7 @@ export const COMMANDS: readonly Command[] = [
   ...TERMINAL_COMMANDS,
   ...UPDATE_COMMANDS,
   ...WORKFLOW_COMMANDS,
+  ...WORKTREE_COMMANDS,
 ];
 
 // 그 workspace 종류의 lophn agent가 부를 수 있는 명령이다. 이름순이라 같은 workspace 종류면 같은 bytes다.

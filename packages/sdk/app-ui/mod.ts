@@ -51,6 +51,17 @@ export {
   useProjects,
 } from "./use-projects.ts";
 export {
+  type UseWorktrees,
+  useWorktrees,
+  type Worktree,
+  type WorktreeGitStatus,
+  type WorktreePresence,
+  type WorktreeProvenance,
+  type WorktreesBridge,
+  type WorktreesState,
+  type WorktreeStatus,
+} from "./use-worktrees.ts";
+export {
   type Machine,
   type MachinesBridge,
   type MachinesState,

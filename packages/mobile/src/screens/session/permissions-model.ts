@@ -282,6 +282,17 @@ export function approvalFactsOf(
         },
       ];
       break;
+    case "worktree_remove":
+      facts = [
+        { label: "Path", value: subject.path },
+        ...(subject.branch === null
+          ? []
+          : [{ label: "Branch", value: subject.branch, fit: true }]),
+        ...(subject.dirty_count + subject.untracked_count > 0
+          ? [{ label: "Notice", value: "Uncommitted changes", fit: true }]
+          : []),
+      ];
+      break;
     case "app_tool":
     case "mcp_tool":
       facts = [

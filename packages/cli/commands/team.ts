@@ -36,6 +36,7 @@ const spawn = defineCommand({
     workspace: workspaceNameSchema.optional(),
     reply: callReplySchema.default("result"),
     as: z.enum(["peer", "stage"]).optional(),
+    worktree: z.union([z.enum(["new", "inherit"]), idSchema("wkt")]).optional(),
     ...bodyFields,
     on: z.string().min(1).optional(),
   }),
@@ -49,6 +50,12 @@ const spawn = defineCommand({
         return err({
           code: "invalid_input",
           message: "only text goes to another computer",
+        });
+      }
+      if (input.worktree !== undefined) {
+        return err({
+          code: "invalid_input",
+          message: "--worktree is not supported with --on",
         });
       }
       const spawned = await ctx.core.read(teamSpawnRemote, {

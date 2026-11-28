@@ -456,6 +456,42 @@ function permissionView(request: TurnRequest, names: InboxNames) {
         choices,
       };
     }
+    case "worktree_remove": {
+      const target = subject.branch ?? subject.worktree;
+      const dirty = subject.dirty_count + subject.untracked_count > 0;
+      return {
+        title:
+          subject.provenance === "adopted"
+            ? `Detach worktree ${target}`
+            : `Remove worktree ${target}`,
+        description:
+          subject.provenance === "adopted"
+            ? "Detaches the adopted worktree from lophn without deleting files."
+            : dirty
+              ? "Removes this worktree from disk. Uncommitted changes are present."
+              : "Removes this worktree from disk.",
+        factsPinned: true,
+        outsideRewind,
+        facts: [
+          {
+            label: t("waiting.label.fact-path"),
+            value: subject.path,
+            style: "code" as const,
+          },
+          ...(subject.branch === null
+            ? []
+            : [
+                {
+                  label: t("waiting.label.fact-target"),
+                  value: subject.branch,
+                  style: "text" as const,
+                },
+              ]),
+          ...extra,
+        ],
+        choices,
+      };
+    }
     case "harness":
       return {
         title: t("waiting.title.coding"),

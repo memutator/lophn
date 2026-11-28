@@ -141,6 +141,21 @@ const RENDERER_MEMORY_ROUTES: readonly string[] = [
   "memory:settings_export/staged",
   "memory:settings_export/apply",
   "memory:settings_export/dismiss",
+  "memory:worktrees/create",
+  "memory:worktrees/adopt",
+  "memory:worktrees/rename",
+  "memory:worktrees/remove_preflight",
+  "memory:worktrees/remove",
+  "memory:worktrees/settings_set",
+  "memory:worktrees/detect_include",
+  "memory:source_control/stage",
+  "memory:source_control/unstage",
+  "memory:source_control/discard",
+  "memory:source_control/commit",
+  "memory:source_control/branch_create",
+  "memory:source_control/switch",
+  "memory:source_control/push",
+  "memory:source_control/pull",
 ];
 
 // renderer가 byte를 주고받는 route. 사람이 고른 agent의 프로필 이미지와 메시지에 붙인 이미지, 터미널 탭 GUI에 붙인 이미지를 올리고 읽는다.

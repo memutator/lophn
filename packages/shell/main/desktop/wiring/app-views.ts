@@ -412,7 +412,14 @@ export function register(
   const sessionsOn = new Map<string, readonly string[]>();
   const sendWatch = (machine: string) =>
     ctx.machines.watch(machine as Id<"mch">, APP_VIEWS_WATCHER, [
-      { types: ["AppViewEvent", "AppRemoved"] },
+      {
+        types: [
+          "AppViewEvent",
+          "AppRemoved",
+          "WorktreesChanged",
+          "WorktreeStatusChanged",
+        ],
+      },
       ...(sessionsOn.get(machine) ?? [])
         .slice(-WATCHED_SESSIONS_MAX)
         .map((session) => ({ session, types: ["AcpUpdated"] })),

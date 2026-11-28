@@ -170,6 +170,29 @@ export async function waitTurnEnd(
   });
 }
 
+// waitTurnEnd와 같되 turn이 묻는 request마다 choice로 답하며 기다린다. 묻는 것이 이 test가 보려는 것이 아닐 때 쓴다(묻는 규칙은 approval 쪽 test의 일이다).
+export async function waitTurnEndAnswering(
+  core: Core,
+  session: string,
+  choice: "once" | "reject" = "once",
+  index = 0,
+): Promise<Turn> {
+  const answered = new Set<string>();
+  return await until(`turn ${index}이 끝남`, async () => {
+    const turn = (await turnsOf(core, session))[index];
+    if (turn?.state === "finished") return turn;
+    const { snapshots } = await core.call(sessionSnapshotsList, {
+      sessions: [session],
+    });
+    for (const request of snapshots[0]?.turn_requests ?? []) {
+      if (answered.has(request.id)) continue;
+      answered.add(request.id);
+      await decide(core, session, request.id, choice);
+    }
+    return undefined;
+  });
+}
+
 export async function waitPermission(
   core: Core,
   session: string,

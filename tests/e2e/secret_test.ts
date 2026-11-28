@@ -34,6 +34,7 @@ import {
   openLophnSession,
   say,
   waitTurnEnd,
+  waitTurnEndAnswering,
 } from "../support/core/human.ts";
 import {
   bootCore,
@@ -221,7 +222,8 @@ test("E2E tool 결과에 key가 들어 있어도 model 요청·ledger·disk에�
         { reply: { kind: "text", text: "done" } },
       ]);
       await say(core, session, "read the env file");
-      const turn = await waitTurnEnd(core, session);
+      // .env 읽기와 shell 실행은 묻는다. 사람이 허락해야 key가 든 tool 결과가 생긴다.
+      const turn = await waitTurnEndAnswering(core, session);
 
       // fake: 둘째 요청에 key도, LOPHN_ 환경 변수도, user token도 없다. 첫 요청 header에는 key가 있다.
       const [first, second] = fake.journal();

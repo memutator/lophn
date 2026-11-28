@@ -150,6 +150,8 @@ const tabOpenPayloadSchema = z.strictObject({
   relation: tabRelationSchema.nullable(),
   // 연 agent session이다. renderer가 그 session의 탭 옆에 놓는다.
   source: idSchema("ses").nullable(),
+  // 터미널 bridge(`$BROWSER`·`rundll32` shim)가 연 browser 탭이다. renderer가 이 터미널 탭 옆에 선택된 일반 탭으로 연다.
+  from_terminal: z.string().min(1).optional(),
   // 그 탭의 주인 session이다. 없으면 사람의 탭이다.
   owner: idSchema("ses").optional(),
   // workflow_origin이 있는 session의 탭은 실행 cwd와 무관하게 그 workflow instance의 desk에 연다.

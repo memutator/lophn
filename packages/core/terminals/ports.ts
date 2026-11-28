@@ -37,6 +37,8 @@ export type TerminalOpen = {
 // 받고, 열린 뒤 `opened`로 그 터미널을(열지 못했으면 null을) 알린다. 터미널이 끝난 것은 `onRuntime`의 exited로 안다.
 export type TerminalEnvHook = (open: TerminalOpen) => {
   env: Readonly<Record<string, string>>;
+  /** 터미널 PATH 앞에 더할 폴더들(Windows `rundll32.exe` shim 등). */
+  prependPath?: readonly string[];
   opened(runtime: TerminalRuntime | null): void;
 };
 

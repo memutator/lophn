@@ -231,6 +231,8 @@ type OpenInput = {
   target: HostTabTarget;
   relation: TabRelation | null;
   source: Id<"ses"> | null;
+  // 터미널 bridge가 연 browser 탭의 출처 터미널. 있으면 core 탭 표에 올리지 않고 창이 그 터미널 옆에 일반 탭으로 연다.
+  fromTerminal?: string;
   // 미리 받은 `newTabId()`다(handoff file 이름에 쓴 탭 id).
   tab?: Id<"tab">;
   // browser 탭의 profile이다. 없으면 기본 profile이다.
@@ -605,6 +607,9 @@ export function createHostQueue(deps: {
           target: sent,
           relation: input.relation,
           source: input.source,
+          ...(input.fromTerminal === undefined
+            ? {}
+            : { from_terminal: input.fromTerminal }),
           ...(input.owner === "person" ? {} : { owner: input.owner }),
           ...(input.desk === undefined ? {} : { desk: input.desk }),
           ...(input.group === undefined ? {} : { group: input.group }),
@@ -642,6 +647,10 @@ export function createHostQueue(deps: {
       }
     }
     const tab = input.tab ?? (deps.ids.newId("tab") as Id<"tab">);
+    // 터미널 bridge가 연 탭은 사람이 보는 일반 browser 탭이라 core 탭 표에 올리지 않는다.
+    if (input.fromTerminal !== undefined) {
+      return { tab, sent: open(tab) };
+    }
     const isDrivableTerminal =
       "terminal" in target && input.drivableTerminal === true;
     const kind =

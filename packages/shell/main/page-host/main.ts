@@ -161,7 +161,9 @@ function run(dataRoot: string, isLeaving: () => boolean): void {
     return Promise.resolve(null);
   };
   link.onRequest("tab_open", async (payload) => {
-    if (!("browser" in payload.target)) return NOT_HERE;
+    if (!("browser" in payload.target) || payload.from_terminal !== undefined) {
+      return NOT_HERE;
+    }
     // core가 연 session의 agent 정의로 고른 profile이다. 없으면 기본 profile이다.
     const profile = payload.target.browser.profile ?? null;
     ensureSession(browserPartition(profile));

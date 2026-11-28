@@ -446,3 +446,37 @@ test("openTab passes workflow desk and group through on tab_open and delivers wh
     group: "wfi_1:verify",
   });
 });
+
+// 터미널 bridge가 연 탭은 사람이 보는 일반 탭이라 from_terminal을 실어 보내고 core 탭 표에 올리지 않는다.
+test("openAndWait with fromTerminal forwards from_terminal without registering a host tab", async () => {
+  const { queue } = setup();
+  const host = connect(queue, [HOME]);
+  const sent = queue.openAndWait({
+    owner: "person",
+    workspace: HOME,
+    target: { browser: { url: "https://accounts.google.com/" } },
+    relation: null,
+    source: null,
+    fromTerminal: "trm_1",
+  });
+  const lent = host.next();
+  assert.equal(lent?.kind, "tab_open");
+  assert.deepStrictEqual(lent.payload, {
+    tab: sent.tab,
+    target: { browser: { url: "https://accounts.google.com/" } },
+    relation: null,
+    source: null,
+    from_terminal: "trm_1",
+  });
+  assert.deepStrictEqual(queue.pages(), []);
+  assert.deepStrictEqual(
+    queue.list(
+      () => true,
+      (s) => s,
+    ),
+    [],
+  );
+  queue.done(sent.id, "done", { content: [{ type: "text", text: "opened" }] });
+  const done = await sent.result;
+  assert.equal(done.ok, true);
+});

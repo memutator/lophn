@@ -1,11 +1,10 @@
 // 세 질문
-// - contract: boundary `agent-tools`(file tool의 scope는 workspace 폴더 안이고 data root는 닿지 않는다),
-//   `run-loop`(runtime child는 권한 제한 없이 돌고 file tool이 닿는 폴더는 scope가 정한다).
-//   architecture `workspace-session.md`의 "workspace 폴더가 범위".
-// - 현실적 회귀: scope 검사에서 절대 경로·symlink·`..`가 새는 것. 권한 제한이 없으므로 scope가 유일한 방어라는
-//   걸 잊고 느슨하게 하는 것.
-// - 왜 지금 test로 못 잡나: scope_test는 함수 입력만 본다. child process를 건너 실제 file tool이 도는 길은
-//   process를 띄워야 보인다.
+// - contract: boundary `agent-tools`(file tool은 workspace 폴더 안에만 묻지 않고 쓰고, 폴더 밖은 사람이 허락하기 전에는
+//   닿지 않으며, data root의 secret·설정·agent 정의는 허락으로도 열리지 않는다), `run-loop`(runtime child는 권한 제한 없이 돌고
+//   file tool이 닿는 폴더는 판정이 정한다). architecture `approval.md`의 "바깥 폴더와 민감·자기 보호 경로".
+// - 현실적 회귀: 판정에서 절대 경로·symlink·`..`가 새는 것, 폴더 밖 쓰기가 묻지 않고 실행되는 것, 자기 보호 경로가 ask로 내려가는 것.
+// - 왜 지금 test로 못 잡나: 판정 test는 함수 입력만 본다. child process를 건너 실제 file tool이 도는 길과 사람의 거절이 turn을
+//   다시 흐르게 하는 길은 process를 띄워야 보인다.
 import assert from "node:assert/strict";
 import { lstat, mkdir, readFile, symlink } from "node:fs/promises";
 import { test } from "node:test";
@@ -14,9 +13,11 @@ import { agentFilePathOf } from "../../packages/core/agent-workspaces/workspace/
 import { toolCallList } from "../../packages/protocol/lophn-agent/mod.ts";
 import {
   connectFakeProvider,
+  decide,
   openProject,
   openLophnSession,
   say,
+  waitPermission,
   waitTurnEnd,
 } from "../support/core/human.ts";
 import { bootCore, type Core, createRun } from "../support/core/mod.ts";
@@ -46,11 +47,12 @@ type Row = {
   id: string;
   name: "file_read" | "file_write";
   arguments: Record<string, string>;
-  expect: "success" | "forbidden";
+  // denied: 자기 보호 경로라 사람에게 묻지 않고 거부. asked: 폴더 밖이라 사람에게 묻고 test가 reject한다.
+  expect: "success" | "denied" | "asked";
 };
 
-// 쓰기 call이 거절되면 같은 reply의 나머지 call은 시작하지 않는다(tool-batch). 그래서 거절되는 쓰기는 reply마다 하나다.
-// 읽기 거절은 뒤 call을 막지 않는다. case 하나의 fake 대답은 3 이하라 거절되는 쓰기 둘씩 case를 나눈다.
+// 쓰기 call이 거부되면 같은 reply의 나머지 call은 시작하지 않는다(tool-batch). 그래서 묻거나 거부되는 쓰기는 reply마다 하나다.
+// 묻는 call은 reply마다 하나이고 그 reply가 끝나기 전에 test가 reject한다. case 하나의 fake 대답은 3 이하다.
 async function scope(
   rounds: (paths: Paths) => Row[][],
   expected: { note: boolean },
@@ -105,6 +107,11 @@ async function scope(
       { reply: { kind: "text", text: "done" } },
     ]);
     await say(core, session, "write the note");
+    for (const round of table) {
+      if (!round.some((call) => call.expect === "asked")) continue;
+      const { request } = await waitPermission(core, session);
+      await decide(core, session, request, "reject");
+    }
     const turn = await waitTurnEnd(core, session);
 
     // disk
@@ -132,7 +139,10 @@ async function scope(
           call.id,
           call.expect === "success"
             ? { kind: "success", code: "ok" }
-            : { kind: "failure", code: "forbidden" },
+            : {
+                kind: "not_executed",
+                code: call.expect === "asked" ? "rejected" : "denied",
+              },
         ]),
       ),
     );
@@ -169,7 +179,7 @@ type Paths = {
   definition: string;
 };
 
-test("E2E project workspace session은 권한 제한 없이 도는 runtime에서도 data root의 비밀과 설정을 읽거나 쓰지 못하고, project 폴더에는 쓴다", async () => {
+test("E2E project workspace session은 권한 제한 없이 도는 runtime에서도 data root의 비밀을 읽거나 설정을 쓰지 못하고, 폴더 밖 쓰기는 사람이 거절하면 실행되지 않으며, project 폴더에는 묻지 않고 쓴다", async () => {
   await scope(
     (p): Row[][] => [
       [
@@ -183,19 +193,13 @@ test("E2E project workspace session은 권한 제한 없이 도는 runtime에서
           id: "t-secrets-read",
           name: "file_read",
           arguments: { path: p.secrets },
-          expect: "forbidden",
-        },
-        {
-          id: "t-definition-read",
-          name: "file_read",
-          arguments: { path: p.definition },
-          expect: "forbidden",
+          expect: "denied",
         },
         {
           id: "t-settings-write",
           name: "file_write",
           arguments: { path: p.settings, content: "{}" },
-          expect: "forbidden",
+          expect: "denied",
         },
       ],
       [
@@ -203,7 +207,7 @@ test("E2E project workspace session은 권한 제한 없이 도는 runtime에서
           id: "t-derived-write",
           name: "file_write",
           arguments: { path: p.derived, content: "x" },
-          expect: "forbidden",
+          expect: "asked",
         },
       ],
     ],
@@ -211,7 +215,7 @@ test("E2E project workspace session은 권한 제한 없이 도는 runtime에서
   );
 });
 
-test("E2E project workspace session은 다른 project 폴더와 자기 agent 정의 file에 쓰지 못한다", async () => {
+test("E2E project workspace session은 다른 project 폴더에는 사람이 거절하면 쓰지 못하고 자기 agent 정의 file에는 묻지도 못한다", async () => {
   await scope(
     (p): Row[][] => [
       [
@@ -219,7 +223,7 @@ test("E2E project workspace session은 다른 project 폴더와 자기 agent 정
           id: "t-other-project",
           name: "file_write",
           arguments: { path: p.other, content: "x" },
-          expect: "forbidden",
+          expect: "asked",
         },
       ],
       [
@@ -227,7 +231,7 @@ test("E2E project workspace session은 다른 project 폴더와 자기 agent 정
           id: "t-definition-write",
           name: "file_write",
           arguments: { path: p.definition, content: "x" },
-          expect: "forbidden",
+          expect: "denied",
         },
       ],
     ],
@@ -235,7 +239,7 @@ test("E2E project workspace session은 다른 project 폴더와 자기 agent 정
   );
 });
 
-test("E2E project workspace session은 project 폴더 안 symlink를 따라 밖에 쓰지 못한다", async () => {
+test("E2E project workspace session은 project 폴더 안 symlink를 따라 밖에 쓰려 하면 사람에게 묻고 거절하면 쓰지 못한다", async () => {
   await scope(
     (): Row[][] => [
       [
@@ -243,7 +247,7 @@ test("E2E project workspace session은 project 폴더 안 symlink를 따라 밖�
           id: "t-symlink-out",
           name: "file_write",
           arguments: { path: "link/leak.md", content: "x" },
-          expect: "forbidden",
+          expect: "asked",
         },
       ],
     ],

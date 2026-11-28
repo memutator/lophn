@@ -180,9 +180,11 @@ function cscPath(): string | null {
   return null;
 }
 
-// `<run>\browser-<hash>\browser.exe`를 돌려준다. 없으면 build하고, 다른 hash의 옛 launcher는 지운다. exe는 마지막에 rename으로 놓으므로
-// exe가 있으면 browser.js도 다 쓰인 것이다.
-async function buildWinLauncher(parent: string): Promise<string> {
+// `<run>\browser-<hash>\browser.exe`와 `<run>\browser-<hash>\bin\rundll32.exe`를 돌려준다. 없으면 build하고,
+// 다른 hash의 옛 launcher는 지운다. exe는 마지막에 rename으로 놓으므로 둘 다 있으면 browser.js도 다 쓰인 것이다.
+async function buildWinLauncher(
+  parent: string,
+): Promise<{ shim: string; shimBin: string }> {
   const files = winLauncherFiles(process.execPath, (text) =>
     createHash("sha256").update(text).digest("hex"),
   );
@@ -197,26 +199,37 @@ async function buildWinLauncher(parent: string): Promise<string> {
   }
   const dir = join(parent, files.name);
   const exe = join(dir, "browser.exe");
-  if (existsSync(exe)) return exe;
+  const binDir = join(dir, "bin");
+  const rundll32Exe = join(binDir, "rundll32.exe");
+  // `gh`처럼 `$BROWSER`를 POSIX `shlex`로 파싱하는 CLI는 백슬래시를 escape로 먹어 깨지므로 `/`를 쓴다.
+  const shim = exe.replaceAll("\\", "/");
+  if (existsSync(exe) && existsSync(rundll32Exe)) {
+    return { shim, shimBin: binDir };
+  }
   const csc = cscPath();
   if (csc === null) throw new Error(".NET Framework csc.exe was not found");
-  mkdirSync(dir, { recursive: true });
+  mkdirSync(binDir, { recursive: true });
   writeFileSync(join(dir, "browser.js"), files.script);
-  writeFileSync(join(dir, "browser.cs"), files.source);
-  const built = join(dir, "browser.build.exe");
-  await execFileAsync(
-    csc,
-    [
-      "/nologo",
-      "/target:exe",
-      "/optimize+",
-      `/out:${built}`,
-      join(dir, "browser.cs"),
-    ],
-    { windowsHide: true },
-  );
-  await rename(built, exe);
-  return exe;
+  const compile = async (sourceFile: string, outExe: string) => {
+    const built = `${outExe}.build.exe`;
+    await execFileAsync(
+      csc,
+      ["/nologo", "/target:exe", "/optimize+", `/out:${built}`, sourceFile],
+      { windowsHide: true },
+    );
+    await rename(built, outExe);
+  };
+  if (!existsSync(exe)) {
+    const sourceFile = join(dir, "browser.cs");
+    writeFileSync(sourceFile, files.source);
+    await compile(sourceFile, exe);
+  }
+  if (!existsSync(rundll32Exe)) {
+    const sourceFile = join(dir, "rundll32.cs");
+    writeFileSync(sourceFile, files.rundll32);
+    await compile(sourceFile, rundll32Exe);
+  }
+  return { shim, shimBin: binDir };
 }
 
 // prepare가 만들어 build가 쓰는 것.
@@ -501,6 +514,7 @@ export const terminalAgentsWiring: WiringFactory = () => {
       let hooksLive = false;
       let shellInit: string | null = null;
       let bridge: TerminalBridge | null = null;
+      let winShimBin: string | null = null;
       if (run !== null && ingress !== null) {
         const at = run;
         servers.push(
@@ -563,6 +577,7 @@ export const terminalAgentsWiring: WiringFactory = () => {
           target: { browser: { url } },
           relation: null,
           source: null,
+          fromTerminal: ref,
         });
         const timer = setTimeout(() => queue.abandon(sent.id), BRIDGE_OPEN_MS);
         const done = await sent.result;
@@ -587,9 +602,12 @@ export const terminalAgentsWiring: WiringFactory = () => {
 
       async function startBridge(at: RunDir) {
         let shim: string;
+        let shimBin: string | null = null;
         try {
           if (process.platform === "win32") {
-            shim = await buildWinLauncher(join(ctx.root.path, "run"));
+            const built = await buildWinLauncher(join(ctx.root.path, "run"));
+            shim = built.shim;
+            shimBin = built.shimBin;
           } else {
             writeShim(
               {
@@ -622,7 +640,10 @@ export const terminalAgentsWiring: WiringFactory = () => {
             handleLine: made.handleLine,
             log,
           });
-          if (!stopped) bridge = made;
+          if (!stopped) {
+            bridge = made;
+            winShimBin = shimBin;
+          }
           return started;
         } catch (cause) {
           log(`browser bridge is off: cannot listen (${String(cause)})`);
@@ -641,6 +662,9 @@ export const terminalAgentsWiring: WiringFactory = () => {
               ...bridged?.env,
               ...(init === null ? {} : { [SHELL_INIT_ENV]: init }),
             },
+            ...(bridged !== null && winShimBin !== null
+              ? { prependPath: [winShimBin] }
+              : {}),
             opened(runtime) {
               if (runtime === null) return;
               if (hooked !== null)

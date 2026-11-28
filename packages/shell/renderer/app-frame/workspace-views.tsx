@@ -395,7 +395,11 @@ export function WorkspaceViewsProvider(props: { children: ReactNode }) {
     return surface.on(({ request }) => {
       const workspace = workspaceKey(request.workspace);
       if (views.mounted(workspace)) return;
-      if (request.kind === "tab_open" && "browser" in request.payload.target) {
+      if (
+        request.kind === "tab_open" &&
+        "browser" in request.payload.target &&
+        request.payload.from_terminal === undefined
+      ) {
         const { tab, target, relation, source, owner } = request.payload;
         views.hostPage(request.workspace, {
           tab,

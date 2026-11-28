@@ -169,16 +169,8 @@ export function writeShim(
   );
 }
 
-// Windows launcher의 C# 본문. 옆의 browser.js를 `execPath`(Electron)로 Node처럼 돌리고 받은 인자를 그대로 넘긴다.
-// 인자는 CommandLineToArgvW 규칙으로 다시 묶는다(cmd.exe를 거치지 않아 `& | % ^ !`는 글자다). 종료 상태를 돌려준다.
-function launcherSource(execPath: string): string {
-  return `using System;
-using System.Diagnostics;
-using System.IO;
-using System.Text;
-
-static class LophnBrowser {
-  static string Quote(string arg) {
+// Windows launcher들의 공통 CommandLineToArgvW 인자 quoting 도우미.
+const CSHARP_QUOTE = `  static string Quote(string arg) {
     if (arg.Length > 0 && arg.IndexOfAny(new char[] { ' ', '\\t', '\\n', '\\v', '"' }) < 0) return arg;
     StringBuilder sb = new StringBuilder("\\"");
     int slashes = 0;
@@ -191,7 +183,18 @@ static class LophnBrowser {
     sb.Append('\\\\', slashes * 2);
     sb.Append('"');
     return sb.ToString();
-  }
+  }`;
+
+// Windows launcher의 C# 본문. 옆의 browser.js를 `execPath`(Electron)로 Node처럼 돌리고 받은 인자를 그대로 넘긴다.
+// 인자는 CommandLineToArgvW 규칙으로 다시 묶는다(cmd.exe를 거치지 않아 `& | % ^ !`는 글자다). 종료 상태를 돌려준다.
+function launcherSource(execPath: string): string {
+  return `using System;
+using System.Diagnostics;
+using System.IO;
+using System.Text;
+
+static class LophnBrowser {
+${CSHARP_QUOTE}
 
   static int Main(string[] args) {
     string script = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "browser.js");
@@ -209,6 +212,60 @@ static class LophnBrowser {
 `;
 }
 
+// Windows `rundll32.exe` shim의 C# 본문. Go 계열 CLI(`agy`, `pkg/browser` 등)가 Windows에서 `$BROWSER`를 보지 않고
+// `rundll32 url.dll,FileProtocolHandler <url>`을 직접 호출할 때만 상위 폴더의 `browser.exe`로 넘긴다.
+// `LPN_BROWSER_BRIDGE`가 없거나(OS fallback 등), http(s) URL 열기가 아니면 무조건 `System32\\rundll32.exe`로 그대로 넘긴다.
+function rundll32LauncherSource(): string {
+  return `using System;
+using System.Diagnostics;
+using System.IO;
+using System.Text;
+
+static class LophnRundll32 {
+${CSHARP_QUOTE}
+
+  static int Run(string file, string arguments) {
+    ProcessStartInfo info = new ProcessStartInfo(file, arguments);
+    info.UseShellExecute = false;
+    using (Process child = Process.Start(info)) {
+      child.WaitForExit();
+      return child.ExitCode;
+    }
+  }
+
+  static bool IsFileProtocolHandler(string arg) {
+    return string.Equals(arg, "url.dll,FileProtocolHandler", StringComparison.OrdinalIgnoreCase)
+      || string.Equals(arg, "url,FileProtocolHandler", StringComparison.OrdinalIgnoreCase);
+  }
+
+  static bool IsHttpUrl(string arg) {
+    return arg.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+      || arg.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
+  }
+
+  static int Main(string[] args) {
+    string bridge = Environment.GetEnvironmentVariable("${BRIDGE_ENV}");
+    if (!string.IsNullOrEmpty(bridge) && args.Length == 2 && IsFileProtocolHandler(args[0]) && IsHttpUrl(args[1])) {
+      DirectoryInfo parent = Directory.GetParent(AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\\\', '/'));
+      if (parent != null) {
+        string browser = Path.Combine(parent.FullName, "browser.exe");
+        if (File.Exists(browser)) {
+          return Run(browser, Quote(args[1]));
+        }
+      }
+    }
+    string real = Path.Combine(Environment.SystemDirectory, "rundll32.exe");
+    StringBuilder line = new StringBuilder();
+    for (int i = 0; i < args.Length; i++) {
+      if (i > 0) line.Append(' ');
+      line.Append(Quote(args[i]));
+    }
+    return Run(real, line.ToString());
+  }
+}
+`;
+}
+
 /**
  * Windows launcher의 file들. `dir`은 내용이 바뀌면 다른 폴더가 되도록 `hash`(sha256 hex)로 이름 짓는다.
  * 같은 판·같은 Electron이면 앞서 build한 exe를 다시 쓴다.
@@ -216,12 +273,14 @@ static class LophnBrowser {
 export function winLauncherFiles(
   execPath: string,
   hash: (text: string) => string,
-): { name: string; script: string; source: string } {
+): { name: string; script: string; source: string; rundll32: string } {
   const source = launcherSource(execPath);
+  const rundll32 = rundll32LauncherSource();
   return {
-    name: `browser-${hash(SCRIPT + source).slice(0, 12)}`,
+    name: `browser-${hash(SCRIPT + source + rundll32).slice(0, 12)}`,
     script: SCRIPT,
     // csc는 BOM이 없으면 source를 ANSI 코드페이지로 읽어 한글 경로가 깨진다.
-    source: `﻿${source}`,
+    source: `\uFEFF${source}`,
+    rundll32: `\uFEFF${rundll32}`,
   };
 }

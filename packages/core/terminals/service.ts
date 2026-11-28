@@ -264,22 +264,33 @@ export function createTerminals(deps: {
       }
       hostEnv = await deps.personEnv.env();
       const cli = deps.personEnv.cli;
-      const path =
-        cli === null
-          ? undefined
-          : prependPath(hostEnv, dirname(cli), deps.platform);
       const isAgent = input.agent === true;
       const isDedicated =
         input.dedicated === true || (!isAgent && input.exec !== undefined);
       const hooked =
         isDedicated || isAgent ? [] : [...envHooks].map((hook) => hook(input));
+      const pathDirs = [
+        ...(cli === null ? [] : [dirname(cli)]),
+        ...hooked.flatMap((one) => one.prependPath ?? []),
+      ];
+      let pathEnv: Record<string, string> = { ...hostEnv };
+      let pathPatch: { name: string; value: string } | undefined;
+      for (const dir of pathDirs) {
+        const next = prependPath(pathEnv, dir, deps.platform);
+        if (next !== undefined) {
+          pathEnv = { ...pathEnv, [next.name]: next.value };
+          pathPatch = next;
+        }
+      }
       const env: Record<string, string> = {
         // 사람 token의 `lophn tab open --url`이 이 project에 탭을 놓게 한다. Home은 env가 없을 때의 기본이라 넣지 않는다.
         ...(input.project === HOME_TERMINAL_PROJECT
           ? {}
           : { LOPHN_WORKSPACE: JSON.stringify({ project: input.project }) }),
-        // 개발 실행은 PATH에 `lophn`이 없다. 설치본은 이미 있어 더하지 않는다.
-        ...(path === undefined ? {} : { [path.name]: path.value }),
+        // 개발 실행은 PATH에 `lophn`이 없다. 설치본은 이미 있어 더하지 않는다. hook이 준 shim 폴더도 함께 앞에 둔다.
+        ...(pathPatch === undefined
+          ? {}
+          : { [pathPatch.name]: pathPatch.value }),
         ...Object.assign({}, ...hooked.map((one) => one.env)),
         ...(input.env ?? {}),
       };

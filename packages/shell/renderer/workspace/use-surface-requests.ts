@@ -21,7 +21,7 @@ import { openBrowserTab } from "./kinds/browser.tsx";
 import type { TabHost } from "./kinds/host.ts";
 import { openTerminal } from "./kinds/terminal.tsx";
 import { hostTabOf, type TabItem } from "./model.ts";
-import { type AgentOpen, openAt } from "./open-policy.ts";
+import { type AgentOpen, openAt, showAfter } from "./open-policy.ts";
 
 const HOST_KEY = "host:";
 
@@ -210,7 +210,26 @@ export function useSurfaceRequests(args: Args): void {
         done();
         return;
       }
-      const { target, relation, source, owner, desk, group } = request.payload;
+      const { target, relation, source, from_terminal, owner, desk, group } =
+        request.payload;
+      if ("browser" in target && from_terminal !== undefined) {
+        const terminal = host().props.terminal;
+        const terminalTab =
+          terminal === undefined
+            ? undefined
+            : host()
+                .windowTabs()
+                .find(
+                  (tab) =>
+                    tab.kind === "terminal" &&
+                    terminal.store.refOf(tab.key) === from_terminal,
+                );
+        openBrowserTab(host(), target.browser.url, {
+          options: showAfter(host().desk, terminalTab?.key),
+        });
+        done();
+        return;
+      }
       const open = placementOf(
         host,
         key,

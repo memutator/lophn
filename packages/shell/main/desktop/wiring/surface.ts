@@ -356,21 +356,27 @@ export function register(
         window.webContents.id === id,
     );
 
+  const isBridgeBrowser = (request: TabRequest) =>
+    request.kind === "tab_open" &&
+    "browser" in request.payload.target &&
+    request.payload.from_terminal !== undefined;
+  const isHostBrowser = (request: TabRequest) =>
+    request.kind === "tab_open" &&
+    "browser" in request.payload.target &&
+    request.payload.from_terminal === undefined;
+
   // browser 탭의 page는 어느 workspace를 띄운 창이든 산다. 그 workspace를 띄운 창이 없으면 가장 최근 창이 받는다.
+  // 단 터미널 bridge 요청(`from_terminal`)은 그 workspace를 보이는 창에만 보낸다(안 보이면 declined → OS browser).
   // browser 탭의 닫기는 page를 가진 창이 먼저고, bind 전이면 열기를 보낸 창이다.
   function windowFor(request: TabRequest) {
     const { tab } = request.payload;
-    const target =
-      request.kind === "tab_open" ? request.payload.target : undefined;
     const host = hostBrowser.get(tab);
     return (
       (request.kind === "tab_close" && host !== undefined
         ? (regular(bound.get(tab)?.window) ?? regular(host.window))
         : undefined) ??
       windowOf(request.workspace) ??
-      (target !== undefined && "browser" in target
-        ? recentWindow(ctx)
-        : undefined)
+      (isHostBrowser(request) ? recentWindow(ctx) : undefined)
     );
   }
 
@@ -449,18 +455,18 @@ export function register(
   ctx.hostLink.onRequest("tab_owner", queueTab);
 
   async function openTab(request: TabRequest): Promise<void> {
-    const browserOpen =
-      request.kind === "tab_open" && "browser" in request.payload.target;
+    const hostBrowserOpen = isHostBrowser(request);
+    const bridgeBrowserOpen = isBridgeBrowser(request);
     const { tab } = request.payload;
     // page를 둘 창이 하나도 없으면 focus 없이 하나 연다. 창이 아직 받을 준비가 안 됐으면 아래 ack 기한과 retry가 기다린다.
     const target =
       windowFor(request) ??
-      (browserOpen
+      (hostBrowserOpen
         ? await ctx.desktop.openInactive().catch(() => undefined)
         : undefined);
     if (target === undefined) {
-      if (browserOpen) {
-        // 창을 만들지 못했다. core가 기다리지 않고 이유를 agent에게 돌려주게 한다.
+      if (hostBrowserOpen || bridgeBrowserOpen) {
+        // 창을 만들지 못했거나 bridge 요청의 workspace가 안 보인다. core가 기다리지 않고 바로 끝내게 한다.
         done(request.id, {
           error: { code: "unavailable", message: NO_WINDOW },
         });
@@ -476,7 +482,7 @@ export function register(
       ctx.hostLink.send({ type: "response", id: request.id, result: "retry" });
       return;
     }
-    if (browserOpen) {
+    if (hostBrowserOpen) {
       hostBrowser.set(tab, {
         workspace: request.workspace,
         window: target.webContents.id,
@@ -498,7 +504,12 @@ export function register(
       );
     }
     if (opened && request.kind === "tab_close") forgetTab(tab);
-    if (opened && browserOpen) {
+    if (opened && bridgeBrowserOpen) {
+      // 터미널 bridge가 연 일반 탭은 bind를 기다리지 않고 탭을 열자마자 끝낸다.
+      done(request.id, BIND_OK);
+      return;
+    }
+    if (opened && hostBrowserOpen) {
       // 창이 page를 만들겠다고 답했다. page가 붙어 bind가 오면 core에 알린다.
       if (bound.has(tab)) done(request.id, BIND_OK);
       else opening.set(tab, request.id);

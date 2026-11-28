@@ -1,6 +1,6 @@
 # git worktree: 한 project 안에서 여러 작업이 서로의 파일과 브랜치를 덮어쓰지 않게 lophn이 worktree를 만들고 관리한다
 
-상태: 로드맵 초안. 2026-11-28 사람이 조사를 요청했고 조사(`feature-cleanroom` workflow, harness-lab `_report/git-worktree/`)를 바탕으로 planner가 정리했다. 제품 결정은 2026-11-28 사람이 내렸다("정한 것"; 6~12는 planner 추천을 사람이 "전부 추천대로"로 받았다). 구현은 "구현 범위"의 1단계(화면 밖, builder-neon)를 지금 하고, 2단계(화면, builder-opus)는 화면 추가 조사(같은 `_report/git-worktree/`) 뒤에 마저 쓴다. "(agent)"라고 적은 것은 planner의 기술 결정이다.
+상태: 로드맵 초안. 2026-11-28 사람이 조사를 요청했고 조사(`feature-cleanroom` workflow, harness-lab `_report/git-worktree/`)를 바탕으로 planner가 정리했다. 제품 결정은 2026-11-28 사람이 내렸다("정한 것"; 6~12는 planner 추천을 사람이 "전부 추천대로"로 받았다). 1단계(화면 밖, builder-neon)는 0.23.190으로 main에 올라갔다. 2단계(화면, builder-opus)는 화면 추가 조사(같은 `_report/git-worktree/` spec 4·5절) 뒤 제품 결정 13~17과 함께 "구현 범위" 2단계에 적었다. "(agent)"라고 적은 것은 planner의 기술 결정이다.
 배경 문서: `project-docs/architecture/{project-identity,workspace-session,workspace-layout,coding-agent,terminal-agent,project-command,approval,remote}.md`, `project-docs/products/roadmap/{a2a-access,agent-surface,app-place,project-commands}.md`, `project-docs/PRODUCT.md`.
 
 ## 사람의 말 (원문)
@@ -86,6 +86,11 @@ Orca·Paseo·Emdash(가장 넓음), T3 Code·Happy(수명주기 중심), herdr(�
 10. **worktree는 사람이 명시적으로 만든다.** + 메뉴, Ctrl+K, Explorer, CLI, agent 도구, workflow step·`team spawn` 옵션. 새 세션마다 자동으로 만들지 않는다. (사람, 2026-11-28)
 11. **`.env` 복사와 setup/teardown은 lophn 안 project별 설정이다.** 저장소에 있는 다른 도구 설정 파일(`.worktreeinclude` 등)은 읽어서 사람이 골라 가져오기만 한다. setup·teardown은 Project Command를 고른다. (사람, 2026-11-28)
 12. **agent는 목록·상태·만들기를 한다. 지우기는 사람 승인 카드를 거친다.** workflow step과 `team spawn`에 "새 worktree에서" 옵션을 둔다. agent에게는 규칙을 가르치지 않고 lophn이 규칙을 갖는다(경로·브랜치 이름·기준 브랜치·준비). (사람, 2026-11-28)
+13. **stage·버리기는 파일 단위와 일괄(Stage All·Unstage All·Discard All)까지.** 한 파일 안 일부(hunk) 고르기는 하지 않는다. (사람, 2026-11-28)
+14. **AI 커밋 메시지는 넣는다. 만든 글을 입력 칸에 채우고 사람이 고쳐 커밋한다(저절로 커밋하지 않는다). `--amend`는 넣지 않는다.** (사람, 2026-11-28)
+15. **히스토리는 패널 아래 접는 `Commits` 섹션이다.** 커밋을 누르면 바뀐 파일, 파일을 누르면 diff 탭. 큰 브랜치 그래프 화면은 하지 않는다. (사람, 2026-11-28)
+16. **저장소 hook과 서명은 설정대로 돈다.** 건너뛰기(`--no-verify`) 단추는 없다. 실패하면 이유(stderr)를 펼쳐 보인다. (사람, 2026-11-28)
+17. **충돌은 배너 + `Conflicts` 묶음 + 편집기로 열기 + `Mark as Resolved` + `Abort` + "Ask agent to resolve"까지.** 우리 쪽/상대 쪽 한 번에 고르기(3-way 뷰어)는 하지 않는다. (사람, 2026-11-28)
 
 ## 기술 결정 (agent)
 
@@ -175,9 +180,66 @@ Orca·Paseo·Emdash(가장 넓음), T3 Code·Happy(수명주기 중심), herdr(�
 - 앱 view에서 `useWorktrees`가 목록을 읽는다.
 - `npm run check`가 통과한다.
 
-### 2단계: 화면 (builder-opus, 화면 조사 뒤)
+### 2단계: 화면 (builder-opus)
 
-화면 추가 조사(2026-11-28, `research-antigravity`)가 돌아오면 planner가 여기에 쓴다: Explorer worktree 가지와 파일 git 상태, 소스 컨트롤 패널, 세션·터미널 열 때 worktree 고르기와 꼬리표, worktree 설정 칸, 필요하면 1단계 route에 더할 칸.
+1단계는 main(0.23.190)에 있다. 2단계는 같은 branch `feat/git-worktree`(main과 같은 곳에서 이어 간다)에 쌓는다. 화면 계약은 spec 5절(5.1~5.5)이 정본이고, 아래가 spec과 다르면 아래가 이긴다. 1단계가 만든 route(`worktrees/*`, `source_control/*`)와 event를 쓰고, 화면에 모자란 칸은 core·protocol에 더한다.
+
+#### 만드는 것
+
+1. **소스 컨트롤 패널** (spec 5.1)
+   - 오른쪽 사이드바 Explorer 다음 패널 `source-control`(project에만). 대상 고르기(원래 폴더와 그 밑 worktree, 활성 탭 따라가기 + 고정), 상태 영속(대상별 커밋 초안·flat/tree·접힘).
+   - 바뀐 파일: `Conflicts`·`Staged Changes`·`Changes` 묶음, flat/tree, 필터, 파일 줄 구성, 파일·디렉터리·일괄 stage/unstage/discard, discard 확인(tracked 되돌리기와 untracked 지우기 구분), 우클릭 메뉴. hunk 단위는 없다(정한 것 13).
+   - diff: 새 탭 종류 `git_diff`(preview 규칙은 `document_editor`와 같다), inline 기본 + side-by-side 토글(설정 영속), 다음/이전 변경, 공백 무시, 줄 바꿈, Open File, 빠른 stage/unstage/discard, 대용량·바이너리·이미지·untracked 처리, 원격 읽기 전용.
+   - 커밋: 입력 칸, 검증(빈 메시지, staged 0, 충돌, 다른 쓰기 중), `Commit`(Mod+Enter)과 `Commit & Push`, hook 실행 중 표시. `--amend` 없음(정한 것 14).
+   - **AI 커밋 메시지**(정한 것 14): core route `source_control/suggest_message`(사람 자격). staged diff(120~200 KB 상한, 파일별 공평 분배)를 모델 한 번 호출로 요약해 글만 돌려준다. 모델은 lophn agent의 기본 모델 설정을 쓰고(provider 호출 길은 lophn agent와 같은 것), 모델이 없으면 단추를 끄고 이유를 툴팁에 보인다. 취소할 수 있다. 커밋하지 않는다. 저장소의 최근 커밋 몇 개의 제목을 문체 참고로 넣는다. (agent)
+   - 히스토리: 접는 `Commits` 섹션(정한 것 15), 50개씩 `Load more`, 줄 구성(push 여부 점, 제목, sha7, 작성자, 상대 시각, ref 배지), 펼치면 파일 목록, 파일은 `git_diff`(parent..commit), 우클릭 Copy SHA·Copy Message·Create Branch from Commit.
+   - 브랜치: 브랜치 바 팝오버(검색, Local/Remote, 다른 worktree가 쓰는 브랜치는 그 worktree로 점프, 바깥 worktree가 쓰면 끄기), 만들기, 바꾸기(도는 agent 턴·dirty 막기, 저절로 stash 하지 않음), 이름 바꾸기·지우기(`-d`만). 그래프 화면 없음.
+   - push·pull·fetch: ↑N ↓M, Fetch/Pull(`--ff-only`)/Push(없으면 Publish Branch), force push 메뉴 없음.
+   - 충돌(정한 것 17): 배너, `Conflicts` 묶음, 편집기로 열기, Mark as Resolved, Complete Merge, Abort, "Ask agent to resolve"(그 worktree의 새 lophn agent 세션을 열고 충돌 파일 목록과 진행 중 연산을 첫 메시지로 준다).
+   - 빈 상태·오류 문구 표와 단축키(Mod+Shift+G 패널, Mod+Enter 커밋, F7/Shift+F7). 단축키는 `keybindings.md`의 command로 등록한다.
+2. **git 쓰기 안전** (spec 5.5, 정한 것 16)
+   - 1단계 `source_control/*`이 spec 5.5의 다섯 계약을 다 지키는지 보고 모자란 것을 채운다: 커밋 전 검사(unmerged, 충돌 마커, 빈 staged·메시지, 중첩 저장소), stderr 자격증명 가리기, 구조화 오류 코드와 화면의 복구 안내, 전 경로 비대화형 하드닝(`LANGUAGE=C`로 hook의 UTF-8을 지킨다), hook·서명 존중과 hook 이름 표시·stderr 16 KiB 펼치기·타임아웃·`gpg_failed`, 원격 권한.
+   - 1단계 route에 없는 쓰기(`abort`, `mark_resolved`, `branch_rename`, `branch_delete`, `fetch`)를 더한다. 모두 사람 자격만.
+3. **Explorer × worktree** (spec 5.2, 정한 것 7)
+   - 등록 폴더 아래 worktree 가지(브랜치·label, 바뀐 파일 수, 이상 상태 표시), 펼치면 그 worktree의 파일, 열린 파일이 worktree 안이면 자동 드러내기.
+   - 파일·폴더 줄 git 상태 문자와 색(worktree마다 따로), 폴더 전파(`deleted` 빼고), `.gitignore` 흐림.
+   - 우클릭: 폴더 `New worktree…`, worktree `Open agent here`(lophn agent + 즐겨찾기 coding agent)·`Open terminal here`·`View in Source Control`·Copy path·Copy branch name·Reveal in OS·Rename…·`Remove…`(managed는 preflight 결과 확인 창, adopted는 Untrack 확인), 파일 `Open Diff`·`Discard Changes…`.
+   - 다른 컴퓨터 project의 Explorer도 같은 가지를 보이고 쓰기 허락이 없으면 읽기 전용.
+4. **worktree 만들기 창**: 원래 폴더(폴더가 여럿이면), 기준 ref(기본은 1단계의 해석), 브랜치 이름(비우면 자동), label, 이 project의 복사 규칙·setup 요약. 진행과 실패를 보인다. 들어오는 곳: Explorer, 탭 + 메뉴·왼쪽 사이드바 +의 `+ New worktree…`, Ctrl+K `New worktree…`(정한 것 10).
+5. **세션·터미널 열 때 worktree 고르기와 꼬리표** (spec 5.3, 정한 것 6)
+   - ready worktree가 0개면 지금과 똑같다. 1개 이상이면 탭 + 메뉴와 왼쪽 사이드바 + 팝오버에 대상 고르기 줄(Main 기본, worktree 목록, `+ New worktree…`). 고른 대상의 `worktree_id`로 연다.
+   - 탭 헤더 `BranchTag`(MachineTag 옆), 왼쪽 사이드바 세션 줄과 coding agent 줄 `BranchTag`. 원래 폴더 탭은 그 project에 worktree가 있을 때만 보인다. 폭 줄이기와 툴팁. 탭 우클릭 `Show in Source Control`.
+6. **Project settings › Worktrees**: 1단계의 project별 설정(`copy_patterns`, setup·teardown Project Command 고르기, `run_setup`)을 사람이 쓰는 칸, `.worktreeinclude` 감지 결과를 보이고 골라 가져오기. 관리 루트 설정(`projects.worktrees_folder`)은 Settings 화면의 일반 설정 칸에 선다.
+7. **승인 카드**: GateCall `worktree_remove` 카드가 대상·브랜치·preflight 결과를 읽기 쉽게 보이는지 확인하고 모자라면 고친다.
+8. **앱 SDK 알림** (spec 5.4.2): 1단계에 `("lophn", "worktree.changed")` 이벤트가 없거나 spec 5.4.2의 페이로드·디바운스·구독 선언과 다르면 맞춘다. 앱의 쓰기 route 호출은 `forbidden`. 판 올림이 있으면 `migrate-sdk` 메모.
+
+#### 2단계에서 만들지 않는 것
+
+- hunk·줄 단위 stage/discard, `--amend`, `--no-verify` 단추, force push 메뉴.
+- 큰 Git Graph 탭, cherry-pick·revert GUI.
+- 3-way 충돌 뷰어(Accept Ours/Theirs).
+- PR 만들기·리뷰·merge, forge 연동.
+- AI 브랜치 이름 바꾸기, 자동 정리.
+- 폰 화면(route는 기기 목록에 있다).
+
+#### 바뀌는 architecture 문서
+
+- `workspace-layout.md`: 오른쪽 사이드바 Source Control 패널, Explorer worktree 가지와 git 상태, `git_diff` 탭 종류, + 메뉴·사이드바 + 의 worktree 고르기, `BranchTag`.
+- `keybindings.md`: Mod+Shift+G, 커밋, F7.
+- `worktree.md`(1단계가 만든 것): 화면 절, AI 커밋 메시지, 더한 route.
+- `project-identity.md`: 소스 컨트롤 쓰기 목록이 늘어난 만큼.
+- `settings.md`(diff 표시 모드 같은 새 설정이 있으면), `project-docs/flows/`, change-log 항목.
+
+#### 2단계 끝나면
+
+- worktree가 있는 project에서 Explorer에 그 폴더 아래 worktree 가지가 브랜치·바뀐 파일 수와 함께 서고, 펼쳐 파일을 열 수 있고, 파일 줄에 M/A/U/D 표시가 선다.
+- Explorer나 + 메뉴에서 worktree를 만들고 그 worktree에서 agent·터미널을 열면 탭과 세션 줄에 브랜치 꼬리표가 선다. worktree가 없는 project의 + 메뉴는 지금과 같다.
+- Source Control 패널에서 파일을 stage·unstage·버리고, diff 탭을 inline/side-by-side로 보고, AI 메시지를 채워 고친 뒤 커밋하고, 히스토리에서 커밋의 파일 diff를 열고, 브랜치를 만들고 바꾸고, push·pull한다.
+- pre-commit hook이 실패하면 커밋이 안 되고 stderr가 펼쳐 보인다. 충돌 마커가 남은 파일은 커밋이 거절된다. pull이 갈라지면 merge하지 않고 안내한다.
+- merge 충돌 때 배너와 Conflicts 묶음이 서고 Mark as Resolved·Abort·Ask agent가 된다.
+- Explorer의 Remove…가 preflight 결과를 보이고 지운다. adopted는 목록에서만 빠진다.
+- 다른 컴퓨터 project에서 쓰기 허락이 없으면 패널과 Explorer가 읽기 전용이다.
+- `npm run check`가 통과한다.
 
 ## 조사 문서
 

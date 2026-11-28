@@ -29,7 +29,7 @@ change: |
     `coding-agent.shared_apps`, harness의 deny 사슬. 다른 컴퓨터 앱의 할당(`remote_apps`)과 call 정책은 그대로다.
   - 저장: data step이 `agents/*.md`의 `apps`·`permissions`와 `settings.json`의 `coding-agent.shared_apps`를 지운다(옮기지 않는다).
     schema step `approvals.share_requests.drop`이 표를 지운다.
-  - 같이 고친 것: workspace 층 MCP 설정이 runtime에서 읽히지 않던 것(route가 runtime 허용 목록에 없었다), `extensions.json`을 agent의 file tool이
+  - 같이 고친 것: `extensions.json`을 agent의 file tool이
     쓸 수 있던 것, agent가 자기 `skills_off`·`mcp_off` 항목을 뺄 수 있던 것, 설정 받기가 묶음에 실린 `locked_fields`를 믿던 것, 폰 Inbox
     history가 `reveal_received_files` notice에서 typecheck에 실패하던 것, 앱 template이 설치되지 않는 `@lophn/agent` 판을 pin하던 것.
 why: |
